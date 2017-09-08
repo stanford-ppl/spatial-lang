@@ -40,8 +40,7 @@ class PIRScheduler(mappingIn:mutable.Map[Expr, List[PCU]], mappingOut:mutable.Ma
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if ((isControlNode(lhs) || isSRAM(lhs) || isFringe(lhs)) && mappingIn.contains(lhs))
-      schedulePCU(lhs, mappingIn(lhs))
+    if (mappingIn.contains(lhs)) schedulePCU(lhs, mappingIn(lhs))
   }
 
   def schedulePCU(sym: Expr, pcus: List[PCU]):Unit = {

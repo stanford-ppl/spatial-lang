@@ -254,6 +254,10 @@ package object pirgen {
       partialAddr = add.out
       addrCompute ++= List(mul,add)
     }
+    if (addrCompute.isEmpty) {
+      partialAddr = fresh[Index]
+      addrCompute ++= List(OpStage(PIRBypass, List(indices.last), partialAddr))
+    }
     (partialAddr, addrCompute)
   }
 

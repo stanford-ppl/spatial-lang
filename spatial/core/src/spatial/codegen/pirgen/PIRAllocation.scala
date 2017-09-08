@@ -74,40 +74,44 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     }
   }
 
-  def allocateCU(pipe: Expr): PCU = getOrElseUpdate(mapping, pipe, {
-    val parent = parentHack(pipe).map(allocateCU)
-
-    val style = pipe match {
-      case Def(FringeDenseLoad(dram, _, _))  => 
-        FringeCU(allocateDRAM(dram), MemLoad)
-      case Def(FringeDenseStore(dram, _, _, _))  => 
-        FringeCU(allocateDRAM(dram), MemStore)
-      case Def(FringeSparseLoad(dram, _, _))  => 
-        FringeCU(allocateDRAM(dram), MemGather)
-      case Def(FringeSparseStore(dram, _, _))  => 
-        FringeCU(allocateDRAM(dram), MemScatter)
-      case _ if isControlNode(pipe) => styleOf(pipe) match {
-        case SeqPipe if isInnerControl(pipe) => PipeCU
-        case SeqPipe if isOuterControl(pipe) => SequentialCU
-        case InnerPipe                       => PipeCU
-        case MetaPipe                        => MetaPipeCU
-        case StreamPipe                      => StreamCU
-        case ForkJoin                        => throw new Exception("ForkJoin is not supported in PIR")
-        case ForkSwitch                      => throw new Exception("ForkSwitch is not supported in PIR")
-      }
+  def getCUStyle(exp:Expr):CUStyle = exp match {
+    case Def(FringeDenseLoad(dram, _, _))  => 
+      FringeCU(allocateDRAM(dram), MemLoad)
+    case Def(FringeDenseStore(dram, _, _, _))  => 
+      FringeCU(allocateDRAM(dram), MemStore)
+    case Def(FringeSparseLoad(dram, _, _))  => 
+      FringeCU(allocateDRAM(dram), MemGather)
+    case Def(FringeSparseStore(dram, _, _))  => 
+      FringeCU(allocateDRAM(dram), MemScatter)
+    case _ if isAccess(exp) => getCUStyle(parentOf(exp).get)
+    case _ if isControlNode(exp) => styleOf(exp) match {
+      case SeqPipe if isInnerControl(exp) => PipeCU
+      case SeqPipe if isOuterControl(exp) => SequentialCU
+      case InnerPipe                       => PipeCU
+      case MetaPipe                        => MetaPipeCU
+      case StreamPipe                      => StreamCU
+      case ForkJoin                        => throw new Exception("ForkJoin is not supported in PIR")
+      case ForkSwitch                      => throw new Exception("ForkSwitch is not supported in PIR")
     }
+  }
 
-    val cu = PseudoComputeUnit(quote(pipe), pipe, style)
+  def allocateCU(exp: Expr): PCU = getOrElseUpdate(mapping, exp, {
+    val parent = if (isAccess(exp)) parentHack(parentOf(exp).get).map(allocateCU)
+                 else               parentHack(exp).map(allocateCU)
+
+    val style = getCUStyle(exp)
+
+    val cu = PseudoComputeUnit(quote(exp), exp, style)
     cu.parent = parent
 
     cu.innerPar = style match {
       case FringeCU(dram, mode) => None
-      case _ => Some(getInnerPar(pipe))
+      case _ => Some(getInnerPar(exp))
     } 
  
-    if (top.isEmpty && parent.isEmpty) top = Some(pipe)
+    if (top.isEmpty && parent.isEmpty) top = Some(exp)
 
-    dbgs(s"Allocating CU $cu for $pipe")
+    dbgs(s"Allocating CU $cu for $exp")
     List(cu)
   }).head
 
@@ -147,39 +151,6 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
       }
     })
     cus
-  }
-
-  /**
-   * @param dmem decomposed memory
-   * @param addr address expression
-   * @param stms searching scope
-   * @return The flatten address symbol and extracted stages
-   * Extract address calculation for mem 
-   **/
-  def extractRemoteAddrStages(dmem: Expr, addr: Option[Seq[Exp[Index]]], stms: Seq[Stm], memCUs:List[PCU]): (Option[Expr], Seq[PseudoStage])= {
-    dbgblk(s"Extracting Remote Addr in for dmem=$dmem addr=$addr") {
-      val flatOpt = addr.map{is => flattenNDIndices(is, stagedDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]])) }
-      // Exprs
-      val indexExps = addr.map { is => expsUsedInCalcExps(stms)(Seq(), is) }.getOrElse(Nil)
-      val indexSyms = indexExps.collect { case s:Sym[_] => s }
-      
-      val ad = flatOpt.map(_._1) // sym of flatten  addr
-
-      dbgs(s"$dmem addr:[${addr.map(_.mkString(","))}], indexExps:[${indexExps.mkString(",")}] indexSyms:[${indexSyms.mkString(",")}]")
-      //TODO: Stages in saperate CU
-      memCUs.foreach { memCU => copyBounds(indexExps ++ addr.getOrElse(Seq()), memCU) }
-
-      // PseudoStages
-      val indexStages: Seq[PseudoStage] = indexSyms.map{s => DefStage(s) }
-      val flatStages = flatOpt.map(_._2).getOrElse(Nil)
-      val remoteAddrStage = ad.map{a => AddrStage(dmem, a) }
-      val addrStages = indexStages ++ flatStages ++ remoteAddrStage
-
-      dbgl(s"addrStages:") {
-        addrStages.foreach { stage => dbgs(s"$stage") }
-      }
-      (ad, addrStages)
-    }
   }
 
   def copyBounds(exps: Seq[Expr], cu:PseudoComputeUnit) = {
@@ -269,10 +240,10 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     cuMem
   }
 
-  def createRetimingFIFO(daccess:Expr, cu:PCU):CUMemory = {
-    val cuMem = getOrElseUpdate(cu.memMap, daccess, {
-      val cuMem = CUMemory(quote(daccess), daccess, cu)
-      cuMem.mode = if (getInnerPar(compose(daccess))==1) ScalarFIFOMode else VectorFIFOMode
+  def createRetimingFIFO(exp:Expr, isScalar:Boolean, cu:PCU):CUMemory = {
+    val cuMem = getOrElseUpdate(cu.memMap, exp, {
+      val cuMem = CUMemory(quote(exp), exp, cu)
+      cuMem.mode = if (isScalar) ScalarFIFOMode else VectorFIFOMode
       cuMem.size = 1
       dbgs(s"Add fifo=$cuMem to cu=$cu")
       cuMem
@@ -411,11 +382,9 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
    * @return If value/data of the writer is from a load of SRAM, returns the MCU, otherwise returns the
    * PCU
    **/
-  def getWriterCU(dwriter:Expr) = {
+  def getWriterCU(dwriter:Expr) = dbgblk(s"getWriterCU(writer=$dwriter)") {
     val writer = compose(dwriter)
-    val ParLocalWriter(writes) = writer 
     val pipe = parentOf(writer).get 
-    val (mem, value, inds, ens) = writes.head
     allocateCU(pipe)
   }
 
@@ -552,34 +521,79 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     }
   }
 
+  def allocateRemoteMemAddrCalc(mem:Expr, access:Expr, addrCU:PCU) = {
+    val parBy1 = getInnerPar(access)==1
+    val pipe = parentOf(access).get
+    val stms = getStms(pipe)
+    val addr = access match {
+      case ParLocalReader((_, addrs, _)::_) => addrs.get.head // Assume SIMD
+      case ParLocalWriter((_, _, addrs, _)::_) => addrs.get.head // addrs Option[LANE[DIM[]]]
+    }
+
+    val indexExps = expsUsedInCalcExps(stms)(Seq(), addr)
+    val indexSyms = indexExps.collect { case s:Sym[_] => s }
+
+    val (flatAddr, flatStages) = flattenNDIndices(addr, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]))
+
+    dbgl(s"$mem") {
+      dbgs(s"addr:$addr")
+      dbgs(s"indexExps:[${indexExps.mkString(",")}]")
+      dbgs(s"indexSyms:[${indexSyms.mkString(",")}]")
+    }
+
+    copyBounds(indexExps ++ addr, addrCU)
+
+    // PseudoStages
+    val indexStages = indexSyms.map{s => DefStage(s) }
+    val addrStages = indexStages ++ flatStages
+    dbgl(s"addrStages:") { addrStages.foreach { stage => dbgs(s"$stage") } }
+    addrCU.computeStages ++= addrStages
+   
+    val postfix = access match {
+      case _ if isReader(access) => "ra" 
+      case _ if isWriter(access) => "wa"
+    }
+    val bus = if (parBy1) {
+      val bus = CUScalar(s"${quote(mem)}_${quote(access)}_$postfix")
+      addrCU.addReg(flatAddr, ScalarOut(bus))
+      bus
+    } else {
+      val bus = CUVector(s"${quote(mem)}_${quote(access)}_$postfix")
+      addrCU.addReg(flatAddr, VectorOut(bus))
+      bus
+    }
+
+    (bus, flatAddr)
+  }
+
   def prescheduleRemoteMemRead(mem: Expr, reader:Expr) = {
     dbgblk(s"Allocating remote memory read: ${qdef(reader)}") {
-      val pipe = parentOf(reader).get
-      val stms = getStms(pipe)
-      val readerCUs = getReaderCUs(reader)
-      val ParLocalReader(reads) = reader
-      val (_, addrs, _) = reads.head
-      val addr = addrs.map(_.head)
       val parBy1 = getInnerPar(reader)==1
+      val readerCUs = getReaderCUs(reader)
+      val addrCU = allocateCU(reader)
+      val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, reader, addrCU)
       decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
         val sramCUs = getMCUforAccess(dmem, dreader)
-        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
-          val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${sramCU.name}") 
-                    else CUVector(s"${quote(dmem)}_${sramCU.name}")
+          val dataBus = if (parBy1) CUScalar(s"${quote(dmem)}_${sramCU.name}_data") 
+                        else        CUVector(s"${quote(dmem)}_${sramCU.name}_data")
+
+          // Set up PMUs connections
           val sram = sramCU.memMap(mem)
-          sramCU.readStages ++= addrStages
-          sram.readPort = Some(bus)
-          dbgs(s"sram=$sram readPort=$bus")
-          //sram.readAddr = ad.map(ad => ReadAddrWire(sram))
+          // Wire up readAddr
+          val addrFifo = createRetimingFIFO(flatAddr, parBy1, sramCU)
+          addrFifo.writePort += addrBus
+          sram.readAddr += MemLoadReg(addrFifo)
+          // Wire up readPort
+          sram.readPort = Some(dataBus)
+          dbgs(s"sram=$sram readPort=$dataBus readAddr=$addrBus")
+
+          // Setup readerCUs connections
           readerCUs.foreach { readerCU =>
-            globals += bus
-            val fifo = createRetimingFIFO(dreader, readerCU) 
-            dbgs(s"readerCU = $readerCU add $bus and $fifo")
-            // use reader as mem since one sram can be read by same cu twice with different address
-            // example:GDA
+            val fifo = createRetimingFIFO(dreader, parBy1, readerCU) 
+            fifo.writePort += dataBus
             readerCU.addReg(dreader, MemLoadReg(fifo))
-            fifo.writePort += bus
+            dbgs(s"readerCU = $readerCU reads from fifo=$fifo dataBus=$dataBus")
           }
         }
       }
@@ -588,35 +602,35 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
 
   def prescheduleRemoteMemWrite(mem: Expr, writer:Expr) = {
     dbgblk(s"Allocating remote memory write: ${qdef(writer)}") {
-      val pipe = parentOf(writer).get
-      val stms = getStms(pipe)
-      val ParLocalWriter(writes) = writer
-      val (mem, value, addrs, ens) = writes.head
-      val addr = addrs.map(_.head)
       val parBy1 = getInnerPar(writer)==1
+      val writerCU = getWriterCU(writer) 
+      val addrCU = allocateCU(writer)
+      val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, writer, addrCU)
+
       decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
-        val bus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-                  else CUVector(s"${quote(dmem)}_${quote(dwriter)}")
-        globals += bus
-        val writerCU = getWriterCU(dwriter) 
-        dbgs(s"writerCU = $writerCU")
-        bus match {
-          case bus:CUVector => writerCU.addReg(dwriter, VectorOut(bus))
+
+        // Setup writerCU connections
+        val dataBus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dwriter)}_data")
+                      else        CUVector(s"${quote(dmem)}_${quote(dwriter)}_data")
+        dataBus match {
           case bus:CUScalar => writerCU.addReg(dwriter, ScalarOut(bus))
+          case bus:CUVector => writerCU.addReg(dwriter, VectorOut(bus))
           case _ =>
         }
-        // Schedule address calculation
+
+        // Setup PMUs connections
         val sramCUs = getMCUforAccess(dmem, dwriter) 
-        val (ad, addrStages) = extractRemoteAddrStages(dmem, addr, stms, sramCUs)
         sramCUs.foreach { sramCU =>
-          dbgs(s"sramCUs for dmem=${qdef(dmem)} cu=$sramCU")
           val sram = sramCU.memMap(mem)
-          //sram.writeAddr = ad.map(ad => WriteAddrWire(sram))
-          sramCU.writeStages ++= addrStages
-          val vfifo = createRetimingFIFO(dwriter, sramCU) //HACK: for fifo put writer as the mem
-          vfifo.writePort += bus
-          sram.writePort += LocalReadBus(vfifo)
-          dbgs(s"$vfifo.writePort=$bus")
+          // Wire up writeAddr
+          val addrFifo = createRetimingFIFO(flatAddr, parBy1, sramCU)
+          addrFifo.writePort += addrBus
+          sram.writeAddr += MemLoadReg(addrFifo)
+          val dataFifo = createRetimingFIFO(dwriter, parBy1, sramCU)
+          // Wire up writePort
+          dataFifo.writePort += dataBus 
+          sram.writePort += LocalReadBus(dataFifo)
+          dbgs(s"sram=$sram writePort=$dataFifo dataBus=$dataBus writeAddr=$addrBus")
         }
       }
     }

@@ -44,25 +44,27 @@ case object ScalarBufferMode extends LocalMemoryMode
 sealed abstract class GlobalComponent(val name: String)
 case class OffChip(override val name: String) extends GlobalComponent(name)
 
-sealed abstract class GlobalBus(override val name: String) extends GlobalComponent(name)
-sealed abstract class VectorBus(override val name: String) extends GlobalBus(name)
-sealed abstract class ScalarBus(override val name: String) extends GlobalBus(name)
+sealed abstract class GlobalBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalComponent(name) {
+  codegen.globals += this
+}
+sealed abstract class VectorBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
+sealed abstract class ScalarBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
 
-case class CUVector(override val name: String) extends VectorBus(name) {
+case class CUVector(override val name: String)(implicit codegen:PIRCodegen) extends VectorBus(name) {
   override def toString = s"v$name"
 }
-case class CUScalar(override val name: String) extends ScalarBus(name) {
+case class CUScalar(override val name: String)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
   override def toString = s"s$name"
 }
 
-case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
-case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
+case class LocalReadBus(mem:CUMemory)(implicit codegen:PIRCodegen) extends VectorBus(s"$mem.localRead")
+case class InputArg(override val name: String, dmem:Expr)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
   override def toString = s"ain$name"
 }
-case class OutputArg(override val name: String) extends ScalarBus(name) {
+case class OutputArg(override val name: String)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
   override def toString = s"aout$name"
 }
-case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends ScalarBus(name) {
+case class DramAddress(override val name: String, dram:Expr, mem:Expr)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
   override def toString = s"dramAddr$name"
   // DramAddress of the same dram are the same
   override def equals(that: Any): Boolean =

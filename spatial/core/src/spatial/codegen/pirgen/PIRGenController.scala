@@ -149,11 +149,11 @@ trait PIRGenController extends PIRCodegen with PIRTraversal {
         case vec => ports += s""".rdPort(${quote(vec)})"""
       }
       mem.readAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_]) => ports += s""".rdAddr(${quote(a)})"""
+        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => ports += s""".rdAddr(${quote(a)})"""
         case _ =>
       }
       mem.writeAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_]) => ports += s""".wtAddr(${quote(a)})"""
+        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => ports += s""".wtAddr(${quote(a)})"""
         case _ =>
       }
       if (!mem.isSRAM) {

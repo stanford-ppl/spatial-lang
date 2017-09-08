@@ -76,15 +76,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     dbgblk(s"Emitting $lhs = $rhs") {
-      dbgs(s"isFringe=${isFringe(lhs)} cus.contains(lhs)=${cus.contains(lhs)}")
-      dbgs(s"isSRAM=${isSRAM(lhs)} cus.contains(lhs)=${cus.contains(lhs)}")
-      dbgs(s"isController=${isControlNode(lhs)} cus.contains(lhs)=${cus.contains(lhs)}")
-      rhs match {
-        case _: SRAMNew[_, _] if cus.contains(lhs)        => emitCUs(lhs)
-        case _ if isFringe(lhs) && cus.contains(lhs)      => emitCUs(lhs)
-        case _ if isControlNode(lhs) && cus.contains(lhs) => emitCUs(lhs)
-        case _ =>
-      }
+      if (cus.contains(lhs)) emitCUs(lhs)
       rhs.blocks.foreach(emitBlock)
     }
   }
@@ -96,7 +88,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     val dir = s"$pwd/csvs"
     Files.createDirectories(Paths.get(dir))
     val file = new PrintWriter(s"$dir/${Config.name}_unsplit.csv")
-    cus.filter{cu => cu.allStages.nonEmpty || cu.isPMU}.foreach{cu =>
+    cus.filter{ cu => cu.allStages.nonEmpty || cu.isPMU }.foreach{ cu =>
       val isPCU = if (cu.isPCU) 1 else 0
       val util = getUtil(cu, cus)
       val line = s"$isPCU, ${cu.lanes},${util.stages},${util.addr},${util.regsMax},${util.vecIn},${util.vecOut},${util.sclIn},${util.sclOut}"
