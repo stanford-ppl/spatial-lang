@@ -54,6 +54,8 @@ private:
   pci_bar_handle_t pci_bar_handle;
 #endif // F1
 
+  int numArgIns = 0;
+  int numArgIOs = 0;
 
   // Helper to peek in sim or F1
   void aws_peek(uint64_t addr, uint32_t *value) {
@@ -352,6 +354,13 @@ public:
     return value;
   }
 
+  virtual void setNumArgIns(uint32_t number) {
+    numArgIns = number;
+  }
+  
+  virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
+  }
 
   // Unimplemented
   virtual void writeReg(uint32_t reg, uint64_t data) {

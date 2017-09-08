@@ -234,47 +234,47 @@ logic [31:0] SCALAR_en;    // CMD bit from host
 logic [31:0] SCALAR_reset; // CMD bit from host
 logic [31:0] SCALAR_done;  // Status bit from host
 
-logic [15:0]   Top_Out_io_M_AXI_AWID;
-// logic [31:0]  Top_Out_io_M_AXI_AWUSER;
-logic [31:0]  Top_Out_io_M_AXI_AWADDR;
-logic [7:0]   Top_Out_io_M_AXI_AWLEN;
-logic [2:0]   Top_Out_io_M_AXI_AWSIZE;
-// logic [1:0]   Top_Out_io_M_AXI_AWBURST;
-// logic         Top_Out_io_M_AXI_AWLOCK;
-// logic [3:0]   Top_Out_io_M_AXI_AWCACHE;
-// logic [2:0]   Top_Out_io_M_AXI_AWPROT;
-// logic [3:0]   Top_Out_io_M_AXI_AWQOS;
-logic         Top_Out_io_M_AXI_AWVALID;
-logic         Top_In_io_M_AXI_AWREADY;
-logic [15:0]   Top_Out_io_M_AXI_ARID;
-// logic [31:0]  Top_Out_io_M_AXI_ARUSER;
-logic [31:0]  Top_Out_io_M_AXI_ARADDR;
-logic [7:0]   Top_Out_io_M_AXI_ARLEN;
-logic [2:0]   Top_Out_io_M_AXI_ARSIZE;
-// logic [1:0]   Top_Out_io_M_AXI_ARBURST;
-// logic         Top_Out_io_M_AXI_ARLOCK;
-// logic [3:0]   Top_Out_io_M_AXI_ARCACHE;
-// logic [2:0]   Top_Out_io_M_AXI_ARPROT;
-// logic [3:0]   Top_Out_io_M_AXI_ARQOS;
-logic         Top_Out_io_M_AXI_ARVALID;
-logic         Top_In_io_M_AXI_ARREADY;
-logic [511:0] Top_Out_io_M_AXI_WDATA;
-logic [63:0]  Top_Out_io_M_AXI_WSTRB;
-logic         Top_Out_io_M_AXI_WLAST;
-logic         Top_Out_io_M_AXI_WVALID;
-logic         Top_In_io_M_AXI_WREADY;
-logic [15:0]   Top_In_io_M_AXI_RID;
-// logic [31:0]  Top_In_io_M_AXI_RUSER;
-logic [511:0] Top_In_io_M_AXI_RDATA;
-logic [1:0]   Top_In_io_M_AXI_RRESP;
-logic         Top_In_io_M_AXI_RLAST;
-logic         Top_In_io_M_AXI_RVALID;
-logic         Top_Out_io_M_AXI_RREADY;
-logic [15:0]   Top_In_io_M_AXI_BID;
-// logic [31:0]  Top_In_io_M_AXI_BUSER;
-logic [1:0]   Top_In_io_M_AXI_BRESP;
-logic         Top_In_io_M_AXI_BVALID;
-logic         Top_Out_io_M_AXI_BREADY;
+logic [15:0]   Top_Out_io_M_AXI_0_AWID;
+// logic [31:0]  Top_Out_io_M_AXI_0_AWUSER;
+logic [31:0]  Top_Out_io_M_AXI_0_AWADDR;
+logic [7:0]   Top_Out_io_M_AXI_0_AWLEN;
+logic [2:0]   Top_Out_io_M_AXI_0_AWSIZE;
+// logic [1:0]   Top_Out_io_M_AXI_0_AWBURST;
+// logic         Top_Out_io_M_AXI_0_AWLOCK;
+// logic [3:0]   Top_Out_io_M_AXI_0_AWCACHE;
+// logic [2:0]   Top_Out_io_M_AXI_0_AWPROT;
+// logic [3:0]   Top_Out_io_M_AXI_0_AWQOS;
+logic         Top_Out_io_M_AXI_0_AWVALID;
+logic         Top_In_io_M_AXI_0_AWREADY;
+logic [15:0]   Top_Out_io_M_AXI_0_ARID;
+// logic [31:0]  Top_Out_io_M_AXI_0_ARUSER;
+logic [31:0]  Top_Out_io_M_AXI_0_ARADDR;
+logic [7:0]   Top_Out_io_M_AXI_0_ARLEN;
+logic [2:0]   Top_Out_io_M_AXI_0_ARSIZE;
+// logic [1:0]   Top_Out_io_M_AXI_0_ARBURST;
+// logic         Top_Out_io_M_AXI_0_ARLOCK;
+// logic [3:0]   Top_Out_io_M_AXI_0_ARCACHE;
+// logic [2:0]   Top_Out_io_M_AXI_0_ARPROT;
+// logic [3:0]   Top_Out_io_M_AXI_0_ARQOS;
+logic         Top_Out_io_M_AXI_0_ARVALID;
+logic         Top_In_io_M_AXI_0_ARREADY;
+logic [511:0] Top_Out_io_M_AXI_0_WDATA;
+logic [63:0]  Top_Out_io_M_AXI_0_WSTRB;
+logic         Top_Out_io_M_AXI_0_WLAST;
+logic         Top_Out_io_M_AXI_0_WVALID;
+logic         Top_In_io_M_AXI_0_WREADY;
+logic [15:0]   Top_In_io_M_AXI_0_RID;
+// logic [31:0]  Top_In_io_M_AXI_0_RUSER;
+logic [511:0] Top_In_io_M_AXI_0_RDATA;
+logic [1:0]   Top_In_io_M_AXI_0_RRESP;
+logic         Top_In_io_M_AXI_0_RLAST;
+logic         Top_In_io_M_AXI_0_RVALID;
+logic         Top_Out_io_M_AXI_0_RREADY;
+logic [15:0]   Top_In_io_M_AXI_0_BID;
+// logic [31:0]  Top_In_io_M_AXI_0_BUSER;
+logic [1:0]   Top_In_io_M_AXI_0_BRESP;
+logic         Top_In_io_M_AXI_0_BVALID;
+logic         Top_Out_io_M_AXI_0_BREADY;
 
 Top Top_inst (
   .clock(clk),
@@ -287,90 +287,90 @@ Top Top_inst (
   .io_scalarOuts_{{{SPATIAL_INSERT_output_argnum}}}(SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}}),
 
   // AXI-4 for DRAM
-  .io_M_AXI_AWID    (Top_Out_io_M_AXI_AWID),     // output [15:0]   
-  // .io_M_AXI_AWUSER  (Top_Out_io_M_AXI_AWUSER),   // output [31:0]  
-  .io_M_AXI_AWADDR  (Top_Out_io_M_AXI_AWADDR),   // output [31:0]  
-  .io_M_AXI_AWLEN   (Top_Out_io_M_AXI_AWLEN),    // output [7:0]   
-  .io_M_AXI_AWSIZE  (Top_Out_io_M_AXI_AWSIZE),   // output [2:0]   
-  // .io_M_AXI_AWBURST (Top_Out_io_M_AXI_AWBURST),  // output [1:0]   
-  // .io_M_AXI_AWLOCK  (Top_Out_io_M_AXI_AWLOCK),   // output         
-  // .io_M_AXI_AWCACHE (Top_Out_io_M_AXI_AWCACHE),  // output [3:0]   
-  // .io_M_AXI_AWPROT  (Top_Out_io_M_AXI_AWPROT),   // output [2:0]   
-  // .io_M_AXI_AWQOS   (Top_Out_io_M_AXI_AWQOS),    // output [3:0]   
-  .io_M_AXI_AWVALID (Top_Out_io_M_AXI_AWVALID),  // output         
-  .io_M_AXI_AWREADY (Top_In_io_M_AXI_AWREADY),   // input          
-  .io_M_AXI_ARID    (Top_Out_io_M_AXI_ARID),     // output [15:0]   
-  // .io_M_AXI_ARUSER  (Top_Out_io_M_AXI_ARUSER),   // output [31:0]  
-  .io_M_AXI_ARADDR  (Top_Out_io_M_AXI_ARADDR),   // output [31:0]  
-  .io_M_AXI_ARLEN   (Top_Out_io_M_AXI_ARLEN),    // output [7:0]   
-  .io_M_AXI_ARSIZE  (Top_Out_io_M_AXI_ARSIZE),   // output [2:0]   
-  // .io_M_AXI_ARBURST (Top_Out_io_M_AXI_ARBURST),  // output [1:0]   
-  // .io_M_AXI_ARLOCK  (Top_Out_io_M_AXI_ARLOCK),   // output         
-  // .io_M_AXI_ARCACHE (Top_Out_io_M_AXI_ARCACHE),  // output [3:0]   
-  // .io_M_AXI_ARPROT  (Top_Out_io_M_AXI_ARPROT),   // output [2:0]   
-  // .io_M_AXI_ARQOS   (Top_Out_io_M_AXI_ARQOS),    // output [3:0]   
-  .io_M_AXI_ARVALID (Top_Out_io_M_AXI_ARVALID),  // output         
-  .io_M_AXI_ARREADY (Top_In_io_M_AXI_ARREADY),   // input          
-  .io_M_AXI_WDATA   (Top_Out_io_M_AXI_WDATA),    // output [511:0] 
-  .io_M_AXI_WSTRB   (Top_Out_io_M_AXI_WSTRB),    // output [63:0]  
-  .io_M_AXI_WLAST   (Top_Out_io_M_AXI_WLAST),    // output         
-  .io_M_AXI_WVALID  (Top_Out_io_M_AXI_WVALID),   // output         
-  .io_M_AXI_WREADY  (Top_In_io_M_AXI_WREADY),    // input          
-  .io_M_AXI_RID     (Top_In_io_M_AXI_RID),       // input  [15:0]   
-  // .io_M_AXI_RUSER   (Top_In_io_M_AXI_RUSER),     // input  [31:0]  
-  .io_M_AXI_RDATA   (Top_In_io_M_AXI_RDATA),     // input  [511:0] 
-  .io_M_AXI_RRESP   (Top_In_io_M_AXI_RRESP),     // input  [1:0]   
-  .io_M_AXI_RLAST   (Top_In_io_M_AXI_RLAST),     // input          
-  .io_M_AXI_RVALID  (Top_In_io_M_AXI_RVALID),    // input          
-  .io_M_AXI_RREADY  (Top_Out_io_M_AXI_RREADY),   // output         
-  .io_M_AXI_BID     (Top_In_io_M_AXI_BID),       // input  [15:0]   
-  // .io_M_AXI_BUSER   (Top_In_io_M_AXI_BUSER),     // input  [31:0]  
-  .io_M_AXI_BRESP   (Top_In_io_M_AXI_BRESP),     // input  [1:0]   
-  .io_M_AXI_BVALID  (Top_In_io_M_AXI_BVALID),    // input          
-  .io_M_AXI_BREADY  (Top_Out_io_M_AXI_BREADY)    // output         
+  .io_M_AXI_0_AWID    (Top_Out_io_M_AXI_0_AWID),     // output [15:0]   
+  // .io_M_AXI_0_AWUSER  (Top_Out_io_M_AXI_0_AWUSER),   // output [31:0]  
+  .io_M_AXI_0_AWADDR  (Top_Out_io_M_AXI_0_AWADDR),   // output [31:0]  
+  .io_M_AXI_0_AWLEN   (Top_Out_io_M_AXI_0_AWLEN),    // output [7:0]   
+  .io_M_AXI_0_AWSIZE  (Top_Out_io_M_AXI_0_AWSIZE),   // output [2:0]   
+  // .io_M_AXI_0_AWBURST (Top_Out_io_M_AXI_0_AWBURST),  // output [1:0]   
+  // .io_M_AXI_0_AWLOCK  (Top_Out_io_M_AXI_0_AWLOCK),   // output         
+  // .io_M_AXI_0_AWCACHE (Top_Out_io_M_AXI_0_AWCACHE),  // output [3:0]   
+  // .io_M_AXI_0_AWPROT  (Top_Out_io_M_AXI_0_AWPROT),   // output [2:0]   
+  // .io_M_AXI_0_AWQOS   (Top_Out_io_M_AXI_0_AWQOS),    // output [3:0]   
+  .io_M_AXI_0_AWVALID (Top_Out_io_M_AXI_0_AWVALID),  // output         
+  .io_M_AXI_0_AWREADY (Top_In_io_M_AXI_0_AWREADY),   // input          
+  .io_M_AXI_0_ARID    (Top_Out_io_M_AXI_0_ARID),     // output [15:0]   
+  // .io_M_AXI_0_ARUSER  (Top_Out_io_M_AXI_0_ARUSER),   // output [31:0]  
+  .io_M_AXI_0_ARADDR  (Top_Out_io_M_AXI_0_ARADDR),   // output [31:0]  
+  .io_M_AXI_0_ARLEN   (Top_Out_io_M_AXI_0_ARLEN),    // output [7:0]   
+  .io_M_AXI_0_ARSIZE  (Top_Out_io_M_AXI_0_ARSIZE),   // output [2:0]   
+  // .io_M_AXI_0_ARBURST (Top_Out_io_M_AXI_0_ARBURST),  // output [1:0]   
+  // .io_M_AXI_0_ARLOCK  (Top_Out_io_M_AXI_0_ARLOCK),   // output         
+  // .io_M_AXI_0_ARCACHE (Top_Out_io_M_AXI_0_ARCACHE),  // output [3:0]   
+  // .io_M_AXI_0_ARPROT  (Top_Out_io_M_AXI_0_ARPROT),   // output [2:0]   
+  // .io_M_AXI_0_ARQOS   (Top_Out_io_M_AXI_0_ARQOS),    // output [3:0]   
+  .io_M_AXI_0_ARVALID (Top_Out_io_M_AXI_0_ARVALID),  // output         
+  .io_M_AXI_0_ARREADY (Top_In_io_M_AXI_0_ARREADY),   // input          
+  .io_M_AXI_0_WDATA   (Top_Out_io_M_AXI_0_WDATA),    // output [511:0] 
+  .io_M_AXI_0_WSTRB   (Top_Out_io_M_AXI_0_WSTRB),    // output [63:0]  
+  .io_M_AXI_0_WLAST   (Top_Out_io_M_AXI_0_WLAST),    // output         
+  .io_M_AXI_0_WVALID  (Top_Out_io_M_AXI_0_WVALID),   // output         
+  .io_M_AXI_0_WREADY  (Top_In_io_M_AXI_0_WREADY),    // input          
+  .io_M_AXI_0_RID     (Top_In_io_M_AXI_0_RID),       // input  [15:0]   
+  // .io_M_AXI_0_RUSER   (Top_In_io_M_AXI_0_RUSER),     // input  [31:0]  
+  .io_M_AXI_0_RDATA   (Top_In_io_M_AXI_0_RDATA),     // input  [511:0] 
+  .io_M_AXI_0_RRESP   (Top_In_io_M_AXI_0_RRESP),     // input  [1:0]   
+  .io_M_AXI_0_RLAST   (Top_In_io_M_AXI_0_RLAST),     // input          
+  .io_M_AXI_0_RVALID  (Top_In_io_M_AXI_0_RVALID),    // input          
+  .io_M_AXI_0_RREADY  (Top_Out_io_M_AXI_0_RREADY),   // output         
+  .io_M_AXI_0_BID     (Top_In_io_M_AXI_0_BID),       // input  [15:0]   
+  // .io_M_AXI_0_BUSER   (Top_In_io_M_AXI_0_BUSER),     // input  [31:0]  
+  .io_M_AXI_0_BRESP   (Top_In_io_M_AXI_0_BRESP),     // input  [1:0]   
+  .io_M_AXI_0_BVALID  (Top_In_io_M_AXI_0_BVALID),    // input          
+  .io_M_AXI_0_BREADY  (Top_Out_io_M_AXI_0_BREADY)    // output         
 );
   
 logic ddr_commands_from_design; 
 // TODO: Maybe add another q
 always @ (posedge clk) begin
   if (!sync_rst_n | SCALAR_reset[0]) begin
-    Top_In_io_M_AXI_AWREADY  <= 0;
-    Top_In_io_M_AXI_ARREADY  <= 0;
-    Top_In_io_M_AXI_WREADY   <= 0;
-    Top_In_io_M_AXI_RID      <= 0;
-    // Top_In_io_M_AXI_RUSER    <= 0;
-    Top_In_io_M_AXI_RDATA    <= 0;
-    Top_In_io_M_AXI_RRESP    <= 0;
-    Top_In_io_M_AXI_RLAST    <= 0;
-    Top_In_io_M_AXI_RVALID   <= 0;
-    Top_In_io_M_AXI_BID      <= 0;
-    // Top_In_io_M_AXI_BUSER    <= 0;
-    Top_In_io_M_AXI_BRESP    <= 0;
-    Top_In_io_M_AXI_BVALID   <= 0;
+    Top_In_io_M_AXI_0_AWREADY  <= 0;
+    Top_In_io_M_AXI_0_ARREADY  <= 0;
+    Top_In_io_M_AXI_0_WREADY   <= 0;
+    Top_In_io_M_AXI_0_RID      <= 0;
+    // Top_In_io_M_AXI_0_RUSER    <= 0;
+    Top_In_io_M_AXI_0_RDATA    <= 0;
+    Top_In_io_M_AXI_0_RRESP    <= 0;
+    Top_In_io_M_AXI_0_RLAST    <= 0;
+    Top_In_io_M_AXI_0_RVALID   <= 0;
+    Top_In_io_M_AXI_0_BID      <= 0;
+    // Top_In_io_M_AXI_0_BUSER    <= 0;
+    Top_In_io_M_AXI_0_BRESP    <= 0;
+    Top_In_io_M_AXI_0_BVALID   <= 0;
   end else if (ddr_commands_from_design) begin
-    Top_In_io_M_AXI_AWREADY  <= lcl_cl_sh_ddra.awready;
-    Top_In_io_M_AXI_ARREADY  <= lcl_cl_sh_ddra.arready;
-    Top_In_io_M_AXI_WREADY   <= lcl_cl_sh_ddra.wready;
-    Top_In_io_M_AXI_RID      <= lcl_cl_sh_ddra.rid;
-    // Top_In_io_M_AXI_RUSER    <= lcl_cl_sh_ddra.ruser;
-    Top_In_io_M_AXI_RDATA    <= lcl_cl_sh_ddra.rdata;
-    Top_In_io_M_AXI_RRESP    <= lcl_cl_sh_ddra.rresp;
-    Top_In_io_M_AXI_RLAST    <= lcl_cl_sh_ddra.rlast;
-    Top_In_io_M_AXI_RVALID   <= lcl_cl_sh_ddra.rvalid;
-    Top_In_io_M_AXI_BID      <= lcl_cl_sh_ddra.bid;
-    // Top_In_io_M_AXI_BUSER    <= lcl_cl_sh_ddra.buser;
-    Top_In_io_M_AXI_BRESP    <= lcl_cl_sh_ddra.bresp;
-    Top_In_io_M_AXI_BVALID   <= lcl_cl_sh_ddra.bvalid;
+    Top_In_io_M_AXI_0_AWREADY  <= lcl_cl_sh_ddra.awready;
+    Top_In_io_M_AXI_0_ARREADY  <= lcl_cl_sh_ddra.arready;
+    Top_In_io_M_AXI_0_WREADY   <= lcl_cl_sh_ddra.wready;
+    Top_In_io_M_AXI_0_RID      <= lcl_cl_sh_ddra.rid;
+    // Top_In_io_M_AXI_0_RUSER    <= lcl_cl_sh_ddra.ruser;
+    Top_In_io_M_AXI_0_RDATA    <= lcl_cl_sh_ddra.rdata;
+    Top_In_io_M_AXI_0_RRESP    <= lcl_cl_sh_ddra.rresp;
+    Top_In_io_M_AXI_0_RLAST    <= lcl_cl_sh_ddra.rlast;
+    Top_In_io_M_AXI_0_RVALID   <= lcl_cl_sh_ddra.rvalid;
+    Top_In_io_M_AXI_0_BID      <= lcl_cl_sh_ddra.bid;
+    // Top_In_io_M_AXI_0_BUSER    <= lcl_cl_sh_ddra.buser;
+    Top_In_io_M_AXI_0_BRESP    <= lcl_cl_sh_ddra.bresp;
+    Top_In_io_M_AXI_0_BVALID   <= lcl_cl_sh_ddra.bvalid;
   end
 end
 
 /*
 always_ff @(posedge clk) begin
-  if (Top_Out_io_M_AXI_AWVALID && Top_In_io_M_AXI_AWREADY) begin
-    $display("[%t]  Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_AWID, Top_Out_io_M_AXI_AWLEN, Top_Out_io_M_AXI_AWADDR);
+  if (Top_Out_io_M_AXI_0_AWVALID && Top_In_io_M_AXI_0_AWREADY) begin
+    $display("[%t]  Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_0_AWID, Top_Out_io_M_AXI_0_AWLEN, Top_Out_io_M_AXI_0_AWADDR);
   end
-  if (Top_Out_io_M_AXI_ARVALID && Top_In_io_M_AXI_ARREADY) begin
-    $display("[%t]  Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_ARID, Top_Out_io_M_AXI_ARLEN, Top_Out_io_M_AXI_ARADDR);
+  if (Top_Out_io_M_AXI_0_ARVALID && Top_In_io_M_AXI_0_ARREADY) begin
+    $display("[%t]  Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_0_ARID, Top_Out_io_M_AXI_0_ARLEN, Top_Out_io_M_AXI_0_ARADDR);
   end
 end
 */
@@ -712,30 +712,30 @@ logic[2:0] sh_cl_ddr_rlast_2d;
 logic[2:0] sh_cl_ddr_rvalid_2d;
 logic[2:0] cl_sh_ddr_rready_2d;
 
-assign cl_sh_ddr_awid_2d = '{lcl_cl_sh_ddrd.awid, lcl_cl_sh_ddrb.awid, ddr_commands_from_design ? Top_Out_io_M_AXI_AWID : lcl_cl_sh_ddra.awid};
-assign cl_sh_ddr_awaddr_2d = '{lcl_cl_sh_ddrd.awaddr, lcl_cl_sh_ddrb.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_AWADDR + 64'h10000000 : lcl_cl_sh_ddra.awaddr};
-assign cl_sh_ddr_awlen_2d = '{lcl_cl_sh_ddrd.awlen, lcl_cl_sh_ddrb.awlen, ddr_commands_from_design ? Top_Out_io_M_AXI_AWLEN : lcl_cl_sh_ddra.awlen};
-assign cl_sh_ddr_awsize_2d = '{lcl_cl_sh_ddrd.awsize, lcl_cl_sh_ddrb.awsize, ddr_commands_from_design ? Top_Out_io_M_AXI_AWSIZE : lcl_cl_sh_ddra.awsize};
-assign cl_sh_ddr_awvalid_2d = '{lcl_cl_sh_ddrd.awvalid, lcl_cl_sh_ddrb.awvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_AWVALID : lcl_cl_sh_ddra.awvalid};
+assign cl_sh_ddr_awid_2d = '{lcl_cl_sh_ddrd.awid, lcl_cl_sh_ddrb.awid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWID : lcl_cl_sh_ddra.awid};
+assign cl_sh_ddr_awaddr_2d = '{lcl_cl_sh_ddrd.awaddr, lcl_cl_sh_ddrb.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWADDR + 64'h10000000 : lcl_cl_sh_ddra.awaddr};
+assign cl_sh_ddr_awlen_2d = '{lcl_cl_sh_ddrd.awlen, lcl_cl_sh_ddrb.awlen, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWLEN : lcl_cl_sh_ddra.awlen};
+assign cl_sh_ddr_awsize_2d = '{lcl_cl_sh_ddrd.awsize, lcl_cl_sh_ddrb.awsize, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWSIZE : lcl_cl_sh_ddra.awsize};
+assign cl_sh_ddr_awvalid_2d = '{lcl_cl_sh_ddrd.awvalid, lcl_cl_sh_ddrb.awvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWVALID : lcl_cl_sh_ddra.awvalid};
 assign {lcl_cl_sh_ddrd.awready, lcl_cl_sh_ddrb.awready, lcl_cl_sh_ddra.awready} = sh_cl_ddr_awready_2d;
 
 assign cl_sh_ddr_wid_2d = '{lcl_cl_sh_ddrd.wid, lcl_cl_sh_ddrb.wid, ddr_commands_from_design ? 0 : lcl_cl_sh_ddra.wid};
-assign cl_sh_ddr_wdata_2d = '{lcl_cl_sh_ddrd.wdata, lcl_cl_sh_ddrb.wdata, ddr_commands_from_design ? Top_Out_io_M_AXI_WDATA : lcl_cl_sh_ddra.wdata};
-assign cl_sh_ddr_wstrb_2d = '{lcl_cl_sh_ddrd.wstrb, lcl_cl_sh_ddrb.wstrb, ddr_commands_from_design ? Top_Out_io_M_AXI_WSTRB : lcl_cl_sh_ddra.wstrb};
-assign cl_sh_ddr_wlast_2d = {lcl_cl_sh_ddrd.wlast, lcl_cl_sh_ddrb.wlast, ddr_commands_from_design ? Top_Out_io_M_AXI_WLAST : lcl_cl_sh_ddra.wlast};
-assign cl_sh_ddr_wvalid_2d = {lcl_cl_sh_ddrd.wvalid, lcl_cl_sh_ddrb.wvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_WVALID : lcl_cl_sh_ddra.wvalid};
+assign cl_sh_ddr_wdata_2d = '{lcl_cl_sh_ddrd.wdata, lcl_cl_sh_ddrb.wdata, ddr_commands_from_design ? Top_Out_io_M_AXI_0_WDATA : lcl_cl_sh_ddra.wdata};
+assign cl_sh_ddr_wstrb_2d = '{lcl_cl_sh_ddrd.wstrb, lcl_cl_sh_ddrb.wstrb, ddr_commands_from_design ? Top_Out_io_M_AXI_0_WSTRB : lcl_cl_sh_ddra.wstrb};
+assign cl_sh_ddr_wlast_2d = {lcl_cl_sh_ddrd.wlast, lcl_cl_sh_ddrb.wlast, ddr_commands_from_design ? Top_Out_io_M_AXI_0_WLAST : lcl_cl_sh_ddra.wlast};
+assign cl_sh_ddr_wvalid_2d = {lcl_cl_sh_ddrd.wvalid, lcl_cl_sh_ddrb.wvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_WVALID : lcl_cl_sh_ddra.wvalid};
 assign {lcl_cl_sh_ddrd.wready, lcl_cl_sh_ddrb.wready, lcl_cl_sh_ddra.wready} = sh_cl_ddr_wready_2d;
 
 assign {lcl_cl_sh_ddrd.bid, lcl_cl_sh_ddrb.bid, lcl_cl_sh_ddra.bid} = {sh_cl_ddr_bid_2d[2], sh_cl_ddr_bid_2d[1], sh_cl_ddr_bid_2d[0]};
 assign {lcl_cl_sh_ddrd.bresp, lcl_cl_sh_ddrb.bresp, lcl_cl_sh_ddra.bresp} = {sh_cl_ddr_bresp_2d[2], sh_cl_ddr_bresp_2d[1], sh_cl_ddr_bresp_2d[0]};
 assign {lcl_cl_sh_ddrd.bvalid, lcl_cl_sh_ddrb.bvalid, lcl_cl_sh_ddra.bvalid} = sh_cl_ddr_bvalid_2d;
-assign cl_sh_ddr_bready_2d = {lcl_cl_sh_ddrd.bready, lcl_cl_sh_ddrb.bready, ddr_commands_from_design ? Top_Out_io_M_AXI_BREADY : lcl_cl_sh_ddra.bready};
+assign cl_sh_ddr_bready_2d = {lcl_cl_sh_ddrd.bready, lcl_cl_sh_ddrb.bready, ddr_commands_from_design ? Top_Out_io_M_AXI_0_BREADY : lcl_cl_sh_ddra.bready};
 
-assign cl_sh_ddr_arid_2d = '{lcl_cl_sh_ddrd.arid, lcl_cl_sh_ddrb.arid, ddr_commands_from_design ? Top_Out_io_M_AXI_ARID : lcl_cl_sh_ddra.arid};
-assign cl_sh_ddr_araddr_2d = '{lcl_cl_sh_ddrd.araddr, lcl_cl_sh_ddrb.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_ARADDR + 64'h10000000 : lcl_cl_sh_ddra.araddr};
-assign cl_sh_ddr_arlen_2d = '{lcl_cl_sh_ddrd.arlen, lcl_cl_sh_ddrb.arlen, ddr_commands_from_design ? Top_Out_io_M_AXI_ARLEN : lcl_cl_sh_ddra.arlen};
-assign cl_sh_ddr_arsize_2d = '{lcl_cl_sh_ddrd.arsize, lcl_cl_sh_ddrb.arsize, ddr_commands_from_design ? Top_Out_io_M_AXI_ARSIZE : lcl_cl_sh_ddra.arsize};
-assign cl_sh_ddr_arvalid_2d = {lcl_cl_sh_ddrd.arvalid, lcl_cl_sh_ddrb.arvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_ARVALID : lcl_cl_sh_ddra.arvalid};
+assign cl_sh_ddr_arid_2d = '{lcl_cl_sh_ddrd.arid, lcl_cl_sh_ddrb.arid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARID : lcl_cl_sh_ddra.arid};
+assign cl_sh_ddr_araddr_2d = '{lcl_cl_sh_ddrd.araddr, lcl_cl_sh_ddrb.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARADDR + 64'h10000000 : lcl_cl_sh_ddra.araddr};
+assign cl_sh_ddr_arlen_2d = '{lcl_cl_sh_ddrd.arlen, lcl_cl_sh_ddrb.arlen, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARLEN : lcl_cl_sh_ddra.arlen};
+assign cl_sh_ddr_arsize_2d = '{lcl_cl_sh_ddrd.arsize, lcl_cl_sh_ddrb.arsize, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARSIZE : lcl_cl_sh_ddra.arsize};
+assign cl_sh_ddr_arvalid_2d = {lcl_cl_sh_ddrd.arvalid, lcl_cl_sh_ddrb.arvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARVALID : lcl_cl_sh_ddra.arvalid};
 assign {lcl_cl_sh_ddrd.arready, lcl_cl_sh_ddrb.arready, lcl_cl_sh_ddra.arready} = sh_cl_ddr_arready_2d;
 
 assign {lcl_cl_sh_ddrd.rid, lcl_cl_sh_ddrb.rid, lcl_cl_sh_ddra.rid} = {sh_cl_ddr_rid_2d[2], sh_cl_ddr_rid_2d[1], sh_cl_ddr_rid_2d[0]};
@@ -743,7 +743,7 @@ assign {lcl_cl_sh_ddrd.rresp, lcl_cl_sh_ddrb.rresp, lcl_cl_sh_ddra.rresp} = {sh_
 assign {lcl_cl_sh_ddrd.rdata, lcl_cl_sh_ddrb.rdata, lcl_cl_sh_ddra.rdata} = {sh_cl_ddr_rdata_2d[2], sh_cl_ddr_rdata_2d[1], sh_cl_ddr_rdata_2d[0]};
 assign {lcl_cl_sh_ddrd.rlast, lcl_cl_sh_ddrb.rlast, lcl_cl_sh_ddra.rlast} = sh_cl_ddr_rlast_2d;
 assign {lcl_cl_sh_ddrd.rvalid, lcl_cl_sh_ddrb.rvalid, lcl_cl_sh_ddra.rvalid} = sh_cl_ddr_rvalid_2d;
-assign cl_sh_ddr_rready_2d = {lcl_cl_sh_ddrd.rready, lcl_cl_sh_ddrb.rready, ddr_commands_from_design ? Top_Out_io_M_AXI_RREADY : lcl_cl_sh_ddra.rready};
+assign cl_sh_ddr_rready_2d = {lcl_cl_sh_ddrd.rready, lcl_cl_sh_ddrb.rready, ddr_commands_from_design ? Top_Out_io_M_AXI_0_RREADY : lcl_cl_sh_ddra.rready};
 
 (* dont_touch = "true" *) logic sh_ddr_sync_rst_n;
 lib_pipe #(.WIDTH(1), .STAGES(4)) SH_DDR_SLC_RST_N (.clk(clk), .rst_n(1'b1), .in_bus(sync_rst_n), .out_bus(sh_ddr_sync_rst_n));
