@@ -24,7 +24,7 @@ object FringeGlobals {
     }
 
     magPipelineDepth = value match {
-      case "zynq" => 5
+      case "zynq" => 0
       case _ => 1
     }
 
