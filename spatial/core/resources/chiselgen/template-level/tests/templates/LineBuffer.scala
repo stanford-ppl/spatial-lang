@@ -36,12 +36,12 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   val iters = (c.num_lines + c.extra_rows_to_buffer) * 3
   for (iter <- 0 until iters) {
     // println("Filling lines")
-    for (k <- 0 until c.extra_rows_to_buffer) {
+    for (k <- 0 until c.rstride) {
       for (i <- 0 until c.line_size by c.col_wPar) {
         poke(c.io.sEn(0), 1)
         poke(c.io.w_en, 1)
         for (j <- 0 until c.col_wPar) {
-          poke(c.io.data_in(j), 100*(iter*c.extra_rows_to_buffer+k) + i + j)      
+          poke(c.io.data_in(j), 100*(iter*c.stride+k) + i + j)      
         }
         step(1)
       }
@@ -52,6 +52,13 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
       poke(c.io.sDone(0), 0)
       step(1)
     }
+    
+    poke(c.io.sDone(0), 1)
+    poke(c.io.w_en, 0)
+    step(1)
+    poke(c.io.sEn(0), 0)
+    poke(c.io.sDone(0), 0)
+    step(1)
 
     // println("Checking line")
     var rows_concat = List.fill(c.num_lines)(new StringBuilder)
