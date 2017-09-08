@@ -105,6 +105,8 @@ object LUT1 {
 
 case class LUT2[T:Type:Bits](s: Exp[LUT2[T]]) extends Template[LUT2[T]] with LUT[T] {
   @api def apply(r: Index, c: Index): T = wrap(LUT.load(s, Seq(r.s, c.s), Bit.const(true)))
+  // @api def rows: Index = wrap(stagedDimsOf(s).apply(0))
+  // @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
 }
 object LUT2 {
   implicit def lut2Type[T:Type:Bits]: Type[LUT2[T]] = LUT2Type(typ[T])
