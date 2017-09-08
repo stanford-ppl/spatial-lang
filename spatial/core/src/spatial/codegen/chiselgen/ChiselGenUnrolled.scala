@@ -384,7 +384,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
       }
-      emit(src"""${lb}_$ii.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+      emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, rf).toList.head

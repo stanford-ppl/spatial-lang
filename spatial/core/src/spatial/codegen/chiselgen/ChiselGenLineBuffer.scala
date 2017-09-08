@@ -65,7 +65,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         val accessors = bufferControlInfo(lhs, 0).length
         val row_wPar = 1 // TODO: Do correct analysis here!
         val width = bitWidth(lhs.tp.typeArguments.head)
-        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${empty_stages_to_buffer}, ${stride},
+        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${empty_stages_to_buffer}, ${getConstValue(stride)},
           ${col_wPar}, ${col_rPar}, ${col_banks},
           ${row_wPar}, ${row_rPar}, $accessors, $width))  // Data type: ${op.mT}""")
         emitGlobalModule(src"${lhs}_$i.io.reset := reset")
@@ -106,7 +106,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(0) := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }
