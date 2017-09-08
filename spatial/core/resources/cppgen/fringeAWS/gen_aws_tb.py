@@ -30,7 +30,7 @@ for line in src:
     dst.write(line.replace('string ', 'std::string ', 1).replace('string(', 'std::string(', 1).replace('string_plus(', '').replace(', ', ' + ').replace(');', ';'))
   elif ' = std::string(argv[i]);' in line:
     dst.write(line.replace(' = std::string(argv[i]);', ' = string(argv[i]);', 1))
-  elif '>>' in line:
+  elif '>>' in line and 'vector' in line:
     dst.write(line.replace('>>', '> >'))
   else:
     dst.write(line)
