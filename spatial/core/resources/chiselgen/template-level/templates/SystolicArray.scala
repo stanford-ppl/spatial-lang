@@ -18,22 +18,22 @@ object Min extends OperationMode
                          6x6 array   2x2 neighborhood,       0 1 movement      0 0          addition lambda
                                                              1 0               0 * <- dst
                             neg
-                   <-   entry plane 1   ->
+                   <-       edge 0      ->
            vert0   _↓_______________↓_____  vert1                                            
                   → + |   |   |   → + |   |                                                  
-              e   |___|___|___|___|___|___|                                                  
-              n   |   |   |   |   |   |   |                                                  
-              t   |___|___|_↓_|___|___|___|                                                  
-              r   |   |   → + |   |   |   |                                                  
-         n    y   |___|___|___|___|___|___| p                                                
+                  |___|___|___|___|___|___|                                                  
+               e  |   |   |   |   |   |   |                                                  
+               d  |___|___|_↓_|___|___|___|                                                  
+               g  |   |   → + |   |   |   |                                                  
+         n     e  |___|___|___|___|___|___| p                                                
          e        |   |   |   |   |   |   | o
-         g    p   |___|___|_↓_|___|___|_↓_| s
-              l   |   |   → + |   |   → + |
-              a   |___|___|___|___|___|___|
-              n   |   |   |   |   |   |   |
-              e   |___|___|___|___|___|___|
+         g     1  |___|___|_↓_|___|___|_↓_| s
+                  |   |   → + |   |   → + |
+                  |___|___|___|___|___|___|
+                  |   |   |   |   |   |   |
+                  |___|___|___|___|___|___|
                   |   |   |   |   |   |   |                                                                
-              0   |___|___|___|___|___|___|                                                                
+                  |___|___|___|___|___|___|                                                                
                vert2        pos             vert3                       
 */
 class SystolicArray2D(val dims: List[Int], val neighborhood_size: List[Int], val movement_scalars: List[Double], val self_position: List[Int],
@@ -78,15 +78,15 @@ class SystolicArray2D(val dims: List[Int], val neighborhood_size: List[Int], val
   /*
        Ordering of input vector example for edge_thickness (2,1), (1,1) and vertex thickness (1,2), (1,1), (1,2), (1,1)
 
-      quad0       neg1    quad1
+      quad0       neg0    quad1
             0 1 | 2 3 4 | 5
             ----|-------|---
-    neg0    6 7 | SYS   | 8  pos0
+    neg1    6 7 | SYS   | 8  pos1
             9 A |  ARR  | B  
             C D |       | E
             ----|-------|---
             F G | H I J | K
-     quad2        pos1     quad3
+     quad2        pos0     quad3
 
   */
   val num_input_ports = edge_thickness.zip(dims).map{case (th, dim) => dim*(th._1 + th._2)}.sum + vertex_thickness.map{ th => th._1 * th._2 }.sum
@@ -143,26 +143,26 @@ class SystolicArray2D(val dims: List[Int], val neighborhood_size: List[Int], val
                 val quad2_correction = if (vertex_thickness(2)._1 * vertex_thickness(2)._2 == 0) {(super_square_row - dims(0) - edge_thickness(0)._1 + 1) * edge_thickness(1)._1} else 0
                 val src_addr = src_row * super_square_dims(1) + src_col - dims.product - quad0_correction - quad1_correction - quad2_correction
                 io.in(src_addr).FP(true, bitWidth-fracBits, fracBits)
-            } else if (src_row < 0) { // Neg Edge 1
+            } else if (src_row < 0) { // Neg Edge 0
                 val quad0_correction = if (vertex_thickness(0)._1 * vertex_thickness(0)._2 == 0) {(super_square_row+1) * edge_thickness(1)._1} else 0
                 val quad1_correction = if (vertex_thickness(1)._1 * vertex_thickness(1)._2 == 0) {super_square_row * edge_thickness(1)._2} else 0
                 val src_addr = super_square_row * super_square_dims(1) + super_square_col - quad0_correction - quad1_correction
                 io.in(src_addr).FP(true, bitWidth-fracBits, fracBits)
-            } else if (src_col < 0) { // Neg Edge 0
+            } else if (src_col < 0) { // Neg Edge 1
                 val quad0_correction = if (vertex_thickness(0)._1 * vertex_thickness(0)._2 == 0) {edge_thickness(0)._1 * edge_thickness(1)._1} else 0
                 val quad1_correction = if (vertex_thickness(1)._1 * vertex_thickness(1)._2 == 0) {edge_thickness(0)._1 * edge_thickness(1)._2} else 0
                 val super_addr = super_square_row * super_square_dims(1) + super_square_col - quad0_correction - quad1_correction
                 val num_holes = dims(1)*src_row
                 val src_addr = super_addr - num_holes
                 io.in(src_addr).FP(true, bitWidth-fracBits, fracBits)
-            } else if (src_row >= dims(0)) { // Pos Edge 1
+            } else if (src_row >= dims(0)) { // Pos Edge 0
                 val quad0_correction = if (vertex_thickness(0)._1 * vertex_thickness(0)._2 == 0) {edge_thickness(0)._1 * edge_thickness(1)._1} else 0
                 val quad1_correction = if (vertex_thickness(1)._1 * vertex_thickness(1)._2 == 0) {edge_thickness(0)._1 * edge_thickness(1)._2} else 0
                 val quad2_correction = if (vertex_thickness(2)._1 * vertex_thickness(2)._2 == 0) {(super_square_row - dims(0) - edge_thickness(0)._1 + 1) * edge_thickness(1)._1} else 0
                 val quad3_correction = if (vertex_thickness(3)._1 * vertex_thickness(3)._2 == 0) {(super_square_row - dims(0) - edge_thickness(0)._1) * edge_thickness(1)._2} else 0
-                val src_addr = src_row * super_square_dims(1) + src_col - dims.product - quad0_correction - quad1_correction - quad2_correction - quad3_correction
+                val src_addr = super_square_row * super_square_dims(1) + super_square_col - dims.product - quad0_correction - quad1_correction - quad2_correction - quad3_correction
                 io.in(src_addr).FP(true, bitWidth-fracBits, fracBits)
-            } else if (src_col >= dims(1)) { // Pos Edge 0
+            } else if (src_col >= dims(1)) { // Pos Edge 1
                 val quad0_correction = if (vertex_thickness(0)._1 * vertex_thickness(0)._2 == 0) {edge_thickness(0)._1 * edge_thickness(1)._1} else 0
                 val quad1_correction = if (vertex_thickness(1)._1 * vertex_thickness(1)._2 == 0) {edge_thickness(0)._1 * edge_thickness(1)._2} else 0
                 val super_addr = super_square_row * super_square_dims(1) + super_square_col - quad0_correction - quad1_correction
