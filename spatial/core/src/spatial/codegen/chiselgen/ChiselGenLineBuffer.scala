@@ -59,13 +59,13 @@ trait ChiselGenLineBuffer extends ChiselGenController {
           }.head
 
         val col_banks = mem match { case BankedMemory(dims, depth, isAccum) => dims.last.banks; case _ => 1 }
-        // TODO: Use a combination of depth info and rows to figure out extra_rows_to_buffer, which is just a solid 1 for now
-        val extra_rows_to_buffer = 1
+        // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
+        val empty_stages_to_buffer = bufferControlInfo(lhs, i).length - 1
         val row_rPar = mem match { case BankedMemory(dims, depth, isAccum) => dims.head.banks; case _ => 1 } // Could be wrong
         val accessors = bufferControlInfo(lhs, 0).length
         val row_wPar = 1 // TODO: Do correct analysis here!
         val width = bitWidth(lhs.tp.typeArguments.head)
-        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${extra_rows_to_buffer}, 
+        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${empty_stages_to_buffer}, ${stride},
           ${col_wPar}, ${col_rPar}, ${col_banks},
           ${row_wPar}, ${row_rPar}, $accessors, $width))  // Data type: ${op.mT}""")
         emitGlobalModule(src"${lhs}_$i.io.reset := reset")
