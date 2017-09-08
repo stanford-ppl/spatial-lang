@@ -31,10 +31,10 @@ trait AffineAccessTransformer extends ForwardTransformer {
       SRAM.alloc[T,SRAM5](dims:_*)(typ[T],bits[T],sramType,ctx,state)
   }
   def loadSRAM[T:Type:Bits](sram: Exp[SRAM[_]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], en: Exp[Bit])(implicit ctx: SrcCtx) = {
-    SRAM.load(sram.asInstanceOf[Exp[SRAM[T]]],dims,is,FixPt.int32(0),en)
+    SRAM.load(sram.asInstanceOf[Exp[SRAM[T]]],dims,is,FixPt.int32s(0),en)
   }
   def storeSRAM[T:Type:Bits](sram: Exp[SRAM[_]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], data: Exp[T], en: Exp[Bit])(implicit ctx: SrcCtx): Exp[MUnit] = {
-    SRAM.store(sram.asInstanceOf[Exp[SRAM[T]]],dims,is,FixPt.int32(0),data,en)
+    SRAM.store(sram.asInstanceOf[Exp[SRAM[T]]],dims,is,FixPt.int32s(0),data,en)
   }
 
   def convertDims(is: Seq[Exp[Index]], origDims: Seq[Exp[Index]], newDims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Seq[Exp[Index]] = {
@@ -56,7 +56,7 @@ trait AffineAccessTransformer extends ForwardTransformer {
                 .groupBy(_._1.strides)
                 .toList.zipWithIndex
                 .flatMap{case ((strides,dispatches),i) =>
-                  val dims = stridesToDims(lhs, strides).map{x => FixPt.int32(x) }
+                  val dims = stridesToDims(lhs, strides).map{x => FixPt.int32s(x) }
                   val sram = allocSRAM(dims)(mtyp(op.mT),mbits(op.bT),lhs.ctx)
                   lhs.name.foreach{n => sram.name = Some(n + s"_dup$i") }
                   duplicatesOf(sram) = dispatches.map(_._1)

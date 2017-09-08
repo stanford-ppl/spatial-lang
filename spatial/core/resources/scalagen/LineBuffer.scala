@@ -1,21 +1,28 @@
 import scala.reflect.ClassTag
 
-case class LineBuffer[T:ClassTag](rows: Int, cols: Int, invalid: T) {
-  val buffers: Array[Array[T]] = Array.fill(rows){ Array.fill(cols)(invalid) }
+case class LineBuffer[T:ClassTag](rows: Int, cols: Int, stride: Int, invalid: T) {
+  val totalRows: Int = rows + stride
+  val buffers: Array[Array[T]] = Array.fill(totalRows){ Array.fill(cols)(invalid) }
 
-  private var start = 0
+  private var activeRow = 0 // The row currently being written to
+  private var activeCol = 0 // The column currently being written to
+
   private def rotatedRow(row: Int) = {
-    val r = (start - rows + row + 1) % rows
-    if (r < 0) r + rows else r
+    val r = (activeRow - rows + row) % totalRows
+    if (r < 0) r + totalRows else r
   }
 
   def apply(row: Int, col: Int): T = buffers(rotatedRow(row))(col)
 
-  var colEnqCount = 0
+
+  // Expected to be called after a row has been written
+  def rotate(): Unit = {
+    activeRow = (activeRow + stride) % totalRows
+    activeCol = 0
+  }
 
   def enq(data: T, rotate: Boolean = true): Unit = {
-    if (colEnqCount == 0 && rotate) start = (start + 1) % rows
-    buffers(start).update(colEnqCount, data)
-    colEnqCount = (colEnqCount + 1) % cols
+    buffers(activeRow).update(activeCol, data)
+    activeCol = (activeCol + 1) % cols
   }
 }

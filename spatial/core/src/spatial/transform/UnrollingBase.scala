@@ -155,7 +155,7 @@ trait UnrollingBase extends ForwardTransformer {
 
     val indices: Seq[Seq[Const[Index]]] = countersOf(cchain).map{
       case Def(CounterNew(Exact(start),_,Exact(step),Exact(par))) =>
-        List.tabulate(par.toInt){i => FixPt.int32(BigDecimal(start + step*i)) }
+        List.tabulate(par.toInt){i => FixPt.int32s(BigDecimal(start + step*i)) }
     }
     val indexValids = indices.zip(countersOf(cchain)).map{
       case (is, Def(CounterNew(_,Exact(end),_,_))) =>

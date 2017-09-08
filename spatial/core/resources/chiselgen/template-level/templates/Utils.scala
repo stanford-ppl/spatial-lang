@@ -524,6 +524,9 @@ object Utils {
               fixmul_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency
     ).max
 
+  def singleCycleDivide(num: SInt, den: SInt): SInt = {
+    num / den
+  }
   def sqrt(num: FloatingPoint): FloatingPoint = {
     val m = num.m
     val e = num.e

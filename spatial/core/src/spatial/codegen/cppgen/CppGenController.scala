@@ -19,6 +19,9 @@ trait CppGenController extends CppCodegen {
       toggleEn()
       emitBlock(func)
       toggleEn()
+      emit(s"// Register ArgIns and ArgIOs in case some are unused")
+      emit(s"c1->setNumArgIns(${argIns.length} + ${drams.length} + ${argIOs.length});")
+      emit(s"c1->setNumArgIOs(${argIOs.length});")
       emit(s"time_t tstart = time(0);")
       val memlist = if (setMems.nonEmpty) {s""", ${setMems.mkString(",")}"""} else ""
       emit(s"c1->run();")

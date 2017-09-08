@@ -35,7 +35,8 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@LineBufferNew(rows, cols) =>
+    // TODO: Need to account for stride here
+    case op@LineBufferNew(rows, cols, stride) =>
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val col_rPar = readersOf(lhs) // Currently assumes all readers have same par
           .filter{read => dispatchOf(read, lhs) contains i}
@@ -89,7 +90,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       
     case op@LineBufferLoad(lb,row,col,en) => 
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
       emit(src"${lb}_$i.io.col_addr(0) := ${col}.raw")
       val rowtext = row match {
@@ -100,7 +101,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
     case op@LineBufferEnq(lb,data,en) =>
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")

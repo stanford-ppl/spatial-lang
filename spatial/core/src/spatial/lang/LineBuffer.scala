@@ -15,7 +15,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case _ => error(ctx, "Unsupported stride in LineBuffer apply")
     }
 
-    val start  = cols.start.map(_.s).getOrElse(int32(0))
+    val start  = cols.start.map(_.s).getOrElse(int32s(0))
     val length = cols.length
     val exp = LineBuffer.col_slice(s, row.s, start, length.s)
     exp.tp.wrapped(exp)
@@ -27,7 +27,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case _ => error(ctx, "Unsupported stride in LineBuffer apply")
     }
 
-    val start = rows.start.map(_.s).getOrElse(int32(0))
+    val start = rows.start.map(_.s).getOrElse(int32s(0))
     val length = rows.length
     val exp = LineBuffer.row_slice(s, start, length.s, col.s)
     exp.tp.wrapped(exp)
@@ -49,10 +49,11 @@ object LineBuffer {
   implicit def lineBufferType[T:Type:Bits]: Type[LineBuffer[T]] = LineBufferType(typ[T])
   implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
 
-  @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s))
+  @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, int32s(1)))
+  @api def strided[T:Type:Bits](rows: Index, cols: Index, stride: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, stride.s))
 
-  @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) = {
-    stageMutable(LineBufferNew[T](rows, cols))(ctx)
+  @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], verticalStride: Exp[Index]) = {
+    stageMutable(LineBufferNew[T](rows, cols, int32s(1)))(ctx)
   }
 
   @internal def col_slice[T:Type:Bits](
@@ -64,7 +65,7 @@ object LineBuffer {
     implicit val vT = length match {
       case Final(c) => VectorN.typeFromLen[T](c.toInt)
       case _ =>
-        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
         VectorN.typeFromLen[T](0)
     }
     stageUnique(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
@@ -79,7 +80,7 @@ object LineBuffer {
     implicit val vT = length match {
       case Final(c) => VectorN.typeFromLen[T](c.toInt)
       case _ =>
-        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
         VectorN.typeFromLen[T](0)
     }
     stageUnique(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)

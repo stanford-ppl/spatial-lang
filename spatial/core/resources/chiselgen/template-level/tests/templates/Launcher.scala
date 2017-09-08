@@ -76,7 +76,15 @@ object Arguments {
     (1,4,56,1,1),
     (3,6,48,1,1),
     (6,3,48,1,1)
-
+  )
+  val GeneralFIFO = List(
+    (List(1),List(1),80,16),
+    (List(1),List(5),80,16),
+    (List(1),List(8),80,16),
+    (List(2),List(1),80,16),
+    (List(5),List(1),80,16),
+    (List(6),List(3),80,16),
+    (List(1),List(2),50,32)
   )
   val FILO = List(
     (1,1,10,1,1),
@@ -89,6 +97,9 @@ object Arguments {
   )
   val SingleCounter = List(
     (1,8),(3,9)
+  )
+  val CompactingCounter = List(
+    (1,8,16),(3,12,16),(8, 25,16)
   )
   val FixedPointTester = List(
     (false,16,16)
@@ -158,18 +169,27 @@ object Arguments {
   val Parallel = List(
     3
   )
+  val SystolicArray2D = List(
+    (List(7,6), List(2,2), List(0,1.0,1.0,0), List(0,0,0,1), None, Sum, 32, 0)
+  )
   val ShiftRegFile = List(
     (List(6),1,1,false,32,0),
+    (List(6),2,1,false,32,0),
+    (List(21),4,1,false,32,0),
     (List(1,3),1,1,false,32,0),
+    (List(4,12),4,4,false,32,0),
     (List(3,7),1,3,false,32,0),
+    (List(3,4,9),3,12,false,32,0),
     (List(3,4,7),1,12,false,32,0)
   )
   val NBufShiftRegFile = List(
     (List(8),1,2,Map((0->1)),32,0),
+    (List(8),2,2,Map((0->1)),32,0),
     (List(1,8),1,3,Map((0->1)),32,0),
     (List(3,7),1,3,Map((0->3)),32,0),
+    (List(3,9),3,3,Map((0->3)),32,0),
     (List(3,3),1,3,Map((0->3)),32,0),
-    (List(3,4,7),1,3,Map((0->12)),32,0)
+    (List(3,4,7),1,12,Map((0->12)),32,0)
   )
 
   val LineBuffer = List( 
@@ -265,6 +285,14 @@ object Launcher {
       }) 
   }.toMap
 
+  templates = templates ++ Arguments.GeneralFIFO.zipWithIndex.map{ case(arg,i) => 
+    (s"GeneralFIFO$i" -> { (backendName: String) =>
+        Driver(() => new GeneralFIFO(arg), "verilator") {
+          (c) => new GeneralFIFOTests(c)
+        }
+      }) 
+  }.toMap
+
   templates = templates ++ Arguments.FILO.zipWithIndex.map{ case(arg,i) => 
     (s"FILO$i" -> { (backendName: String) =>
         Driver(() => new FILO(arg), "verilator") {
@@ -277,6 +305,14 @@ object Launcher {
     (s"SingleCounter$i" -> { (backendName: String) =>
         Driver(() => new SingleCounter(arg), "verilator") {
           (c) => new SingleCounterTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.CompactingCounter.zipWithIndex.map{ case(arg,i) => 
+    (s"CompactingCounter$i" -> { (backendName: String) =>
+        Driver(() => new CompactingCounter(arg), "verilator") {
+          (c) => new CompactingCounterTests(c)
         }
       }) 
   }.toMap
@@ -373,6 +409,14 @@ object Launcher {
     (s"Parallel$i" -> { (backendName: String) =>
         Driver(() => new Parallel(arg), "verilator") {
           (c) => new ParallelTests(c)
+        }
+      }) 
+  }.toMap
+
+  templates = templates ++ Arguments.SystolicArray2D.zipWithIndex.map{ case(arg,i) => 
+    (s"SystolicArray2D$i" -> { (backendName: String) =>
+        Driver(() => new SystolicArray2D(arg), "verilator") {
+          (c) => new SystolicArray2DTests(c)
         }
       }) 
   }.toMap

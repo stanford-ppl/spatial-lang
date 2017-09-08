@@ -14,9 +14,9 @@ trait Vector[T] { this: MetaAny[_] =>
 
   @api def apply(range: Range)(implicit mT: Type[T], bT: Bits[T]): VectorN[T] = {
     val wordLength = this.width
-    val start = range.start.map(_.s).getOrElse(int32(wordLength-1))
+    val start = range.start.map(_.s).getOrElse(int32s(wordLength-1))
     val end = range.end.s
-    val step = range.step.map(_.s).getOrElse(int32(1))
+    val step = range.step.map(_.s).getOrElse(int32s(1))
 
     step match {
       case Const(s: BigDecimal) if s == 1 =>

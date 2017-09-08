@@ -71,3 +71,53 @@ class FIFOTests(c: FIFO) extends PeekPokeTester(c) {
   }
   
 }
+
+class GeneralFIFOTests(c: GeneralFIFO) extends PeekPokeTester(c) {
+  reset(1)
+  step(5)
+
+  var fifo = scala.collection.mutable.Queue[Int]()
+  def enq(datas: Seq[Int], ens: Seq[Int]) {
+    (0 until datas.length).foreach { i => poke(c.io.in(i).data, datas(i)) }
+    (0 until datas.length).foreach { i => poke(c.io.in(i).en, ens(i)) }
+    step(1)
+    (0 until datas.length).foreach { i => poke(c.io.in(i).en, 0) }
+    step(1)
+    (0 until datas.length).foreach{i => if (ens(i) != 0) fifo.enqueue(datas(i))}
+  }
+  def deq(ens: Seq[Int]) {
+    (0 until ens.length).foreach { i => poke(c.io.deq(i), ens(i)) }
+    val num_popping = ens.reduce{_+_}
+    (0 until ens.length).foreach{i => 
+      val out = peek(c.io.out(i))
+      if (ens(i) == 1) {
+        println("hw has " + out + " at port " + i + ", wanted " + fifo.head)
+        expect(c.io.out(i), fifo.dequeue())
+      }
+    }
+    step(1)
+    (0 until ens.length).foreach{ i => poke(c.io.deq(i),0)}
+  }
+
+  // fill FIFO halfway
+  var things_pushed = 0
+  for (i <- 0 until c.depth/c.pW.head/2) {
+    val ens = (0 until c.pW.head).map{i => rnd.nextInt(2)}
+    val datas = (0 until c.pW.head).map{i => rnd.nextInt(5)}
+    things_pushed = things_pushed + ens.reduce{_+_}
+    enq(datas, ens)
+  }
+
+  // hold for a bit
+  step(5)
+
+  // pop FIFO halfway
+  var things_popped = 0
+  for (i <- 0 until c.depth/c.pR.head/2) {
+    val ens = (0 until c.pR.head).map{i => rnd.nextInt(2)}
+    things_popped = things_popped + ens.reduce{_+_}
+    deq(if (things_popped > things_pushed) (0 until c.pR.head).map{_ => 0} else ens)
+  }
+
+  
+}

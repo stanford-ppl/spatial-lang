@@ -71,7 +71,13 @@ object SpatialConfig {
   var enableNaming: Boolean = _
   var enableSyncMem: Boolean = _
   var enableInstrumentation: Boolean = _
+  var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
+
+  def enableBufferCoalescing: Boolean = !enablePIR
+  def enablePrimitiveSwitches: Boolean = !enablePIR
+  def removeParallelNodes: Boolean = enablePIR
+  def rewriteLUTs: Boolean = enablePIR
 
   var sIn_UCU: Int = _
   var stages_UCU: Int = _
