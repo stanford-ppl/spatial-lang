@@ -13,7 +13,7 @@ import ops._
              but still forces you to index the thing and hence only gets the
              first bit
  */
-class NBufCtr(val width: Int = 32) extends Module {
+class NBufCtr(val stride: Int = 1, val width: Int = 32) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val start    = Input(UInt(width.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
@@ -30,8 +30,8 @@ class NBufCtr(val width: Int = 32) extends Module {
 
   val effectiveCnt = Mux(cnt + io.input.start >= io.input.stop, cnt + io.input.start - io.input.stop, cnt + io.input.start)
 
-  val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.stop-1.U, cnt-1.U), cnt)
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.stop, 0.U, cnt+1.U), cnt)
+  val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.stop-stride.U, cnt-stride.U), cnt)
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + stride.U === io.input.stop, 0.U, cnt+stride.U), cnt)
   cnt := Mux(reset, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
 
   io.output.count := effectiveCnt

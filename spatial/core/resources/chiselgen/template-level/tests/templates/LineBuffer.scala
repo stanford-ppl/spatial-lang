@@ -51,7 +51,6 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
       poke(c.io.sEn(0), 0)
       poke(c.io.sDone(0), 0)
       step(1)
-
     }
 
     // println("Checking line")
@@ -76,13 +75,13 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
       }
       step(1)
     }
-    // println("Saw:")
+    println("Saw:")
     for (row <- 0 until c.num_lines) {
-      // println(rows_concat(row) + " ")
+      println(rows_concat(row) + " ")
     }
-    // println("Expected:")
+    println("Expected:")
     for (row <- 0 until c.num_lines) {
-      // println(gold_concat(row) + " ")
+      println(gold_concat(row) + " ")
     }
 
   }
