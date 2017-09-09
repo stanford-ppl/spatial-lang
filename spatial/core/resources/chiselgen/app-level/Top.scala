@@ -158,8 +158,9 @@ class Top(
 	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 
   val numChannels = target match {
-    case "zynq" => 4
-    case _      => 1
+    case "zynq"             => 4
+    case "aws" | "aws-sim"  => 4
+    case _                  => 1
   }
 
   val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
