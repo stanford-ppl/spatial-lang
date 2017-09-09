@@ -112,12 +112,12 @@ trait SpatialCompiler extends ArgonCompiler {
 
     passes += printer
     passes += friendlyTransformer
+    passes += printer
     if (SpatialConfig.rewriteLUTs) {
       passes += lutTransform    // Change LUTs to SRAM with initial value metadata
       passes += printer
     }
     passes += scalarAnalyzer    // Perform bound and global analysis
-    passes += scopeCheck        // Check that illegal host values are not used in the accel block
     passes += levelAnalyzer     // Initial pipe style annotation fixes
     passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions
 
@@ -137,6 +137,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
+    passes += scopeCheck        // Check that illegal host values are not used in the accel block
 
     // --- Pre-DSE Analysis
     passes += scalarAnalyzer    // Bounds / global analysis
