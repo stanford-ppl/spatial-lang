@@ -172,6 +172,7 @@ object Arguments {
   val SystolicArray2D = List(
     (List(7,6), List(2,2), List(0,1.0,1.0,0), List(0,0,0,1), None, Sum, 32, 0),
     (List(4,4), List(2,2), List(1.0,1.0,1.0,0), List(0,0,0,1), None, Sum, 32, 0),
+    (List(4,4), List(2,2), List(0,1.0,1.0,1.0), List(0,0,0,1), None, MAC, 32, 0),
     (List(5,5), List(3,3), List(0,1.0,0,1.0,0,1.0,0,1.0,0), List(0,0,0,0,1,0,0,0,0), None, Sum, 32, 0),
     (List(5,5), List(3,2), List(1.0,1.0,1.0,0,0,1.0), List(0,0,0,0,1,0,0,0,0), None, Sum, 32, 0),
     (List(5,5), List(3,3), List(0,1.0,0,1.0,0,1.0,0,1.0,0), List(0,0,0,0,1,0,0,0,0), None, Max, 32, 0)

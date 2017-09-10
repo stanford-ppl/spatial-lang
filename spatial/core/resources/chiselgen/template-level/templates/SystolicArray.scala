@@ -9,6 +9,7 @@ import scala.math._
 sealed trait OperationMode
 object Sum extends OperationMode
 object Product extends OperationMode
+object MAC extends OperationMode // multiply-accumulate
 object Max extends OperationMode
 object Min extends OperationMode
 
@@ -108,7 +109,12 @@ class SystolicArray2D(val dims: List[Int], val neighborhood_size: List[Int], val
       RegInit(initval.U(bitWidth.W))
     }}.flatten
   } else {
-    List.tabulate(dims(0)){i => List.tabulate(dims(1)){j => RegInit(0.U(bitWidth.W)) }}.flatten
+    List.tabulate(dims(0)){i => List.tabulate(dims(1)){j => 
+      operation match {
+        case _@(Sum | Min | Max) => RegInit(0.U(bitWidth.W))
+        case _@(MAC | Product) => RegInit(1.U(bitWidth.W))
+      }
+    }}.flatten
   }
 
   // Wire up registers
@@ -116,13 +122,22 @@ class SystolicArray2D(val dims: List[Int], val neighborhood_size: List[Int], val
   //   (edge_thickness(1)._1 until (dims(1) - edge_thickness(1)._2)).foreach{ j => 
   (0 until dims(0)).foreach{ i =>
     (0 until dims(1)).foreach{ j => 
+      val mac_base = if (operation match {case MAC => true; case _ => false}) {
+        // val src_row = i - self_coords(0)
+        // val src_col = j - self_coords(1)
+        val weight = movement_scalars(self_coords(0)*neighborhood_size(1) + self_coords(1))
+        val src_addr = i*dims(1) + j
+        weight.FP(true, bitWidth-fracBits, fracBits) *-* registers(src_addr).FP(true, bitWidth-fracBits, fracBits)
+      } else { 0.FP(true, bitWidth-fracBits, fracBits) }
       val new_val = (0 until neighborhood_size(0)).map { ii => (0 until neighborhood_size(1)).map{ jj => 
+        val is_self = self_position(ii*neighborhood_size(1) + jj) == 1
         val weight = movement_scalars(ii*neighborhood_size(1) + jj)
         val src_row = i - self_coords(0) + ii
         val src_col = j - self_coords(1) + jj
         val super_square_row = edge_thickness(0)._1 + src_row
         val super_square_col = edge_thickness(1)._1 + src_col  
-        if (weight != 0) {
+        val mac_ignore_self = is_self & {operation match {case MAC => true; case _ => false}}
+        if (weight != 0 & !mac_ignore_self) {
             if (src_row < 0 && src_col < 0) { // Quadrant 0
                 val quad1_correction = if (vertex_thickness(1)._1 * vertex_thickness(1)._2 == 0) {super_square_row * edge_thickness(1)._2} else 0
                 val src_addr = super_square_row * super_square_dims(1) + super_square_col - quad1_correction
@@ -171,27 +186,34 @@ class SystolicArray2D(val dims: List[Int], val neighborhood_size: List[Int], val
                 io.in(src_addr).FP(true, bitWidth-fracBits, fracBits)
             } else { // Internal source
                 val src_addr = src_row*dims(1) + src_col
-                weight.FP(true, bitWidth-fracBits, fracBits) *-* movement_scalars(ii*neighborhood_size(1) + jj).FP(true, bitWidth-fracBits, fracBits) *-* registers(src_addr).FP(true, bitWidth-fracBits, fracBits)
+                weight.FP(true, bitWidth-fracBits, fracBits) *-* registers(src_addr).FP(true, bitWidth-fracBits, fracBits)
             }            
         } else {
-            0.FP(true, bitWidth-fracBits, fracBits)
+          operation match {
+            case _@(Sum | Min | Max) => 0.FP(true, bitWidth-fracBits, fracBits)
+            case _@(MAC | Product) => 1.FP(true, bitWidth-fracBits, fracBits)
+          }
         }
 
       }}.flatten.reduce{ (a,b) => 
         operation match {
           case Sum      => a + b  
+          case MAC      => a *-* b  
           case Product  => a *-* b 
           case Min      => Mux(a < b, a, b) 
           case Max      => Mux(a < b, b, a) 
         }
-      }
+      } + mac_base
       when(io.shiftEn){
         registers(i*dims(1) + j) := new_val.r  
       }.elsewhen(io.reset){
         if (inits.isDefined){
           registers(i*dims(1) + j) := (inits.get.apply(i*dims(1)+j)*-*scala.math.pow(2,fracBits)).toLong.U(bitWidth.W)
         } else {
-          registers(i*dims(1) + j) := 0.U(bitWidth.W)
+          operation match {
+            case _@(Sum | Min | Max) => registers(i*dims(1)+j) := 0.U(bitWidth.W)
+            case _@(MAC | Product) => registers(i*dims(1)+j) := 1.U(bitWidth.W)
+          }
         }
       }.otherwise{
         registers(i*dims(1) + j) := registers(i*dims(1) + j)
