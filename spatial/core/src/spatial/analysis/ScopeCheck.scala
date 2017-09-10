@@ -22,7 +22,6 @@ trait ScopeCheck extends SpatialTraversal {
     case Const(_) => true
     case s: Sym[_] if s.tp == StringType => true   // Exception to allow debug printing to work
     case s if isOffChipMemory(s) => true
-    case Def(RegRead(reg)) => true // TODO: Bug # 222
     case _ => false
   }
 
