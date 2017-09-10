@@ -50,9 +50,13 @@ trait DimensionAnalyzer extends SpatialTraversal {
   override protected def postprocess[T:Type](b: Block[T]) = {
     offchips.foreach{dram =>
       val softDims = stagedDimsOf(dram).zipWithIndex.map{case (dim, i) => dim match {
-        case Op(RegRead(reg)) if isArgIn(reg) && softValues.contains(reg) =>
-          val softDim = softValues(reg)
-          assert(softDim.tp match {case IntType() => true; case _ => false})
+        case Op(RegRead(reg)) if isArgIn(reg) =>
+          if (!softValues.contains(reg)) {
+            warn(reg.ctx, u"ArgIn $reg was not set before used as a dimension of DRAM $dram")
+            warn("This will cause the DRAM to have a dimension of size 0")
+            warn(reg.ctx)
+          }
+          val softDim = softValues.getOrElse(reg, int32s(0))
           softDim.asInstanceOf[Exp[Index]]
         case _ if isGlobal(dim) => dim.asInstanceOf[Exp[Index]]
         case _ =>

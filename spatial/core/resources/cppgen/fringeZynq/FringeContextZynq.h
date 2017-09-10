@@ -281,9 +281,15 @@ public:
     }
   }
 
+  virtual void setNumArgIns(uint32_t number) {
+    numArgIns = number;
+  }
+
+  virtual void setNumArgIOs(uint32_t number) {
+  }
+
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
-    numArgIns++;
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
