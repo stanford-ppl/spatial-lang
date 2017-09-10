@@ -54,7 +54,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           w.node match {
             case Def(_:RegFileStore[_]) => (port, 1)
             case Def(_:RegFileShiftIn[_]) => (port, 1)
-            // case Def(_@ParRegFileShiftIn(_,_,d,data,en)) => ${d.length}
+            case Def(_@ParRegFileShiftIn(_,inds,d,data,en)) => (port, inds.length)
             case Def(_@ParRegFileStore(_,_,_,en)) => (port, en.length)
           }
         }
