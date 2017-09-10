@@ -702,16 +702,32 @@ always @ (posedge clk) begin
   end
 end
 
-/*
 always_ff @(posedge clk) begin
   if (Top_Out_io_M_AXI_0_AWVALID && Top_In_io_M_AXI_0_AWREADY) begin
-    $display("[%t]  Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_0_AWID, Top_Out_io_M_AXI_0_AWLEN, Top_Out_io_M_AXI_0_AWADDR);
+    $display("[%t] [Ch0] Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_0_AWID, Top_Out_io_M_AXI_0_AWLEN, Top_Out_io_M_AXI_0_AWADDR);
   end
   if (Top_Out_io_M_AXI_0_ARVALID && Top_In_io_M_AXI_0_ARREADY) begin
-    $display("[%t]  Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_0_ARID, Top_Out_io_M_AXI_0_ARLEN, Top_Out_io_M_AXI_0_ARADDR);
+    $display("[%t] [Ch 0] Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_0_ARID, Top_Out_io_M_AXI_0_ARLEN, Top_Out_io_M_AXI_0_ARADDR);
+  end
+  if (Top_Out_io_M_AXI_1_AWVALID && Top_In_io_M_AXI_1_AWREADY) begin
+    $display("[%t] [Ch 1] Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_1_AWID, Top_Out_io_M_AXI_1_AWLEN, Top_Out_io_M_AXI_1_AWADDR);
+  end
+  if (Top_Out_io_M_AXI_1_ARVALID && Top_In_io_M_AXI_1_ARREADY) begin
+    $display("[%t] [Ch 1] Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_1_ARID, Top_Out_io_M_AXI_1_ARLEN, Top_Out_io_M_AXI_1_ARADDR);
+  end
+  if (Top_Out_io_M_AXI_2_AWVALID && Top_In_io_M_AXI_2_AWREADY) begin
+    $display("[%t] [Ch 2] Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_2_AWID, Top_Out_io_M_AXI_2_AWLEN, Top_Out_io_M_AXI_2_AWADDR);
+  end
+  if (Top_Out_io_M_AXI_2_ARVALID && Top_In_io_M_AXI_2_ARREADY) begin
+    $display("[%t] [Ch 2] Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_2_ARID, Top_Out_io_M_AXI_2_ARLEN, Top_Out_io_M_AXI_2_ARADDR);
+  end
+  if (Top_Out_io_M_AXI_3_AWVALID && Top_In_io_M_AXI_3_AWREADY) begin
+    $display("[%t] [Ch 3] Store with ID %d of length %d to   0x%x", $realtime, Top_Out_io_M_AXI_3_AWID, Top_Out_io_M_AXI_3_AWLEN, Top_Out_io_M_AXI_3_AWADDR);
+  end
+  if (Top_Out_io_M_AXI_3_ARVALID && Top_In_io_M_AXI_3_ARREADY) begin
+    $display("[%t] [Ch 3] Load  with ID %d of length %d from 0x%x", $realtime, Top_Out_io_M_AXI_3_ARID, Top_Out_io_M_AXI_3_ARLEN, Top_Out_io_M_AXI_3_ARADDR);
   end
 end
-*/
 
 // State machine to set a bit high during duration of design execution
 logic [2:0] design_state; // S0 = initializing DDR, S1 = running, S2 = done
@@ -807,7 +823,7 @@ assign sh_cl_dma_pcis_bus.rready = sh_cl_dma_pcis_rready;
 
 // DDR-C channel
 assign cl_sh_ddr_awid = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWID : cl_sh_ddr_bus.awid;
-assign cl_sh_ddr_awaddr = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWADDR + 64'h10000000 : cl_sh_ddr_bus.awaddr;
+assign cl_sh_ddr_awaddr = ddr_commands_from_design ? 64'h40000000 + Top_Out_io_M_AXI_2_AWADDR : cl_sh_ddr_bus.awaddr;
 assign cl_sh_ddr_awlen = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWLEN : cl_sh_ddr_bus.awlen;
 assign cl_sh_ddr_awsize = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWSIZE : cl_sh_ddr_bus.awsize;
 assign cl_sh_ddr_awvalid =  ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWVALID : cl_sh_ddr_bus.awvalid;
@@ -823,7 +839,7 @@ assign cl_sh_ddr_bus.bresp = sh_cl_ddr_bresp;
 assign cl_sh_ddr_bus.bvalid = sh_cl_ddr_bvalid;
 assign cl_sh_ddr_bready = ddr_commands_from_design ? Top_Out_io_M_AXI_2_BREADY : cl_sh_ddr_bus.bready;
 assign cl_sh_ddr_arid = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARID : cl_sh_ddr_bus.arid;
-assign cl_sh_ddr_araddr = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARADDR + 64'h10000000 : cl_sh_ddr_bus.araddr;
+assign cl_sh_ddr_araddr = ddr_commands_from_design ? 64'h40000000 + Top_Out_io_M_AXI_2_ARADDR : cl_sh_ddr_bus.araddr;
 assign cl_sh_ddr_arlen = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARLEN : cl_sh_ddr_bus.arlen;
 assign cl_sh_ddr_arsize = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARSIZE : cl_sh_ddr_bus.arsize;
 assign cl_sh_ddr_arvalid = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARVALID : cl_sh_ddr_bus.arvalid;
