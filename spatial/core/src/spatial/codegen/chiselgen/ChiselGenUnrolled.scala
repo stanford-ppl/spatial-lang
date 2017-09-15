@@ -62,7 +62,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${lhs}_II_done.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
@@ -119,7 +119,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
-        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset | ${quote(lhs)}_II_done.D(1)""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${quote(lhs)}_II_done.D(1)""")
         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
       }
       // Set up accumulator signals if we do not recognize reduction function

@@ -32,7 +32,7 @@ class NBufCtr(val stride: Int = 1, val width: Int = 32) extends Module {
 
   val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.stop-stride.U, cnt-stride.U), cnt) // TODO: This could be an issue if strided counter is used in reverse
   val nextCntUp = Mux(io.input.enable, Mux(cnt + stride.U >= io.input.stop, 0.U + cnt+stride.U - io.input.stop, cnt+stride.U), cnt)
-  cnt := Mux(reset, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
+  cnt := Mux(reset.toBool, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
 
   io.output.count := effectiveCnt
 }

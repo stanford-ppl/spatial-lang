@@ -83,11 +83,21 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       // Console.println(s"$quote(row)")
       
     case op@LineBufferColSlice(lb,row,col,len) =>
-      // TODO: Multiple cycles
-      // Copied from ScalaGen:
-      // open(src"val $lhs = Array.tabulate($len){i =>")
-        // oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row,$col+i)") }
-      // close("}")
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val i = dispatch.head
+      for ( k <- 0 until getConstValue(len).toInt) {
+        emit(src"${lb}_$i.io.col_addr($k) := ${col}.raw")  
+      }
+      val rowtext = row match {
+        case Const(cc) => s"${cc}.U"
+        case _ => src"${row}.r"
+      }
+      emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${getConstValue(len)}, ${newWire(lhs.tp.typeArguments.head)}))""")
+      for ( k <- 0 until getConstValue(len).toInt) {
+        emit(src"${lhs}($k) := ${quote(lb)}_$i.readRowSlice(${rowtext}, ${k}.U).r")  
+      }
+
       
     case op@LineBufferLoad(lb,row,col,en) => 
       val dispatch = dispatchOf(lhs, lb).toList.distinct
