@@ -133,7 +133,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
-      //         emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset | ${quote(lhs)}_II_done.D(1)""")
+      //         emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${quote(lhs)}_II_done.D(1)""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")
       //     }
       //     case _ => 
