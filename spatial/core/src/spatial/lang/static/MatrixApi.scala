@@ -28,6 +28,21 @@ trait MatrixApi { this: SpatialApi =>
       assert(dim0*dim1*dim2*dim3*dim4 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+"x"+dim2.toText+"x"+dim3.toText+"x"+dim4.toText+")")
       tensor5(a, dim0, dim1, dim2, dim3, dim4)
     }
+    @virtualize
+    @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index)(implicit lift: Lift[Int,Index]): Matrix[T] = {
+      val out_rows = (imgdim0-filterdim0+1) * (imgdim1-filterdim1+1)
+      val out_cols = imgdim0*imgdim1
+
+      // val data = MArray.tabulate(out_rows * out_cols){k => 
+      //   val i = (k / out_cols)
+      //   val j = (k % out_cols)
+      //   val filter_i = (j - i) / imgdim1
+      //   val filter_j = (j - i) % imgdim1 
+      //   if (filter_j < filterdim1) a(filter_i * filterdim1 + filter_j) else lift(0).s
+      // }
+      // matrix(data, out_rows, out_cols)
+      a.reshape(filterdim0, filterdim1) 
+    }
   }
 
 

@@ -177,7 +177,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       (i.U -> linebuffer(i).io.output.data(j))
       // }
     }
-    for (i <- 0 until (num_lines)) { // ENHANCEMENT: num_lines -> row par
+    for (i <- 0 until (row_rPar)) { // ENHANCEMENT: num_lines -> row par
       io.data_out(i*-*col_rPar + j) := MuxLookup(READ_countRowNum(i).io.output.count, 0.U, linebuf_read_wires_map)
     }    
   }
@@ -189,10 +189,10 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     MuxLookup(row, 0.U,  readableData)
   }
   def readRowSlice(row: UInt, relative_col: UInt): UInt = { 
-    val readableData = (0 until row_rPar).map { i =>
+    val readableData = (0 until row_rPar * col_rPar).map { i =>
       (i.U -> io.data_out(i))
     }
-    MuxLookup(row, 0.U,  readableData)
+    MuxLookup(row *-* col_rPar.U + relative_col, 0.U,  readableData)
   }
   def readRow(row: Int): UInt = { 
     io.data_out(row)

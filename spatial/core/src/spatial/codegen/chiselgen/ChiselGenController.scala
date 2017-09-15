@@ -684,6 +684,7 @@ trait ChiselGenController extends ChiselGenCounter{
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      createInstrumentation(lhs)
       emitStandardSignals(lhs)
       emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
@@ -762,6 +763,7 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      createInstrumentation(lhs)
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")

@@ -87,7 +87,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
       for ( k <- 0 until getConstValue(len).toInt) {
-        emit(src"${lb}_$i.io.col_addr($k) := ${col}.raw")  
+        emit(src"${lb}_$i.io.col_addr($k) := ${col}.r + ${k}.U")  
       }
       val rowtext = row match {
         case Const(cc) => s"${cc}.U"
