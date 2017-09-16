@@ -30,20 +30,19 @@ trait MatrixApi { this: SpatialApi =>
     }
   }
 
-  implicit class FilterToeplitz[T:Type:Num](a: MArray[T]) {
+  implicit class FilterToeplitz[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
     @virtualize
-    @api def toeplitz[T:Type:Num](filterdim0: Int, filterdim1: Int, imgdim0: Int, imgdim1: Int, stride0: Int, stride1: Int)(implicit lift: Lift[Int,T]): Matrix[T] = {
+    @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index): Matrix[T] = {
       // TODO: Incorporate stride
       val out_rows = (imgdim0-filterdim0+1) * (imgdim1-filterdim1+1)
       val out_cols = imgdim0*imgdim1
-      implicit val vT = VectorN.typeFromLen[T](out_rows*out_cols)
 
       val data = MArray.tabulate(out_rows * out_cols){k => 
         val i = (k / out_cols)
         val j = (k % out_cols)
         val filter_i = (j - i) / imgdim1
         val filter_j = (j - i) % imgdim1 
-        if (filter_j < filterdim1) a(filter_i * filterdim1 + filter_j) else lift(0)
+        if (filter_j < filterdim1) a(filter_i * filterdim1 + filter_j) else 0.to[T]
       }
       matrix(data, out_rows, out_cols)
       // a.reshape(filterdim0, filterdim1) 

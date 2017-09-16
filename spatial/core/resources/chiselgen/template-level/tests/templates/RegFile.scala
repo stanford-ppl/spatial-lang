@@ -110,7 +110,7 @@ class NBufShiftRegFileTests(c: NBufShiftRegFile) extends PeekPokeTester(c) {
         val axis = if (c.dims.length == 1) {0} else {(i - coords.last) / c.dims.last }
         if (shift_ens(axis) == 1 & buf == 0) {
           if (coords.last < c.stride) {
-            gold(i) = new_datas(axis*c.stride + i%c.stride)
+            gold(i) = new_datas(axis*c.stride + c.stride - 1 - (i%c.stride) )
           } else {
             gold(i) = gold(i-c.stride)
           }

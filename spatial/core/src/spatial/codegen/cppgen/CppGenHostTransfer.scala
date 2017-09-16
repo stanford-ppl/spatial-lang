@@ -42,25 +42,25 @@ trait CppGenHostTransfer extends CppGenSRAM  {
     case SetArg(reg, v) => 
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"c1->setArg(${reg.name.get}, $v * ((int64_t)1 << $f), ${isHostIO(reg)});")
+            emit(src"c1->setArg(${argMapping(reg)._2}, $v * ((int64_t)1 << $f), ${isHostIO(reg)}); // $reg")
             emit(src"$reg = $v;")
           } else {
-            emit(src"c1->setArg(${reg.name.get}, $v, ${isHostIO(reg)});")
+            emit(src"c1->setArg(${argMapping(reg)._2}, $v, ${isHostIO(reg)});")
             emit(src"$reg = $v;")
           }
         case FltPtType(g,e) =>         
           emit(src"int64_t ${v}_raw;")
           emit(src"memcpy(&${v}_raw, &${v}, sizeof(${v}));")
           emit(src"${v}_raw = ${v}_raw & ((int64_t) 0 | (int64_t) pow(2,${g+e}) - 1);")
-          emit(src"c1->setArg(${reg.name.get}, ${v}_raw, ${isHostIO(reg)});")
+          emit(src"c1->setArg(${argMapping(reg)._2}, ${v}_raw, ${isHostIO(reg)}); // $reg")
           emit(src"$reg = $v;")
         case _ => 
-            emit(src"c1->setArg(${reg.name.get}, $v, ${isHostIO(reg)});")
+            emit(src"c1->setArg(${argMapping(reg)._2}, $v, ${isHostIO(reg)}); // $reg")
             emit(src"$reg = $v;")
       }
     case GetArg(reg)    => 
       val get_string = reg match {
-        case Def(ArgInNew(_)) => src"c1->getArgIn(${reg.name.get}, ${isHostIO(reg)})" 
+        case Def(ArgInNew(_)) => src"c1->getArgIn(${argMapping(reg)._2}, ${isHostIO(reg)})" 
         case _ => src"c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)})"
       }
       reg.tp.typeArguments.head match {
