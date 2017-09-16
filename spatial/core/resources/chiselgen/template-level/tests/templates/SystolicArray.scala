@@ -15,7 +15,8 @@ class SystolicArray2DTests(c: SystolicArray2D) extends PeekPokeTester(c) {
   // Create super square for input data
   val super_square = (0 until c.super_square_dims(0)).map{i => 
     (0 until c.super_square_dims(1)).map{j => 
-      BigInt((i*c.super_square_dims(1) + j))
+      // BigInt((i*c.super_square_dims(1) + j))
+      BigInt(rnd.nextInt(3)+1)
     }
   }
 
@@ -65,12 +66,22 @@ class SystolicArray2DTests(c: SystolicArray2D) extends PeekPokeTester(c) {
   for (i <- 0 until c.super_square_dims(0)) {
     for (j <- 0 until c.super_square_dims(1)){
       if (super_square_mask(i)(j) == 1) gold(i)(j) = super_square(i)(j)
+      else { c.operation match {
+          case _@(Sum | Min | Max) => gold(i)(j) = 0
+          case _@(MAC | Product) => gold(i)(j) = 1
+        }
+      }
     }
   }
   var gold_tmp = ArrayBuffer.fill[BigInt](c.super_square_dims(0), c.super_square_dims(1))(0)
   for (i <- 0 until c.super_square_dims(0)) {
     for (j <- 0 until c.super_square_dims(1)){
       if (super_square_mask(i)(j) == 1) gold_tmp(i)(j) = super_square(i)(j)
+      else { c.operation match {
+          case _@(Sum | Min | Max) => gold(i)(j) = 0
+          case _@(MAC | Product) => gold(i)(j) = 1
+        }
+      }
     }
   }
 
@@ -93,6 +104,15 @@ class SystolicArray2DTests(c: SystolicArray2D) extends PeekPokeTester(c) {
   def updateGold(): Unit = {
     for(i <- 0 until c.dims(0)){
       for (j <- 0 until c.dims(1)){
+        val mac_base = if (c.operation match {case MAC => true; case _ => false}) {
+          val src_row = i
+          val src_col = j
+          val super_square_row = c.edge_thickness(0)._1 + src_row
+          val super_square_col = c.edge_thickness(1)._1 + src_col  
+          val weight = BigInt(c.movement_scalars(c.self_coords(0)*c.neighborhood_size(1) + c.self_coords(1)).toInt)
+          val src_addr = src_row*c.dims(1) + src_col
+          weight * gold(super_square_row)(super_square_col)
+        } else { BigInt(0) }
         val new_val = (0 until c.neighborhood_size(0)).map { ii =>
           (0 until c.neighborhood_size(1)).map { jj =>
             val weight = c.movement_scalars(ii*c.neighborhood_size(1) + jj)
@@ -100,45 +120,65 @@ class SystolicArray2DTests(c: SystolicArray2D) extends PeekPokeTester(c) {
             val src_col = j - c.self_coords(1) + jj
             val super_square_row = c.edge_thickness(0)._1 + src_row
             val super_square_col = c.edge_thickness(1)._1 + src_col  
-            if (weight != 0) {
+            val is_self = c.self_position(ii*c.neighborhood_size(1) + jj) == 1
+            val mac_ignore_self = is_self & {c.operation match {case MAC => true; case _ => false}}
+            if (weight != 0 & !mac_ignore_self) {
               gold(super_square_row)(super_square_col) * BigInt(weight.toInt)
             } else {
-              BigInt(0)
+              c.operation match {
+                case _@(Sum | Min | Max) => BigInt(0)
+                case _@(MAC | Product) => BigInt(1)
+              }
             }
           }
         }.flatten.reduce{(a,b) => 
           c.operation match {
             case Sum      => a + b  
+            case MAC  => a * b 
             case Product  => a * b 
             case Min      => if (a < b) a else b 
             case Max      => if (a < b) b else a
           }
-        }
+        } + mac_base
         val start_0 = c.edge_thickness(0)._1
         val start_1 = c.edge_thickness(1)._1
         gold_tmp(i+start_0)(j+start_1) = new_val.toInt
       }
     }
+    println("\nGold: ")
     for(i <- 0 until c.super_square_dims(0)){
+      println(" ")
       for(j <- 0 until c.super_square_dims(1)){
+        print("\t" + gold_tmp(i)(j))
         gold(i)(j) = gold_tmp(i)(j)
       }
+      print("\t")
     }
   }
 
-  // Touch inputs
-  var id = 0
-  for (i <- 0 until c.super_square_dims(0)) {
-    for (j <- 0 until c.super_square_dims(1)) {
-      if (super_square_mask(i)(j) == 1) {
-        poke(c.io.in(id), super_square(i)(j))
-        id = id + 1
+  val total_shifts = c.dims(0)
+  val num_shifts_before_killing_inputs = 2
+  for (iter <- 0 until total_shifts) { 
+    // Touch inputs
+    var id = 0
+    for (i <- 0 until c.super_square_dims(0)) {
+      for (j <- 0 until c.super_square_dims(1)) {
+        if (iter == 0) {
+          if (super_square_mask(i)(j) == 1) {
+            poke(c.io.in(id), super_square(i)(j))
+            id = id + 1
+          } 
+        } else if (iter >= num_shifts_before_killing_inputs) {
+          if (super_square_mask(i)(j) == 1) {
+            gold(i)(j) = 0
+            gold_tmp(i)(j) = 0
+            poke(c.io.in(id), 0)
+            id = id + 1            
+          }
+        }
       }
     }
-  }
 
-  val num_shifts = 10
-  for (i <- 0 until num_shifts) { 
     step(1)
     poke(c.io.shiftEn, 1)
     step(1)
@@ -160,81 +200,6 @@ class SystolicArray2DTests(c: SystolicArray2D) extends PeekPokeTester(c) {
   }
 
 
-
-  // // println("Flush buffer")
-  // for (i <- 0 until c.num_lines*c.line_size + 1 by c.col_wPar) {
-  //   poke(c.io.sEn(0), 1)
-  //   poke(c.io.w_en, 1)
-  //   for (j <- 0 until c.col_wPar) {
-  //     poke(c.io.data_in(j), 0)      
-  //   }
-  //   step(1)
-  //   if (i % c.line_size == 0) {
-  //     poke(c.io.sDone(0), 1)
-  //     poke(c.io.w_en, 0)
-  //     step(1)
-  //     poke(c.io.sEn(0), 0)
-  //     poke(c.io.sDone(0), 0)
-  //     step(1)
-  //   }
-
-  // }
-  // poke(c.io.w_en, 0)
-  // step(1)
-
-  // val iters = (c.num_lines + c.extra_rows_to_buffer) * 3
-  // for (iter <- 0 until iters) {
-  //   // println("Filling lines")
-  //   for (k <- 0 until c.extra_rows_to_buffer) {
-  //     for (i <- 0 until c.line_size by c.col_wPar) {
-  //       poke(c.io.sEn(0), 1)
-  //       poke(c.io.w_en, 1)
-  //       for (j <- 0 until c.col_wPar) {
-  //         poke(c.io.data_in(j), 100*(iter*c.extra_rows_to_buffer+k) + i + j)      
-  //       }
-  //       step(1)
-  //     }
-  //     poke(c.io.sDone(0), 1)
-  //     poke(c.io.w_en, 0)
-  //     step(1)
-  //     poke(c.io.sEn(0), 0)
-  //     poke(c.io.sDone(0), 0)
-  //     step(1)
-
-  //   }
-
-  //   // println("Checking line")
-  //   var rows_concat = List.fill(c.num_lines)(new StringBuilder)
-  //   var gold_concat = List.fill(c.num_lines)(new StringBuilder)
-  //   for (col <- 0 until c.line_size by c.col_rPar) {
-  //     for (j <- 0 until c.col_rPar) {
-  //       poke(c.io.col_addr(j), col + j)
-  //     }
-  //     for (row <- 0 until c.num_lines) {
-  //       val init = if (iter*c.extra_rows_to_buffer - (c.num_lines - c.extra_rows_to_buffer - row) < 0) 0 else 1
-  //       val scalar = iter*c.extra_rows_to_buffer - (c.num_lines - c.extra_rows_to_buffer - row)
-  //       for (j <- 0 until c.col_rPar) {
-  //         val r = peek(c.io.data_out(row*c.col_rPar + j))
-  //         val g = init*(scalar*100 + col + j)
-  //         expect(c.io.data_out(row*c.col_rPar+j), g)
-  //         rows_concat(row) ++= r.toString
-  //         rows_concat(row) ++= " "        
-  //         gold_concat(row) ++= g.toString
-  //         gold_concat(row) ++= " "        
-  //       }
-  //     }
-  //     step(1)
-  //   }
-  //   // println("Saw:")
-  //   for (row <- 0 until c.num_lines) {
-  //     // println(rows_concat(row) + " ")
-  //   }
-  //   // println("Expected:")
-  //   for (row <- 0 until c.num_lines) {
-  //     // println(gold_concat(row) + " ")
-  //   }
-
-  // }
 
   
 }

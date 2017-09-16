@@ -230,20 +230,20 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
                     emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren.D(${symDelay(lhs)})""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.input.reset := reset | ${reg}_resetter ${manualReset}""")
+                    emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | ${reg}_resetter ${manualReset}""")
                     emit(src"""${lhs} := ${reg}_${ii}.io.output""")
                     emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-                    emit(src"""${reg}_${ii}.write(${data_string}, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}+1), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write(${data_string}, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}), reset | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }
@@ -251,7 +251,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-              emit(src"""${reg}_${ii}.write($v, $en & (${parent}_datapath_en & ${parent}_II_done).D(${symDelay(lhs)}), reset ${manualReset}, List($ports), ${reg}_initval.number)""")
+              emit(src"""${reg}_${ii}.write($v, $en & (${parent}_datapath_en & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
             }
         }
       }

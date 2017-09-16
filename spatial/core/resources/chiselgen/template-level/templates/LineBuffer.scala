@@ -188,6 +188,12 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     }
     MuxLookup(row, 0.U,  readableData)
   }
+  def readRowSlice(row: UInt, relative_col: UInt): UInt = { 
+    val readableData = (0 until row_rPar).map { i =>
+      (i.U -> io.data_out(i))
+    }
+    MuxLookup(row, 0.U,  readableData)
+  }
   def readRow(row: Int): UInt = { 
     io.data_out(row)
   }

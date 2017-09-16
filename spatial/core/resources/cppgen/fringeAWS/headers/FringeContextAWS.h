@@ -1,5 +1,5 @@
-#ifndef __FRINGE_CONTEXT_SIM_H__
-#define __FRINGE_CONTEXT_SIM_H__
+#ifndef __FRINGE_CONTEXT_AWS_H__
+#define __FRINGE_CONTEXT_AWS_H__
 
 #include "FringeContextBase.h"
 
@@ -10,7 +10,7 @@
 
 #ifdef SIM // Sim
   #include "sh_dpi_tasks.h"
-  #define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL 0
+  #define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL A
   #define ATG                 UINT64_C_AWS(0x30)
 #else // F1
   #include <fcntl.h>    // Probably don't need most of these headers
@@ -240,6 +240,7 @@ public:
   // Copy host to device
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
 #ifdef SIM
+    printf("[memcpy HOST->DEV] hostmem = %p, devmem = %lx, size = %lx\n", hostmem, devmem, size);
     TMP_que_buffer_to_cl((uint64_t)hostmem, devmem + 0x10000000, size);
     TMP_start_que_to_cl();
     /*
@@ -272,6 +273,7 @@ public:
   // Copy device to host
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
 #ifdef SIM
+    printf("[memcpy DEV->HOST] hostmem = %p, devmem = %lx, size = %lx\n", hostmem, devmem, size);
     TMP_que_cl_to_buffer((uint64_t)hostmem, devmem + 0x10000000, size);
     TMP_start_que_to_buffer();
     /*
@@ -304,6 +306,7 @@ public:
   // set enable high in app and poll until done is high
   virtual void run() {
 #ifdef SIM
+    printf("[run] Begin\n");
     aws_poke(BASE_ADDR + ATG, 0x00000001);
 #else // F1
     assert(fsync(fd) == 0); // TODO: Is this needed?
@@ -317,6 +320,7 @@ public:
     // De-assert enable?
 #ifdef SIM
     aws_poke(BASE_ADDR + ATG, 0x00000000);
+    printf("[run] Done\n");
 #else // F1
     /*
     uint32_t total_cycles;

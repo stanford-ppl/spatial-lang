@@ -18,6 +18,7 @@ module test;
   export "DPI" function pokeDRAMWriteResponse;
   export "DPI" function getDRAMReadRespReady;
   export "DPI" function getDRAMWriteRespReady;
+  export "DPI" function getCycles;
   export "DPI" function writeStream;
   export "DPI" function startVPD;
   export "DPI" function startVCD;
@@ -28,12 +29,16 @@ module test;
   reg reset = 1;
   reg finish = 0;
 
+  longint numCycles = 0;
+
   function void start();
     reset = 0;
+    numCycles = 0;
   endfunction
 
   function void rst();
     reset = 1;
+    numCycles = 0;
   endfunction
 
   always #`CLOCK_PERIOD clock = ~clock;
@@ -411,7 +416,10 @@ module test;
     io_dram_0_wresp_valid = 0;
   end
 
-  int numCycles = 0;
+
+  function void getCycles(output longint cycles);
+    cycles = numCycles;
+  endfunction
 
   always @(posedge clock) begin
 

@@ -52,8 +52,8 @@ int sendResp(simCmd *cmd) {
 
 // Set containing allocated pages
 set<uint64_t> allocatedPages;
-uint64_t numCycles = 0;
 queue<simCmd*> pendingOps;
+uint64_t numCycles = 0;
 
 extern "C" {
   // Callback function from SV when there is valid data
@@ -74,7 +74,7 @@ extern "C" {
   int tick() {
     bool exitTick = false;
     int finishSim = 0;
-    numCycles++;
+    getCycles((long long int*)(&numCycles));
 
     // Handle pending operations, if any
     if (pendingOps.size() > 0) {
@@ -174,12 +174,23 @@ extern "C" {
           start();
           exitTick = true;
           break;
-        case STEP:
+        case STEP: {
           exitTick = true;
           if (!useIdealDRAM) {
             mem->update();
           }
           break;
+        }
+        case GET_CYCLES: {
+          exitTick = true;
+          simCmd resp;
+          resp.id = cmd->id;
+          resp.cmd = cmd->cmd;
+          *(uint64_t*)resp.data = numCycles;
+          resp.size = sizeof(size_t);
+          respChannel->send(&resp);
+          break;
+        }
         case READ_REG: {
             reg = *((uint32_t*)cmd->data);
 

@@ -158,8 +158,9 @@ class Top(
 	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 
   val numChannels = target match {
-    case "zynq" => 4
-    case _      => 1
+    case "zynq"             => 4
+    case "aws" | "aws-sim"  => 4
+    case _                  => 1
   }
 
   val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
@@ -298,7 +299,7 @@ class Top(
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
-      accel.reset := reset
+      accel.reset := reset.toBool
 
     case "zynq" =>
       // Zynq Fringe
@@ -327,7 +328,7 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      accel.reset := ~reset
+      accel.reset := ~reset.toBool
 
     case "aws" | "aws-sim" =>
       val topIO = io.asInstanceOf[AWSInterface]

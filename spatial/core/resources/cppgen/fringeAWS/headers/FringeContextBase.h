@@ -20,8 +20,8 @@ public:
   virtual uint64_t readReg(uint32_t reg) = 0;
   virtual uint64_t getArg(uint32_t arg, bool isIO) = 0;
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) = 0;
-  virtual void setNumArgIns(uint32_t number);
-  virtual void setNumArgIOs(uint32_t number);
+  virtual void setNumArgIns(uint32_t number) = 0;
+  virtual void setNumArgIOs(uint32_t number) = 0;
 
   ~FringeContextBase() {
     delete dut;
