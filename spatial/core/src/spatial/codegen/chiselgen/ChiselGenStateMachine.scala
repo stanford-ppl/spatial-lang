@@ -43,7 +43,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         val stop = if (levelOf(lhs) == InnerControl) { iiOf(lhs) + 1} else {iiOf(lhs)} // I think innerpipes need one extra delay because of logic inside sm
         emit(src"""${lhs}_IICtr.io.input.stop := ${stop}.S // ${lhs}_retime.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${lhs}_II_done.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       // emitGlobalWire(src"""val ${lhs}_II_done = true.B // Maybe this should handled differently""")

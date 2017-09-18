@@ -61,6 +61,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
         state := pipeReset.U
       }.elsewhen( state === pipeReset.U ) {
         io.output.done := false.B
+        io.output.ctr_inc := false.B
         io.output.rst_en := true.B;
         state := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
         when (rstCtr.io.output.done) {
@@ -68,6 +69,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
           state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
         }
       }.elsewhen( state === pipeRun.U ) {
+        io.output.rst_en := false.B
         io.output.done := false.B
         io.output.ctr_inc := true.B
         when (io.input.ctr_done) {
@@ -77,9 +79,13 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
           state := pipeRun.U
         }
       }.elsewhen( state === pipeDone.U ) {
+        io.output.rst_en := false.B
+        io.output.ctr_inc := false.B
         io.output.done := Mux(io.input.forever, false.B, true.B)
         state := pipeSpinWait.U
       }.elsewhen( state >= pipeSpinWait.U ) {
+        io.output.ctr_inc := false.B
+        io.output.rst_en := false.B
         io.output.done := false.B
         state := Mux(state >= (pipeSpinWait + retime).U, pipeInit.U, state + 1.U);
       } 
@@ -99,7 +105,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     stateFSM.io.input(0).data := io.input.nextState.asUInt
     stateFSM.io.input(0).init := io.input.initState.asUInt
     stateFSM.io.input(0).enable := io.input.enable
-    stateFSM.io.input(0).reset := reset | ~io.input.enable
+    stateFSM.io.input(0).reset := reset.toBool | ~io.input.enable
     io.output.state := stateFSM.io.output.data.asSInt
 
     doneReg.io.input.set := io.input.doneCondition & io.input.enable

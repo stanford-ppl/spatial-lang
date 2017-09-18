@@ -102,10 +102,12 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
     deadState.io.input.reset := false.B
     when(state === initState.U) {   // INIT -> RESET
       stateFF.io.input(0).data := resetState.U
+      doneClear := false.B
       io.output.stageEnable.foreach { s => s := false.B}
       cycsSinceDone.io.input(0).enable := false.B
     }.elsewhen (state === resetState.U) {  // RESET -> FILL
-      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, 
+      doneClear := false.B
+      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U(numIterWidth.W), 
                           Mux(io.input.forever, steadyState.U, Mux(rstCtr.io.output.done, doneState.U, resetState.U)), 
                           Mux(rstCtr.io.output.done, fillState.U, resetState.U)) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
@@ -116,7 +118,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         when((state === i.U)) {
           io.output.stageEnable.zip(doneMask).zipWithIndex.take(fillStateID+1).foreach { 
             case ((en, done), ii) => 
-              en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U) & io.input.stageMask(ii)
+              en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U(numIterWidth.W)) & io.input.stageMask(ii)
           }
           io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
           val doneMaskInts = doneMask.zip(io.input.stageMask).zipWithIndex.map{case ((a,b),iii) => (a | ~b) & iii.U >= cycsSinceDone.io.output.data}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
@@ -126,6 +128,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
 
           when (doneTree === 1.U) {
             if (i+1 == steadyState) { // If moving to steady state
+              cycsSinceDone.io.input(0).enable := false.B
               stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.S < max.asSInt , 
                           steadyState.U, 
                           Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
@@ -146,6 +149,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       }
     }.elsewhen (state === steadyState.U) {  // STEADY
       io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := ~doneMask(i) & io.input.stageMask(i)  }
+      cycsSinceDone.io.input(0).enable := false.B
 
       val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
@@ -162,6 +166,8 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         deadState.io.input.set := false.B
       }
     }.elsewhen (state < doneState.U) {   // DRAIN
+      cycsSinceDone.io.input(0).enable := false.B
+
       for ( i <- drainState until doneState) {
         val drainStateID = i - drainState
         when (state === i.U) {
@@ -179,19 +185,23 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         }
       }
     }.elsewhen (state === doneState.U) {  // DONE
+      io.output.stageEnable.foreach { s => s := false.B}
       doneClear := false.B
       stateFF.io.input(0).data := initState.U
       deadState.io.input.set := false.B
     }.otherwise {
+      io.output.stageEnable.foreach { s => s := false.B}
       stateFF.io.input(0).data := state
       deadState.io.input.set := false.B
     }
   }.elsewhen(deadState.io.output.data){
     deadState.io.input.set := false.B
     deadState.io.input.reset := true.B
+    // io.output.stageEnable.foreach { s => s := false.B}
     stateFF.io.input(0).data := state
     cycsSinceDone.io.input(0).enable := false.B
   }.otherwise {
+    cycsSinceDone.io.input(0).enable := false.B
     deadState.io.input.set := false.B
     deadState.io.input.reset := true.B
     (0 until n).foreach { i => io.output.stageEnable(i) := false.B }

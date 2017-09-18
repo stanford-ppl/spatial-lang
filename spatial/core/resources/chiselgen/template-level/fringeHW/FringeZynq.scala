@@ -71,7 +71,7 @@ class FringeZynq(
     val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
-    fringeCommon.reset := ~reset
+    fringeCommon.reset := ~reset.toBool
     fringeCommon.io.raddr := axiLiteBridge.io.raddr
     fringeCommon.io.wen   := axiLiteBridge.io.wen
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
