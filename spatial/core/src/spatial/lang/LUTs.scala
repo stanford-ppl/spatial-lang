@@ -9,22 +9,42 @@ trait LUT[T] { this: Template[_] =>
   def s: Exp[LUT[T]]
 }
 object LUT {
+  /**
+    * Creates a 1-dimensional read-only lookup table with given elements.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def apply[T:Type:Bits](dim: Int)(elems: T*): LUT1[T] = {
     checkDims(Seq(dim),elems)
     LUT1(alloc[T,LUT1](Seq(dim), unwrap(elems)))
   }
+  /**
+    * Creates a 2-dimensional read-only lookup table with given elements.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def apply[T:Type:Bits](dim1: Int, dim2: Int)(elems: T*): LUT2[T] = {
     checkDims(Seq(dim1,dim2),elems)
     LUT2(alloc[T,LUT2](Seq(dim1,dim2), unwrap(elems)))
   }
+  /**
+    * Creates a 3-dimensional read-only lookup table with given elements.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def apply[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int)(elems: T*): LUT3[T] = {
     checkDims(Seq(dim1,dim2,dim3),elems)
     LUT3(alloc[T,LUT3](Seq(dim1,dim2,dim3), unwrap(elems)))
   }
+  /**
+    * Creates a 4-dimensional read-only lookup table with given elements.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def apply[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int, dim4: Int)(elems: T*): LUT4[T] = {
     checkDims(Seq(dim1,dim2,dim3,dim4),elems)
     LUT4(alloc[T,LUT4](Seq(dim1,dim2,dim3,dim4), unwrap(elems)))
   }
+  /**
+    * Creates a 5-dimensional read-only lookup table with given elements.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def apply[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int)(elems: T*): LUT5[T] = {
     checkDims(Seq(dim1,dim2,dim3,dim4,dim5),elems)
     LUT5(alloc[T,LUT5](Seq(dim1,dim2,dim3,dim4,dim5), unwrap(elems)))
@@ -41,18 +61,43 @@ object LUT {
     }
   }
 
+  /**
+    * Creates a 1-dimensional read-only lookup table from the given data file.
+    * Note that this file is read during `compilation`, not runtime.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def fromFile[T:Type:Bits](dim1: Int)(filename: String): LUT1[T] = {
     LUT[T](dim1)(readData[T](filename):_*)
   }
+  /**
+    * Creates a 2-dimensional read-only lookup table from the given data file.
+    * Note that this file is read during `compilation`, not runtime.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int)(filename: String): LUT2[T] = {
     LUT[T](dim1, dim2)(readData[T](filename):_*)
   }
+  /**
+    * Creates a 3-dimensional read-only lookup table from the given data file.
+    * Note that this file is read during `compilation`, not runtime.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int)(filename: String): LUT3[T] = {
     LUT[T](dim1, dim2, dim3)(readData[T](filename): _*)
   }
+  /**
+    * Creates a 4-dimensional read-only lookup table from the given data file.
+    * Note that this file is read during `compilation`, not runtime.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int, dim4: Int)(filename: String): LUT4[T] = {
     LUT[T](dim1, dim2, dim3, dim4)(readData[T](filename):_*)
   }
+  /**
+    * Creates a 5-dimensional read-only lookup table from the given data file.
+    * Note that this file is read during `compilation`, not runtime.
+    * The number of supplied elements must match the given dimensions.
+    */
   @api def fromFile[T:Type:Bits](dim1: Int, dim2: Int, dim3: Int, dim4: Int, dim5: Int)(filename: String): LUT5[T] = {
     LUT[T](dim1, dim2, dim3, dim4, dim5)(readData[T](filename):_*)
   }
@@ -97,6 +142,7 @@ object LUT {
 }
 
 case class LUT1[T:Type:Bits](s: Exp[LUT1[T]]) extends Template[LUT1[T]] with LUT[T] {
+  /** Returns the element at the given address `i`. **/
   @api def apply(i: Index): T = wrap(LUT.load(s, Seq(i.s), Bit.const(true)))
 }
 object LUT1 {
@@ -104,6 +150,7 @@ object LUT1 {
 }
 
 case class LUT2[T:Type:Bits](s: Exp[LUT2[T]]) extends Template[LUT2[T]] with LUT[T] {
+  /** Returns the element at the given address `r`, `c`. **/
   @api def apply(r: Index, c: Index): T = wrap(LUT.load(s, Seq(r.s, c.s), Bit.const(true)))
   // @api def rows: Index = wrap(stagedDimsOf(s).apply(0))
   // @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
@@ -113,6 +160,7 @@ object LUT2 {
 }
 
 case class LUT3[T:Type:Bits](s: Exp[LUT3[T]]) extends Template[LUT3[T]] with LUT[T] {
+  /** Returns the element at the given 3-dimensional address. **/
   @api def apply(r: Index, c: Index, p: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s), Bit.const(true)))
 }
 object LUT3 {
@@ -120,6 +168,7 @@ object LUT3 {
 }
 
 case class LUT4[T:Type:Bits](s: Exp[LUT4[T]]) extends Template[LUT4[T]] with LUT[T] {
+  /** Returns the element at the given 4-dimensional address. **/
   @api def apply(r: Index, c: Index, p: Index, q: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s), Bit.const(true)))
 }
 object LUT4 {
@@ -127,6 +176,7 @@ object LUT4 {
 }
 
 case class LUT5[T:Type:Bits](s: Exp[LUT5[T]]) extends Template[LUT5[T]] with LUT[T] {
+  /** Returns the element at the given 5-dimensional address. **/
   @api def apply(r: Index, c: Index, p: Index, q: Index, m: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s, m.s), Bit.const(true)))
 }
 object LUT5 {

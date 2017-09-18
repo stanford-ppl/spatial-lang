@@ -5,14 +5,18 @@ import forge._
 import spatial.nodes._
 
 case class StreamIn[T:Type:Bits](s: Exp[StreamIn[T]]) extends Template[StreamIn[T]] {
+  /** Returns the current `value` of this StreamIn. **/
   @api def value(): T = this.value(true)
   @api def value(en: Bit): T = wrap(StreamIn.read(s, en.s)) // Needed?
 }
 case class StreamOut[T:Type:Bits](s: Exp[StreamOut[T]]) extends Template[StreamOut[T]] {
-  @api def :=(value: T): MUnit = this := (value, true)
-  @api def :=(value: T, en: Bit): MUnit = MUnit(StreamOut.write(s, value.s, en.s))
+  /** Connect the given `data` to this StreamOut. **/
+  @api def :=(data: T): MUnit = this := (data, true)
+  /** Connect the given `data` to this StreamOut with enable `en`. **/
+  @api def :=(data: T, en: Bit): MUnit = MUnit(StreamOut.write(s, data.s, en.s))
 }
 case class BufferedOut[T:Type:Bits](s: Exp[BufferedOut[T]]) extends Template[BufferedOut[T]] {
+  /** Write `data` to the given two dimensional address. **/
   @api def update(row: Index, col: Index, data: T): MUnit = MUnit(BufferedOut.write(s, data.s, Seq(row.s,col.s), Bit.const(true)))
 }
 
@@ -34,6 +38,7 @@ object StreamIn {
 
   implicit def streamInType[T:Type:Bits]: Type[StreamIn[T]] = StreamInType(typ[T])
 
+  /** Creates a StreamIn of type T connected to the specified `bus` pins. **/
   @api def apply[T:Type:Bits](bus: Bus): StreamIn[T] = {
     bus_check[T](bus)
     StreamIn(alloc[T](bus))
@@ -57,6 +62,7 @@ object StreamOut {
 
   implicit def streamOutType[T:Type:Bits]: Type[StreamOut[T]] = StreamOutType(typ[T])
 
+  /** Creates a StreamOut of type T connected to the specified target bus pins. **/
   @api def apply[T:Type:Bits](bus: Bus): StreamOut[T] = {
     bus_check[T](bus)
     StreamOut(alloc[T](bus))
@@ -80,6 +86,10 @@ object BufferedOut {
   implicit def bufferedOutType[T:Type:Bits]: Type[BufferedOut[T]] = BufferedOutType(typ[T])
 
   // TODO: Should also be able to specify # of rows and columns
+  /**
+    * Creates a BufferedOut of type T connected to the specified bus.
+    * The size of the buffer is currently fixed at 240 x 320 elements.
+    */
   @api def apply[T:Type:Bits](bus: Bus): BufferedOut[T] = {   // (rows: Index, cols: Index)
     bus_check[T](bus)
     BufferedOut(alloc[T](Seq(lift(240).s,lift(320).s),bus))
