@@ -9,7 +9,7 @@ case class CounterChain(s: Exp[CounterChain]) extends Template[CounterChain]
 object CounterChain {
   implicit def counterchainIsStaged: Type[CounterChain] = CounterChainType
 
-  /** Static Methods **/
+  /**Creates a chain of counters. Order is specified as outermost on the left to innermost on the right. **/
   @api def apply(counters: Counter*): CounterChain = CounterChain(fromseq(unwrap(counters)))
 
   /** Constructors **/
