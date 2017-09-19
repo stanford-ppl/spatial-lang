@@ -192,9 +192,10 @@ object Arguments {
     (List(1,8),None,1,3,Map((0->1)),32,0),
     (List(3,7),None,1,3,Map((0->3)),32,0),
     (List(3,9),None,3,3,Map((0->3)),32,0),
-    (List(3,3),None,1,3,Map((0->3)),32,0),
-    (List(3,4,7),None,1,12,Map((0->12)),32,0)
+    (List(3,3),None,1,3,Map((0->3)),32,0)
   )
+
+    // (List(3,4,7),None,1,12,Map((0->12)),32,0)
 
   val LineBuffer = List( 
     (3,10,1,1,1,1,1,1,3,2),

@@ -34,15 +34,19 @@ trait MatrixApi { this: SpatialApi =>
     @virtualize
     @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index): Matrix[T] = {
       // TODO: Incorporate stride
-      val out_rows = (imgdim0-filterdim0+1) * (imgdim1-filterdim1+1)
-      val out_cols = imgdim0*imgdim1
+      val pad0 = filterdim0 - 1
+      val pad1 = filterdim1 - 1
+      val out_rows = ((imgdim0+pad0)-filterdim0+1) * ((imgdim1+pad1)-filterdim1+1) / (stride0 * stride1)
+      val out_cols = (imgdim0+pad0)*(imgdim1+pad1)
 
       val data = MArray.tabulate(out_rows * out_cols){k => 
         val i = (k / out_cols)
         val j = (k % out_cols)
-        val filter_i = (j - i) / imgdim1
-        val filter_j = (j - i) % imgdim1 
-        if (filter_j < filterdim1) a(filter_i * filterdim1 + filter_j) else 0.to[T]
+        val sliding_window_row_correction = (i / imgdim1) * pad1
+        val filter_i_base = j - i - sliding_window_row_correction 
+        val filter_i = (filter_i_base) / (imgdim1+pad1)
+        val filter_j = ((j - i - sliding_window_row_correction) % (imgdim1+pad1))
+        if (filter_i_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0) a(filter_i * filterdim1 + filter_j) else 0.to[T]
       }
       matrix(data, out_rows, out_cols)
       // a.reshape(filterdim0, filterdim1) 
