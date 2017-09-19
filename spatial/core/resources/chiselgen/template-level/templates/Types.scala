@@ -12,6 +12,14 @@ import chisel3.internal.firrtl._
 import chisel3.internal.sourceinfo._
 import chisel3.internal.firrtl.PrimOp.AsUIntOp
 
+sealed trait MSBCasting
+object Lazy extends MSBCasting
+object Saturation extends MSBCasting
+
+sealed trait LSBCasting
+object Truncate extends LSBCasting
+object Unbiased extends LSBCasting
+
 // Raw numbers.. This should be deprecated
 class RawBits(b: Int) extends Bundle { 
 	val raw = UInt(b.W)
