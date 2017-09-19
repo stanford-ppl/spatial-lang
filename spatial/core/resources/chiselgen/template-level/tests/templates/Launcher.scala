@@ -183,9 +183,11 @@ object Arguments {
     (List(21),None,4,1,false,32,0),
     (List(1,3),None,1,1,false,32,0),
     (List(4,12),None,4,4,false,32,0),
-    (List(3,7),None,1,3,false,32,0),
-    (List(3,3,5),None,3,3,false,32,0)
+    (List(3,7),None,1,3,false,32,0)
   )
+
+  // Need to retest     (List(3,3,5),None,2,9,false,32,0) above
+  
   val NBufShiftRegFile = List(
     (List(8),None,1,2,Map((0->1)),32,0),
     (List(8),None,2,2,Map((0->1)),32,0),
