@@ -253,7 +253,7 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
 
   wPar.foreach{ case (regId, par) => 
     val base = ((0 until regId).map{i => wPar.getOrElse(i,0)} :+ 0).reduce{_+_}*stride
-    (0 until par*stride).foreach{ i => shiftRegs(regId).io.w(i) := io.w(base + i)}
+    (0 until par*stride).foreach{ i => shiftRegs(regId).io.w(i) := io.w(base + (par*stride-i-1))}
     if (regId == 0) {
       shiftRegs(regId).io.reset := io.reset
       shiftRegs(regId).io.dump_en := false.B // No dumping into first regfile

@@ -6,8 +6,10 @@ import spatial.metadata._
 import spatial.nodes._
 
 case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
+  /** Creates a load port to this LineBuffer at the given `row` and `col`. **/
   @api def apply(row: Index, col: Index): T = wrap(LineBuffer.load(s, row.s, col.s, Bit.const(true)))
 
+  /** Creates a vectorized load port to this LineBuffer at the given `row` and `cols`. **/
   @api def apply(row: Index, cols: Range)(implicit ctx: SrcCtx): Vector[T] = {
     // UNSUPPORTED: Strided range apply of line buffer
     cols.step.map(_.s) match {
@@ -20,6 +22,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     val exp = LineBuffer.col_slice(s, row.s, start, length.s)
     exp.tp.wrapped(exp)
   }
+  /** Creates a vectorized load port to this LineBuffer at the given `rows` and `col`. **/
   @api def apply(rows: Range, col: Index)(implicit ctx: SrcCtx): Vector[T] = {
     // UNSUPPORTED: Strided range apply of line buffer
     rows.step.map(_.s) match {
@@ -33,9 +36,12 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     exp.tp.wrapped(exp)
   }
 
+  /** Creates an enqueue (write) port of `data` to this LineBuffer. **/
   @api def enq(data: T): MUnit = MUnit(LineBuffer.enq(this.s, data.s, Bit.const(true)))
+  /** Creates an enqueue (write) port of `data` to this LineBuffer, enabled by `en`. **/
   @api def enq(data: T, en: Bit): MUnit = MUnit(LineBuffer.enq(this.s, data.s, en.s))
 
+  /** Creates a dense transfer from the given region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): MUnit = {
     /*if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
       error(ctx, "Loading into a LineBuffer from DRAM must be row-based")
@@ -49,7 +55,17 @@ object LineBuffer {
   implicit def lineBufferType[T:Type:Bits]: Type[LineBuffer[T]] = LineBufferType(typ[T])
   implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
 
+  /** Allocates a LineBuffer with given `rows` and `cols`.
+    * The contents of this LineBuffer are initially undefined.
+    * `rows` and `cols` must be statically determinable integers.
+    */
   @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, int32s(1)))
+
+  /**
+    * Allocates a LineBuffer with given number of `rows` and `cols`, and with given `stride`.
+    * The contents of this LineBuffer are initially undefined.
+    * `rows`, `cols`, and `stride` must be statically determinable integers.
+    */
   @api def strided[T:Type:Bits](rows: Index, cols: Index, stride: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, stride.s))
 
   @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], verticalStride: Exp[Index]) = {
