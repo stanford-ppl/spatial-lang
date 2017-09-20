@@ -59,7 +59,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
 
-  rstCtr.io.input.enable := state === resetState.U
+  rstCtr.io.input.enable := state === resetState.U & io.input.enable
   rstCtr.io.input.reset := (state != resetState.U) | io.input.rst
   rstCtr.io.input.saturate := true.B
   rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))

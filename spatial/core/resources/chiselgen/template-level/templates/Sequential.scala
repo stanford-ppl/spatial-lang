@@ -54,7 +54,7 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data.asSInt
 
-    rstCtr.io.input.enable := state === resetState.S
+    rstCtr.io.input.enable := state === resetState.S & io.input.enable
     rstCtr.io.input.reset := (state != resetState.S) | io.input.rst
     rstCtr.io.input.saturate := true.B
     rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))

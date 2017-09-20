@@ -481,14 +481,17 @@ trait ChiselGenController extends ChiselGenCounter{
             case Def(CounterNew(s, e, str, p)) => 
               val s_static = s match {
                 case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case b: Bound[_] => false
                 case _ => isGlobal(s)
               }
               val e_static = e match {
                 case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case b: Bound[_] => false
                 case _ => isGlobal(s)
               }
               val str_static = str match {
                 case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case b: Bound[_] => false
                 case _ => isGlobal(s)
               }
               s_static && e_static && str_static
