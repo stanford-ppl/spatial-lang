@@ -4,7 +4,7 @@ package templates
 import chisel3._
 
 //A n-stage Parallel controller
-class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime:Int = 0) extends Module {
+class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime:Int = 0, val staticNiter: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -38,7 +38,7 @@ class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   // Create FF for holding state
   val stateFF = Module(new FF(2))
   stateFF.io.input(0).enable := true.B
-  stateFF.io.input(0).init := 0.U
+  stateFF.io.input(0).init := bufferState.U
   stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
 
@@ -62,11 +62,12 @@ class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   io.output.stageEnable.foreach { s => s := false.B}
   // State Machine
   when(io.input.enable) {
-    when(state === initState.U) {   // INIT -> RESET
-      stateFF.io.input(0).data := bufferState.U
+    // when(state === initState.U) {   // INIT -> RESET
+    //   stateFF.io.input(0).data := bufferState.U
+    //   io.output.rst_en := true.B
+    // }
+    when (state === bufferState.U) { // Not sure if this state is needed for stream
       io.output.rst_en := true.B
-    }.elsewhen (state === bufferState.U) { // Not sure if this state is needed for stream
-      io.output.rst_en := false.B
       stateFF.io.input(0).data := runningState.U
     }.elsewhen (state === runningState.U) {  // STEADY
       (0 until n).foreach { i => io.output.stageEnable(i) := Mux(io.input.forever, true.B, ~doneMask(i)) }
@@ -78,17 +79,17 @@ class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         stateFF.io.input(0).data := state
       }
     }.elsewhen (state === doneState.U) {  // DONE
-      stateFF.io.input(0).data := initState.U
+      stateFF.io.input(0).data := bufferState.U
     }.otherwise {
       stateFF.io.input(0).data := state
     }
   }.otherwise {
-    stateFF.io.input(0).data := initState.U
+    stateFF.io.input(0).data := bufferState.U
     (0 until n).foreach { i => io.output.stageEnable(i) := false.B }
   }
 
   // Output logic
-  io.output.done := Mux(io.input.forever, false.B, state === doneState.U)
+  io.output.done := Mux(io.input.forever, false.B, state === runningState.U && doneMask.reduce{_&_})
   io.output.ctr_inc := false.B // No counters for parallels (BUT MAYBE NEEDED FOR STREAMPIPES)
 }
 

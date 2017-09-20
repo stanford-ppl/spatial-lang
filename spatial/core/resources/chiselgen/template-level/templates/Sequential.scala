@@ -6,7 +6,7 @@ import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
 
-class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -39,19 +39,25 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     val doneState = firstState + n
     val lastState = doneState - 1
 
+    val niterComputeDelay = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
+    val rstMax = if (staticNiter) 1 else niterComputeDelay
+    val rstw = Utils.log2Up(niterComputeDelay) + 2
+    val rstCtr = Module(new SingleCounter(1, width = rstw))
+    val firstIterComplete = Module(new SRFF())
+    firstIterComplete.io.input.set := rstCtr.io.output.done
+    firstIterComplete.io.input.reset := reset
+    firstIterComplete.io.input.asyn_reset := reset
+
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
-    stateFF.io.input(0).init := 0.U
+    stateFF.io.input(0).init := resetState.U
     stateFF.io.input(0).reset := io.input.rst
     val state = stateFF.io.output.data.asSInt
 
-    val rstMax = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
-    val rstw = Utils.log2Up(rstMax) + 2
-    val rstCtr = Module(new SingleCounter(1, width = rstw))
     rstCtr.io.input.enable := state === resetState.S
     rstCtr.io.input.reset := (state != resetState.S) | io.input.rst
     rstCtr.io.input.saturate := true.B
-    rstCtr.io.input.stop := rstMax.S(rstw.W)
+    rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))
     rstCtr.io.input.gap := 0.S(rstw.W)
     rstCtr.io.input.start := 0.S(rstw.W)
     rstCtr.io.input.stride := 1.S(rstw.W)
@@ -76,10 +82,11 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     io.output.rst_en := chisel3.util.ShiftRegister((state === resetState.S),1)
 
     when(io.input.enable) {
-      when(state === initState.S) {
-        stateFF.io.input(0).data := resetState.U
-        io.output.stageEnable.foreach { s => s := false.B}
-      }.elsewhen (state === resetState.S) {
+      // when(state === initState.S) {
+      //   stateFF.io.input(0).data := resetState.U
+      //   io.output.stageEnable.foreach { s => s := false.B}
+      // }
+      when (state === resetState.S) {
         stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, 
                     Mux(io.input.forever, firstState.U, Mux(rstCtr.io.output.done, doneState.U, resetState.U)), 
                     Mux(rstCtr.io.output.done, firstState.U, resetState.U))
@@ -124,12 +131,12 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
         }
 
       }.elsewhen (state === doneState.S) {
-        stateFF.io.input(0).data := initState.U
+        stateFF.io.input(0).data := resetState.U
       }.otherwise {
         stateFF.io.input(0).data := state.asUInt
       }
     }.otherwise {
-      stateFF.io.input(0).data := initState.U
+      stateFF.io.input(0).data := resetState.U
     }
   //  stateFF.io.input(0).data := nextStateMux.io.out
 

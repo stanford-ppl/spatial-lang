@@ -474,8 +474,29 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ => 32}
     val ctrdepth = if (cchain.isDefined) {cchain.get match {case Def(CounterChainNew(ctrs)) => ctrs.length; case _ => 0}} else 0
+    val static = if (cchain.isDefined) {
+      cchain.get match {
+        case Def(CounterChainNew(ctrs)) => 
+          ctrs.map{c => c match {
+            case Def(CounterNew(s, e, str, p)) => 
+              val s_static = s match {
+                case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case _ => isGlobal(s)
+              }
+              val e_static = e match {
+                case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case _ => isGlobal(s)
+              }
+              val str_static = str match {
+                case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case _ => isGlobal(s)
+              }
+              s_static && e_static && str_static
+          }}.reduce{_&&_}
+      }
+    } else true
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime))")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime, staticNiter = $static))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en & retime_released""")
     if (isFSM) {
       emit(src"""${sym}_done := (${sym}_sm.io.output.done & ~${sym}_inhibitor.D(2,rr)).D(${sym}_retime,rr)""")      
@@ -524,7 +545,7 @@ trait ChiselGenController extends ChiselGenCounter{
           if (isStreamChild(sym) & hasStreamIns) {
             emit(src"""${ctr}_resetter := ${sym}_done.D(1,rr) // Do not use rst_en for stream kiddo""")
           } else {
-            emit(src"""${ctr}_resetter := ${sym}_rst_en.D(1,rr)""")
+            emit(src"""${ctr}_resetter := ${sym}_rst_en.D(0,rr) // changed on 9/19""")
           }
           if (isInner) { 
             // val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"

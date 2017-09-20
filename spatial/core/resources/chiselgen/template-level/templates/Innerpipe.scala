@@ -5,7 +5,7 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 // Inner pipe
-class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0) extends Module {
+class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
 
   // States
   val pipeInit = 0
@@ -39,14 +39,14 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
   })
 
   if (!isFSM) {
-    val state = RegInit(pipeInit.U(32.W))
+    val state = RegInit(pipeReset.U(32.W))
 
     // Initialize state and maxFF
     val rstCtr = Module(new SingleCounter(1))
-    rstCtr.io.input.enable := state === pipeReset.U
-    rstCtr.io.input.reset := (state != pipeReset.U) | io.input.rst
+    rstCtr.io.input.enable := state === pipeReset.U & io.input.enable
+    rstCtr.io.input.reset := (state != pipeReset.U && state < pipeSpinWait.U) | io.input.rst
     rstCtr.io.input.saturate := true.B
-    rstCtr.io.input.stop := 2.S
+    rstCtr.io.input.stop := 1.S
     rstCtr.io.input.gap := 0.S
     rstCtr.io.input.start := 0.S
     rstCtr.io.input.stride := 1.S
@@ -54,49 +54,50 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {
       // Change states
-      when( state === pipeInit.U ) {
-        io.output.done := false.B
-        io.output.ctr_inc := false.B
-        io.output.rst_en := false.B
-        state := pipeReset.U
-      }.elsewhen( state === pipeReset.U ) {
+      // when( state === pipeInit.U ) {
+      //   io.output.done := false.B
+      //   io.output.ctr_inc := false.B
+      //   io.output.rst_en := false.B
+      //   state := pipeReset.U
+      when( state === pipeReset.U ) {
         io.output.done := false.B
         io.output.ctr_inc := false.B
         io.output.rst_en := true.B;
         state := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
         when (rstCtr.io.output.done) {
-          io.output.rst_en := false.B
+          // io.output.rst_en := false.B
           state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
         }
       }.elsewhen( state === pipeRun.U ) {
         io.output.rst_en := false.B
-        io.output.done := false.B
         io.output.ctr_inc := true.B
         when (io.input.ctr_done) {
+          io.output.done := Mux(io.input.forever, false.B, true.B)
           io.output.ctr_inc := false.B
           state := pipeDone.U
         }.otherwise {
+          io.output.done := false.B
           state := pipeRun.U
         }
       }.elsewhen( state === pipeDone.U ) {
         io.output.rst_en := false.B
         io.output.ctr_inc := false.B
-        io.output.done := Mux(io.input.forever, false.B, true.B)
-        state := pipeSpinWait.U
+        io.output.done := false.B//Mux(io.input.forever, false.B, true.B)
+        if (retime == 0) state := pipeReset.U else state := pipeSpinWait.U
       }.elsewhen( state >= pipeSpinWait.U ) {
         io.output.ctr_inc := false.B
         io.output.rst_en := false.B
         io.output.done := false.B
-        state := Mux(state >= (pipeSpinWait + retime).U, pipeInit.U, state + 1.U);
+        state := Mux(state >= (pipeSpinWait + retime).U, pipeReset.U, state + 1.U);
       } 
     }.otherwise {
-      io.output.done := Mux(io.input.ctr_done | state === pipeDone.U, true.B, false.B)
+      io.output.done := Mux(io.input.ctr_done | (state === pipeRun.U & io.input.ctr_done), true.B, false.B)
       io.output.ctr_inc := false.B
       io.output.rst_en := false.B
       io.output.state := state.asSInt
-      state := Mux(state === pipeDone.U, pipeSpinWait.U, state) // Move along if enable turns on just as we reach done state
+      if (retime == 0) state := pipeReset.U else state := Mux(state === pipeDone.U, pipeSpinWait.U, state) // Move along if enable turns on just as we reach done state
       // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?
-      // state := pipeInit.U 
+      // state := pipeReset.U 
     }
   } else { // FSM inner
     val stateFSM = Module(new FF(stateWidth))
