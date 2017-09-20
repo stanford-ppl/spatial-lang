@@ -48,8 +48,8 @@ class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
     ff.io.input.set := (io.input.stageDone(i) | ~io.input.stageMask(i)) & io.input.enable
     // Not 100% sure that this reset delay is correct.  Originally included because a mask on one lane of a parallelized
     //   controller was holding this doneFF lane done even after the particular masked iteration was done
-    ff.io.input.asyn_reset := state === doneState.U | chisel3.util.ShiftRegister(state === doneState.U,retime)
-    ff.io.input.reset := (state === doneState.U) | io.input.rst | chisel3.util.ShiftRegister(state === doneState.U,retime)
+    ff.io.input.asyn_reset := state === doneState.U | state === bufferState.U | chisel3.util.ShiftRegister(state === doneState.U,retime)
+    ff.io.input.reset := (state === doneState.U) | state === bufferState.U | io.input.rst | chisel3.util.ShiftRegister(state === doneState.U,retime)
     ff
   }
   val doneMask = doneFF.map { _.io.output.data }
