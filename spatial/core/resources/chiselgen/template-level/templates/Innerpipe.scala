@@ -31,6 +31,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     }
     val output = new Bundle {
       val done = Output(Bool())
+      val extendedDone = Output(Bool()) // For the Innerpipe chisel template test, since we need done to be on for the next falling edge
       val ctr_inc = Output(Bool())
       val rst_en = Output(Bool())
       // FSM signals
@@ -51,6 +52,8 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     rstCtr.io.input.start := 0.S
     rstCtr.io.input.stride := 1.S
 
+    io.output.rst_en := state === pipeReset.U // This breaks up combinational loops
+
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {
       // Change states
@@ -61,39 +64,44 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
       //   state := pipeReset.U
       when( state === pipeReset.U ) {
         io.output.done := false.B
+        io.output.extendedDone := false.B
         io.output.ctr_inc := false.B
-        io.output.rst_en := true.B;
+        // io.output.rst_en := true.B;
         state := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
         when (rstCtr.io.output.done) {
           // io.output.rst_en := false.B
           state := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
         }
       }.elsewhen( state === pipeRun.U ) {
-        io.output.rst_en := false.B
+        // io.output.rst_en := false.B
         io.output.ctr_inc := true.B
         when (io.input.ctr_done) {
           io.output.done := Mux(io.input.forever, false.B, true.B)
+          io.output.extendedDone := Mux(io.input.forever, false.B, true.B)
           io.output.ctr_inc := false.B
           state := pipeDone.U
         }.otherwise {
           io.output.done := false.B
+          io.output.extendedDone := false.B
           state := pipeRun.U
         }
       }.elsewhen( state === pipeDone.U ) {
-        io.output.rst_en := false.B
+        // io.output.rst_en := false.B
         io.output.ctr_inc := false.B
         io.output.done := false.B//Mux(io.input.forever, false.B, true.B)
+        io.output.extendedDone := Mux(io.input.forever, false.B, true.B)
         if (retime == 0) state := pipeReset.U else state := pipeSpinWait.U
       }.elsewhen( state >= pipeSpinWait.U ) {
         io.output.ctr_inc := false.B
-        io.output.rst_en := false.B
+        // io.output.rst_en := false.B
         io.output.done := false.B
+        io.output.extendedDone := false.B
         state := Mux(state >= (pipeSpinWait + retime).U, pipeReset.U, state + 1.U);
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done | (state === pipeRun.U & io.input.ctr_done), true.B, false.B)
       io.output.ctr_inc := false.B
-      io.output.rst_en := false.B
+      // io.output.rst_en := false.B
       io.output.state := state.asSInt
       if (retime == 0) state := pipeReset.U else state := Mux(state === pipeDone.U, pipeSpinWait.U, state) // Move along if enable turns on just as we reach done state
       // Line below broke tile stores when there is a stall of some kind.  Why was it there to begin with?

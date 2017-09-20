@@ -243,9 +243,15 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				// Get upcasted operators
 				val full_result = Wire(new FixedPoint(upcasted_type))
 				// Do upcasted operation
-				val expanded_self = util.Cat(util.Fill(op.d+op.f, this.msb), this.number)
-				val expanded_op = util.Cat(util.Fill(d+f, op.msb), op.number)
-				full_result.number := expanded_self *-* expanded_op
+				if (rounding == Truncate && saturating == Lazy) {
+					val expanded_self = if (op.f != 0) util.Cat(util.Fill(op.f, this.msb), this.number) else this.number
+					val expanded_op = if (f != 0) util.Cat(util.Fill(f, op.msb), op.number) else op.number
+					full_result.number := (expanded_self *-* expanded_op) >> scala.math.max(op.f, f)
+				} else {
+					val expanded_self = util.Cat(util.Fill(op.d+op.f, this.msb), this.number)
+					val expanded_op = util.Cat(util.Fill(d+f, op.msb), op.number)
+					full_result.number := expanded_self *-* expanded_op	
+				}
 
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
