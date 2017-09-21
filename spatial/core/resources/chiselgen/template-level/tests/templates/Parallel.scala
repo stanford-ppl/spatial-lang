@@ -20,7 +20,11 @@ class ParallelTests(c: Parallel) extends PeekPokeTester(c) {
     step(1)
     val stagesEnabled = (0 until c.n).map {i => peek(c.io.output.stageEnable(i)) }
 
-    (0 until c.n).foreach {i => expect(c.io.output.stageEnable(i), t > 0 & t <= latencies(i))}
+    (0 until c.n).foreach {i => 
+      // val a = peek(c.io.output.stageEnable(i))
+      // println("stage " + i + " is " + a + ", wanted " + {t>=0 & t <=latencies(i)})
+      expect(c.io.output.stageEnable(i), t >= 0 & t <= latencies(i))
+    }
 
     val isDone = peek(c.io.output.done)
     if (isDone == 1) poke(c.io.input.enable, 0)
@@ -36,7 +40,11 @@ class ParallelTests(c: Parallel) extends PeekPokeTester(c) {
     step(1)
     val stagesEnabled = (0 until c.n).map {i => peek(c.io.output.stageEnable(i)) }
 
-    (0 until c.n).foreach {i => expect(c.io.output.stageEnable(i), t > 0 & t <= latencies(i))}
+    (0 until c.n).foreach {i => 
+      // val a = peek(c.io.output.stageEnable(i))
+      // println("stage " + i + " is " + a + ", wanted " + {t>=0 & t <=latencies(i)})
+      expect(c.io.output.stageEnable(i), t >= 0 & t <= latencies(i))
+    }
 
     val isDone = peek(c.io.output.done)
     if (isDone == 1) poke(c.io.input.enable, 0)
