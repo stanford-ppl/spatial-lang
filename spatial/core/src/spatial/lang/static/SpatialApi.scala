@@ -23,6 +23,7 @@ trait SpatialImplicits { this: SpatialApi =>
 
 trait SpatialApi extends ArgonApi with SpatialExp
   with SpatialImplicits
+  with RangeApi
   with BitOpsApi
   with DebuggingApi
   with FileIOApi
@@ -31,7 +32,6 @@ trait SpatialApi extends ArgonApi with SpatialExp
   with MatrixApi
   with ParametersApi
   with PrintingApi
-  with RangeApi
   with RegApi
   with StreamApi
   with VectorApi

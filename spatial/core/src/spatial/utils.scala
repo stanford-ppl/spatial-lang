@@ -630,10 +630,18 @@ object utils {
   /** Allocations **/
   @stateful def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
     // Hack for making memory analysis code easier
-    case Def(ArgOutNew(_)) => Seq(int32s(1))
-    case Def(ArgInNew(_))  => Seq(int32s(1))
-    case Def(HostIONew(_)) => Seq(int32s(1))
-    case Def(RegNew(_))    => Seq(int32s(1))
+    case Def(ArgOutNew(_)) =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(ArgInNew(_))  =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(HostIONew(_)) =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(RegNew(_))    =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
     case Def(BufferedOutNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) =>
       implicit val ctx: SrcCtx = x.ctx

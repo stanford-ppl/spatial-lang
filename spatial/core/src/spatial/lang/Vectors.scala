@@ -28,19 +28,19 @@ trait Vector[T] { this: MetaAny[_] =>
     */
   @api def apply(range: Range)(implicit mT: Type[T], bT: Bits[T]): VectorN[T] = {
     val wordLength = this.width
-    val start = range.start.map(_.s).getOrElse(int32s(wordLength-1))
-    val end = range.end.s
-    val step = range.step.map(_.s).getOrElse(int32s(1))
+    val start: Exp[Index] = range.start.map(_.s).getOrElse(int32s(wordLength-1))
+    val end: Exp[Index] = range.end.s
+    val step: Exp[Index] = range.step.map(_.s).getOrElse(int32s(1))
 
     step match {
-      case Const(s: BigDecimal) if s == 1 =>
+      case Literal(s) if s == 1 =>
       case _ =>
         error(ctx, "Strides for bit slicing are not currently supported.")
         error(ctx)
     }
 
     (start,end) match {
-      case (Const(x1: BigDecimal), Const(x2: BigDecimal)) =>
+      case (Literal(x1), Literal(x2)) =>
         val msb = java.lang.Math.max(x1.toInt, x2.toInt)
         val lsb = java.lang.Math.min(x1.toInt, x2.toInt)
         val length = msb - lsb + 1

@@ -3,11 +3,12 @@ package spatial.lang.static
 import argon.core._
 import forge._
 
-trait RangeLowPriorityImplicits { this: SpatialApi =>
-
+trait RangeLowerPriorityImplicits { this: SpatialApi =>
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
   @api implicit def index2range(x: Index)(implicit ctx: SrcCtx): MRange = MRange.fromIndex(x)
 }
+
+trait RangeLowPriorityImplicits extends RangeLowerPriorityImplicits { this: SpatialApi => }
 
 trait RangeApi extends RangeLowPriorityImplicits { this: SpatialApi =>
 

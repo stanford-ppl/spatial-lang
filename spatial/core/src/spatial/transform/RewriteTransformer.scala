@@ -41,7 +41,7 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
       func.inline // TODO: Need to account for enables here?
       constant(typ[T])(RemovedParallel)
 
-    case op @ FixMod(x, Const(y: BigDecimal)) if isPow2(y) =>
+    case op @ FixMod(x, Literal(y)) if isPow2(y) =>
       def selectMod[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]], y: Double): Exp[FixPt[S,I,F]] = {
         val data = BitOps.dataAsBitVector(wrap(x))
         val range = (log2(y.toDouble)-1).toInt :: 0  //Range.alloc(None, FixPt.int32(log2(y.toDouble) - 1),None,None)

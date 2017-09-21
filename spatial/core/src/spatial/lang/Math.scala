@@ -105,26 +105,22 @@ object Math {
 
   /** Constructors **/
   @internal def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
-    case Const(c: BigDecimal) => FixPt.const[S,I,F](c.abs)
+    case Literal(c) => FixPt.const[S,I,F](c.abs)
     case _ => stage(FixAbs(x))(ctx)
   }
 
   @internal def fix_floor[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
-    case Const(c: BigDecimal) =>
-      val res = if (c % 1 == 0) c else BigDecimal(c.toInt)
-      FixPt.const[S,I,F](res)
+    case Literal(c) => FixPt.const[S,I,F](c.floor)
     case _ => stage(FixFloor(x))(ctx)
   }
 
   @internal def fix_ceil[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
-    case Const(c: BigDecimal) =>
-      val res = if (c % 1 == 0) c else BigDecimal(c.toInt + 1)
-      FixPt.const[S,I,F](res)
+    case Literal(c) => FixPt.const[S,I,F](c.ceil)
     case _ => stage(FixCeil(x))(ctx)
   }
 
   @internal def flt_abs[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
-    case Const(c: BigDecimal) => FltPt.const[G,E](c.abs)
+    case Literal(c) => FltPt.const[G,E](c.abs)
     case _ => stage(FltAbs(x))(ctx)
   }
   @internal def flt_log[G:INT,E:INT](x: Exp[FltPt[G,E]]): Exp[FltPt[G,E]] = x match {
