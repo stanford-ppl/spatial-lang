@@ -9,9 +9,9 @@ object Math {
   /** Absolute value **/
   @api def abs[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt(fix_abs(x.s))
 
-  /** Absolute value **/
+  /** Returns the absolute value of `x`. **/
   @api def abs[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_abs(x.s))
-  /** Natural logarithm **/
+  /** Returns the natural logarithm of `x`. **/
   @api def log[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_log(x.s))
   /** Natural exponential (Euler's number, e, raised to the given exponent) **/
   @api def exp[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = FltPt(flt_exp(x.s))
@@ -21,22 +21,26 @@ object Math {
   //   FixPt(x.s)
   // }
 
+  /** Returns the largest (closest to positive infinity) integer value less than or equal to `x`. **/
   @api def floor[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt[S,I,F](fix_floor(x.s))
+  /** Returns the smallest (closest to negative infinity) integer value greater than or equal to `x`. **/
   @api def ceil[S:BOOL,I:INT,F:INT](x: FixPt[S,I,F]): FixPt[S,I,F] = FixPt[S,I,F](fix_ceil(x.s))
 
   // TODO: These should probably be added to Num instead
-  @api def abs[T:Type:Num](x: T): T = typ[T] match {
+  /** Returns the absolute value of the supplied numeric `value`. **/
+  @api def abs[T:Type:Num](value: T): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       implicit val mS = t.mS.asInstanceOf[BOOL[s]]
       implicit val mI = t.mI.asInstanceOf[INT[i]]
       implicit val mF = t.mF.asInstanceOf[INT[f]]
-      abs[s,i,f](x.asInstanceOf[FixPt[s,i,f]]).asInstanceOf[T]
+      abs[s,i,f](value.asInstanceOf[FixPt[s,i,f]]).asInstanceOf[T]
     case t: FltPtType[g,e] =>
       implicit val bG = t.mG.asInstanceOf[INT[g]]
       implicit val bE = t.mE.asInstanceOf[INT[e]]
-      abs[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
+      abs[g,e](value.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
   }
 
+  /** Returns the natural exponentiation of `x` (e raised to the exponent `x`). **/
   @api def exp[T:Type:Num](x: T)(implicit ctx: SrcCtx): T = typ[T] match {
     case t: FixPtType[s,i,f] =>
       error(ctx, "Exponentiation of fixed point types is not yet implemented.")
@@ -49,23 +53,37 @@ object Math {
       exp[g,e](x.asInstanceOf[FltPt[g,e]]).asInstanceOf[T]
   }
 
+  /** Creates a multiplexer that returns `a` when `select` is true, `b` otherwise. **/
   @api def mux[T:Type:Bits](select: Bit, a: T, b: T): T = wrap( math_mux(select.s, a.s, b.s) )
+  /** Returns the minimum of the numeric values `a` and `b`. **/
   @api def min[T:Type:Bits:Order](a: T, b: T): T = wrap( math_min(a.s, b.s) )
+  /** Returns the maximum of the numeric values `a` and `b`. **/
   @api def max[T:Type:Bits:Order](a: T, b: T): T = wrap( math_max(a.s, b.s) )
 
   /** Trigonometric functions **/
+  /** Returns the trigonometric sine of `x`. **/
   @api def sin[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_sin(x.s) )
+  /** Returns the trigonometric cosine of `x`. **/
   @api def cos[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_cos(x.s) )
+  /** Returns the trigonometric tangent of `x`. **/
   @api def tan[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_tan(x.s) )
+  /** Returns the hyperbolic sine of `x`. **/
   @api def sinh[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_sinh(x.s) )
+  /** Returns the hyperbolic cosine of `x`. **/
   @api def cosh[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_cosh(x.s) )
+  /** Returns the hyperbolic tangent of `x`. **/
   @api def tanh[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_tanh(x.s) )
+  /** Returns the arc sine of `x`. **/
   @api def asin[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_asin(x.s) )
+  /** Returns the arc cosine of `x`. **/
   @api def acos[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_acos(x.s) )
+  /** Returns the arc tangent of `x`. **/
   @api def atan[G:INT,E:INT](x: FltPt[G,E]): FltPt[G,E] = wrap( math_atan(x.s) )
   val PI = java.lang.Math.PI
 
+  /** Returns `base` raised to the power of `exp`. **/
   @api def pow[G:INT,E:INT](base: FltPt[G,E], exp:FltPt[G,E]): FltPt[G,E] = wrap( math_pow(base.s, exp.s) )
+
   @api def pow[T:Type:Num](x: T, exp: Int)(implicit ctx: SrcCtx): T = {
     if (exp >= 0) productTree(List.fill(exp)(x))
     else {
@@ -74,7 +92,6 @@ object Math {
       wrap(fresh[T])
     }
   }
-
 
   @api def reduceTree[T](xs: Seq[T])(reduce: (T,T) => T): T = reduceTreeLevel(xs, reduce).head
 

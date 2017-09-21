@@ -19,7 +19,7 @@ class FIFOIsMemory[T:Type:Bits] extends Mem[T,FIFO] {
   @api def load(mem: FIFO[T], is: Seq[Index], en: Bit): T = mem.deq(en)
   @api def store(mem: FIFO[T], is: Seq[Index], data: T, en: Bit): MUnit = mem.enq(data, en)
 
-  @api def iterators(mem: FIFO[T]): Seq[Counter] = Seq(Counter(0,sizeOf(mem),1,1))
+  @api def iterators(mem: FIFO[T]): Seq[Counter] = Seq(Counter(0,stagedSizeOf(mem),1,1))
 
   def par(mem: FIFO[T]): Option[Index] = mem.p
 }

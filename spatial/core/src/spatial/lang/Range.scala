@@ -47,6 +47,11 @@ case class Range(start: Option[Index], end: Index, step: Option[Index], p: Optio
     case (None, e, Some(st)) => (e + st - 1) / st
     case (Some(s), e, Some(st)) => (e - s + st - 1) / st
   }
+
+  /** Returns the `i`'th element in this Range. **/
+  @api def apply(i: Index): Index = {
+    start.getOrElse(lift[Int,Index](0)) + i*step.getOrElse(lift[Int,Index](1))
+  }
 }
 object Range {
   /** Constructors **/

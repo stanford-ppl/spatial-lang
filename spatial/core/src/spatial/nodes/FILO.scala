@@ -16,7 +16,7 @@ case class FILOType[T:Bits](child: Type[T]) extends Type[FILO[T]] {
 class FILOIsMemory[T:Type:Bits] extends Mem[T,FILO] {
   @api def load(mem: FILO[T], is: Seq[Index], en: Bit): T = mem.pop(en)
   @api def store(mem: FILO[T], is: Seq[Index], data: T, en: Bit): MUnit = mem.push(data, en)
-  @api def iterators(mem: FILO[T]): Seq[Counter] = Seq(Counter(0,sizeOf(mem),1,1))
+  @api def iterators(mem: FILO[T]): Seq[Counter] = Seq(Counter(0,stagedSizeOf(mem),1,1))
   def par(mem: FILO[T]) = mem.p
 }
 

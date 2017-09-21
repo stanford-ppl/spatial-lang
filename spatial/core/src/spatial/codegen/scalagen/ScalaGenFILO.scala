@@ -31,11 +31,11 @@ trait ScalaGenFILO extends ScalaGenMemories {
         case Def(ParFILOPush(_,ens,_)) => ens.length
         case _ => 1
       }}.head
-      emit(src"val $lhs = $filo.size === ${sizeOf(filo)} - $wPar")
+      emit(src"val $lhs = $filo.size === ${stagedSizeOf(filo)} - $wPar")
 
     case op@FILOPeek(fifo) => emit(src"val $lhs = if (${fifo}.nonEmpty) ${fifo}.head else ${invalid(op.mT)}")
     case FILONumel(filo) => emit(src"val $lhs = $filo.size")
-    case FILOFull(filo)  => emit(src"val $lhs = $filo.size >= ${sizeOf(filo)} ")
+    case FILOFull(filo)  => emit(src"val $lhs = $filo.size >= ${stagedSizeOf(filo)} ")
     case op@FILOPop(filo,en) => emit(src"val $lhs = if ($en && $filo.nonEmpty) $filo.pop() else ${invalid(op.mT)}")
 
     case op@ParFILOPop(filo, ens) =>

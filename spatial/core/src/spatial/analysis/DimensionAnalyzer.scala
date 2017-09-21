@@ -34,7 +34,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
     case SetArg(reg, value) => softValues += reg -> value
     case _:DRAMNew[_,_]     => offchips += lhs.asInstanceOf[Exp[DRAM[Any]]]
     case _:SRAMNew[_,_]     => checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
-    case _:FIFONew[_]       => checkOnchipDims(lhs, List(sizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(lhs.ctx)
+    case _:FIFONew[_]       => checkOnchipDims(lhs, List(stagedSizeOf(lhs.asInstanceOf[Exp[FIFO[Any]]])))(lhs.ctx)
     case lb:LineBufferNew[_] =>
       checkOnchipDims(lhs, stagedDimsOf(lhs))(lhs.ctx)
       if (!isStaticallyKnown(lb.stride)) {

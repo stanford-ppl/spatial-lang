@@ -70,7 +70,7 @@ object utils {
 
   // Assumes stride of outermost dimension is first
   @stateful def stridesToDims(mem: Exp[_], strides: Seq[Int]): Seq[Int] = {
-    val size = dimsOf(mem).product
+    val size = constDimsOf(mem).product
     val allStrides = size +: strides
     List.tabulate(allStrides.length-1){i => allStrides(i)/allStrides(i+ 1) }
   }
@@ -629,6 +629,11 @@ object utils {
 
   /** Allocations **/
   @stateful def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
+    // Hack for making memory analysis code easier
+    case Def(ArgOutNew(_)) => Seq(int32s(1))
+    case Def(ArgInNew(_))  => Seq(int32s(1))
+    case Def(HostIONew(_)) => Seq(int32s(1))
+    case Def(RegNew(_))    => Seq(int32s(1))
     case Def(BufferedOutNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) =>
       implicit val ctx: SrcCtx = x.ctx
@@ -642,23 +647,21 @@ object utils {
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
-  @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
-    case Def(ArgOutNew(_)) => Seq(1)
-    case Def(ArgInNew(_))  => Seq(1)
-    case Def(HostIONew(_)) => Seq(1)
-    case Def(RegNew(_))    => Seq(1) // Hack for making memory analysis code easier
-    case Def(LUTNew(dims,_)) => dims
-    case _ => stagedDimsOf(x).map{
-      case Exact(c: BigInt) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
-    }
+  @stateful def constDimsOf(x: Exp[_]): Seq[Int] = stagedDimsOf(x).map{
+    case Exact(c) => c.toInt
+    case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
   }
 
-  @stateful def sizeOf(fifo: FIFO[_]): Index = wrap(sizeOf(fifo.s))
-  @stateful def sizeOf(fifo: FILO[_]): Index = wrap(sizeOf(fifo.s))
-  @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
+  @stateful def stagedSizeOf(fifo: FIFO[_]): Index = wrap(stagedSizeOf(fifo.s))
+  @stateful def stagedSizeOf(fifo: FILO[_]): Index = wrap(stagedSizeOf(fifo.s))
+  @stateful def stagedSizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
+  }
+  @stateful def constSizeOf(x: Exp[_]): Int = stagedSizeOf(x) match {
+    case Literal(c) => c.toInt
+    case Exact(c) => c.toInt
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
@@ -667,7 +670,7 @@ object utils {
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
-  @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length
+  @stateful def rankOf(x: Exp[_]): Int = constDimsOf(x).length
   @stateful def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
 
   @stateful def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)

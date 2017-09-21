@@ -10,8 +10,22 @@ import scala.language.higherKinds
 trait Vector[T] { this: MetaAny[_] =>
   def s: Exp[Vector[T]]
   def width: Int
+
+  /**
+    * Returns the `i`'th element of this Vector.
+    * Element 0 is always the least significant element.
+    */
   @api def apply(i: Int): T
 
+  /**
+    * Returns a slice of the elements in this Vector as a VectorN.
+    * The range must be statically determinable with a stride of 1.
+    * The range is inclusive for both the start and end.
+    * The `range` can be big endian (e.g. ``3::0``) or little endian (e.g. ``0::3``).
+    * In both cases, element 0 is always the least significant element.
+    *
+    * For example, ``x(3::0)`` returns a Vector of the 4 least significant elements of ``x``.
+    */
   @api def apply(range: Range)(implicit mT: Type[T], bT: Bits[T]): VectorN[T] = {
     val wordLength = this.width
     val start = range.start.map(_.s).getOrElse(int32s(wordLength-1))
@@ -44,25 +58,49 @@ trait Vector[T] { this: MetaAny[_] =>
     }
   }
 
-  // @api def reverse()(implicit mT: Meta[T], bT: Bits[T]): VectorN[T] = { // TODO: Implementme
-  // }
-
-  // TODO: Why is .asInstanceOf required here?
+  /**
+    * Returns a slice of N elements of this Vector starting at the given `offset` from the
+    * least significant element.
+    * To satisfy Scala's static type analysis, each width has a separate method.
+    *
+    * For example, ``x.take3(1)`` returns the 3 least significant elements of x after the
+    * least significant as a Vector3[T].
+    */
   @generate
   @api def takeJJ$JJ$1to128(offset: Int)(implicit mT: Type[T], bT: Bits[T]): VectorJJ[T] = {
     wrap(Vector.slice[T,VectorJJ](s.asInstanceOf[Exp[Vector[T]]], offset+JJ-1, offset))
   }
+
+  // @api def reverse()(implicit mT: Meta[T], bT: Bits[T]): VectorN[T] = { // TODO: Implementme
+  // }
+
+
+
 }
 
 object Vector {
   // Everything is represented in big-endian internally (normal Array order with 0 first)
 
-  /** Static methods **/
+  /**
+    * Creates a VectorX from the given X elements, where X is between 1 and 128.
+    * The first element supplied is the most significant (Vector index of X - 1).
+    * The last element supplied is the least significant (Vector index of 0).
+    *
+    * Note that this method is actually overloaded 128 times based on the number of supplied arguments.
+    **/
   @generate
   @api def LittleEndian$JJ$1to128[T:Type:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
     val eII$II$1toJJ = xII.s
     wrap(Vector.fromseq[T,VectorJJ](Seq(eII$II$1toJJ).reverse))
   }
+
+  /**
+    * Creates a VectorX from the given X elements, where X is between 1 and 128.
+    * The first element supplied is the least significant (Vector index of 0).
+    * The last element supplied is the most significant (Vector index of X - 1).
+    *
+    * Note that this method is actually overloaded 128 times based on the number of supplied arguments.
+    **/
   @generate
   @api def BigEndian$JJ$1to128[T:Type:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
     val eII$II$1toJJ = xII.s
@@ -70,11 +108,15 @@ object Vector {
   }
 
   // Aliases for above (with method names I can immediately understand)
+
+  /** A mnemonic for LittleEndian (with reference to the zeroth element being specified last in order). **/
   @generate
   @api def ZeroLast$JJ$1to128[T:Type:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
     val eII$II$1toJJ = xII.s
     wrap(Vector.fromseq[T,VectorJJ](Seq(eII$II$1toJJ).reverse))
   }
+
+  /** A mnemonic for BigEndian (with reference to the zeroth element being specified first in order). **/
   @generate
   @api def ZeroFirst$JJ$1to128[T:Type:Bits](xII$II$1toJJ: T): VectorJJ[T] = {
     val eII$II$1toJJ = xII.s
@@ -136,20 +178,32 @@ object Vector {
 }
 
 object Vectorize {
+  /**
+    * Creates a VectorN from the given elements.
+    * The first element supplied is the least significant (Vector index of 0).
+    * The last element supplied is the most significant (Vector index of N - 1).
+    **/
   @api def BigEndian[T:Type:Bits](elems: T*): VectorN[T] = {
     implicit val vT = VectorN.typeFromLen[T](elems.length)
     vT.wrapped(Vector.fromseq[T,VectorN](elems.map(_.s)))
   }
+  /** A mnemonic for BigEndian (with reference to the zeroth element being specified first in order). **/
   @api def ZeroFirst[T:Type:Bits](elems: T*): VectorN[T] = {
     implicit val vT = VectorN.typeFromLen[T](elems.length)
     vT.wrapped(Vector.fromseq[T,VectorN](elems.map(_.s)))
   }
 
-
+  /**
+    * Creates a VectorN from the given elements.
+    * The first element supplied is the most significant (Vector index of N - 1).
+    * The last element supplied is the least significant (Vector index of 0).
+    **/
   @api def LittleEndian[T:Type:Bits](elems: T*): VectorN[T] = {
     implicit val vT = VectorN.typeFromLen[T](elems.length)
     vT.wrapped(Vector.fromseq[T,VectorN](elems.reverse.map(_.s)))
   }
+
+  /** A mnemonic for LittleEndian (with reference to the zeroth element being specified last in order). **/
   @api def ZeroLast[T:Type:Bits](elems: T*): VectorN[T] = {
     implicit val vT = VectorN.typeFromLen[T](elems.length)
     vT.wrapped(Vector.fromseq[T,VectorN](elems.reverse.map(_.s)))
@@ -158,10 +212,18 @@ object Vectorize {
 
 case class Vec[N:INT,T:Type:Bits](s: Exp[Vec[N,T]]) extends MetaAny[Vec[N,T]] with Vector[T] {
   val width = INT[N].v
+  /**
+    * Returns the `i`'th element of this Vector.
+    * Element 0 is always the LSB.
+    */
   @api def apply(i: Int): T = wrap(Vector.select(s,i))
 
+  /** Returns true if this Vector and `that` contain the same elements, false otherwise. **/
   @api def ===(that: Vec[N,T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) === that.apply(i) }){(a,b) => a && b }
+
+  /** Returns true if this Vector and `that` differ by at least one element, false otherwise. **/
   @api def =!=(that: Vec[N,T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) =!= that.apply(i) }){(a,b) => a || b }
+
   @api def toText = MString.ify(this)
 }
 object Vec {
@@ -173,11 +235,28 @@ object Vec {
 // say how large a given Vector will be. Since this type doesn't have implicit Type or Bits evidence, users
 // will have to explicitly convert this type to a Vector## type for most operations.
 case class VectorN[T:Type:Bits](width: Int, s: Exp[VectorN[T]])(implicit myType: Type[VectorN[T]]) extends MetaAny[VectorN[T]] with Vector[T] {
+
+  /**
+    * Returns the `i`'th element of this Vector.
+    * Element 0 is always the LSB.
+    */
   @api def apply(i: Int): T = wrap(Vector.select(s,i))
+
+  /** Returns true if this Vector and `that` contain the same elements, false otherwise. **/
   @api def ===(that: VectorN[T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) === that.apply(i) }){(a,b) => a && b }
+
+  /** Returns true if this Vector and `that` differ by at least one element, false otherwise. **/
   @api def =!=(that: VectorN[T]): MBoolean = Math.reduceTree(Seq.tabulate(width){i => this.apply(i) =!= that.apply(i) }){(a,b) => a || b }
+
   @api def toText = MString.ify(this)
 
+  /**
+    * Casts this VectorN as a VectorX.
+    * Values of X from 1 to 128 are currently supported.
+    *
+    * If the VectorX type has fewer elements than this value's type, the most significant elements will be dropped.
+    * If the VectorX type has more elements than this value's type, the resulting elements will be zeros.
+    **/
   @generate
   @api def asVectorJJ$JJ$1to128: VectorJJ[T] = {
     if (width != JJ) {

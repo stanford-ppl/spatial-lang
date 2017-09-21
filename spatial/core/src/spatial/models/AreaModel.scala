@@ -257,7 +257,7 @@ abstract class AreaModel {
     // TODO: Account for compressing data when this is supported
     // TODO: Account for parallelization
     // FIFOs
-    case fifo:FIFONew[_] => areaOfSRAM(fifo.bT.length,dimsOf(lhs),duplicatesOf(lhs))
+    case fifo:FIFONew[_] => areaOfSRAM(fifo.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
       /*duplicatesOf(lhs).map{
       case BankedMemory(_,depth,isAccum) =>  //model("FIFO")("d" -> depth, "b" -> fifo.bT.length)
       case _ => NoArea
@@ -275,7 +275,7 @@ abstract class AreaModel {
 
     // FILOs
     // TODO: Fix FIFO characterization...
-    case filo:FILONew[_] => areaOfSRAM(filo.bT.length,dimsOf(lhs),duplicatesOf(lhs))
+    case filo:FILONew[_] => areaOfSRAM(filo.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
     /*duplicatesOf(lhs).map{
       case BankedMemory(_,depth,isAccum) =>  // model("FIFO")("d" -> depth, "b" -> filo.bT.length)
       case _ => NoArea
@@ -292,15 +292,15 @@ abstract class AreaModel {
     case _:FILOFull[_]        => NoArea
 
     // SRAMs
-    case op:SRAMNew[_,_]   => areaOfSRAM(op.bT.length,dimsOf(lhs),duplicatesOf(lhs))
-    case op@SRAMLoad(mem,_,is,_,en)    => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
-    case op@ParSRAMLoad(mem,is,en)     => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
-    case op@SRAMStore(mem,_,is,_,_,en) => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
-    case op@ParSRAMStore(mem,is,_,en)  => areaOfAccess(op.bT.length, dimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op:SRAMNew[_,_]   => areaOfSRAM(op.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
+    case op@SRAMLoad(mem,_,is,_,en)    => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@ParSRAMLoad(mem,is,en)     => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@SRAMStore(mem,_,is,_,_,en) => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@ParSRAMStore(mem,is,_,en)  => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
 
     // LineBuffer
     // TODO: Confirm this model for SRAM, or change
-    case op:LineBufferNew[_]    => areaOfSRAM(op.bT.length,dimsOf(lhs),duplicatesOf(lhs))
+    case op:LineBufferNew[_]    => areaOfSRAM(op.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
     case _:LineBufferEnq[_]     => NoArea
     case _:ParLineBufferEnq[_]  => NoArea
     case _:LineBufferLoad[_]    => NoArea
@@ -317,13 +317,13 @@ abstract class AreaModel {
 
     // Register File
     case rf:RegFileNew[_,_] =>
-      val rank = dimsOf(lhs).length
-      val size = dimsOf(lhs).product
+      val rank = constDimsOf(lhs).length
+      val size = constDimsOf(lhs).product
       duplicatesOf(lhs).map{
         case BankedMemory(_,depth,isAccum) if rank == 1 => model("RegFile1D")("b" -> rf.bT.length, "d" -> depth, "c" -> size)
         case BankedMemory(_,depth,isAccum) if rank == 2 =>
-          val r = dimsOf(lhs).head
-          var c = dimsOf(lhs).apply(1)
+          val r = constDimsOf(lhs).head
+          var c = constDimsOf(lhs).apply(1)
           model("RegFile2D")("b" -> rf.bT.length, "d" -> depth, "r" -> r, "c" -> c)
         case _ =>
           miss(rank + "D RegFile (rule)")
