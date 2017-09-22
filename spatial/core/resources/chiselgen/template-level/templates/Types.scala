@@ -575,6 +575,10 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
+	def getWidth(): Int = {
+		f + d
+	}
+	
 	def isNeg (): Bool = {
 		Mux(s.B && number(f+d-1), true.B, false.B)
 	}

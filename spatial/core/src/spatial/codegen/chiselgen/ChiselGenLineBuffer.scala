@@ -75,6 +75,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       }
 
     case op@LineBufferRotateEnq(lb,row,data,en) =>
+      throw new Exception(src"Non-parallelized LineBufferRotateEnq not implemented yet!  It isn't hard, just ask matt to do it")
       val dispatch = dispatchOf(lhs, lb).toList.distinct
       if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
@@ -85,13 +86,16 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
       val dispatch = dispatchOf(lhs, lb).toList.distinct
+      val stride = lb match {case Def(LineBufferNew(_,_,stride)) => getConstValue(stride).toInt}
       if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val ii = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      data.zipWithIndex.foreach { case (d, i) =>
-        emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
+      (0 until stride).foreach{r => 
+        data.zipWithIndex.foreach { case (d, i) =>
+          emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
+        }
+        emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
       }
-      emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
 
         
     case op@LineBufferRowSlice(lb,row,len,col) =>
