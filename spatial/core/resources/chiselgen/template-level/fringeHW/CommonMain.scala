@@ -29,7 +29,7 @@ trait CommonMain {
     case "zynq" => true
     case "verilator" => true
     case "vcs" => true
-    case "DE1" => true
+    case "de1soc" => true
     case _ => false
   }
 
