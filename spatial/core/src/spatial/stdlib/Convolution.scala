@@ -43,25 +43,41 @@ object Convolution {
 	                    colstride: scala.Int, rowstride: scala.Int,
 	                	load_par: Index, store_par: Index, layer_par: Index)(implicit state: State): Unit = {
 
-		  Foreach(input.dim1 by rowstride){row =>
-		  	val lineout = SRAM[T](coltile/colstride)
-			MemReduce(lineout par 1/*red_par*/)(input.dim0 by 1 par layer_par) { plane => 
-			  val lb = LineBuffer.strided[T](filter.dim1, coltile, rowstride)
-			  val sr = RegFile[T](filter.dim1, filter.dim2)
-			  val lineout_local = SRAM[T](coltile/colstride)
-			  lb load input(plane, row, 0::input.dim2 par load_par) // TODO: load with correct rowstride
-			  Foreach(input.dim2 by colstride){j => 
-			    Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)}
-			    lineout_local(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
-			      val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
-			      img * filter(plane,ii,jj)
-			    }{_+_}
-			    // lineout(j/colstride) = mux(row + (rowstride-1) < filter.rows.to[Int]-1 || j + (colstride-1) < filter.cols.to[Int]-1, 0.to[T], Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1){(ii,jj) => sr(ii,jj) * filter(ii,jj)}{_+_}.value)
-			  }
-			  lineout_local
-			}{_+_}
-		    output(row/rowstride, 0::output.cols par store_par) store lineout
-		  }
+		 //  Foreach(input.dim1 by rowstride){row =>
+		 //  	val lineout = SRAM[T](coltile/colstride)
+			// // MemReduce(lineout par 1/*red_par*/)(input.dim0 by 1 par layer_par) { plane =>  // Can't do this because it messes up lb control signals
+			//   val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.dim1, coltile, rowstride)}
+			//   val srs = List.tabulate(3){_ => RegFile[T](filter.dim1, filter.dim2)}
+			//   // val lineout_local = List.tabulate(3){_ => SRAM[T](coltile/colstride)}
+			//   for (plane <- 0 until 3) {
+			//   	lbs(plane) load input(plane, row, 0::input.dim2 par load_par)
+			//     Foreach(filter.dim1 by 1 par filter.dim1){i => srs(plane)(i,*) <<= lbs(plane)(i,j::j+colstride)}
+			//   }
+		 //      lineout(j/colstride) = (0 until 3).map{plane => 
+		 //      	Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
+		 //          val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else srs(plane)(ii,filter.dim2 - 1 - jj)
+		 //          img * filter(plane,ii,jj)
+		 //        }{_+_}
+		 //      }.reduce{_+_}
+
+		 //      output(row/rowstride, 0::output.cols par store_par) store lineout
+		 //    }
+		 //  Foreach(input.dim1 by rowstride){row =>
+		 //    val lineout = SRAM[T](coltile/colstride)
+			// MemReduce(lineout par 1/*red_par*/)(input.dim0 by 1 par layer_par) { plane =>  // Can't do this because it messes up lb control signals
+			//   lb load input(plane, row, 0::input.dim2 par load_par) // TODO: load with correct rowstride
+			//   Foreach(input.dim2 by colstride){j => 
+			//     Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)}
+			//     lineout_local(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
+			//       val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
+			//       img * filter(plane,ii,jj)
+			//     }{_+_}
+			//     // lineout(j/colstride) = mux(row + (rowstride-1) < filter.rows.to[Int]-1 || j + (colstride-1) < filter.cols.to[Int]-1, 0.to[T], Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1){(ii,jj) => sr(ii,jj) * filter(ii,jj)}{_+_}.value)
+			//   }
+			//   lineout_local
+			// }{_+_}
+		 //    output(row/rowstride, 0::output.cols par store_par) store lineout
+		 //  }
 
 
 	}

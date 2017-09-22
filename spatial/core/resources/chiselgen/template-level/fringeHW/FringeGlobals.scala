@@ -20,6 +20,7 @@ object FringeGlobals {
     bigIP = value match {
       case "zynq" => new fringeZynq.bigIP.BigIPZynq()
       case "aws" => new fringeAWS.bigIP.BigIPAWS()
+      case "DE1" => new fringeAWS.bigIP.BigIPDE1SoC()
       case _ => new fringe.bigIP.BigIPSim()
     }
 
