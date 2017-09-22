@@ -6,8 +6,8 @@ import org.virtualized.virtualize
 
 trait MatrixApi { this: SpatialApi =>
 
-  implicit class VectorReshaper[T](a: MArray[T]) {
-    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
+  implicit class VectorReshaper[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
+    // private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
     @virtualize
     @api def reshape(dim0: Index, dim1: Index): Matrix[T] = {
       assert(dim0*dim1 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+")")
@@ -28,9 +28,6 @@ trait MatrixApi { this: SpatialApi =>
       assert(dim0*dim1*dim2*dim3*dim4 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+"x"+dim2.toText+"x"+dim3.toText+"x"+dim4.toText+")")
       tensor5(a, dim0, dim1, dim2, dim3, dim4)
     }
-  }
-
-  implicit class FilterToeplitz[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
     @virtualize
     @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index): Matrix[T] = {
       // TODO: Incorporate stride
@@ -55,7 +52,9 @@ trait MatrixApi { this: SpatialApi =>
       matrix(data, out_rows, out_cols)
       // a.reshape(filterdim0, filterdim1) 
     }
+
   }
+
 
   implicit class MatrixConstructor(ranges: (MRange, MRange) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {

@@ -61,9 +61,11 @@ class FringeContextDE1SoC : public FringeContextBase<void> {
   volatile int *camStatusReg = NULL;
 
 public:
-  uint32_t numArgIns = 0;
+  uint32_t numArgInsId = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
+  uint32_t numArgIOsId = 0;
+  uint32_t numArgIns = 0;
   std::string bitfile = "";
 
   FringeContextDE1SoC(std::string path = "") : FringeContextBase(path) {
@@ -114,6 +116,14 @@ public:
 
   virtual void free(uint64_t buf) {
 		printf("TODO: free not implemented.\n");
+  }
+
+  virtual void setNumArgIns(uint32_t number) {
+    numArgIns = number;
+  }
+  
+  virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
@@ -251,10 +261,11 @@ public:
     writeReg(commandReg, 0);
   }
 
+
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
-    numArgIns++;
-    if (isIO) numArgIOs++;
+    numArgInsId++;
+    if (isIO) numArgIOsId++;
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
@@ -262,9 +273,33 @@ public:
     if (isIO) {
       return readReg(2+arg);
     } else {
-      return readReg(numArgIns-numArgIOs+2+arg);  
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
+
     }
   }
+
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
+  }
+
+  // virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
+  //   writeReg(arg+2, data);
+  //   numArgIns++;
+  //   if (isIO) numArgIOs++;
+  // }
+
+  // virtual uint64_t getArg(uint32_t arg, bool isIO) {
+  //   numArgOuts++;
+  //   if (isIO) {
+  //     return readReg(2+arg);
+  //   } else {
+  //     return readReg(numArgIns-numArgIOs+2+arg);  
+  //   }
+  // }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
 		volatile unsigned int *regPtr = fringeScalarBase + reg;
