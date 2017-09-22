@@ -23,7 +23,7 @@ object Convolution {
 	  val sr = RegFile[T](filter.rows, filter.cols)
 	  val lineout = SRAM[T](coltile/colstride)
 	  Foreach(input.rows by rowstride){row =>
-	    lb load input(row, 0::input.cols par load_par) // TODO: load with correct rowstride
+	    lb load input(row::row+rowstride, 0::input.cols par load_par)
 	    Foreach(input.cols by colstride){j => 
 	      Foreach(filter.rows by 1 par filter.rows){i => sr(i,*) <<= lb(i,j::j+colstride)}
 	      lineout(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1 par filter.cols){(ii,jj) => 
