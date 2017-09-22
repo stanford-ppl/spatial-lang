@@ -6,8 +6,8 @@ import org.virtualized.virtualize
 
 trait MatrixApi { this: SpatialApi =>
 
-  implicit class VectorReshaper[T](a: MArray[T]) {
-    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
+  implicit class VectorReshaper[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
+    // private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
     @virtualize
     @api def reshape(dim0: Index, dim1: Index): Matrix[T] = {
       assert(dim0*dim1 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+")")
@@ -28,22 +28,23 @@ trait MatrixApi { this: SpatialApi =>
       assert(dim0*dim1*dim2*dim3*dim4 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+"x"+dim2.toText+"x"+dim3.toText+"x"+dim4.toText+")")
       tensor5(a, dim0, dim1, dim2, dim3, dim4)
     }
-  }
-
-  implicit class FilterToeplitz[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
     @virtualize
     @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index): Matrix[T] = {
       // TODO: Incorporate stride
-      val pad0 = filterdim0 - 1
-      val pad1 = filterdim1 - 1
+      val pad0 = filterdim0 - 1 - (stride0-1)
+      val pad1 = filterdim1 - 1 - (stride1-1)
       val out_rows = ((imgdim0+pad0)-filterdim0+1) * ((imgdim1+pad1)-filterdim1+1) / (stride0 * stride1)
       val out_cols = (imgdim0+pad0)*(imgdim1+pad1)
+
+      Console.println("toeplitz dims are " + out_rows +","+ out_cols)
 
       val data = MArray.tabulate(out_rows * out_cols){k => 
         val i = (k / out_cols)
         val j = (k % out_cols)
         val sliding_window_row_correction = (i / imgdim1) * pad1
-        val filter_i_base = j - i - sliding_window_row_correction 
+        val stride0_correction = (i / imgdim1) * ((stride0-1)*imgdim1)
+        val stride1_correction = (i % imgdim1) * (stride1-1)
+        val filter_i_base = j - i - (sliding_window_row_correction + stride0_correction + stride1_correction) 
         val filter_i = (filter_i_base) / (imgdim1+pad1)
         val filter_j = ((j - i - sliding_window_row_correction) % (imgdim1+pad1))
         if (filter_i_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0) a(filter_i * filterdim1 + filter_j) else 0.to[T]
@@ -51,7 +52,9 @@ trait MatrixApi { this: SpatialApi =>
       matrix(data, out_rows, out_cols)
       // a.reshape(filterdim0, filterdim1) 
     }
+
   }
+
 
   implicit class MatrixConstructor(ranges: (MRange, MRange) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
