@@ -10,7 +10,8 @@ import fringe._
 sealed trait DeviceTarget
 object Default extends DeviceTarget
 object Zynq extends DeviceTarget
-object DE1 extends DeviceTarget
+object DE1 extends DeviceTarget // Do not use this one
+object de1soc extends DeviceTarget
 object AWS_F1 extends DeviceTarget
 
 object ops {
