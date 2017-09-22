@@ -41,7 +41,10 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
     }
 
     func
-    iters.indices.foreach{_ => close("}") }
+    iters.foreach{is =>
+      emitControlIncrement(lhs, is)
+      close("}")
+    }
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

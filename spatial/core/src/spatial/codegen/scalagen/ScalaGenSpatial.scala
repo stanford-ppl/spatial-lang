@@ -19,6 +19,7 @@ trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
     dependencies ::= FileDep("scalagen", "Makefile", "../")
     dependencies ::= FileDep("scalagen", "run.sh", "../")
     dependencies ::= FileDep("scalagen", "build.sbt", "../")
+    dependencies ::= FileDep("scalagen/project", "build.properties", "../project/")
     super.copyDependencies(out)
   }
 }
