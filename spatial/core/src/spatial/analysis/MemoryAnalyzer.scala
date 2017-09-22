@@ -685,11 +685,14 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
     val strides = constDimsToStrides(dims)
 
+    // TODO: Like FIFO, should not allow outer loop parallelization w.r.t. LineBuffer for enqueue operations
+
     // TODO: Is inner loop here?
     val banking = access match {
       case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), len.toInt, true))
       case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides.head, dims.head, true),  NoBanking(1))
       case Def(LineBufferEnq(_,_,_))                     => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
+      case Def(LineBufferRotateEnq(_,_,_,_))             => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
       case Def(LineBufferLoad(_,row,col,_)) =>
         val patterns = accessPatternOf(access)
         indexPatternsToBanking(mem, access, patterns, strides)
