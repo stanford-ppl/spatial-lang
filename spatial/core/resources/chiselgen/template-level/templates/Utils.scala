@@ -153,6 +153,7 @@ object ops {
           case AWS_F1 => b*c // Raghu's box
           case Zynq => b*c // Raghu's box
           case DE1 => b*c // Raghu's box
+          case de1soc => b*c // Raghu's box
           case Default => b*c
         }
       }
@@ -166,6 +167,7 @@ object ops {
           case AWS_F1 => b.asSInt*c // Raghu's box
           case Zynq => b.asSInt*c // Raghu's box
           case DE1 => b.asSInt*c // Raghu's box
+          case de1soc => b.asSInt*c // Raghu's box
           case Default => b.asSInt*c
         }
       }
@@ -195,6 +197,7 @@ object ops {
          case AWS_F1 => b/c // Raghu's box
          case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
          case DE1 => b/c // Raghu's box
+        case de1soc => b/c // Raghu's box
          case Default => b/c
        }
      }
@@ -208,6 +211,7 @@ object ops {
          case AWS_F1 => b.asSInt/c // Raghu's box
          case Zynq => b.asSInt/c // Raghu's box
          case DE1 => b.asSInt/c // Raghu's box
+        case de1soc => b.asSInt/c // Raghu's box
          case Default => b.asSInt/c
        }
      }
@@ -237,6 +241,7 @@ object ops {
           case AWS_F1 => b%c // Raghu's box
           case Zynq => b%c // Raghu's box
           case DE1 => b%c // Raghu's box
+          case de1soc => b%c // Raghu's box
           case Default => b%c
         }
       }
@@ -250,6 +255,7 @@ object ops {
           case AWS_F1 => b.asSInt%c // Raghu's box
           case Zynq => b.asSInt%c // Raghu's box
           case DE1 => b.asSInt%c // Raghu's box
+          case de1soc => b.asSInt%c // Raghu's box
           case Default => b.asSInt%c
         }
       }
@@ -345,6 +351,7 @@ object ops {
           case AWS_F1 => b*c.asSInt // Raghu's box
           case Zynq => b*c.asSInt // Raghu's box
           case DE1 => b*c.asSInt // Raghu's box
+          case de1soc => b*c.asSInt // Raghu's box
           case Default => b*c.asSInt
         }
       }
@@ -358,6 +365,7 @@ object ops {
           case AWS_F1 => b*c // Raghu's box
           case Zynq => b*c // Raghu's box
           case DE1 => b*c // Raghu's box
+          case de1soc => b*c // Raghu's box
           case Default => b*c
         }
       }
@@ -387,6 +395,7 @@ object ops {
          case AWS_F1 => b/c.asSInt // Raghu's box
          case Zynq => b/c.asSInt // Raghu's box
          case DE1 => b/c.asSInt // Raghu's box
+        case de1soc => b/c.asSInt // Raghu's box
          case Default => b/c.asSInt
        }
      }
@@ -400,6 +409,7 @@ object ops {
          case AWS_F1 => b/c // Raghu's box
          case Zynq => b/c // Raghu's box
          case DE1 => b/c // Raghu's box
+        case de1soc => b/c // Raghu's box
          case Default => b/c
        }
      }
@@ -429,6 +439,7 @@ object ops {
           case AWS_F1 => b%c.asSInt // Raghu's box
           case Zynq => b%c.asSInt // Raghu's box
           case DE1 => b%c.asSInt // Raghu's box
+          case de1soc => b%c.asSInt // Raghu's box
           case Default => b%c.asSInt
         }
       }
@@ -442,6 +453,7 @@ object ops {
           case AWS_F1 => b%c // Raghu's box
           case Zynq => b%c // Raghu's box
           case DE1 => b%c // Raghu's box
+          case de1soc => b%c // Raghu's box
           case Default => b%c
         }
       }
