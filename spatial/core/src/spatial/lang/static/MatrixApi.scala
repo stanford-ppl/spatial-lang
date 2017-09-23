@@ -58,14 +58,6 @@ trait MatrixApi { this: SpatialApi =>
 
   }
 
-  implicit class ArrayConstructor(range: MRange) {
-    @api def apply[A,T](func: Index => A)(implicit lft: Lift[A,T]): MArray[T] = {
-      implicit val mT: Type[T] = lft.staged
-      val len = range.length
-      MArray.tabulate(len){x => lft(func( range(x) )) }
-    }
-  }
-
   implicit class MatrixConstructor(ranges: (MRange, MRange) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
       implicit val mT: Type[T] = lft.staged

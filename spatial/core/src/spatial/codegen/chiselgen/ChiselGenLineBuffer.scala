@@ -86,7 +86,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      val stride = lb match {case Def(LineBufferNew(_,_,stride)) => getConstValue(stride).toInt}
+      val stride = lb match {case Def(LineBufferNew(_,_,Exact(s))) => s.toInt}
       if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val ii = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode

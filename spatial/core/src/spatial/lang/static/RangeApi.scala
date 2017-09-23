@@ -3,12 +3,31 @@ package spatial.lang.static
 import argon.core._
 import forge._
 
-trait RangeLowerPriorityImplicits { this: SpatialApi =>
+trait RangeLowPriorityImplicits { this: SpatialApi =>
   // Have to make this a lower priority, otherwise seems to prefer this + Range infix op over the implicit class on Index
-  @api implicit def index2range(x: Index)(implicit ctx: SrcCtx): MRange = MRange.fromIndex(x)
-}
+  @api implicit def index2range(x: Index): MRange = MRange.fromIndex(x)
 
-trait RangeLowPriorityImplicits extends RangeLowerPriorityImplicits { this: SpatialApi => }
+  implicit class RangeApplies(range: MRange) {
+    // This needs to be an implicit class on Range, otherwise it conflicts with the BitOps apply method
+    // Compiler prefers
+    // Index -> Range -> apply(_)
+    // over
+    // Index -> Bits[Index] -> DataConversionOps[Index] -> apply(_)
+    /** Returns the `i`'th element in this Range. **/
+    @api def apply(i: Index): Index = {
+      range.start.getOrElse(lift[Int,Index](0)) + i*range.step.getOrElse(lift[Int,Index](1))
+    }
+
+    // Needs to be in the same implicit class as the other apply method
+    /** Constructs an @Array from the function `func` on elements in this Range. **/
+    @api def apply[A,T](func: Index => A)(implicit lft: Lift[A,T]): MArray[T] = {
+      implicit val mT: Type[T] = lft.staged
+      val len = range.length
+      MArray.tabulate(len){x => lft(func( range(x) )) }
+    }
+  }
+
+}
 
 trait RangeApi extends RangeLowPriorityImplicits { this: SpatialApi =>
 
