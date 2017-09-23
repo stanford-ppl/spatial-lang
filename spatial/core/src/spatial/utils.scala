@@ -888,17 +888,21 @@ object utils {
     case ParRegFileShiftIn(reg,is,d,data,en) => Some(LocalWrite(reg,value=data, addr=is, en=en))
 
     case LineBufferEnq(lb,data,en)         => Some(LocalWrite(lb, value=data, en=en))
+    case LineBufferRotateEnq(lb,_,data,en) => Some(LocalWrite(lb, value=data, en=en))
 
     case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
     case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
     case e: SparseTransferMem[_,_,_] if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
 
-    case StreamWrite(stream, data, en)       => Some(LocalWrite(stream, value=data, en=en))
-    case BufferedOutWrite(buffer,data,is,en) => Some(LocalWrite(buffer, value=data, addr=is, en=en))
+    case StreamWrite(stream, data, en)        => Some(LocalWrite(stream, value=data, en=en))
+    case BufferedOutWrite(buffer,data,is,en)  => Some(LocalWrite(buffer, value=data, addr=is, en=en))
 
     // TODO: Address and enable are in different format in parallelized accesses
     case ParStreamWrite(stream, data, ens) => Some(LocalWrite(stream))
-    case ParLineBufferEnq(lb,data,ens)     => Some(LocalWrite(lb))
+
+    case ParLineBufferEnq(lb,data,ens)         => Some(LocalWrite(lb))
+    case ParLineBufferRotateEnq(lb,_,data,ens) => Some(LocalWrite(lb))
+
     case ParRegFileStore(reg,is,data,ens)  => Some(LocalWrite(reg))
     case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem))
     case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo))

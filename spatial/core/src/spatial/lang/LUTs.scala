@@ -164,6 +164,9 @@ object LUT2 {
 case class LUT3[T:Type:Bits](s: Exp[LUT3[T]]) extends Template[LUT3[T]] with LUT[T] {
   /** Returns the element at the given 3-dimensional address. **/
   @api def apply(r: Index, c: Index, p: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s), Bit.const(true)))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
 }
 object LUT3 {
   implicit def lut3Type[T:Type:Bits]: Type[LUT3[T]] = LUT3Type(typ[T])

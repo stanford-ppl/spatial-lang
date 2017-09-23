@@ -54,6 +54,8 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             val par = w.node match {
               case Def(_: LineBufferEnq[_]) => 1
               case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
+              case Def(_: LineBufferRotateEnq[_]) => 1
+              case Def(op@ParLineBufferRotateEnq(lb,row,data,ens)) => ens.length
             }
             par
           }.head
@@ -71,6 +73,30 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         emitGlobalModule(src"${lhs}_$i.io.reset := reset")
         linebufs = linebufs :+ (lhs.asInstanceOf[Sym[LineBufferNew[_]]], i)
       }
+
+    case op@LineBufferRotateEnq(lb,row,data,en) =>
+      throw new Exception(src"Non-parallelized LineBufferRotateEnq not implemented yet!  It isn't hard, just ask matt to do it")
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val i = dispatch.head
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
+      emit(src"${lb}_$i.io.w_en(${row}) := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+
+
+    case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      val stride = lb match {case Def(LineBufferNew(_,_,stride)) => getConstValue(stride).toInt}
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val ii = dispatch.head
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      (0 until stride).foreach{r => 
+        data.zipWithIndex.foreach { case (d, i) =>
+          emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
+        }
+        emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
+      }
+
         
     case op@LineBufferRowSlice(lb,row,len,col) =>
       // TODO: Multiple cycles

@@ -38,6 +38,22 @@ class SRAMVerilogAWS(val w: Int, val d: Int) extends BlackBox(
   })
 }
 
+class SRAMVerilogDE1SoC(val w: Int, val d: Int) extends BlackBox(
+  Map("DWIDTH" -> IntParam(w), "WORDS" -> IntParam(d), "AWIDTH" -> IntParam(log2Up(d))))
+{
+  val addrWidth = log2Up(d)
+  val io = IO(new Bundle {
+    val clk = Input(Clock())
+    val raddr = Input(UInt(addrWidth.W))
+    val waddr = Input(UInt(addrWidth.W))
+    val raddrEn = Input(Bool())
+    val waddrEn = Input(Bool())
+    val wen = Input(Bool())
+    val wdata = Input(UInt(w.W))
+    val rdata = Output(UInt(w.W))
+  })
+}
+
 abstract class GenericRAM(val w: Int, val d: Int) extends Module {
   val addrWidth = log2Up(d)
   val io = IO(new Bundle {
@@ -62,7 +78,7 @@ class FFRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
 class SRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
   // Customize SRAM here
   FringeGlobals.target match {
-    case "aws" | "zynq" =>
+    case "aws" | "zynq"  =>
       val mem = Module(new SRAMVerilogAWS(w, d))
       mem.io.clk := clock
       mem.io.raddr := io.raddr
@@ -77,6 +93,16 @@ class SRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
       val equalReg = RegNext(io.wen & (io.raddr === io.waddr), false.B)
       val wdataReg = RegNext(io.wdata, 0.U)
       io.rdata := Mux(equalReg, wdataReg, mem.io.rdata)
+
+    case "DE1" =>
+      val mem = Module(new SRAMVerilogDE1SoC(w, d))
+      mem.io.clk := clock
+      mem.io.raddr := io.raddr
+      mem.io.wen := io.wen
+      mem.io.waddr := io.waddr
+      mem.io.wdata := io.wdata
+      mem.io.raddrEn := true.B
+      mem.io.waddrEn := true.B
 
     case _ =>
       val mem = Module(new SRAMVerilogSim(w, d))

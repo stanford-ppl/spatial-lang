@@ -54,7 +54,7 @@ object DRAMTransfersInternal {
 
         val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(stagedDimsOf(offchip)))
 
-        val onchipOfs   = indices.zip(unitDims).flatMap{case (i,isUnitDim) => if (!isUnitDim) List(i) else Nil}
+        val onchipOfs   = indices.zip(unitDims).collect{case (i,isUnitDim) if !isUnitDim => i }
         val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
 
         if (isLoad) load(offchipAddr(), onchipAddr)

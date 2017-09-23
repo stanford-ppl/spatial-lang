@@ -41,20 +41,19 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
   /** Creates an enqueue (write) port of `data` to this LineBuffer, enabled by `en`. **/
   @api def enq(data: T, en: Bit): MUnit = MUnit(LineBuffer.enq(this.s, data.s, en.s))
 
+  /** Creates an enqueue port of `data` to this LineBuffer which rotates when `row` changes. **/
+  @api def enq(row: Index, data: T): MUnit = MUnit(LineBuffer.rotateEnq(this.s, row.s, data.s, Bit.const(true)))
+  /** Creates an enqueue port of `data` to this LineBuffer enabled by `en` which rotates when `row` changes. **/
+  @api def enq(row: Index, data: T, en: Bit): MUnit = MUnit(LineBuffer.rotateEnq(this.s, row.s, data.s, en.s))
+
   /** Creates a dense transfer from the given region of DRAM to this on-chip memory. **/
-  @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): MUnit = {
-    /*if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
-      error(ctx, "Loading into a LineBuffer from DRAM must be row-based")
-    }*/
-    DRAMTransfers.dense_transfer(dram, this, isLoad = true)
-  }
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  /** Creates a dense transfer from the given region of DRAM to this on-chip memory. **/
+  @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 
 object LineBuffer {
-  /** Static methods **/
-  implicit def lineBufferType[T:Type:Bits]: Type[LineBuffer[T]] = LineBufferType(typ[T])
-  implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
-
   /** Allocates a LineBuffer with given `rows` and `cols`.
     * The contents of this LineBuffer are initially undefined.
     * `rows` and `cols` must be statically determinable integers.
@@ -68,8 +67,12 @@ object LineBuffer {
     */
   @api def strided[T:Type:Bits](rows: Index, cols: Index, stride: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, stride.s))
 
+  implicit def lineBufferType[T:Type:Bits]: Type[LineBuffer[T]] = LineBufferType(typ[T])
+  implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
+
+
   @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], verticalStride: Exp[Index]) = {
-    stageMutable(LineBufferNew[T](rows, cols, int32s(1)))(ctx)
+    stageMutable(LineBufferNew[T](rows, cols, verticalStride))(ctx)
   }
 
   @internal def col_slice[T:Type:Bits](
@@ -119,6 +122,15 @@ object LineBuffer {
     stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
   }
 
+  @internal def rotateEnq[T:Type:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    row:        Exp[Index],
+    data:       Exp[T],
+    en:         Exp[Bit]
+  ) = {
+    stageWrite(linebuffer)(LineBufferRotateEnq(linebuffer,row,data,en))(ctx)
+  }
+
   @internal def par_load[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rows:       Seq[Exp[Index]],
@@ -135,6 +147,15 @@ object LineBuffer {
     ens:        Seq[Exp[Bit]]
   ) = {
     stageWrite(linebuffer)(ParLineBufferEnq(linebuffer,data,ens))(ctx)
+  }
+
+  @internal def par_rotateEnq[T:Type:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    row:        Exp[Index],
+    data:       Seq[Exp[T]],
+    ens:        Seq[Exp[Bit]]
+  ) = {
+    stageWrite(linebuffer)(ParLineBufferRotateEnq(linebuffer,row,data,ens))(ctx)
   }
 
 }

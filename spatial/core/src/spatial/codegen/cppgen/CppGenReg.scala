@@ -51,6 +51,11 @@ trait CppGenReg extends CppCodegen {
   }
 
   override protected def emitFileFooter() {
+    withStream(getStream("DE1SoC", "h")) {
+      argIOs.foreach{a =>
+        emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${2+argMapping(a)._2}""")
+      }
+    }
     // withStream(getStream("argmap", "h")) {
     //   argIOs.foreach{a =>
     //     emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${argMapping(a)._2}""")

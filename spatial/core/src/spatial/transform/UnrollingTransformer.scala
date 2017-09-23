@@ -208,6 +208,12 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
       val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
       LineBuffer.par_enq(f(lb), datas, ens)(e.mT,e.bT,ctx,state)
 
+    case (lanes, e@LineBufferRotateEnq(lb,row,data,en), ctx) =>
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val rw    = lanes.inLane(0){ f(row) }
+      LineBuffer.par_rotateEnq(f(lb), rw, datas, ens)(e.mT,e.bT,ctx,state)
+
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => Bit.and( f(en), globalValid) }

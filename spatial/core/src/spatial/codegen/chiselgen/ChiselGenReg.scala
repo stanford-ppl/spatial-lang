@@ -230,7 +230,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
                     emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren.D(${symDelay(lhs)})""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | ${reg}_resetter ${manualReset}""")
+                    emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | (${reg}_resetter ${manualReset}).D(${symDelay(lhs)}, rr)""")
                     emit(src"""${lhs} := ${reg}_${ii}.io.output""")
                     emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
