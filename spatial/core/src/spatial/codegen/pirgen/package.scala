@@ -27,10 +27,12 @@ package object pirgen {
   @stateful def getConstant(x: Expr): Option[AnyVal] = x match {
     case Const(c: FixedPoint) if c.fmt.isExactInt => Some(c.toInt)
     case Const(c: FixedPoint) => Some(c.toFloat)
+    case Const(c: FloatPoint) => Some(c.toFloat)
     case Const(c: Boolean) => Some(c)
 
     case Param(c: FixedPoint) if c.fmt.isExactInt => Some(c.toInt)
     case Param(c: FixedPoint) => Some(c.toFloat)
+    case Param(c: FloatPoint) => Some(c.toFloat)
     case Param(c: Boolean) => Some(c)
 
     case Final(c: BigInt)  => Some(c.toInt)
