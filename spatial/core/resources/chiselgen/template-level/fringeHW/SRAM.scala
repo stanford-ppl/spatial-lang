@@ -94,7 +94,7 @@ class SRAM(override val w: Int, override val d: Int) extends GenericRAM(w, d) {
       val wdataReg = RegNext(io.wdata, 0.U)
       io.rdata := Mux(equalReg, wdataReg, mem.io.rdata)
 
-    case "DE1" =>
+    case "DE1" | "de1soc" =>
       val mem = Module(new SRAMVerilogDE1SoC(w, d))
       mem.io.clk := clock
       mem.io.raddr := io.raddr

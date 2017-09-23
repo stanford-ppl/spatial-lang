@@ -30,6 +30,7 @@ unmanagedSourceDirectories in Compile <++= baseDirectory { base =>
     base / "templates",
     base / "fringeZynq",
     base / "fringeAWS",
+    base / "fringeDE1SoC",
     base / "fringeHW"
   )
 }
