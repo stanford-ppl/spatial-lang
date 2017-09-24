@@ -52,29 +52,30 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         val writerInfo = writersOf(lhs).zipWithIndex.map{ case (w,ii) => 
           val port = portsOf(w, lhs, i).head
           w.node match {
-            case Def(_:RegFileStore[_]) => (port, 1)
-            case Def(_:RegFileShiftIn[_]) => (port, 1)
-            // case Def(_@ParRegFileShiftIn(_,_,d,data,en)) => ${d.length}
-            case Def(_@ParRegFileStore(_,_,_,en)) => (port, en.length)
+            case Def(_:RegFileStore[_]) => (port, 1, 1)
+            case Def(_:RegFileShiftIn[_]) => (port, 1, 1)
+            case Def(_@ParRegFileShiftIn(_,inds,d,data,en)) => (port, inds.length, data.tp.asInstanceOf[VectorType[_]].width) // Get stride
+            case Def(_@ParRegFileStore(_,_,_,en)) => (port, en.length, 1)
           }
         }
         val parInfo = writerInfo.groupBy(_._1).map{case (k,v) => src"($k -> ${v.map{_._2}.reduce{_+_}})"}
+        val stride = writerInfo.map(_._3).max
         val depth = mem match {
           case BankedMemory(dims, d, isAccum) => d
           case _ => 1
         }
         if (depth == 1) {
-          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, 1, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width, $f))""")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width, $f))""")
           emitGlobalModule(src"${lhs}_$i.io.dump_en := false.B")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-          emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), $initString, 1, $depth, Map(${parInfo.mkString(",")}), $width, $f))""")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, $depth, Map(${parInfo.mkString(",")}), $width, $f))""")
         }
         resettersOf(lhs).indices.foreach{ ii => emitGlobalWire(src"""val ${lhs}_${i}_manual_reset_$ii = Wire(Bool())""")}
         if (resettersOf(lhs).length > 0) {
           emitGlobalModule(src"""val ${lhs}_${i}_manual_reset = ${resettersOf(lhs).indices.map{ii => src"${lhs}_${i}_manual_reset_$ii"}.mkString(" | ")}""")
-          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_${i}_manual_reset | reset""")
-        } else {emitGlobalModule(src"${lhs}_$i.io.reset := reset")}
+          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_${i}_manual_reset | reset.toBool""")
+        } else {emitGlobalModule(src"${lhs}_$i.io.reset := reset.toBool")}
 
       }
 
@@ -123,9 +124,23 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emit(src"""${rf}_$i.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf, i)})) """)
       }
 
-    case ParRegFileShiftIn(rf,i,d,data,en) => 
-      emit("ParRegFileShiftIn not implemented!")
-      // (copied from ScalaGen) shiftIn(lhs, rf, i, d, data, isVec = true)
+    case ParRegFileShiftIn(rf,inds,d,data,en) => 
+      val width = bitWidth(rf.tp.typeArguments.head)
+      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      emit(s"""// Assemble multidimW vectors""")
+      emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.length}, new multidimRegW(${inds.length}, List(${dimsOf(rf)}), ${width}))) """)
+      open(src"""for (${lhs}_i <- 0 until ${data}.length) {""")
+        emit(src"""${lhs}_wVec(${lhs}_i).data := ${data}(${lhs}_i).r""")
+        emit(src"""${lhs}_wVec(${lhs}_i).shiftEn := ${en} & (${enable}).D(${symDelay(lhs)})""")
+        inds.zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${lhs}_wVec(${lhs}_i).addr($j) := ${ind}.r // Assume always an int""")
+        }
+        emit(src"""${lhs}_wVec(${lhs}_i).en := false.B""")
+      close(src"}")
+      duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) =>
+        emit(src"""${rf}_$i.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf, i)})) """)
+      }
 
     case op@LUTNew(dims, init) =>
       val width = bitWidth(lhs.tp.typeArguments.head)

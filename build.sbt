@@ -21,6 +21,11 @@ val commonSettings = assemblySettings ++ Seq(
 
   scalacOptions ++= Seq("-language:implicitConversions", "-language:higherKinds"),
   scalacOptions ++= Seq("-explaintypes", "-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),
+
+  // Build documentation
+  //scalacOptions in (Compile,doc) ++= Seq("-groups", "-implicits"),
+
+  // For when something goes super wrong with scalac
   //scalacOptions ++= Seq("-Ytyper-debug"),
 
   //paradise

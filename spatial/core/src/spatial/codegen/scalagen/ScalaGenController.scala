@@ -1,30 +1,13 @@
 package spatial.codegen.scalagen
 
-import argon.codegen.scalagen.ScalaCodegen
 import argon.core._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenMemories {
-  def localMems: List[Exp[_]]
-
-  private def emitNestedLoop(lhs: Exp[_], cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
-    for (i <- iters.indices)
-      open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
-
-    func
-
-    iters.indices.foreach{_ => close("}}}") }
-  }
-
+trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaGenMemories {
   // In Scala simulation, run a pipe until its read fifos and streamIns are empty
-  def dumpBufferedOuts(ctrl: Exp[_]): Unit = {
-    val outs = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem,0).exists(_.node == ctrl) } }
-    outs.filter(isBufferedOut).foreach{buff => emit(src"dump_$buff()") }
-  }
-
   def getReadStreamsAndFIFOs(ctrl: Exp[_]): List[Exp[_]] = {
     val read = localMems.filter{mem => readersOf(mem).exists(_.ctrlNode == ctrl) }
                         .filter{mem => isStreamIn(mem) || isFIFO(mem) } ++ childrenOf(ctrl).flatMap(getReadStreamsAndFIFOs)
@@ -97,7 +80,7 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
         if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
       }
-      dumpBufferedOuts(lhs)
+      emitControlDone(lhs)
       bufferedOuts.foreach{buff => emit(src"close_$buff()") }
       globalMems = false
       emit(src"/** END HARDWARE BLOCK $lhs **/")
@@ -108,62 +91,26 @@ trait ScalaGenController extends ScalaCodegen with ScalaGenStream with ScalaGenM
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
         emitControlBlock(lhs, func)
+        emitControlDone(lhs)
       close("}")
-      dumpBufferedOuts(lhs)
       emit(src"/** END UNIT PIPE $lhs **/")
 
     case ParallelPipe(ens, func) =>
       emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitBlock(func)
+        emitBlock(func)
+        emitControlDone(lhs)
       close("}")
-      dumpBufferedOuts(lhs)
       emit(src"/** END PARALLEL PIPE $lhs **/")
 
-    case OpForeach(ens, cchain, func, iters) =>
-      emit(src"/** BEGIN FOREACH $lhs **/")
-      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
-      open(src"val $lhs = if ($en) {")
-        emitNestedLoop(lhs, cchain, iters){ emitBlock(func) }
-      close("}")
-      dumpBufferedOuts(lhs)
-      emit(src"/** END FOREACH $lhs **/")
 
-    case OpReduce(ens, cchain, accum, map, load, reduce, store, zero, fold, rV, iters) =>
-      emit(src"/** BEGIN REDUCE $lhs **/")
-      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
-      open(src"val $lhs = if ($en) {")
-      emitNestedLoop(lhs, cchain, iters){
-        visitBlock(map)
-        visitBlock(load)
-        emit(src"val ${rV._1} = ${load.result}")
-        emit(src"val ${rV._2} = ${map.result}")
-        visitBlock(reduce)
-        emitBlock(store)
-      }
-      close("}")
-      dumpBufferedOuts(lhs)
-      emit(src"/** END REDUCE $lhs **/")
-
-    case OpMemReduce(ens, cchainMap,cchainRed,accum,map,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) =>
-      emit(src"/** BEGIN MEM REDUCE $lhs **/")
-      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
-      open(src"val $lhs = if ($en) {")
-      emitNestedLoop(lhs, cchainMap, itersMap){
-        visitBlock(map)
-        emitNestedLoop(lhs, cchainRed, itersRed){
-          visitBlock(loadRes)
-          visitBlock(loadAcc)
-          emit(src"val ${rV._1} = ${loadRes.result}")
-          emit(src"val ${rV._2} = ${loadAcc.result}")
-          visitBlock(reduce)
-          visitBlock(storeAcc)
-        }
-      }
-      close("}")
-      dumpBufferedOuts(lhs)
-      emit(src"/** END MEM REDUCE $lhs **/")
+    // These should no longer exist in the IR at codegen time
+    /*
+    case _:OpForeach =>
+    case _:OpReduce[_] =>
+    case _:OpMemReduce[_,_] =>
+    */
 
     case _ => super.emitNode(lhs, rhs)
   }

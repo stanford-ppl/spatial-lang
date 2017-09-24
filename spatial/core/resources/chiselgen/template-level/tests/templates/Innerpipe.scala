@@ -8,6 +8,7 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   step(1)
   reset(1)
   poke(c.io.input.enable, 1)
+  poke(c.io.input.forever, 0)
   val timeout = 999
 
   val maxes = (0 until 2).map { i => math.abs(rnd.nextInt(20)) + 2 } 
@@ -42,10 +43,10 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   poke(c.io.input.rst, 0)
 
   var numEnCycles = 0
-  var done = peek(c.io.output.done).toInt
+  var done = peek(c.io.output.extendedDone).toInt
   while (done != 1) {
     handleStep
-    done = peek(c.io.output.done).toInt
+    done = peek(c.io.output.extendedDone).toInt
     val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) numEnCycles += 1
   }
@@ -55,12 +56,12 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   poke(c.io.input.rst, 0)
   if ( (numEnCycles > timeout) | (numEnCycles < 2) ) {
     println("ERROR: Either timeout or did not run at all! (" + numEnCycles + " cycles)")
-    expect(c.io.output.done, 999) // TODO: Figure out how to "expect" signals that are not hw IO
+    expect(c.io.output.extendedDone, 999) // TODO: Figure out how to "expect" signals that are not hw IO
   }
-  val expectedCycs = maxes.reduce{_*_}
+  val expectedCycs = maxes.reduce{_*_} - 1
   if ( numEnCycles != expectedCycs ) {
     println(s"ERROR: Ran ${numEnCycles} but expected ${expectedCycs} cycs!")
-    expect(c.io.output.done, 999) // TODO: Figure out how to "expect" signals that are not hw IO
+    expect(c.io.output.extendedDone, 999) // TODO: Figure out how to "expect" signals that are not hw IO
   }
   println(s"numiters $numEnCycles")
   step(20)
@@ -73,11 +74,11 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
   poke(c.io.input.enable, 1)
   step(1)
   numEnCycles = 0
-  done = peek(c.io.output.done).toInt
+  done = peek(c.io.output.extendedDone).toInt
   (0 until 2).foreach { i => cnts(i) = 0 }
   while (done != 1) {
     handleStep
-    done = peek(c.io.output.done).toInt
+    done = peek(c.io.output.extendedDone).toInt
     val cnt_en = peek(c.io.output.ctr_inc).toInt
     if (cnt_en == 1) numEnCycles += 1
   }
@@ -85,11 +86,11 @@ class InnerpipeTests(c: Innerpipe) extends PeekPokeTester(c) {
 
   if ( (numEnCycles > timeout) | (numEnCycles < 2) ) {
     println("ERROR: Either timeout or did not run at all! (" + numEnCycles + " cycles)")
-    expect(c.io.output.done, 999) // TODO: Figure out how to "expect" signals that are not hw IO
+    expect(c.io.output.extendedDone, 999) // TODO: Figure out how to "expect" signals that are not hw IO
   }
   if ( numEnCycles != expectedCycs ) {
     println(s"ERROR: Ran ${numEnCycles} but expected ${expectedCycs} cycs!")
-    expect(c.io.output.done, 999) // TODO: Figure out how to "expect" signals that are not hw IO
+    expect(c.io.output.extendedDone, 999) // TODO: Figure out how to "expect" signals that are not hw IO
   }
   println(s"numiters $numEnCycles")
 

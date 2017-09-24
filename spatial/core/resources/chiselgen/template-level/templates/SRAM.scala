@@ -423,7 +423,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
   val statesInW = wHashmap.map { t =>
-    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
+    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
     c.io.input.start := (t._1).U
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -431,7 +431,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
     (t._1 -> c)
   }
   val statesInR = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
+    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -440,7 +440,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
+    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -661,7 +661,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
   val statesInW = wHashmap.map { t =>
-    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
+    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
     c.io.input.start := (t._1).U
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -669,7 +669,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
     (t._1 -> c)
   }
   val statesInR = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
+    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap
@@ -678,7 +678,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1+Utils.log2Up(numBufs)))
+    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
     c.io.input.start := i.U 
     c.io.input.stop := numBufs.U
     c.io.input.enable := swap

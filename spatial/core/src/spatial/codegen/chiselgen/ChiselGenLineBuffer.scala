@@ -35,7 +35,8 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@LineBufferNew(rows, cols) =>
+    // TODO: Need to account for stride here
+    case op@LineBufferNew(rows, cols, stride) =>
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val col_rPar = readersOf(lhs) // Currently assumes all readers have same par
           .filter{read => dispatchOf(read, lhs) contains i}
@@ -43,6 +44,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             val par = r.node match {
               case Def(_: LineBufferLoad[_]) => 1
               case Def(a@ParLineBufferLoad(_,rows,cols,ens)) => cols.distinct.length
+              case Def(LineBufferColSlice(_,_,_,Exact(len))) => len.toInt
             }
             par
           }.head
@@ -52,23 +54,49 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             val par = w.node match {
               case Def(_: LineBufferEnq[_]) => 1
               case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
+              case Def(_: LineBufferRotateEnq[_]) => 1
+              case Def(op@ParLineBufferRotateEnq(lb,row,data,ens)) => ens.length
             }
             par
           }.head
 
         val col_banks = mem match { case BankedMemory(dims, depth, isAccum) => dims.last.banks; case _ => 1 }
-        // TODO: Use a combination of depth info and rows to figure out extra_rows_to_buffer, which is just a solid 1 for now
-        val extra_rows_to_buffer = 1
+        // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
+        val empty_stages_to_buffer = bufferControlInfo(lhs, i).length - 1
         val row_rPar = mem match { case BankedMemory(dims, depth, isAccum) => dims.head.banks; case _ => 1 } // Could be wrong
         val accessors = bufferControlInfo(lhs, 0).length
         val row_wPar = 1 // TODO: Do correct analysis here!
         val width = bitWidth(lhs.tp.typeArguments.head)
-        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${extra_rows_to_buffer}, 
+        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${empty_stages_to_buffer}, ${getConstValue(stride)},
           ${col_wPar}, ${col_rPar}, ${col_banks},
           ${row_wPar}, ${row_rPar}, $accessors, $width))  // Data type: ${op.mT}""")
         emitGlobalModule(src"${lhs}_$i.io.reset := reset")
         linebufs = linebufs :+ (lhs.asInstanceOf[Sym[LineBufferNew[_]]], i)
       }
+
+    case op@LineBufferRotateEnq(lb,row,data,en) =>
+      throw new Exception(src"Non-parallelized LineBufferRotateEnq not implemented yet!  It isn't hard, just ask matt to do it")
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val i = dispatch.head
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
+      emit(src"${lb}_$i.io.w_en(${row}) := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+
+
+    case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      val stride = lb match {case Def(LineBufferNew(_,_,stride)) => getConstValue(stride).toInt}
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val ii = dispatch.head
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      (0 until stride).foreach{r => 
+        data.zipWithIndex.foreach { case (d, i) =>
+          emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
+        }
+        emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
+      }
+
         
     case op@LineBufferRowSlice(lb,row,len,col) =>
       // TODO: Multiple cycles
@@ -81,15 +109,25 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       // Console.println(s"$quote(row)")
       
     case op@LineBufferColSlice(lb,row,col,len) =>
-      // TODO: Multiple cycles
-      // Copied from ScalaGen:
-      // open(src"val $lhs = Array.tabulate($len){i =>")
-        // oobApply(op.mT, lb, lhs, Seq(row,col)){ emit(src"$lb.apply($row,$col+i)") }
-      // close("}")
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val i = dispatch.head
+      for ( k <- 0 until getConstValue(len).toInt) {
+        emit(src"${lb}_$i.io.col_addr($k) := ${col}.r + ${k}.U")  
+      }
+      val rowtext = row match {
+        case Const(cc) => s"${cc}.U"
+        case _ => src"${row}.r"
+      }
+      emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${getConstValue(len)}, ${newWire(lhs.tp.typeArguments.head)}))""")
+      for ( k <- 0 until getConstValue(len).toInt) {
+        emit(src"${lhs}($k) := ${quote(lb)}_$i.readRowSlice(${rowtext}, ${k}.U).r")  
+      }
+
       
     case op@LineBufferLoad(lb,row,col,en) => 
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
       emit(src"${lb}_$i.io.col_addr(0) := ${col}.raw")
       val rowtext = row match {
@@ -100,11 +138,11 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
     case op@LineBufferEnq(lb,data,en) =>
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(0) := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }

@@ -6,8 +6,10 @@ import spatial.metadata._
 import spatial.nodes._
 
 case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineBuffer[T]] {
+  /** Creates a load port to this LineBuffer at the given `row` and `col`. **/
   @api def apply(row: Index, col: Index): T = wrap(LineBuffer.load(s, row.s, col.s, Bit.const(true)))
 
+  /** Creates a vectorized load port to this LineBuffer at the given `row` and `cols`. **/
   @api def apply(row: Index, cols: Range)(implicit ctx: SrcCtx): Vector[T] = {
     // UNSUPPORTED: Strided range apply of line buffer
     cols.step.map(_.s) match {
@@ -15,11 +17,12 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case _ => error(ctx, "Unsupported stride in LineBuffer apply")
     }
 
-    val start  = cols.start.map(_.s).getOrElse(int32(0))
+    val start  = cols.start.map(_.s).getOrElse(int32s(0))
     val length = cols.length
     val exp = LineBuffer.col_slice(s, row.s, start, length.s)
     exp.tp.wrapped(exp)
   }
+  /** Creates a vectorized load port to this LineBuffer at the given `rows` and `col`. **/
   @api def apply(rows: Range, col: Index)(implicit ctx: SrcCtx): Vector[T] = {
     // UNSUPPORTED: Strided range apply of line buffer
     rows.step.map(_.s) match {
@@ -27,32 +30,49 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case _ => error(ctx, "Unsupported stride in LineBuffer apply")
     }
 
-    val start = rows.start.map(_.s).getOrElse(int32(0))
+    val start = rows.start.map(_.s).getOrElse(int32s(0))
     val length = rows.length
     val exp = LineBuffer.row_slice(s, start, length.s, col.s)
     exp.tp.wrapped(exp)
   }
 
+  /** Creates an enqueue (write) port of `data` to this LineBuffer. **/
   @api def enq(data: T): MUnit = MUnit(LineBuffer.enq(this.s, data.s, Bit.const(true)))
+  /** Creates an enqueue (write) port of `data` to this LineBuffer, enabled by `en`. **/
   @api def enq(data: T, en: Bit): MUnit = MUnit(LineBuffer.enq(this.s, data.s, en.s))
 
-  @api def load(dram: DRAMDenseTile1[T])(implicit ctx: SrcCtx): MUnit = {
-    /*if (!dram.ranges.head.isUnit || dram.ranges.length != 2) {
-      error(ctx, "Loading into a LineBuffer from DRAM must be row-based")
-    }*/
-    DRAMTransfers.dense_transfer(dram, this, isLoad = true)
-  }
+  /** Creates an enqueue port of `data` to this LineBuffer which rotates when `row` changes. **/
+  @api def enq(row: Index, data: T): MUnit = MUnit(LineBuffer.rotateEnq(this.s, row.s, data.s, Bit.const(true)))
+  /** Creates an enqueue port of `data` to this LineBuffer enabled by `en` which rotates when `row` changes. **/
+  @api def enq(row: Index, data: T, en: Bit): MUnit = MUnit(LineBuffer.rotateEnq(this.s, row.s, data.s, en.s))
+
+  /** Creates a dense transfer from the given region of DRAM to this on-chip memory. **/
+  @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+
+  /** Creates a dense transfer from the given region of DRAM to this on-chip memory. **/
+  @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
 }
 
 object LineBuffer {
-  /** Static methods **/
+  /** Allocates a LineBuffer with given `rows` and `cols`.
+    * The contents of this LineBuffer are initially undefined.
+    * `rows` and `cols` must be statically determinable integers.
+    */
+  @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, int32s(1)))
+
+  /**
+    * Allocates a LineBuffer with given number of `rows` and `cols`, and with given `stride`.
+    * The contents of this LineBuffer are initially undefined.
+    * `rows`, `cols`, and `stride` must be statically determinable integers.
+    */
+  @api def strided[T:Type:Bits](rows: Index, cols: Index, stride: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s, stride.s))
+
   implicit def lineBufferType[T:Type:Bits]: Type[LineBuffer[T]] = LineBufferType(typ[T])
   implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
 
-  @api def apply[T:Type:Bits](rows: Index, cols: Index): LineBuffer[T] = wrap(alloc[T](rows.s, cols.s))
 
-  @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) = {
-    stageMutable(LineBufferNew[T](rows, cols))(ctx)
+  @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], verticalStride: Exp[Index]) = {
+    stageMutable(LineBufferNew[T](rows, cols, verticalStride))(ctx)
   }
 
   @internal def col_slice[T:Type:Bits](
@@ -64,7 +84,7 @@ object LineBuffer {
     implicit val vT = length match {
       case Final(c) => VectorN.typeFromLen[T](c.toInt)
       case _ =>
-        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
         VectorN.typeFromLen[T](0)
     }
     stageUnique(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
@@ -79,7 +99,7 @@ object LineBuffer {
     implicit val vT = length match {
       case Final(c) => VectorN.typeFromLen[T](c.toInt)
       case _ =>
-        error(ctx, "Cannot create parameterized or dynamically sized line buffer slice")
+        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
         VectorN.typeFromLen[T](0)
     }
     stageUnique(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
@@ -102,6 +122,15 @@ object LineBuffer {
     stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
   }
 
+  @internal def rotateEnq[T:Type:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    row:        Exp[Index],
+    data:       Exp[T],
+    en:         Exp[Bit]
+  ) = {
+    stageWrite(linebuffer)(LineBufferRotateEnq(linebuffer,row,data,en))(ctx)
+  }
+
   @internal def par_load[T:Type:Bits](
     linebuffer: Exp[LineBuffer[T]],
     rows:       Seq[Exp[Index]],
@@ -118,6 +147,15 @@ object LineBuffer {
     ens:        Seq[Exp[Bit]]
   ) = {
     stageWrite(linebuffer)(ParLineBufferEnq(linebuffer,data,ens))(ctx)
+  }
+
+  @internal def par_rotateEnq[T:Type:Bits](
+    linebuffer: Exp[LineBuffer[T]],
+    row:        Exp[Index],
+    data:       Seq[Exp[T]],
+    ens:        Seq[Exp[Bit]]
+  ) = {
+    stageWrite(linebuffer)(ParLineBufferRotateEnq(linebuffer,row,data,ens))(ctx)
   }
 
 }

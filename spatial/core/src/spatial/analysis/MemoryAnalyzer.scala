@@ -390,7 +390,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         // 2. Coalesce remaining instance groups based on brute force search, if it's feasible
         exhaustiveBufferMerge(insts).toList
 
-      // TODO: Merging for time multiplexed
+      // TODO: Merging for time multiplexed?
       case (None, instances) => instances
     }
   }
@@ -413,7 +413,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val writers = writersOf(mem)
     val readers = readersOf(mem)
 
-    if (writers.isEmpty && !isOffChipMemory(mem) && !isLUT(mem)) {
+    if (writers.isEmpty && !isOffChipMemory(mem) && !isLUT(mem) && initialDataOf(mem).isEmpty) {
       warn(mem.ctx, u"${mem.tp} $mem defined here has no writers.")
       warn(mem.ctx)
     }
@@ -439,7 +439,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       }
     }
 
-    val coalescedGroups = coalesceMemories(mem, instanceGroups)
+    val coalescedGroups = if (SpatialConfig.enableBufferCoalescing) coalesceMemories(mem, instanceGroups) else instanceGroups
 
     dbg("")
     dbg("")
@@ -685,22 +685,25 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
     val strides = constDimsToStrides(dims)
 
+    // TODO: Like FIFO, should not allow outer loop parallelization w.r.t. LineBuffer for enqueue operations
+
     // TODO: Is inner loop here?
     val banking = access match {
-      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(NoBanking(strides(0)), Banking(strides(1), len.toInt, true))
-      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides(0),len.toInt,true), NoBanking(1))
-      case Def(LineBufferEnq(_,_,_))                     => Seq(NoBanking(strides(0)), Banking(strides(1), channels, true))
+      case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), len.toInt, true))
+      case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides.head, dims.head, true),  NoBanking(1))
+      case Def(LineBufferEnq(_,_,_))                     => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
+      case Def(LineBufferRotateEnq(_,_,_,_))             => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
       case Def(LineBufferLoad(_,row,col,_)) =>
         val patterns = accessPatternOf(access)
         indexPatternsToBanking(mem, access, patterns, strides)
 
       case _ =>
         val patterns = accessPatternOf(access)
-        NoBanking(1) +: indexPatternsToBanking(mem, access, patterns, strides) // Everything else uses 1D view of line buffer
+        NoBanking(strides.head) +: indexPatternsToBanking(mem, access, patterns, strides) // Everything else uses 1D view of line buffer
     }
 
     val banks = banking.map(_.banks).product
-    val duplicates = channels / banks
+    val duplicates = Math.max(channels / banks, 1)
 
     (BankedMemory(banking, depth=1, isAccum=false), duplicates)
   }
@@ -718,7 +721,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val banking = indexPatternsToBanking(mem, access, patterns, strides)
 
     val banks = banking.map(_.banks).product
-    val duplicates = channels / banks
+    val duplicates = Math.max(channels / banks, 1)
 
     (BankedMemory(banking, 1, isAccum = false), duplicates)
   }

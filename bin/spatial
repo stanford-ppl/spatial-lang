@@ -56,7 +56,7 @@ def main():
 
   (opts, args) = parser.parse_known_args()
 
-  java_cmd = "sbt \"" + sbt_project + "run-main " + opts.app + " " + ' '.join(args) + "\""
+  java_cmd = "sbt -batch \"" + sbt_project + "run-main " + opts.app + " " + ' '.join(args) + "\""
   print(java_cmd)
 
   ecode = os.system(java_cmd)

@@ -62,7 +62,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${lhs}_II_done.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
@@ -119,7 +119,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
-        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset | ${quote(lhs)}_II_done.D(1)""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${quote(lhs)}_II_done.D(1)""")
         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
       }
       // Set up accumulator signals if we do not recognize reduction function
@@ -133,7 +133,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
-      //         emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset | ${quote(lhs)}_II_done.D(1)""")
+      //         emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${quote(lhs)}_II_done.D(1)""")
       //         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")
       //     }
       //     case _ => 
@@ -240,10 +240,16 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case ParFIFODeq(fifo, ens) =>
       val par = ens.length
-      val en = ens.map(quote).mkString("&")
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")
+      if (SpatialConfig.useCheapFifos){
+        val en = ens.map(quote).mkString("&")
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        val en = ens.map{i => src"$i & (${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)})"}
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
+      }
+      
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
       // fifo.tp.typeArguments.head match { 
@@ -257,11 +263,17 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case ParFIFOEnq(fifo, data, ens) =>
       val par = ens.length
-      val en = ens.map(quote).mkString("&")
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
+      if (SpatialConfig.useCheapFifos) {
+        val en = ens.map(quote).mkString("&")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        val en = ens.map{i => src"$i & ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)})"}
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), Vec(List($en)))""")
+      }
+      
 
     case ParFILOPop(filo, ens) =>
       val par = ens.length
@@ -351,7 +363,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case op@ParLineBufferLoad(lb,rows,cols,ens) =>
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val ii = dispatch.head
       rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) => 
         emit(src"${lb}_$ii.io.col_addr(0) := ${col}.raw // Assume we always read from same col")
@@ -366,13 +378,13 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception("This is an example where lb dispatch > 1. Please use as test case!") }
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val ii = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
       }
-      emit(src"""${lb}_$ii.io.w_en := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+      emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, rf).toList.head

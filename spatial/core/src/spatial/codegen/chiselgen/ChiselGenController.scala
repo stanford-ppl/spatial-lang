@@ -290,7 +290,10 @@ trait ChiselGenController extends ChiselGenCounter{
             ens.map{ my_en => 
               e.map{ their_en => 
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
-                  result = result.filter{a => src"$a" != src"$my_en"} :+ src"${my_en}_copy${previousLevel}"
+                  // Hacky way to avoid double-suffixing
+                  if (!src"$my_en".contains(src"_copy${previousLevel}")) {  
+                    result = result.filter{a => !src"$a".contains(src"$my_en")} :+ src"${my_en}_copy${previousLevel}"
+                  }
                 }
               }
             }
@@ -319,15 +322,19 @@ trait ChiselGenController extends ChiselGenCounter{
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(FIFONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
+      val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+          pt.access match {
+            case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+          }
         case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${fifo}_valid"
         }
         case fifo => src"${fifo}_en" // parent node
-      }.filter(_ != "").mkString(" & ")
+      }}.filter(_ != "").mkString(" & ")
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
@@ -467,8 +474,32 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ => 32}
     val ctrdepth = if (cchain.isDefined) {cchain.get match {case Def(CounterChainNew(ctrs)) => ctrs.length; case _ => 0}} else 0
+    val static = if (cchain.isDefined) {
+      cchain.get match {
+        case Def(CounterChainNew(ctrs)) => 
+          ctrs.map{c => c match {
+            case Def(CounterNew(s, e, str, p)) => 
+              val s_static = s match {
+                case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case b: Bound[_] => false
+                case _ => isGlobal(s)
+              }
+              val e_static = e match {
+                case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case b: Bound[_] => false
+                case _ => isGlobal(s)
+              }
+              val str_static = str match {
+                case Def(RegRead(reg)) => reg match {case Def(ArgInNew(_)) => true; case _ => false}
+                case b: Bound[_] => false
+                case _ => isGlobal(s)
+              }
+              s_static && e_static && str_static
+          }}.reduce{_&&_}
+      }
+    } else true
     emit(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime))")
+    emit(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime, staticNiter = $static))")
     emit(src"""${sym}_sm.io.input.enable := ${sym}_en & retime_released""")
     if (isFSM) {
       emit(src"""${sym}_done := (${sym}_sm.io.output.done & ~${sym}_inhibitor.D(2,rr)).D(${sym}_retime,rr)""")      
@@ -517,7 +548,7 @@ trait ChiselGenController extends ChiselGenCounter{
           if (isStreamChild(sym) & hasStreamIns) {
             emit(src"""${ctr}_resetter := ${sym}_done.D(1,rr) // Do not use rst_en for stream kiddo""")
           } else {
-            emit(src"""${ctr}_resetter := ${sym}_rst_en.D(1,rr)""")
+            emit(src"""${ctr}_resetter := ${sym}_rst_en.D(0,rr) // changed on 9/19""")
           }
           if (isInner) { 
             // val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
@@ -586,7 +617,12 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""${cchain.get}_copy${c}_en := ${signalHandle}""")
           emit(src"""${cchain.get}_copy${c}_resetter := ${sym}_sm.io.output.rst_en.D(1,rr)""")
         }
-        emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")
+        if (c match { case Def(StateMachine(_,_,_,_,_,_)) => true; case _ => false}) { // If this is an fsm, we want it to reset with each iteration, not with the reset of the parent
+          emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en | ${c}_done.D(1,rr)""")
+        } else {
+          emit(src"""${c}_resetter := ${sym}_sm.io.output.rst_en""")  
+        }
+        
       }
     }
 
@@ -606,7 +642,7 @@ trait ChiselGenController extends ChiselGenCounter{
       toggleEn() // turn on
       val streamAddition = getStreamEnablers(lhs)
       emit(s"""${quote(lhs)}_en := io.enable & !io.done ${streamAddition}""")
-      emit(s"""${quote(lhs)}_resetter := reset""")
+      emit(s"""${quote(lhs)}_resetter := reset.toBool""")
       emit(src"""${lhs}_ctr_trivial := false.B""")
       emitController(lhs, None, None)
       if (iiOf(lhs) <= 1) {
@@ -616,12 +652,12 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""val ${lhs}_II_done = ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${lhs}_II_done.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
-      emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset; retime_counter.io.input.enable := true.B;""")
+      emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset.toBool; retime_counter.io.input.enable := true.B;""")
       emitGlobalWire(src"""val retime_released = RegInit(false.B)""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")
       emit(src"""retime_released := retime_counter.io.output.done """)
@@ -672,6 +708,7 @@ trait ChiselGenController extends ChiselGenCounter{
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      createInstrumentation(lhs)
       emitStandardSignals(lhs)
       emit(src"""val ${lhs}_II_done = ${parent_kernel}_II_done""")
       // emit(src"""//${lhs}_base_en := ${parent_kernel}_base_en // Set by parent""")
@@ -750,6 +787,7 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      createInstrumentation(lhs)
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")

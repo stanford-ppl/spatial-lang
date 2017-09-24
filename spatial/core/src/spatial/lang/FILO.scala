@@ -6,29 +6,49 @@ import spatial.nodes._
 import spatial.utils._
 
 case class FILO[T:Type:Bits](s: Exp[FILO[T]]) extends Template[FILO[T]] {
-  @api def push(data: T): MUnit = this.push(data, true)
-  @api def push(data: T, en: Bit): MUnit = MUnit(FILO.push(this.s, data.s, en.s))
+  /**
+    * Annotates that addresses in this FIFO can be read in parallel by factor `p`.
+    *
+    * Used when creating references to sparse regions of DRAM.
+    */
+  @api def par(p: Index): FILO[T] = { val x = FILO(s); x.p = Some(p); x }
 
-  @api def pop(): T = this.pop(true)
-  @api def pop(en: Bit): T = wrap(FILO.pop(this.s, en.s))
-
-  @api def peek(): T = wrap(FILO.peek(this.s))
-
+  /** Returns true when this FILO contains no elements, false otherwise. **/
   @api def empty(): Bit = wrap(FILO.is_empty(this.s))
+  /** Returns true when this FILO cannot fit any more elements, false otherwise. **/
   @api def full(): Bit = wrap(FILO.is_full(this.s))
+  /** Returns true when this FILO contains exactly one element, false otherwise. **/
   @api def almostEmpty(): Bit = wrap(FILO.is_almost_empty(this.s))
+  /** Returns true when this FILO can fit exactly one more element, false otherwise. **/
   @api def almostFull(): Bit = wrap(FILO.is_almost_full(this.s))
+  /** Returns the number of elements currently in this FILO. **/
   @api def numel(): Index = wrap(FILO.numel(this.s))
 
-  //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
+  /** Creates a push (write) port to this FILO of `data`. **/
+  @api def push(data: T): MUnit = this.push(data, true)
+  /** Creates a conditional push (write) port to this FILO of `data` enabled by `en`. **/
+  @api def push(data: T, en: Bit): MUnit = MUnit(FILO.push(this.s, data.s, en.s))
+
+  /** Creates a pop (destructive read) port to this FILO. **/
+  @api def pop(): T = this.pop(true)
+  /** Creates a conditional pop (destructive read) port to this FILO enabled by `en`. **/
+  @api def pop(en: Bit): T = wrap(FILO.pop(this.s, en.s))
+
+  /** Creates a non-destructive read port to this FILO. **/
+  @api def peek(): T = wrap(FILO.peek(this.s))
+
+  /** Creates a dense, burst load from the specified region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+  /** Creates a sparse load from the specified sparse region of DRAM to this on-chip memory. **/
   @api def gather(dram: DRAMSparseTile[T]): MUnit = DRAMTransfers.sparse_transfer_mem(dram.toSparseTileMem, this, isLoad = true)
+
+
+  //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
   @api def gather[A[_]](dram: DRAMSparseTileMem[T,A]): MUnit = DRAMTransfers.sparse_transfer_mem(dram, this, isLoad = true)
 
   @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))
 
   protected[spatial] var p: Option[Index] = None
-  @api def par(p: Index): FILO[T] = { val x = FILO(s); x.p = Some(p); x }
 }
 
 object FILO {
@@ -36,6 +56,11 @@ object FILO {
   implicit def filoType[T:Type:Bits]: Type[FILO[T]] = FILOType(typ[T])
   implicit def filoIsMemory[T:Type:Bits]: Mem[T, FILO] = new FILOIsMemory[T]
 
+  /**
+    * Creates a FILO with given `depth`.
+    *
+    * Depth must be a statically determinable signed integer.
+    **/
   @api def apply[T:Type:Bits](size: Index): FILO[T] = FILO(FILO.alloc[T](size.s))
 
 

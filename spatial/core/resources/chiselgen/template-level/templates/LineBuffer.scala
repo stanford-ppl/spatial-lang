@@ -6,20 +6,36 @@ import chisel3.util.log2Ceil
 import chisel3.util.MuxLookup
 
 
-// Note: Can use counter template (with stride)
-// Constant bounds in these counters may save area however
+  /*
+
+  Ex. stride = 2, empty_stages_to_buffer = 2, num_lines = 3
+
+     [          ] <- msb row loading
+     [          ] <- lsb row loading
+     [          ] <- <invisible line>
+     [          ] <- <invisible line>
+     [          ] <- msb visible line
+     [          ] <- visible line
+     [          ] <- lsb visible line
+
+
+  */
 
 
 // ENHANCEMENT: currently this assumes read col par = 1, read row par = kernel height, and write row/col par is 1 and 1
 // See comments below: first should implement read col par, and also read row par == 1
-class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffer: Int, 
+// col_rPar == stride
+class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buffer: Int, val rstride: Int, 
   val col_wPar: Int, val col_rPar:Int, val col_banks: Int, 
   val row_wPar: Int, val row_rPar:Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
 
-  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9)
+  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9, tuple._10)
+
+  val extra_rows_to_buffer = empty_stages_to_buffer * rstride
+
   val io = IO(new Bundle {
-    val data_in  = Vec(col_wPar, Input(UInt(bitWidth.W)))
-    val w_en     = Input(Bool())
+    val data_in  = Vec(col_wPar*rstride, Input(UInt(bitWidth.W)))
+    val w_en     = Vec(rstride, Input(Bool()))
     // val r_en     = Input(UInt(1.W))
     // val w_done   = Input(UInt(1.W))
 
@@ -87,30 +103,45 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // --------------------------------------------------------------------------------------------------------------------------------
   
   // Inner counter over row width -- keep track of write address in current row
-  val WRITE_countRowPx = Module(new SingleCounter(col_wPar))
-  WRITE_countRowPx.io.input.enable := io.w_en
-  WRITE_countRowPx.io.input.reset := io.reset | swap
-  WRITE_countRowPx.io.input.saturate := false.B
-  WRITE_countRowPx.io.input.start := 0.S
-  WRITE_countRowPx.io.input.stop := line_size.S
-  WRITE_countRowPx.io.input.stride := 1.S
-  WRITE_countRowPx.io.input.gap := 0.S
-  
+  val WRITE_countRowPx = (0 until rstride).map{ i =>
+    val cnt = Module(new SingleCounter(col_wPar))
+    cnt.io.input.enable := io.w_en(i)
+    cnt.io.input.reset := io.reset | swap
+    cnt.io.input.saturate := false.B
+    cnt.io.input.start := 0.S
+    cnt.io.input.stop := line_size.S
+    cnt.io.input.stride := 1.S
+    cnt.io.input.gap := 0.S
+    cnt
+  }  
   // Outer counter over number of SRAM -- keep track of current row
-  val WRITE_countRowNum = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
-  WRITE_countRowNum.io.input.start := 0.U 
-  WRITE_countRowNum.io.input.stop := (num_lines+extra_rows_to_buffer).U
-  WRITE_countRowNum.io.input.enable := swap
-  WRITE_countRowNum.io.input.countUp := true.B
-
-  val cur_row = WRITE_countRowNum.io.output.count
+  val wCRN_width = 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)
+  val WRITE_countRowNum = (0 until rstride).map{i =>
+    val cnt = Module(new NBufCtr(rstride, wCRN_width))
+    cnt.io.input.start := i.U 
+    cnt.io.input.stop := (num_lines+extra_rows_to_buffer).U
+    cnt.io.input.enable := swap
+    cnt.io.input.countUp := true.B
+    cnt
+  }
   
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
+    val wen_muxing = (Array.tabulate(rstride)){ ii =>
+      (WRITE_countRowNum(ii).io.output.count -> io.w_en(ii))
+    }
     for (j <- 0 until col_wPar) {
-      linebuffer(i).io.w(j).addr(0) := (WRITE_countRowPx.io.output.count(j)).asUInt
-      linebuffer(i).io.w(j).data := io.data_in(j)
-      linebuffer(i).io.w(j).en := true.B & cur_row === i.U & io.w_en
+      // Figure out which input to draw 
+      val wdata_muxing = (Array.tabulate(rstride)){ ii =>
+        (WRITE_countRowNum(ii).io.output.count -> io.data_in(ii * col_wPar + j))
+      }
+      val waddr_muxing = (Array.tabulate(rstride)){ ii =>
+        (WRITE_countRowNum(ii).io.output.count -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
+      }
+
+      linebuffer(i).io.w(j).addr(0) := MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing)
+      linebuffer(i).io.w(j).data := MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing)
+      linebuffer(i).io.w(j).en := true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing)
     }
   }
     
@@ -129,9 +160,9 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
   val READ_countRowNum = (0 until row_rPar).map{ i => 
-    val c = Module(new NBufCtr(1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
+    val c = Module(new NBufCtr(rstride, 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
-    c.io.input.start := (extra_rows_to_buffer+i).U
+    c.io.input.start := (rstride+i).U
     c.io.input.stop := (num_lines+extra_rows_to_buffer).U
     c.io.input.enable := swap
     c.io.input.countUp := true.B
@@ -146,7 +177,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
       (i.U -> linebuffer(i).io.output.data(j))
       // }
     }
-    for (i <- 0 until (num_lines)) { // ENHANCEMENT: num_lines -> row par
+    for (i <- 0 until (row_rPar)) { // ENHANCEMENT: num_lines -> row par
       io.data_out(i*-*col_rPar + j) := MuxLookup(READ_countRowNum(i).io.output.count, 0.U, linebuf_read_wires_map)
     }    
   }
@@ -156,6 +187,12 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val extra_rows_to_buffe
       (i.U -> io.data_out(i))
     }
     MuxLookup(row, 0.U,  readableData)
+  }
+  def readRowSlice(row: UInt, relative_col: UInt): UInt = { 
+    val readableData = (0 until row_rPar * col_rPar).map { i =>
+      (i.U -> io.data_out(i))
+    }
+    MuxLookup(row *-* col_rPar.U + relative_col, 0.U,  readableData)
   }
   def readRow(row: Int): UInt = { 
     io.data_out(row)

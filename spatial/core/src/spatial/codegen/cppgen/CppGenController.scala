@@ -19,6 +19,9 @@ trait CppGenController extends CppCodegen {
       toggleEn()
       emitBlock(func)
       toggleEn()
+      emit(s"// Register ArgIns and ArgIOs in case some are unused")
+      emit(s"c1->setNumArgIns(${argIns.length} + ${drams.length} + ${argIOs.length});")
+      emit(s"c1->setNumArgIOs(${argIOs.length});")
       emit(s"time_t tstart = time(0);")
       val memlist = if (setMems.nonEmpty) {s""", ${setMems.mkString(",")}"""} else ""
       emit(s"c1->run();")
@@ -36,7 +39,8 @@ trait CppGenController extends CppCodegen {
         // In order to get niter / parent execution, we need to know the immediate parent of each controller and divide out that guy's niter
         val immediate_parent_niter_hashmap = mutable.HashMap[Int, Exp[_]]()
         instrumentCounters.zipWithIndex.foreach{case (c, i) => 
-          immediate_parent_niter_hashmap.getOrElseUpdate(c._2, c._1)
+          immediate_parent_niter_hashmap.update(c._2, c._1)
+          emit(s""" // immediate parent hashmap now ${immediate_parent_niter_hashmap}, current node ${c._1} is at depth ${c._2}""")
           val indent = "  "*c._2
           emit(s"""long ${c._1}_cycles = c1->getArg(${instrumentStart}+2*${i}, false);""")
           emit(s"""long ${c._1}_iters = c1->getArg(${instrumentStart}+2*${i}+1, false);""")

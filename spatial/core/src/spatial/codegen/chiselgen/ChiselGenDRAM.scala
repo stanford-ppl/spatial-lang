@@ -14,6 +14,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
   var storesList = List[Exp[_]]()
   var loadParMapping = List[String]()
   var storeParMapping = List[String]()
+  var dramsList = List[Exp[_]]()
   // var loadParMapping = HashMap[Int, (Int,Int)]() 
   // var storeParMapping = HashMap[Int, (Int,Int)]() 
 
@@ -44,6 +45,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims,zero) =>
+    dramsList = dramsList :+ lhs
       if (argMapping(lhs) == (-1,-1,-1)) {
         throw new spatial.UnusedDRAMException(lhs, lhs.name.getOrElse("noname"))
       }
@@ -174,19 +176,22 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     val intersect = loadsList.distinct.intersect(storesList.distinct)
 
+    val num_unusedDrams = dramsList.length - loadsList.distinct.length - storesList.distinct.length + intersect.length
+
     withStream(getStream("Instantiator")) {
       emit("")
       emit(s"// Memory streams")
       emit(src"""val loadStreamInfo = List($loadParMapping) """)
       emit(src"""val storeStreamInfo = List($storeParMapping) """)
-      emit(src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/""")
+      emit(src"""val numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */""")
+      emit(src"""// $loadsList $storesList)""")
     }
 
     withStream(getStream("IOModule")) {
       emit("// Memory Streams")
       emit(src"""val io_loadStreamInfo = List($loadParMapping) """)
       emit(src"""val io_storeStreamInfo = List($storeParMapping) """)
-      emit(src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/")
+      emit(src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */")
  
     }
 

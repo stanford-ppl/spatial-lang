@@ -163,7 +163,7 @@ public:
 
     for (int i = 0; i < paddedSize / sizeof(u32); i++) {
       u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
-      *addr = 15162342;
+      *addr = 4081516 + i;
     }
     fpgaMallocPtr += paddedSize;
     fpgaFreeMemSize -= paddedSize;
@@ -267,9 +267,11 @@ public:
     while((status == 0)) {
       status = readReg(statusReg);
       num++;
-//      if (num % 1000 == 0) {
-//        dumpRegs();
-//      }
+      if (num % 10000000 == 0) {
+        double endTime = getTime();
+        EPRINTF("Elapsed time: %lf ms, status = %08x\n", endTime - startTime, status);
+        dumpAllRegs();
+      }
     }
     double endTime = getTime();
     fprintf(stderr, "Design done, ran for %lf ms, status = %08x\n", endTime - startTime, status);
@@ -279,9 +281,15 @@ public:
     }
   }
 
+  virtual void setNumArgIns(uint32_t number) {
+    numArgIns = number;
+  }
+
+  virtual void setNumArgIOs(uint32_t number) {
+  }
+
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
-    numArgIns++;
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
@@ -300,15 +308,35 @@ public:
     return value;
   }
 
+  void dumpAllRegs() {
+    int argIns = numArgIns == 0 ? 1 : numArgIns;
+    int argOuts = numArgOuts == 0 ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts;
+    int totalRegs = argIns + argOuts + 2 + NUM_DEBUG_SIGNALS;
+
+    for (int i=0; i<totalRegs; i++) {
+      uint32_t value = readReg(i);
+      if (i < debugRegStart) {
+        if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
+        EPRINTF("\tR%d: %08x (%08u)\n", i, value, value);
+      } else {
+        if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
+        EPRINTF("\tR%d (%s): %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
+      }
+    }
+  }
+
   void dumpDebugRegs() {
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
     int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
+    EPRINTF("argInOffset: %d\n", argInOffset);
+    EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint32_t value = readReg(argInOffset + argOutOffset + 2 + i);
-      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
+      EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

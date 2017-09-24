@@ -25,10 +25,13 @@ class FringeContextVCS : public FringeContextBase<void> {
   pid_t sim_pid;
   Channel *cmdChannel;
   Channel *respChannel;
+  int initialCycles = -1;
   uint64_t numCycles = 0;
   uint32_t numArgIns = 0;
+  uint32_t numArgInsId = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
+  uint32_t numArgIOsId = 0;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
@@ -37,6 +40,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   const uint32_t commandReg = 0;
   const uint32_t statusReg = 1;
   uint64_t maxCycles = 10000000000;
+  uint64_t stepCount = 0;
 
   // Debug flags
   bool debugRegs = false;
@@ -110,6 +114,9 @@ class FringeContextVCS : public FringeContextBase<void> {
       case READY:
         simCmd.size = 0;
         break;
+      case GET_CYCLES:
+        simCmd.size = 0;
+        break;
       default:
         EPRINTF("Command %d not supported!\n", cmd);
         exit(-1);
@@ -126,10 +133,26 @@ class FringeContextVCS : public FringeContextBase<void> {
 public:
   void step() {
     sendCmd(STEP);
-    numCycles++;
-    if ((numCycles % 10000) == 0) {
-      EPRINTF("\t%lu cycles elapsed\n", numCycles);
+    numCycles = getCycles();
+    stepCount++;
+
+    int printInterval = 10000;
+    static int nextPrint = printInterval;
+
+    if ((numCycles >= nextPrint)) {
+      EPRINTF("\t%lu cycles elapsed\n", nextPrint);
+      nextPrint += printInterval;
     }
+  }
+
+  uint64_t getCycles() {
+    int id = sendCmd(GET_CYCLES);
+    simCmd *resp = recvResp();
+    ASSERT(id == resp->id, "GET_CYCLES resp->id does not match cmd.id!");
+    ASSERT(GET_CYCLES == resp->cmd, "GET_CYCLES resp->cmd does not match cmd.cmd!");
+    uint64_t cycles = *(uint64_t*)resp->data;
+    if (initialCycles == -1) initialCycles = (int) cycles;
+    return (cycles - initialCycles);
   }
 
   void finish() {
@@ -295,7 +318,7 @@ public:
     // Implement 4-way handshake
     writeReg(statusReg, 0);
     writeReg(commandReg, 1);
-    numCycles = 0;  // restart cycle count (incremented with each step())
+
     while((status == 0) && (numCycles <= maxCycles)) {
       step();
       status = readReg(statusReg);
@@ -319,10 +342,18 @@ public:
     }
   }
 
+  virtual void setNumArgIns(uint32_t number) {
+    numArgIns = number;
+  }
+  
+  virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
+  }
+  
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
-    numArgIns++;
-    if (isIO) numArgIOs++;
+    numArgInsId++;
+    if (isIO) numArgIOsId++;
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
@@ -337,6 +368,10 @@ public:
       }
 
     }
+  }
+
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
   }
 
   void dumpDebugRegs() {

@@ -3,10 +3,11 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-trait ScalaGenStream extends ScalaGenMemories {
+trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
   var streamIns: List[Exp[_]] = Nil
   var streamOuts: List[Exp[_]] = Nil
   var bufferedOuts: List[Exp[_]] = Nil
@@ -15,6 +16,18 @@ trait ScalaGenStream extends ScalaGenMemories {
     case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"
     case tp: StreamOutType[_] => src"scala.collection.mutable.Queue[${tp.child}]"
     case _ => super.remap(tp)
+  }
+
+  override protected def emitControlDone(ctrl: Exp[_]): Unit = {
+    super.emitControlDone(ctrl)
+
+    val written = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem,0).exists(_.node == ctrl) } }
+    val bufferedOuts = written.filter(isBufferedOut)
+    if (bufferedOuts.nonEmpty) {
+      emit("/** Dump BufferedOuts **/")
+      bufferedOuts.foreach{buff => emit(src"dump_$buff()") }
+      emit("/***********************/")
+    }
   }
 
   // HACK

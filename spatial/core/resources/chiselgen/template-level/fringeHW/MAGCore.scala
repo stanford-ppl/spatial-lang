@@ -20,11 +20,11 @@ class MAGCore(
   val blockingDRAMIssue: Boolean = false
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
 
-  val numRdataDebug = 3
+  val numRdataDebug = 2
   val numRdataWordsDebug = 16
-  val numWdataDebug = 3
+  val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 400
+  val numDebugs = 224
 
   // The data bus width to DRAM is 1-burst wide
   // While it should be possible in the future to add a write combining buffer
@@ -415,17 +415,17 @@ class MAGCore(
     }
 
     val ff = Module(new FF(sig.getWidth))
-    ff.io.init := 15162342.U  // Numbers from "LOST" without first two numbers
+    ff.io.init := Cat("hBADF".U, dbgCount.U)
     ff.io.in := in
     ff.io.enable := en
     ff.io.out
   }
 
-  def getCounter(en: UInt) = {
-    val ctr = Module(new Counter(32))
+  def getCounter(en: UInt, width: Int = 32) = {
+    val ctr = Module(new Counter(width))
     ctr.io.reset := 0.U
     ctr.io.saturate := 0.U
-    ctr.io.max := 100000000.U
+    ctr.io.max := ((1.toLong << width) - 1).U
     ctr.io.stride := 1.U
     ctr.io.enable := en
     ctr.io.out
@@ -444,25 +444,18 @@ class MAGCore(
   val signalLabels = ListBuffer[String]()
   def connectDbgSignal(sig: UInt, label: String = "") {
     io.debugSignals(dbgCount) := sig
+    signalLabels.append(label + s" ($dbgCount)")
     dbgCount += 1
-    signalLabels.append(label)
   }
 
-  connectDbgSignal(numCommandsCtr.io.out, "Num DRAM Commands")
-  connectDbgSignal(numReadCommandsCtr.io.out, "Read Commands")
-  connectDbgSignal(numWriteCommandsCtr.io.out, "Write Commands")
+  val cycleCount = getCounter(io.enable, 40)
+  connectDbgSignal(cycleCount, "Cycles")
+  val rdataEnqCount = getCounter(io.dram.rresp.valid & io.dram.rresp.ready)
 
-  connectDbgSignal(getCounter(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & io.dram.cmd.bits.isSparse), "Number of Sparse requests")
-  connectDbgSignal(getCounter(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & io.dram.cmd.bits.isSparse & ~io.dram.cmd.bits.isWr), "Sparse reads")
-  connectDbgSignal(getCounter(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & io.dram.cmd.bits.isSparse & io.dram.cmd.bits.isWr), "Sparse writes")
-  connectDbgSignal(addWhen(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & ~io.dram.cmd.bits.isSparse & ~io.dram.cmd.bits.isWr, io.dram.cmd.bits.size), "Sum of size (#bursts) of dense loads")
-  connectDbgSignal(addWhen(io.enable & io.dram.cmd.ready & io.dram.cmd.valid & ~io.dram.cmd.bits.isSparse & io.dram.cmd.bits.isWr, io.dram.cmd.bits.size), "Sum of size (#bursts) of dense stores")
-  connectDbgSignal(getCounter(io.enable), "Cycles")
-  val rdataEnqCount = getCounter(respValid)
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
-      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), respValid & (rdataEnqCount === i.U)), s"""rdata_from_dram${i}_$j""")
+      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount === i.U)), s"""rdata_from_dram${i}_$j""")
     }
   }
 
@@ -485,6 +478,7 @@ class MAGCore(
   }
 
   connectDbgSignal(getCounter(io.enable & dramReady & dramCmdValid), "Num DRAM Commands")
+  connectDbgSignal(getCounter(io.enable & ~commandFifo.io.empty & ~(dramReady & dramCmdValid)), "Total gaps in issue")
   connectDbgSignal(getCounter(io.enable & dramReady & dramCmdValid & ~headCommand.isWr), "Read Commands")
   connectDbgSignal(getCounter(io.enable & dramReady & dramCmdValid & headCommand.isWr), "Write Commands")
 
@@ -511,6 +505,10 @@ class MAGCore(
   }
 
   connectDbgSignal(getCounter(respValid), "Num DRAM Responses")
+  connectDbgSignal(getCounter(io.enable & ~(io.dram.rresp.valid & io.dram.rresp.ready)), "Total gaps in read responses")
+  connectDbgSignal(getCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready), "Total gaps in read responses (rresp.valid & ~rresp.ready)")
+  connectDbgSignal(getCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready), "Total gaps in read responses (~rresp.valid & rresp.ready)")
+  connectDbgSignal(getCounter(io.enable & ~io.dram.rresp.valid & ~io.dram.rresp.ready), "Total gaps in read responses (~rresp.valid & ~rresp.ready)")
 
   // Count number of responses issued per stream
   (0 until numStreams) foreach { case i =>

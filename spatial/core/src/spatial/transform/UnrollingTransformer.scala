@@ -144,8 +144,11 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
                 val iters = patterns.map(_.index)
                 iters.distinct.map{
                   case x@Some(i) =>
+                    dbgs(c"      Index: $i")
                     val requiredBanking = parFactorOf(i) match {case Exact(p) => p.toInt }
                     val actualBanking = banking(iters.indexOf(x))
+                    dbgs(c"      Actual banking: $actualBanking")
+                    dbgs(c"      Required banking: $requiredBanking")
                     java.lang.Math.min(requiredBanking, actualBanking) // actual may be higher than required, or vice versa
                   case None => 1
                 }
@@ -204,6 +207,12 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
       val datas = lanes.map{p => f(data) }
       val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
       LineBuffer.par_enq(f(lb), datas, ens)(e.mT,e.bT,ctx,state)
+
+    case (lanes, e@LineBufferRotateEnq(lb,row,data,en), ctx) =>
+      val datas = lanes.map{p => f(data) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val rw    = lanes.inLane(0){ f(row) }
+      LineBuffer.par_rotateEnq(f(lb), rw, datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
@@ -639,7 +648,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     val inds2 = lanes.indices
     val vs = lanes.indexValids
     val mC = typ[Reg[T]]
-    val start = counterStarts(cchain).map(_.getOrElse(int32(0)))
+    val start = counterStarts(cchain).map(_.getOrElse(int32s(0)))
 
     val blk = stageSealedLambda1(accum) {
       logs("Unrolling map")
@@ -702,7 +711,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     val isMap2 = mapLanes.indices
     val mvs = mapLanes.indexValids
     val partial = func.result
-    val start = counterStarts(cchainMap).map(_.getOrElse(int32(0)))
+    val start = counterStarts(cchainMap).map(_.getOrElse(int32s(0)))
     val redType = reduceType(reduce.result)
 
     val blk = stageSealedLambda1(f(accum)) {

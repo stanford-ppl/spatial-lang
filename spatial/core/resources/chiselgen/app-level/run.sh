@@ -4,9 +4,19 @@ if [[ "$USE_IDEAL_DRAM" = "0" || "$USE_IDEAL_DRAM" = "1" ]]; then
 else
 	ideal=0
 fi
+if [[ "$DEBUG_REGS" = "0" || "$DEBUG_REGS" = "1" ]]; then
+	dbg_reg=$USE_IDEAL_DRAM
+else
+	dbg_reg=0
+fi
+if [[ "$DEBUG_DRAM" = "0" || "$DEBUG_DRAM" = "1" ]]; then
+	dbg_dram=$USE_IDEAL_DRAM
+else
+	dbg_dram=0
+fi
 export USE_IDEAL_DRAM=$ideal
-export DRAM_DEBUG=0
-export DEBUG_REGS=1
+export DRAM_DEBUG=$dbg_dram
+export DEBUG_REGS=$dbg_reg
 export VPD_ON=0
 export VCD_ON=0
 export DRAM_NUM_OUTSTANDING_BURSTS=-1  # -1 == infinite number of outstanding bursts

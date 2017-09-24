@@ -13,7 +13,7 @@ import ops._
              but still forces you to index the thing and hence only gets the
              first bit
  */
-class NBufCtr(val width: Int = 32) extends Module {
+class NBufCtr(val stride: Int = 1, val width: Int = 32) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val start    = Input(UInt(width.W)) // TODO: Currently resets to "start" but wraps to 0, is this normal behavior?
@@ -30,9 +30,9 @@ class NBufCtr(val width: Int = 32) extends Module {
 
   val effectiveCnt = Mux(cnt + io.input.start >= io.input.stop, cnt + io.input.start - io.input.stop, cnt + io.input.start)
 
-  val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.stop-1.U, cnt-1.U), cnt)
-  val nextCntUp = Mux(io.input.enable, Mux(cnt + 1.U === io.input.stop, 0.U, cnt+1.U), cnt)
-  cnt := Mux(reset, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
+  val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U, io.input.stop-stride.U, cnt-stride.U), cnt) // TODO: This could be an issue if strided counter is used in reverse
+  val nextCntUp = Mux(io.input.enable, Mux(cnt + stride.U >= io.input.stop, 0.U + cnt+stride.U - io.input.stop, cnt+stride.U), cnt)
+  cnt := Mux(reset.toBool, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
 
   io.output.count := effectiveCnt
 }
@@ -101,6 +101,68 @@ class RedxnCtr(val width: Int = 32) extends Module {
   cnt := Mux(io.input.reset, 0.S, nextCntUp)
 
   io.output.done := isDone
+}
+
+class CompactingIncDincCtr(inc: Int, dinc: Int, stop: Int, width: Int = 32) extends Module {
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val inc_en     = Vec(inc, Input(Bool()))
+      val dinc_en    = Vec(dinc, Input(Bool()))
+    }
+    val output = new Bundle {
+      val overread      = Output(Bool())
+      val overwrite      = Output(Bool())
+      val empty         = Output(Bool())
+      val full          = Output(Bool())
+      val almostEmpty         = Output(Bool())
+      val almostFull          = Output(Bool())
+      val numel         = Output(SInt((width+1).W))
+    }
+  })
+
+  val cnt = RegInit(0.S(32.W))
+
+  val numPushed = io.input.inc_en.map{e => Mux(e, 1.S(width.W), 0.S(width.W))}.reduce{_+_}
+  val numPopped = io.input.dinc_en.map{e => Mux(e, 1.S(width.W), 0.S(width.W))}.reduce{_+_}
+  cnt := cnt + numPushed - numPopped
+
+  io.output.overread := cnt < 0.S((width+1).W)
+  io.output.overwrite := cnt > stop.S((width+1).W)
+  io.output.empty := cnt === 0.S((width+1).W)
+  io.output.almostEmpty := cnt - dinc.S((width+1).W) === 0.S((width+1).W)
+  io.output.full := cnt === stop.S((width+1).W)
+  io.output.almostFull := cnt + inc.S((width+1).W) === stop.S((width+1).W)
+  io.output.numel := cnt
+}
+
+class CompactingCounter(val lanes: Int, val depth: Int, val width: Int) extends Module {
+  def this(tuple: (Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3)
+  val io = IO(new Bundle {
+    val input = new Bundle {
+      val dir = Input(Bool())
+      val reset  = Input(Bool())
+      val enables = Vec(lanes, Input(Bool()))
+    }
+    val output = new Bundle {
+      val done   = Output(Bool())
+      val count  = Output(SInt(width.W))
+    }
+  })
+
+  val base = Module(new FF((width)))
+  base.io.input(0).init := 0.U(width.W)
+  base.io.input(0).reset := io.input.reset
+  base.io.input(0).enable := io.input.enables.reduce{_|_}
+
+  val count = base.io.output.data.asSInt
+  val num_enabled = io.input.enables.map{e => Mux(e, 1.S(width.W), 0.S(width.W))}.reduce{_+_}
+  val newval = count + Mux(io.input.dir, num_enabled, -num_enabled)
+  val isMax = Mux(io.input.dir, newval >= depth.S, newval <= 0.S)
+  val next = Mux(isMax, newval - depth.S(width.W), newval)
+  base.io.input(0).data := Mux(io.input.reset, 0.asUInt, next.asUInt)
+
+  io.output.count := base.io.output.data.asSInt
+  io.output.done := io.input.enables.reduce{_|_} & isMax
 }
 
 class InstrumentationCounter(val width: Int = 64) extends Module {

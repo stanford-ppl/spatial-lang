@@ -7,7 +7,7 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val numIterWidth: Int = 32, val retime: Int = 0) extends Module {
+class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val numIterWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -44,19 +44,25 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val deadState = Module(new SRFF()) // This is a hack because with new retime optimizations, mask signal may come one cycle after next state is entered
   deadState.io.input.asyn_reset := reset
 
+  val niterComputeDelay = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
+  val rstMax = if (staticNiter) 1 else niterComputeDelay
+  val rstw = Utils.log2Up(niterComputeDelay) + 2
+  val rstCtr = Module(new SingleCounter(1, width = rstw))
+  val firstIterComplete = Module(new SRFF())
+  firstIterComplete.io.input.set := rstCtr.io.output.done
+  firstIterComplete.io.input.reset := reset
+  firstIterComplete.io.input.asyn_reset := reset
+
   val stateFF = Module(new FF(numIterWidth))
   stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
-  stateFF.io.input(0).init := 0.U
+  stateFF.io.input(0).init := resetState.U
   stateFF.io.input(0).reset := io.input.rst
   val state = stateFF.io.output.data
 
-  val rstMax = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
-  val rstw = Utils.log2Up(rstMax) + 2
-  val rstCtr = Module(new SingleCounter(1, width = rstw))
-  rstCtr.io.input.enable := state === resetState.U
+  rstCtr.io.input.enable := state === resetState.U & io.input.enable
   rstCtr.io.input.reset := (state != resetState.U) | io.input.rst
   rstCtr.io.input.saturate := true.B
-  rstCtr.io.input.stop := rstMax.S(rstw.W)
+  rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))
   rstCtr.io.input.gap := 0.S(rstw.W)
   rstCtr.io.input.start := 0.S(rstw.W)
   rstCtr.io.input.stride := 1.S(rstw.W)
@@ -100,12 +106,15 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
 
   when(io.input.enable && ~deadState.io.output.data) {
     deadState.io.input.reset := false.B
-    when(state === initState.U) {   // INIT -> RESET
-      stateFF.io.input(0).data := resetState.U
-      io.output.stageEnable.foreach { s => s := false.B}
-      cycsSinceDone.io.input(0).enable := false.B
-    }.elsewhen (state === resetState.U) {  // RESET -> FILL
-      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U, 
+    // when(state === initState.U) {   // INIT -> RESET
+    //   stateFF.io.input(0).data := resetState.U
+    //   doneClear := false.B
+    //   io.output.stageEnable.foreach { s => s := false.B}
+    //   cycsSinceDone.io.input(0).enable := false.B
+    // }
+    when (state === resetState.U) {  // RESET -> FILL
+      doneClear := false.B
+      stateFF.io.input(0).data := Mux(io.input.numIter === 0.U(numIterWidth.W), 
                           Mux(io.input.forever, steadyState.U, Mux(rstCtr.io.output.done, doneState.U, resetState.U)), 
                           Mux(rstCtr.io.output.done, fillState.U, resetState.U)) // Go directly to done if niters = 0
       io.output.stageEnable.foreach { s => s := false.B}
@@ -116,7 +125,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         when((state === i.U)) {
           io.output.stageEnable.zip(doneMask).zipWithIndex.take(fillStateID+1).foreach { 
             case ((en, done), ii) => 
-              en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U) & io.input.stageMask(ii)
+              en := ~done & (ii.U >= cycsSinceDone.io.output.data) & (io.input.numIter != 0.U(numIterWidth.W)) & io.input.stageMask(ii)
           }
           io.output.stageEnable.drop(fillStateID+1).foreach { en => en := false.B }
           val doneMaskInts = doneMask.zip(io.input.stageMask).zipWithIndex.map{case ((a,b),iii) => (a | ~b) & iii.U >= cycsSinceDone.io.output.data}.take(fillStateID+1).map {Mux(_, 1.U(bitsToAddress(n).W), 0.U(bitsToAddress(n).W))}
@@ -126,6 +135,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
 
           when (doneTree === 1.U) {
             if (i+1 == steadyState) { // If moving to steady state
+              cycsSinceDone.io.input(0).enable := false.B
               stateFF.io.input(0).data := Mux(cycsSinceDone.io.output.data === 0.U & ctr.io.output.count(0) + 1.S < max.asSInt , 
                           steadyState.U, 
                           Mux(io.input.forever, steadyState.U, cycsSinceDone.io.output.data + 2.U + stateFF.io.output.data) 
@@ -146,6 +156,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       }
     }.elsewhen (state === steadyState.U) {  // STEADY
       io.output.stageEnable.zipWithIndex.foreach { case (en, i) => en := ~doneMask(i) & io.input.stageMask(i)  }
+      cycsSinceDone.io.input(0).enable := false.B
 
       val doneTree = doneMask.zipWithIndex.map{case (a,i) => a | ~io.input.stageMask(i)}.reduce{_ & _}
       doneClear := doneTree
@@ -162,6 +173,8 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         deadState.io.input.set := false.B
       }
     }.elsewhen (state < doneState.U) {   // DRAIN
+      cycsSinceDone.io.input(0).enable := false.B
+
       for ( i <- drainState until doneState) {
         val drainStateID = i - drainState
         when (state === i.U) {
@@ -179,24 +192,28 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
         }
       }
     }.elsewhen (state === doneState.U) {  // DONE
+      io.output.stageEnable.foreach { s => s := false.B}
       doneClear := false.B
-      stateFF.io.input(0).data := initState.U
+      stateFF.io.input(0).data := resetState.U
       deadState.io.input.set := false.B
     }.otherwise {
+      io.output.stageEnable.foreach { s => s := false.B}
       stateFF.io.input(0).data := state
       deadState.io.input.set := false.B
     }
   }.elsewhen(deadState.io.output.data){
     deadState.io.input.set := false.B
     deadState.io.input.reset := true.B
+    // io.output.stageEnable.foreach { s => s := false.B}
     stateFF.io.input(0).data := state
     cycsSinceDone.io.input(0).enable := false.B
   }.otherwise {
+    cycsSinceDone.io.input(0).enable := false.B
     deadState.io.input.set := false.B
     deadState.io.input.reset := true.B
     (0 until n).foreach { i => io.output.stageEnable(i) := false.B }
     doneClear := false.B
-    stateFF.io.input(0).data := initState.U
+    stateFF.io.input(0).data := resetState.U
   }
 
   // Output logic

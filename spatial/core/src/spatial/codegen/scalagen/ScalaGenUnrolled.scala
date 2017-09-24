@@ -41,7 +41,10 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
     }
 
     func
-    iters.indices.foreach{_ => close("}") }
+    iters.foreach{is =>
+      emitControlIncrement(lhs, is)
+      close("}")
+    }
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
@@ -49,18 +52,22 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
       emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
+        emitUnrolledLoop(lhs, cchain, iters, valids){
+          emitControlBlock(lhs, func)
+        }
+        emitControlDone(lhs)
       close("}")
-      dumpBufferedOuts(lhs)
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
     case UnrolledReduce(ens,cchain,_,func,iters,valids) =>
       emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")
-      emitUnrolledLoop(lhs, cchain, iters, valids){ emitControlBlock(lhs, func) }
+        emitUnrolledLoop(lhs, cchain, iters, valids){
+          emitControlBlock(lhs, func)
+        }
+        emitControlDone(lhs)
       close("}")
-      dumpBufferedOuts(lhs)
       emit(src"/** END UNROLLED REDUCE $lhs **/")
 
     case _ => super.emitNode(lhs, rhs)

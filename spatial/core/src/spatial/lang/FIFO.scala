@@ -7,36 +7,61 @@ import spatial.utils._
 
 /** Infix methods **/
 case class FIFO[T:Type:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {
-  @api def enq(data: T): MUnit = this.enq(data, true)
-  @api def enq(data: T, en: Bit): MUnit = MUnit(FIFO.enq(this.s, data.s, en.s))
+  /**
+    * Annotates that addresses in this FIFO can be read in parallel by factor `p`.
+    *
+    * Used when creating references to sparse regions of DRAM.
+    */
+  @api def par(p: Index): FIFO[T] = { val x = FIFO(s); x.p = Some(p); x }
 
-  @api def deq(): T = this.deq(true)
-  @api def deq(en: Bit): T = wrap(FIFO.deq(this.s, en.s))
-
-  @api def peek(): T = wrap(FIFO.peek(this.s))
-
+  /** Returns true when this FIFO contains no elements, false otherwise. **/
   @api def empty(): Bit = wrap(FIFO.is_empty(this.s))
+  /** Returns true when this FIFO cannot fit any more elements, false otherwise. **/
   @api def full(): Bit = wrap(FIFO.is_full(this.s))
+  /** Returns true when this FIFO contains exactly one element, false otherwise. **/
   @api def almostEmpty(): Bit = wrap(FIFO.is_almost_empty(this.s))
+  /** Returns true when this FIFO can fit exactly one more element, false otherwise. **/
   @api def almostFull(): Bit = wrap(FIFO.is_almost_full(this.s))
+  /** Returns the number of elements currently in this FIFO. **/
   @api def numel(): Index = wrap(FIFO.numel(this.s))
 
-  //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
+  /** Creates an enqueue (write) port of `data` to this FIFO. **/
+  @api def enq(data: T): MUnit = this.enq(data, true)
+  /** Creates an enqueue (write) port of `data` to this FIFO, enabled by `en`. **/
+  @api def enq(data: T, en: Bit): MUnit = MUnit(FIFO.enq(this.s, data.s, en.s))
+
+  /** Creates a dequeue (destructive read) port from this FIFO. **/
+  @api def deq(): T = this.deq(true)
+  /** Creates a dequeue (destructive read) port from this FIFO, enabled by `en`. **/
+  @api def deq(en: Bit): T = wrap(FIFO.deq(this.s, en.s))
+
+  /** Creates a non-destructive read port from this FIFO. **/
+  @api def peek(): T = wrap(FIFO.peek(this.s))
+
+  /** Creates a dense, burst load from the specified region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+  /** Creates a sparse load from the specified sparse region of DRAM to this on-chip memory. **/
   @api def gather(dram: DRAMSparseTile[T]): MUnit = DRAMTransfers.sparse_transfer_mem(dram.toSparseTileMem, this, isLoad = true)
+
+
   @api def gather[A[_]](dram: DRAMSparseTileMem[T,A]): MUnit = DRAMTransfers.sparse_transfer_mem(dram, this, isLoad = true)
+  //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
 
   @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))
 
   protected[spatial] var p: Option[Index] = None
-  @api def par(p: Index): FIFO[T] = { val x = FIFO(s); x.p = Some(p); x }
 }
 
 object FIFO {
   implicit def fifoType[T:Type:Bits]: Type[FIFO[T]] = FIFOType(typ[T])
   implicit def fifoIsMemory[T:Type:Bits]: Mem[T, FIFO] = new FIFOIsMemory[T]
 
-  @api def apply[T:Type:Bits](size: Index): FIFO[T] = FIFO(alloc[T](size.s))
+  /**
+    * Creates a FIFO with given `depth`.
+    *
+    * Depth must be a statically determinable signed integer.
+    **/
+  @api def apply[T:Type:Bits](depth: Index): FIFO[T] = FIFO(alloc[T](depth.s))
 
   /** Constructors **/
   @internal def alloc[T:Type:Bits](size: Exp[Index]): Exp[FIFO[T]] = {

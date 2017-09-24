@@ -18,17 +18,29 @@ import spatial.nodes._
 case class Wildcard()
 
 case class Range(start: Option[Index], end: Index, step: Option[Index], p: Option[Index], isUnit: CBoolean) {
+  /** Creates a Range with this Range's start and end but with the given `step` size. **/
   @api def by(step: Index): Range = Range(start, end, Some(step), p, isUnit = false)
+  /** Creates a Range with this Range's start, end, and stride, but with the given `par` parallelization factor. **/
   @api def par(p: Index): Range = Range(start, end, step, Some(p), isUnit = false)
 
+  /**
+    * Creates a Range with this Range's end, with the previous start as the step size, and the given start.
+    * Note that this operator is right-associative.
+    */
   @api def ::(start2: Index): Range = Range(Some(start2), end, start, p, isUnit = false)
 
+  /**
+    * Iterates over all integers in this range, calling `func` on each.
+    *
+    * `NOTE`: This method is unsynthesizable, and can be used only on the CPU or in simulation.
+    */
   @api def foreach(func: Index => MUnit): MUnit = {
-    val begin  = start.map(_.s).getOrElse(int32(0))
-    val stride = step.map(_.s).getOrElse(int32(1))
+    val begin  = start.map(_.s).getOrElse(int32s(0))
+    val stride = step.map(_.s).getOrElse(int32s(1))
     MUnit(Range.foreach(begin, end.s, stride, {i: Exp[Index] => func(wrap(i)).s }, fresh[Index]))
   }
 
+  /** Returns the length of this Range. **/
   @api def length: Index = (start, end, step) match {
     case (None, e, None) => e
     case (Some(s), e, None) => e - s

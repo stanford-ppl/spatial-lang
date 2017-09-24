@@ -47,6 +47,8 @@ public:
   // read a line from the image buffer that's connected to othe camera
   // user needs to pass a pointer to a buffer where pixel information will be stored
   virtual void readRowFromCameraBuffer(uint32_t row, short* buf) = 0;
+  virtual void setNumArgIns(uint32_t number) = 0;
+  virtual void setNumArgIOs(uint32_t number) = 0;
 
   ~FringeContextBase() {
 //    delete dut;

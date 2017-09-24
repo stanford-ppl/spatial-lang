@@ -18,7 +18,14 @@ class LineBufferIsMemory[T:Type:Bits] extends Mem[T, LineBuffer] {
   }
 
   @api def store(mem: LineBuffer[T], is: Seq[Index], data: T, en: Bit): MUnit = {
-    wrap(LineBuffer.enq(mem.s, data.s, en.s))
+    if (is.length >= 2) {
+      // Use the second to last index as the row command
+      // TODO: Not sure if this is right in all cases
+      wrap(LineBuffer.rotateEnq(mem.s, is(is.length - 2).s, data.s, en.s))
+    }
+    else {
+      wrap(LineBuffer.enq(mem.s, data.s, en.s))
+    }
   }
   @api def iterators(mem: LineBuffer[T]): Seq[Counter] = {
     // Hack: Use only columns for dense transfers
@@ -29,8 +36,15 @@ class LineBufferIsMemory[T:Type:Bits] extends Mem[T, LineBuffer] {
 
 
 /** IR Nodes **/
-case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index]) extends Alloc[LineBuffer[T]] {
-  def mirror(f:Tx) = LineBuffer.alloc[T](f(rows),f(cols))
+/**
+  * Allocation of a LineBuffer
+  * @param rows The number of "active" rows at any given time - should be statically known
+  * @param cols The number of columns (typically the image width) - should be statically known
+  * @param stride The number of lines to skip between reads (1 by default) - should be statically known
+  * @tparam T
+  */
+case class LineBufferNew[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], stride: Exp[Index]) extends Alloc[LineBuffer[T]] {
+  def mirror(f:Tx) = LineBuffer.alloc[T](f(rows),f(cols),f(stride))
   val mT = typ[T]
   val bT = bits[T]
 }
@@ -80,6 +94,18 @@ case class LineBufferEnq[T:Type:Bits](
   val bT = bits[T]
 }
 
+case class LineBufferRotateEnq[T:Type:Bits](
+  linebuffer: Exp[LineBuffer[T]],
+  row:        Exp[Index],
+  data:       Exp[T],
+  en:         Exp[Bit]
+) extends EnabledOp[MUnit](en) {
+  def mirror(f:Tx) = LineBuffer.rotateEnq(f(linebuffer),f(row),f(data),f(en))
+  override def aliases = Nil
+  val mT = typ[T]
+  val bT = bits[T]
+}
+
 case class ParLineBufferLoad[T:Type:Bits](
   linebuffer: Exp[LineBuffer[T]],
   rows:       Seq[Exp[Index]],
@@ -97,6 +123,17 @@ case class ParLineBufferEnq[T:Type:Bits](
   ens:        Seq[Exp[Bit]]
 ) extends EnabledOp[MUnit](ens:_*) {
   def mirror(f:Tx) = LineBuffer.par_enq(f(linebuffer),f(data),f(ens))
+  override def aliases = Nil
+  val mT = typ[T]
+}
+
+case class ParLineBufferRotateEnq[T:Type:Bits](
+  linebuffer: Exp[LineBuffer[T]],
+  row:        Exp[Index],
+  data:       Seq[Exp[T]],
+  ens:        Seq[Exp[Bit]]
+) extends EnabledOp[MUnit](ens:_*) {
+  def mirror(f:Tx) = LineBuffer.par_rotateEnq(f(linebuffer),f(row),f(data),f(ens))
   override def aliases = Nil
   val mT = typ[T]
 }

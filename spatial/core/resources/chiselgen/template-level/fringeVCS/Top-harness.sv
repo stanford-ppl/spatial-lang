@@ -18,6 +18,7 @@ module test;
   export "DPI" function pokeDRAMWriteResponse;
   export "DPI" function getDRAMReadRespReady;
   export "DPI" function getDRAMWriteRespReady;
+  export "DPI" function getCycles;
   export "DPI" function writeStream;
   export "DPI" function startVPD;
   export "DPI" function startVCD;
@@ -28,12 +29,16 @@ module test;
   reg reset = 1;
   reg finish = 0;
 
+  longint numCycles = 0;
+
   function void start();
     reset = 0;
+    numCycles = 0;
   endfunction
 
   function void rst();
     reset = 1;
+    numCycles = 0;
   endfunction
 
   always #`CLOCK_PERIOD clock = ~clock;
@@ -54,61 +59,61 @@ module test;
   reg [31:0] io_waddr;
   reg [63:0] io_wdata;
   wire [63:0] io_rdata;
-  reg io_dram_cmd_ready;
-  wire  io_dram_cmd_valid;
-  wire [63:0] io_dram_cmd_bits_addr;
-  wire [31:0] io_dram_cmd_bits_size;
-  wire [63:0] io_dram_cmd_bits_rawAddr;
-  wire  io_dram_cmd_bits_isWr;
-  wire  io_dram_cmd_bits_isSparse;
-  wire  io_dram_cmd_bits_dramReadySeen;
-  wire  io_dram_wdata_valid;
-  wire  io_dram_wdata_bits_wlast;
-  reg io_dram_wdata_ready;
-  wire [31:0] io_dram_cmd_bits_streamId;
-  wire [31:0] io_dram_cmd_bits_tag;
-  wire [31:0] io_dram_wdata_bits_streamId;
-  wire [31:0] io_dram_wdata_bits_wdata_0;
-  wire [31:0] io_dram_wdata_bits_wdata_1;
-  wire [31:0] io_dram_wdata_bits_wdata_2;
-  wire [31:0] io_dram_wdata_bits_wdata_3;
-  wire [31:0] io_dram_wdata_bits_wdata_4;
-  wire [31:0] io_dram_wdata_bits_wdata_5;
-  wire [31:0] io_dram_wdata_bits_wdata_6;
-  wire [31:0] io_dram_wdata_bits_wdata_7;
-  wire [31:0] io_dram_wdata_bits_wdata_8;
-  wire [31:0] io_dram_wdata_bits_wdata_9;
-  wire [31:0] io_dram_wdata_bits_wdata_10;
-  wire [31:0] io_dram_wdata_bits_wdata_11;
-  wire [31:0] io_dram_wdata_bits_wdata_12;
-  wire [31:0] io_dram_wdata_bits_wdata_13;
-  wire [31:0] io_dram_wdata_bits_wdata_14;
-  wire [31:0] io_dram_wdata_bits_wdata_15;
+  reg io_dram_0_cmd_ready;
+  wire  io_dram_0_cmd_valid;
+  wire [63:0] io_dram_0_cmd_bits_addr;
+  wire [31:0] io_dram_0_cmd_bits_size;
+  wire [63:0] io_dram_0_cmd_bits_rawAddr;
+  wire  io_dram_0_cmd_bits_isWr;
+  wire  io_dram_0_cmd_bits_isSparse;
+  wire  io_dram_0_cmd_bits_dramReadySeen;
+  wire  io_dram_0_wdata_valid;
+  wire  io_dram_0_wdata_bits_wlast;
+  reg io_dram_0_wdata_ready;
+  wire [31:0] io_dram_0_cmd_bits_streamId;
+  wire [31:0] io_dram_0_cmd_bits_tag;
+  wire [31:0] io_dram_0_wdata_bits_streamId;
+  wire [31:0] io_dram_0_wdata_bits_wdata_0;
+  wire [31:0] io_dram_0_wdata_bits_wdata_1;
+  wire [31:0] io_dram_0_wdata_bits_wdata_2;
+  wire [31:0] io_dram_0_wdata_bits_wdata_3;
+  wire [31:0] io_dram_0_wdata_bits_wdata_4;
+  wire [31:0] io_dram_0_wdata_bits_wdata_5;
+  wire [31:0] io_dram_0_wdata_bits_wdata_6;
+  wire [31:0] io_dram_0_wdata_bits_wdata_7;
+  wire [31:0] io_dram_0_wdata_bits_wdata_8;
+  wire [31:0] io_dram_0_wdata_bits_wdata_9;
+  wire [31:0] io_dram_0_wdata_bits_wdata_10;
+  wire [31:0] io_dram_0_wdata_bits_wdata_11;
+  wire [31:0] io_dram_0_wdata_bits_wdata_12;
+  wire [31:0] io_dram_0_wdata_bits_wdata_13;
+  wire [31:0] io_dram_0_wdata_bits_wdata_14;
+  wire [31:0] io_dram_0_wdata_bits_wdata_15;
 
-  wire        io_dram_rresp_ready;
-  reg         io_dram_rresp_valid;
-  reg  [31:0] io_dram_rresp_bits_rdata_0;
-  reg  [31:0] io_dram_rresp_bits_rdata_1;
-  reg  [31:0] io_dram_rresp_bits_rdata_2;
-  reg  [31:0] io_dram_rresp_bits_rdata_3;
-  reg  [31:0] io_dram_rresp_bits_rdata_4;
-  reg  [31:0] io_dram_rresp_bits_rdata_5;
-  reg  [31:0] io_dram_rresp_bits_rdata_6;
-  reg  [31:0] io_dram_rresp_bits_rdata_7;
-  reg  [31:0] io_dram_rresp_bits_rdata_8;
-  reg  [31:0] io_dram_rresp_bits_rdata_9;
-  reg  [31:0] io_dram_rresp_bits_rdata_10;
-  reg  [31:0] io_dram_rresp_bits_rdata_11;
-  reg  [31:0] io_dram_rresp_bits_rdata_12;
-  reg  [31:0] io_dram_rresp_bits_rdata_13;
-  reg  [31:0] io_dram_rresp_bits_rdata_14;
-  reg  [31:0] io_dram_rresp_bits_rdata_15;
-  reg  [31:0] io_dram_rresp_bits_tag;
-  reg  [31:0] io_dram_rresp_bits_streamId;
-  wire        io_dram_wresp_ready;
-  reg         io_dram_wresp_valid;
-  reg  [31:0] io_dram_wresp_bits_tag;
-  reg  [31:0] io_dram_wresp_bits_streamId;
+  wire        io_dram_0_rresp_ready;
+  reg         io_dram_0_rresp_valid;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_0;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_1;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_2;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_3;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_4;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_5;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_6;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_7;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_8;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_9;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_10;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_11;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_12;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_13;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_14;
+  reg  [31:0] io_dram_0_rresp_bits_rdata_15;
+  reg  [31:0] io_dram_0_rresp_bits_tag;
+  reg  [31:0] io_dram_0_rresp_bits_streamId;
+  wire        io_dram_0_wresp_ready;
+  reg         io_dram_0_wresp_valid;
+  reg  [31:0] io_dram_0_wresp_bits_tag;
+  reg  [31:0] io_dram_0_wresp_bits_streamId;
 
 //  wire        io_genericStreamIn_ready;
 //  reg         io_genericStreamIn_valid;
@@ -131,61 +136,61 @@ module test;
     .io_waddr(io_waddr),
     .io_wdata(io_wdata),
     .io_rdata(io_rdata),
-    .io_dram_cmd_ready(io_dram_cmd_ready),
-    .io_dram_cmd_valid(io_dram_cmd_valid),
-    .io_dram_cmd_bits_addr(io_dram_cmd_bits_addr),
-    .io_dram_cmd_bits_rawAddr(io_dram_cmd_bits_rawAddr),
-    .io_dram_cmd_bits_size(io_dram_cmd_bits_size),
-    .io_dram_cmd_bits_isWr(io_dram_cmd_bits_isWr),
-    .io_dram_cmd_bits_isSparse(io_dram_cmd_bits_isSparse),
-    .io_dram_cmd_bits_dramReadySeen(io_dram_cmd_bits_dramReadySeen),
-    .io_dram_cmd_bits_tag(io_dram_cmd_bits_tag),
-    .io_dram_cmd_bits_streamId(io_dram_cmd_bits_streamId),
-    .io_dram_wdata_bits_streamId(io_dram_wdata_bits_streamId),
-    .io_dram_wdata_bits_wlast(io_dram_wdata_bits_wlast),
-    .io_dram_wdata_bits_wdata_0(io_dram_wdata_bits_wdata_0),
-    .io_dram_wdata_bits_wdata_1(io_dram_wdata_bits_wdata_1),
-    .io_dram_wdata_bits_wdata_2(io_dram_wdata_bits_wdata_2),
-    .io_dram_wdata_bits_wdata_3(io_dram_wdata_bits_wdata_3),
-    .io_dram_wdata_bits_wdata_4(io_dram_wdata_bits_wdata_4),
-    .io_dram_wdata_bits_wdata_5(io_dram_wdata_bits_wdata_5),
-    .io_dram_wdata_bits_wdata_6(io_dram_wdata_bits_wdata_6),
-    .io_dram_wdata_bits_wdata_7(io_dram_wdata_bits_wdata_7),
-    .io_dram_wdata_bits_wdata_8(io_dram_wdata_bits_wdata_8),
-    .io_dram_wdata_bits_wdata_9(io_dram_wdata_bits_wdata_9),
-    .io_dram_wdata_bits_wdata_10(io_dram_wdata_bits_wdata_10),
-    .io_dram_wdata_bits_wdata_11(io_dram_wdata_bits_wdata_11),
-    .io_dram_wdata_bits_wdata_12(io_dram_wdata_bits_wdata_12),
-    .io_dram_wdata_bits_wdata_13(io_dram_wdata_bits_wdata_13),
-    .io_dram_wdata_bits_wdata_14(io_dram_wdata_bits_wdata_14),
-    .io_dram_wdata_bits_wdata_15(io_dram_wdata_bits_wdata_15),
-    .io_dram_wdata_ready(io_dram_wdata_ready),
-    .io_dram_wdata_valid(io_dram_wdata_valid),
+    .io_dram_0_cmd_ready(io_dram_0_cmd_ready),
+    .io_dram_0_cmd_valid(io_dram_0_cmd_valid),
+    .io_dram_0_cmd_bits_addr(io_dram_0_cmd_bits_addr),
+    .io_dram_0_cmd_bits_rawAddr(io_dram_0_cmd_bits_rawAddr),
+    .io_dram_0_cmd_bits_size(io_dram_0_cmd_bits_size),
+    .io_dram_0_cmd_bits_isWr(io_dram_0_cmd_bits_isWr),
+    .io_dram_0_cmd_bits_isSparse(io_dram_0_cmd_bits_isSparse),
+    .io_dram_0_cmd_bits_dramReadySeen(io_dram_0_cmd_bits_dramReadySeen),
+    .io_dram_0_cmd_bits_tag(io_dram_0_cmd_bits_tag),
+    .io_dram_0_cmd_bits_streamId(io_dram_0_cmd_bits_streamId),
+    .io_dram_0_wdata_bits_streamId(io_dram_0_wdata_bits_streamId),
+    .io_dram_0_wdata_bits_wlast(io_dram_0_wdata_bits_wlast),
+    .io_dram_0_wdata_bits_wdata_0(io_dram_0_wdata_bits_wdata_0),
+    .io_dram_0_wdata_bits_wdata_1(io_dram_0_wdata_bits_wdata_1),
+    .io_dram_0_wdata_bits_wdata_2(io_dram_0_wdata_bits_wdata_2),
+    .io_dram_0_wdata_bits_wdata_3(io_dram_0_wdata_bits_wdata_3),
+    .io_dram_0_wdata_bits_wdata_4(io_dram_0_wdata_bits_wdata_4),
+    .io_dram_0_wdata_bits_wdata_5(io_dram_0_wdata_bits_wdata_5),
+    .io_dram_0_wdata_bits_wdata_6(io_dram_0_wdata_bits_wdata_6),
+    .io_dram_0_wdata_bits_wdata_7(io_dram_0_wdata_bits_wdata_7),
+    .io_dram_0_wdata_bits_wdata_8(io_dram_0_wdata_bits_wdata_8),
+    .io_dram_0_wdata_bits_wdata_9(io_dram_0_wdata_bits_wdata_9),
+    .io_dram_0_wdata_bits_wdata_10(io_dram_0_wdata_bits_wdata_10),
+    .io_dram_0_wdata_bits_wdata_11(io_dram_0_wdata_bits_wdata_11),
+    .io_dram_0_wdata_bits_wdata_12(io_dram_0_wdata_bits_wdata_12),
+    .io_dram_0_wdata_bits_wdata_13(io_dram_0_wdata_bits_wdata_13),
+    .io_dram_0_wdata_bits_wdata_14(io_dram_0_wdata_bits_wdata_14),
+    .io_dram_0_wdata_bits_wdata_15(io_dram_0_wdata_bits_wdata_15),
+    .io_dram_0_wdata_ready(io_dram_0_wdata_ready),
+    .io_dram_0_wdata_valid(io_dram_0_wdata_valid),
 
-    .io_dram_rresp_ready(io_dram_rresp_ready),
-    .io_dram_rresp_valid(io_dram_rresp_valid),
-    .io_dram_rresp_bits_rdata_0(io_dram_rresp_bits_rdata_0),
-    .io_dram_rresp_bits_rdata_1(io_dram_rresp_bits_rdata_1),
-    .io_dram_rresp_bits_rdata_2(io_dram_rresp_bits_rdata_2),
-    .io_dram_rresp_bits_rdata_3(io_dram_rresp_bits_rdata_3),
-    .io_dram_rresp_bits_rdata_4(io_dram_rresp_bits_rdata_4),
-    .io_dram_rresp_bits_rdata_5(io_dram_rresp_bits_rdata_5),
-    .io_dram_rresp_bits_rdata_6(io_dram_rresp_bits_rdata_6),
-    .io_dram_rresp_bits_rdata_7(io_dram_rresp_bits_rdata_7),
-    .io_dram_rresp_bits_rdata_8(io_dram_rresp_bits_rdata_8),
-    .io_dram_rresp_bits_rdata_9(io_dram_rresp_bits_rdata_9),
-    .io_dram_rresp_bits_rdata_10(io_dram_rresp_bits_rdata_10),
-    .io_dram_rresp_bits_rdata_11(io_dram_rresp_bits_rdata_11),
-    .io_dram_rresp_bits_rdata_12(io_dram_rresp_bits_rdata_12),
-    .io_dram_rresp_bits_rdata_13(io_dram_rresp_bits_rdata_13),
-    .io_dram_rresp_bits_rdata_14(io_dram_rresp_bits_rdata_14),
-    .io_dram_rresp_bits_rdata_15(io_dram_rresp_bits_rdata_15),
-    .io_dram_rresp_bits_tag(io_dram_rresp_bits_tag),
-    .io_dram_rresp_bits_streamId(io_dram_rresp_bits_streamId),
-    .io_dram_wresp_ready(io_dram_wresp_ready),
-    .io_dram_wresp_valid(io_dram_wresp_valid),
-    .io_dram_wresp_bits_tag(io_dram_wresp_bits_tag),
-    .io_dram_wresp_bits_streamId(io_dram_wresp_bits_streamId)
+    .io_dram_0_rresp_ready(io_dram_0_rresp_ready),
+    .io_dram_0_rresp_valid(io_dram_0_rresp_valid),
+    .io_dram_0_rresp_bits_rdata_0(io_dram_0_rresp_bits_rdata_0),
+    .io_dram_0_rresp_bits_rdata_1(io_dram_0_rresp_bits_rdata_1),
+    .io_dram_0_rresp_bits_rdata_2(io_dram_0_rresp_bits_rdata_2),
+    .io_dram_0_rresp_bits_rdata_3(io_dram_0_rresp_bits_rdata_3),
+    .io_dram_0_rresp_bits_rdata_4(io_dram_0_rresp_bits_rdata_4),
+    .io_dram_0_rresp_bits_rdata_5(io_dram_0_rresp_bits_rdata_5),
+    .io_dram_0_rresp_bits_rdata_6(io_dram_0_rresp_bits_rdata_6),
+    .io_dram_0_rresp_bits_rdata_7(io_dram_0_rresp_bits_rdata_7),
+    .io_dram_0_rresp_bits_rdata_8(io_dram_0_rresp_bits_rdata_8),
+    .io_dram_0_rresp_bits_rdata_9(io_dram_0_rresp_bits_rdata_9),
+    .io_dram_0_rresp_bits_rdata_10(io_dram_0_rresp_bits_rdata_10),
+    .io_dram_0_rresp_bits_rdata_11(io_dram_0_rresp_bits_rdata_11),
+    .io_dram_0_rresp_bits_rdata_12(io_dram_0_rresp_bits_rdata_12),
+    .io_dram_0_rresp_bits_rdata_13(io_dram_0_rresp_bits_rdata_13),
+    .io_dram_0_rresp_bits_rdata_14(io_dram_0_rresp_bits_rdata_14),
+    .io_dram_0_rresp_bits_rdata_15(io_dram_0_rresp_bits_rdata_15),
+    .io_dram_0_rresp_bits_tag(io_dram_0_rresp_bits_tag),
+    .io_dram_0_rresp_bits_streamId(io_dram_0_rresp_bits_streamId),
+    .io_dram_0_wresp_ready(io_dram_0_wresp_ready),
+    .io_dram_0_wresp_valid(io_dram_0_wresp_valid),
+    .io_dram_0_wresp_bits_tag(io_dram_0_wresp_bits_tag),
+    .io_dram_0_wresp_bits_streamId(io_dram_0_wresp_bits_streamId)
 //    .io_genericStreamIn_ready(io_genericStreamIn_ready),
 //    .io_genericStreamIn_valid(io_genericStreamIn_valid),
 //    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
@@ -234,11 +239,11 @@ module test;
   endfunction
 
   function void getDRAMReadRespReady(output bit [31:0] respReady);
-    respReady = io_dram_rresp_ready;
+    respReady = io_dram_0_rresp_ready;
   endfunction
 
   function void getDRAMWriteRespReady(output bit [31:0] respReady);
-    respReady = io_dram_wresp_ready;
+    respReady = io_dram_0_wresp_ready;
   endfunction
 
   function void pokeDRAMReadResponse(
@@ -260,31 +265,31 @@ module test;
     input int rdata14,
     input int rdata15
   );
-    io_dram_rresp_valid = 1;
-    io_dram_rresp_bits_tag = tag;
-    io_dram_rresp_bits_rdata_0 = rdata0;
-    io_dram_rresp_bits_rdata_1 = rdata1;
-    io_dram_rresp_bits_rdata_2 = rdata2;
-    io_dram_rresp_bits_rdata_3 = rdata3;
-    io_dram_rresp_bits_rdata_4 = rdata4;
-    io_dram_rresp_bits_rdata_5 = rdata5;
-    io_dram_rresp_bits_rdata_6 = rdata6;
-    io_dram_rresp_bits_rdata_7 = rdata7;
-    io_dram_rresp_bits_rdata_8 = rdata8;
-    io_dram_rresp_bits_rdata_9 = rdata9;
-    io_dram_rresp_bits_rdata_10 = rdata10;
-    io_dram_rresp_bits_rdata_11 = rdata11;
-    io_dram_rresp_bits_rdata_12 = rdata12;
-    io_dram_rresp_bits_rdata_13 = rdata13;
-    io_dram_rresp_bits_rdata_14 = rdata14;
-    io_dram_rresp_bits_rdata_15 = rdata15;
+    io_dram_0_rresp_valid = 1;
+    io_dram_0_rresp_bits_tag = tag;
+    io_dram_0_rresp_bits_rdata_0 = rdata0;
+    io_dram_0_rresp_bits_rdata_1 = rdata1;
+    io_dram_0_rresp_bits_rdata_2 = rdata2;
+    io_dram_0_rresp_bits_rdata_3 = rdata3;
+    io_dram_0_rresp_bits_rdata_4 = rdata4;
+    io_dram_0_rresp_bits_rdata_5 = rdata5;
+    io_dram_0_rresp_bits_rdata_6 = rdata6;
+    io_dram_0_rresp_bits_rdata_7 = rdata7;
+    io_dram_0_rresp_bits_rdata_8 = rdata8;
+    io_dram_0_rresp_bits_rdata_9 = rdata9;
+    io_dram_0_rresp_bits_rdata_10 = rdata10;
+    io_dram_0_rresp_bits_rdata_11 = rdata11;
+    io_dram_0_rresp_bits_rdata_12 = rdata12;
+    io_dram_0_rresp_bits_rdata_13 = rdata13;
+    io_dram_0_rresp_bits_rdata_14 = rdata14;
+    io_dram_0_rresp_bits_rdata_15 = rdata15;
   endfunction
 
   function void pokeDRAMWriteResponse(
     input int tag
   );
-    io_dram_wresp_valid = 1;
-    io_dram_wresp_bits_tag = tag;
+    io_dram_0_wresp_valid = 1;
+    io_dram_0_wresp_bits_tag = tag;
   endfunction
 
 
@@ -300,19 +305,19 @@ module test;
   endfunction
 
   reg stallForOneCycle = 0;
-  // 1. If io_dram_cmd_valid, then send send DRAM request to CPP layer
+  // 1. If io_dram_0_cmd_valid, then send send DRAM request to CPP layer
   function void post_update_callbacks();
-    if (io_dram_cmd_valid & ~reset) begin
-      io_dram_cmd_ready = 1;
+    if (io_dram_0_cmd_valid & ~reset) begin
+      io_dram_0_cmd_ready = 1;
     end else begin
-      io_dram_cmd_ready = 0;
+      io_dram_0_cmd_ready = 0;
     end
 
     // Lower the ready signal for a cycle after wlast goes high
-    if (io_dram_wdata_valid & ~reset & ~stallForOneCycle) begin
-      io_dram_wdata_ready = 1;
+    if (io_dram_0_wdata_valid & ~reset & ~stallForOneCycle) begin
+      io_dram_0_wdata_ready = 1;
     end else begin
-      io_dram_wdata_ready = 0;
+      io_dram_0_wdata_ready = 0;
       if (stallForOneCycle) begin
         stallForOneCycle = 0;
       end
@@ -337,41 +342,41 @@ module test;
   * and wdata are issued in the same cycle.
   */
   function void pre_update_callbacks();
-    if (io_dram_cmd_valid & io_dram_cmd_ready) begin
+    if (io_dram_0_cmd_valid & io_dram_0_cmd_ready) begin
       sendDRAMRequest(
-        io_dram_cmd_bits_addr,
-        io_dram_cmd_bits_rawAddr,
-        io_dram_cmd_bits_size,
-        io_dram_cmd_bits_streamId,
-        io_dram_cmd_bits_tag,
-        io_dram_cmd_bits_isWr,
-        io_dram_cmd_bits_isSparse
+        io_dram_0_cmd_bits_addr,
+        io_dram_0_cmd_bits_rawAddr,
+        io_dram_0_cmd_bits_size,
+        io_dram_0_cmd_bits_streamId,
+        io_dram_0_cmd_bits_tag,
+        io_dram_0_cmd_bits_isWr,
+        io_dram_0_cmd_bits_isSparse
       );
     end
 
-    if (io_dram_wdata_valid & io_dram_wdata_ready) begin
+    if (io_dram_0_wdata_valid & io_dram_0_wdata_ready) begin
       sendWdata(
-        io_dram_wdata_bits_streamId,
-        io_dram_cmd_valid,
-        io_dram_cmd_bits_dramReadySeen,
-        io_dram_wdata_bits_wdata_0,
-        io_dram_wdata_bits_wdata_1,
-        io_dram_wdata_bits_wdata_2,
-        io_dram_wdata_bits_wdata_3,
-        io_dram_wdata_bits_wdata_4,
-        io_dram_wdata_bits_wdata_5,
-        io_dram_wdata_bits_wdata_6,
-        io_dram_wdata_bits_wdata_7,
-        io_dram_wdata_bits_wdata_8,
-        io_dram_wdata_bits_wdata_9,
-        io_dram_wdata_bits_wdata_10,
-        io_dram_wdata_bits_wdata_11,
-        io_dram_wdata_bits_wdata_12,
-        io_dram_wdata_bits_wdata_13,
-        io_dram_wdata_bits_wdata_14,
-        io_dram_wdata_bits_wdata_15
+        io_dram_0_wdata_bits_streamId,
+        io_dram_0_cmd_valid,
+        io_dram_0_cmd_bits_dramReadySeen,
+        io_dram_0_wdata_bits_wdata_0,
+        io_dram_0_wdata_bits_wdata_1,
+        io_dram_0_wdata_bits_wdata_2,
+        io_dram_0_wdata_bits_wdata_3,
+        io_dram_0_wdata_bits_wdata_4,
+        io_dram_0_wdata_bits_wdata_5,
+        io_dram_0_wdata_bits_wdata_6,
+        io_dram_0_wdata_bits_wdata_7,
+        io_dram_0_wdata_bits_wdata_8,
+        io_dram_0_wdata_bits_wdata_9,
+        io_dram_0_wdata_bits_wdata_10,
+        io_dram_0_wdata_bits_wdata_11,
+        io_dram_0_wdata_bits_wdata_12,
+        io_dram_0_wdata_bits_wdata_13,
+        io_dram_0_wdata_bits_wdata_14,
+        io_dram_0_wdata_bits_wdata_15
       );
-      if (io_dram_wdata_bits_wlast) begin
+      if (io_dram_0_wdata_bits_wlast) begin
         stallForOneCycle = 1;
       end else begin
         stallForOneCycle = 0;
@@ -379,11 +384,11 @@ module test;
     end
 
     // Update internal response queues
-    if (io_dram_rresp_valid & io_dram_rresp_ready) begin
+    if (io_dram_0_rresp_valid & io_dram_0_rresp_ready) begin
       popDRAMReadQ();
     end
 
-    if (io_dram_wresp_valid & io_dram_wresp_ready) begin
+    if (io_dram_0_wresp_valid & io_dram_0_wresp_ready) begin
       popDRAMWriteQ();
     end
 
@@ -405,13 +410,16 @@ module test;
       $dumpvars(0, Top);
     end
 
-    io_dram_cmd_ready = 0;
-    io_dram_wdata_ready = 0;
-    io_dram_rresp_valid = 0;
-    io_dram_wresp_valid = 0;
+    io_dram_0_cmd_ready = 0;
+    io_dram_0_wdata_ready = 0;
+    io_dram_0_rresp_valid = 0;
+    io_dram_0_wresp_valid = 0;
   end
 
-  int numCycles = 0;
+
+  function void getCycles(output longint cycles);
+    cycles = numCycles;
+  endfunction
 
   always @(posedge clock) begin
 
@@ -420,9 +428,9 @@ module test;
     pre_update_callbacks();
 
     io_wen = 0;
-    io_dram_rresp_valid = 0;
-    io_dram_wresp_valid = 0;
-//    io_dram_cmd_ready = 0;
+    io_dram_0_rresp_valid = 0;
+    io_dram_0_wresp_valid = 0;
+//    io_dram_0_cmd_ready = 0;
 //    io_genericStreamIn_valid = 0;
 //    io_genericStreamOut_ready = 1;
 
