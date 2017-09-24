@@ -374,7 +374,7 @@ case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) exten
 
 
 sealed abstract class PIROp
-case object PIRALUMux  extends PIROp { override def toString = "Mux"    }
+case object PIRALUMux  extends PIROp { override def toString = "MuxOp"    }
 case object PIRBypass  extends PIROp { override def toString = "Bypass" }
 case object PIRFixAdd  extends PIROp { override def toString = "FixAdd" }
 case object PIRFixSub  extends PIROp { override def toString = "FixSub" }

@@ -103,7 +103,7 @@ spatial {
   inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
-  pirsrc = "${sys.env("PIR_HOME")}/apps/src"
+  pirsrc = "${sys.env("PIR_HOME")}/pir/apps/src"
   dse = false
   dot = false
   retiming = false

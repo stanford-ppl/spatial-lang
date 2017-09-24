@@ -14,13 +14,10 @@ trait PIRFileGen extends FileGen {
   override protected def emitMain[S:Type](b: Block[S]): Unit = emitBlock(b)
 
   override protected def emitFileHeader() {
-    emit("import pir.graph.{Mux =>_, _}")
-    emit("import pir.codegen._")
-    emit("import pir.spade.config._")
-    emit("import pir.Design")
-    emit("import pir.util.enums._")
-    emit("import pir.util._")
-    emit("import pir.PIRApp")
+    emit("import pir._")
+    emit("import pir.node._")
+    emit("import arch._")
+    emit("import pirc.enums._")
     emit("")
     open(s"""object ${Config.name} extends PIRApp {""")
     //emit(s"""override val arch = SN_4x4""")
