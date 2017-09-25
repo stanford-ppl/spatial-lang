@@ -89,12 +89,6 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
         inHwScope = false
         body
 
-      case ParallelPipe(en, func) =>
-        val blks = latencyOfBlock(func, true)
-        dbgs(s"Parallel $lhs: ")
-        blks.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
-        blks.max + latencyOf(lhs)
-
       // --- Pipe
       case UnitPipe(en, func) if isInnerControl(lhs) =>
         val (pipe, ii) = latencyOfPipe(func)

@@ -19,13 +19,6 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
   val readerCUs = mutable.Map[Expr, List[PCU]]()
   val allocated = mutable.ListBuffer[Expr]()
 
-  // Give top controller or first controller below which is not a Parallel
-  private def topControllerHack(access: Access, ctrl: Ctrl): Ctrl = ctrl.node match {
-    case pipe@Def(ParallelPipe(en, _)) =>
-      topControllerHack(access, childContaining(ctrl, access))
-    case _ => ctrl
-  }
-
   def addIterators(cu: PCU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bit]]]) {
     inds.zipWithIndex.foreach{case (is, ci) =>
       is.zipWithIndex.foreach{ case (index, ii) => cu.getOrElseUpdate(index)(CounterReg(cchain, ci, ii)) }
@@ -96,8 +89,8 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
   }
 
   def allocateCU(exp: Expr): PCU = getOrElseUpdate(mapping, exp, {
-    val parent = if (isAccess(exp)) parentHack(parentOf(exp).get).map(allocateCU)
-                 else               parentHack(exp).map(allocateCU)
+    val parent = if (isAccess(exp)) parentOf(parentOf(exp).get).map(allocateCU)
+                 else               parentOf(exp).map(allocateCU)
 
     val style = getCUStyle(exp)
 

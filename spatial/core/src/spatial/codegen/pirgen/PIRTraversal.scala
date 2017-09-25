@@ -133,12 +133,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     map(key)
   }
 
-  // HACK: Skip parallel pipes in PIR gen
-  def parentHack(x: Expr): Option[Expr] = parentOf(x) match {
-    case Some(pipe@Def(_:ParallelPipe)) => parentHack(pipe)
-    case parentOpt => parentOpt
-  }
-
   def compose(dexp:Expr) = composed.getOrElse(dexp, dexp)
 
   def decomposeWithFields[T](exp: Expr, fields: Seq[T]): Either[Expr, Seq[(String, Expr)]] = {
@@ -517,7 +511,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions {
     case Def(Hwblock(func,_)) => blockContents(func)
     case Def(UnitPipe(en, func)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(UnitPipe(en, func)) => blockContents(func)
-    case Def(ParallelPipe(en, func)) => blockContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) if isInnerControl(pipe) => blockNestedContents(func)
