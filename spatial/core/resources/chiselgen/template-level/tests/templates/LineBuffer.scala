@@ -65,6 +65,29 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
     }
   }
 
+  def initSwap(n: Int): Unit = {
+    // // Poke lb
+    // poke(c.io.transientPushup, n)
+    // poke(c.io.transientSwap, 1)
+    // step(1)
+    // poke(c.io.transientSwap, 0)
+    // step(1)
+
+
+    // Handle gold
+    for (i <- c.num_lines+c.extra_rows_to_buffer-1 until n by -1) {
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = gold(i-n)(j)
+      }
+    }
+    for (i <- 0 until n){
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = 0
+      }      
+    }
+  
+  }
+
   def printGold(): Unit = {
     println("Current Gold:")
     for (i <- c.num_lines+c.extra_rows_to_buffer-1 to 0 by -1) {
@@ -117,7 +140,7 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
       miniswap()
       step(3)
     }
-    pushUp(c.num_lines - c.rstride)
+    initSwap(c.num_lines - c.rstride)
   }
 
   for(j <- 0 until c.rstride){

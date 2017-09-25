@@ -43,6 +43,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     val sEn = Vec(numAccessors, Input(Bool())) // Too many but at least this is safe
     val sDone = Vec(numAccessors, Input(Bool())) // Too many but at least this is safe
     val transientDone = Input(Bool())
+    val transientSwap = Input(Bool())
 
     // val r_done   = Input(UInt(1.W)) // Like double buffering
 
@@ -78,7 +79,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled //| io.transientSwap
   io.swap := swap
 
   // assert(ROW_PAR == 1 || ROW_PAR == num_lines)
