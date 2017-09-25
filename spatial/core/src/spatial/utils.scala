@@ -411,6 +411,16 @@ object utils {
     }
   }
 
+  @stateful def delayLineTrace(x: Exp[_]): Exp[_] = {
+    x match {
+      case Def(DelayLine(_,xx)) => xx match {
+        case Def(DelayLine(_,_)) => delayLineTrace(xx) 
+        case _ => xx
+      }
+    case _ => x
+    }
+  }
+
   def reductionTreeHeight(nLeaves: Int): Int = {
     def treeLevel(nNodes: Int, curHeight: Int): Int = {
       if (nNodes <= 1) curHeight
