@@ -19,14 +19,17 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
 
     val written = localMems.filter{mem => writersOf(mem).exists{wr =>
       topControllerOf(wr.node,mem,0).exists(_.node == ctrl) && (wr.node match {
-        case Def(_:LineBufferEnq[_]) | Def(_:ParLineBufferEnq[_]) => true
+        case Def(_:LineBufferEnq[_]) | Def(_:ParLineBufferEnq[_]) | Def(_:ParLineBufferRotateEnq[_]) => true
         case _ => false
       })
     }}
     val lineBuffers = written.filter(isLineBuffer)
     if (lineBuffers.nonEmpty) {
-      emit("/** Rotating LineBuffers **/")
-      lineBuffers.foreach{lb => emit(src"$lb.rotate()") }
+      emit("/** Rotating LineBuffers from Ctrl Done**/")
+      lineBuffers.foreach{lb => 
+        val stride = lb match {case Def(LineBufferNew(_,_,st)) => st match {case Exact(c: BigInt) => c}} // See bug #227
+        if (stride == 1) emit(src"$lb.rotate()") 
+      }
       emit("/***********************/")
     }
   }
@@ -40,7 +43,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
       case _ => false
     }}
     if (lineBuffers.nonEmpty) {
-      emit("/** Rotating LineBuffers **/")
+      emit("/** Rotating LineBuffers from Ctrl Increment**/")
       lineBuffers.foreach{lb => emit(src"$lb.rotate()") }
       emit("/**************************/")
     }
@@ -92,7 +95,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
       open(src"val $lhs = {")
         ens.zipWithIndex.foreach{case (en,i) =>
-          oobUpdate(op.mT,lb,lhs,Nil){ emit(src"if ($en) $lb.enq($data)") }
+          oobUpdate(op.mT,lb,lhs,Nil){ emit(src"if ($en) $lb.enq(${data(i)})") }
         }
       close("}")
 

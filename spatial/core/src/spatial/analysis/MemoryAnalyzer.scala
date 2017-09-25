@@ -693,6 +693,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => dims.dropRight(1).last match {case Exact(c: BigInt) => c}
       case Def(_: LineBufferLoad[_]) => rowstride // Not transient
       case Def(_: ParLineBufferLoad[_]) => rowstride // Not transient
+      case Def(_: LineBufferColSlice[_]) => rowstride // Not transient
       case _ => 
         if (parentOf(access).isDefined) {
           if (parentOf(parentOf(access).get).isDefined) {
