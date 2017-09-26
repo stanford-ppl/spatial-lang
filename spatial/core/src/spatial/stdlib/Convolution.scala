@@ -50,10 +50,13 @@ object Convolution {
 	    lb load input(row::row+rowstride, 0::input.cols par load_par)
 	    Foreach(input.cols by colstride){j => 
 	      Foreach(filter.rows by 1 par filter.rows){i => sr(i,*) <<= lb(i,j::j+colstride)}
-	      lineout(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1 par filter.cols){(ii,jj) => 
-	        val img = if ((row.to[Int]+rowstride-1) - (filter.rows - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.cols - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.cols - 1 - jj)
-	        img * filter(ii,jj)
-	      }{_+_}
+	      val filter_elements = List.tabulate(3){ii => List.tabulate(3){jj => 
+	      	filter(ii,jj)
+	      }}.flatten
+	      val sr_elements = List.tabulate(3){ii => List.tabulate(3){jj => 
+	      	if ((row.to[Int]+rowstride-1) - (filter.rows - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.cols - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.cols - 1 - jj)
+	      }}.flatten
+	      lineout(j/colstride) = sr_elements.zip(filter_elements).map{case (s, f) => s * f}.reduce{_+_}
 	      // lineout(j/colstride) = mux(row + (rowstride-1) < filter.rows.to[Int]-1 || j + (colstride-1) < filter.cols.to[Int]-1, 0.to[T], Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1){(ii,jj) => sr(ii,jj) * filter(ii,jj)}{_+_}.value)
 	    }
 	    output(row/rowstride, 0::output.cols par store_par) store lineout
