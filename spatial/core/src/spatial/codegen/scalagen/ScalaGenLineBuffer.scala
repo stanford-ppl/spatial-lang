@@ -36,11 +36,10 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
 
   override protected def emitControlIncrement(ctrl: Exp[_], iter: Seq[Bound[Index]]): Unit = {
     super.emitControlIncrement(ctrl, iter)
-    val unretimed_iter = iter.map{ i => delayLineTrace(i)}
 
     val lineBuffers = localMems.filter{mem => isLineBuffer(mem) && writersOf(mem).map(_.node).exists{
-      case Def(LineBufferRotateEnq(_,row,_,_)) => unretimed_iter.contains(row)
-      case Def(ParLineBufferRotateEnq(_,row,_,_)) => unretimed_iter.contains(row)
+      case Def(LineBufferRotateEnq(_,row,_,_)) => iter.contains(delayLineTrace(row))
+      case Def(ParLineBufferRotateEnq(_,row,_,_)) => iter.contains(delayLineTrace(row))
       case _ => false
     }}
     if (lineBuffers.nonEmpty) {
