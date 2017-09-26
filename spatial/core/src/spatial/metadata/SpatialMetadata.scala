@@ -366,6 +366,15 @@ case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = thi
 }
 
 /**
+  * Identifies whether a writer to a linebuffer is one doing a transient load or a steady state load
+  */
+case class MTransientLoad(is: Boolean) extends Metadata[MTransientLoad] { def mirror(f:Tx) = this }
+@data object isTransient {
+  def apply(x: Exp[_]): Boolean = metadata[MTransientLoad](x).exists(_.is)
+  def update(x: Exp[_], is: Boolean) = metadata.add(x, MTransientLoad(is))
+}
+
+/**
   * Identifies whether a memory is an accumulator
   */
 case class MInnerAccum(is: Boolean) extends Metadata[MInnerAccum] { def mirror(f:Tx) = this }

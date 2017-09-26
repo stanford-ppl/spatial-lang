@@ -36,13 +36,17 @@ case class StreamOutNew[T:Type:Bits](bus: Bus) extends Alloc[StreamOut[T]] {
   val mT = typ[T]
 }
 
-case class StreamRead[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]) extends EnabledOp[T](en) {
+case class StreamRead[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]) extends LocalReaderOp[T](stream,en=en) {
   def mirror(f:Tx) = StreamIn.read(f(stream), f(en))
   val mT = typ[T]
   val bT = bits[T]
 }
 
-case class StreamWrite[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bit]) extends EnabledOp[MUnit](en) {
+case class StreamWrite[T:Type:Bits](
+  stream: Exp[StreamOut[T]],
+  data:   Exp[T],
+  en:     Exp[Bit]
+) extends LocalWriterOp(stream,value=data,en=en) {
   def mirror(f:Tx) = StreamOut.write(f(stream), f(data), f(en))
   val mT = typ[T]
   val bT = bits[T]
@@ -53,7 +57,12 @@ case class BufferedOutNew[T:Type:Bits](dims: Seq[Exp[Index]], bus: Bus) extends 
   val mT = typ[T]
 }
 
-case class BufferedOutWrite[T:Type:Bits](buffer: Exp[BufferedOut[T]], data: Exp[T], is: Seq[Exp[Index]], en: Exp[Bit]) extends EnabledOp[MUnit] {
+case class BufferedOutWrite[T:Type:Bits](
+  buffer: Exp[BufferedOut[T]],
+  data:   Exp[T],
+  is:     Seq[Exp[Index]],
+  en:     Exp[Bit]
+) extends LocalWriterOp(buffer,value=data,addr=is,en=en) {
   def mirror(f:Tx) = BufferedOut.write[T](f(buffer),f(data),f(is),f(en))
   val mT = typ[T]
   val bT = bits[T]
@@ -62,7 +71,7 @@ case class BufferedOutWrite[T:Type:Bits](buffer: Exp[BufferedOut[T]], data: Exp[
 case class ParStreamRead[T:Type:Bits](
   stream: Exp[StreamIn[T]],
   ens:    Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
+)(implicit val vT: Type[VectorN[T]]) extends ParLocalReaderOp[VectorN[T]](stream, ens=ens) {
   def mirror(f:Tx) = StreamIn.par_read(f(stream),f(ens))
   val mT = typ[T]
   val bT = bits[T]
@@ -72,7 +81,7 @@ case class ParStreamWrite[T:Type:Bits](
   stream: Exp[StreamOut[T]],
   data:   Seq[Exp[T]],
   ens:    Seq[Exp[Bit]]
-) extends EnabledOp[MUnit](ens:_*) {
+) extends ParLocalWriterOp(stream, values=data, ens=ens) {
   def mirror(f:Tx) = StreamOut.par_write(f(stream),f(data),f(ens))
   val mT = typ[T]
   val bT = bits[T]
