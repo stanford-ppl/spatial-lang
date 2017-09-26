@@ -5,7 +5,7 @@ import spatial.utils._
 import spatial.metadata._
 import scala.collection.mutable
 
-trait PIRGenController extends PIRCodegen with PIRTraversal {
+trait PIRGenController extends PIRCodegen {
 
   var allocatedReduce: Set[ReduceReg] = Set.empty
   val genControlLogic = false

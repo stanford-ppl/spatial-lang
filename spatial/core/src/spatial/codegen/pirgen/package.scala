@@ -320,7 +320,7 @@ package object pirgen {
   }
 
   // HACK Not used
-  @stateful def bank(mem: Expr, access: Expr) = {
+  @stateful def bank(mem: Expr, access: Expr)(implicit codegen:PIRCodegen) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
 
@@ -342,9 +342,6 @@ package object pirgen {
       case NoBanking(_) if bankFactor==1 => NoBanks
       case NoBanking(_)                  => Duplicated
     }
-  }
-
-  @stateful def bank(dmem: Expr) = {
   }
 
   /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
@@ -392,23 +389,30 @@ package object pirgen {
     case (bank1, NoBanks) => bank1
   }
 
-  @stateful def getInnerPar(n:Expr):Int = n match {
+  @stateful def getInnerPar(n:Expr)(implicit codegen:PIRCodegen):Int = n match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
       getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
       getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
-    case Def(Switch(body, selects, cases)) => getInnerPar(parentOf(n).get)
-    case Def(SwitchCase(body)) => getInnerPar(parentOf(n).get)
-    case Def(n:ParSRAMStore[_]) => n.ens.size
-    case Def(n:ParSRAMLoad[_]) => n.ens.size
-    case Def(n:ParFIFOEnq[_]) => n.ens.size
-    case Def(n:ParFIFODeq[_]) => n.ens.size
-    case Def(n:ParStreamRead[_]) => n.ens.size
-    case Def(n:ParStreamWrite[_]) => n.ens.size
-    case Def(n:ParFILOPush[_]) => n.ens.size
-    case Def(n:ParFILOPop[_]) => n.ens.size
+    case Def(FringeDenseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
+    case Def(FringeDenseStore(dram, _, dataStream, _)) => getInnerPar(dataStream)
+    case Def(FringeSparseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
+    case Def(FringeSparseStore(dram, cmdStream, _)) => getInnerPar(cmdStream)
+    case Def(Switch(body, selects, cases)) => 1 // Outer Controller
+    case Def(SwitchCase(body)) if isOuterControl(n) => 1 
+    case Def(SwitchCase(body)) if isInnerControl(n) => getInnerPar(parentOf(parentOf(n).get).get) //TODO: fist this for nested if
+    case Def(d:StreamInNew[_]) => getInnerPar(readersOf(n).head.node)
+    case Def(d:StreamOutNew[_]) => getInnerPar(writersOf(n).head.node)
+    case Def(d:ParSRAMStore[_]) => d.ens.size
+    case Def(d:ParSRAMLoad[_]) => d.ens.size
+    case Def(d:ParFIFOEnq[_]) => d.ens.size
+    case Def(d:ParFIFODeq[_]) => d.ens.size
+    case Def(d:ParStreamRead[_]) => d.ens.size
+    case Def(d:ParStreamWrite[_]) => d.ens.size
+    case Def(d:ParFILOPush[_]) => d.ens.size
+    case Def(d:ParFILOPop[_]) => d.ens.size
     case Def(_:SRAMLoad[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
@@ -420,6 +424,7 @@ package object pirgen {
     case Def(_:FILOPop[_]) => 1 
     case Def(_:RegWrite[_]) => 1 
     case Def(_:RegRead[_]) => 1 
+    case n => throw new Exception(s"Undefined getInnerPar for ${codegen.qdef(n)}")
   }
 
   @stateful def parentOf(exp:Expr):Option[Expr] = {
@@ -429,4 +434,26 @@ package object pirgen {
       case p => Some(p)
     }
   }
+
+  @stateful def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
+    case Def(CounterChainNew(ctrs)) =>
+      val loopIters = ctrs.map{
+        case Def(CounterNew(start,end,stride,par)) =>
+          val min = boundOf.get(start).map(_.toDouble).getOrElse(0.0)
+          val max = boundOf.get(end).map(_.toDouble).getOrElse(1.0)
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse(1.0)
+          val p = boundOf.get(par).map(_.toDouble).getOrElse(1.0)
+          dbg(s"nIter: bounds: min=$min, max=$max, step=$step, p=$p")
+
+          val nIters = Math.ceil((max - min)/step)
+          if (ignorePar)
+            nIters.toLong
+          else
+            Math.ceil(nIters/p).toLong
+
+        case Def(Forever()) => 0L
+      }
+      loopIters.fold(1L){_*_}
+  }
+
 }

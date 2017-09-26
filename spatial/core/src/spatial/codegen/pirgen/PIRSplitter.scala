@@ -77,7 +77,7 @@ class PIRSplitter(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRC
       mappingOut(lhs) = mappingIn(lhs).map(split)
   }
 
-  def split(cu: CU): List[CU] = {
+  def split(cu: CU): List[CU] = dbgblk(s"split($cu)") {
     if (cu.allStages.nonEmpty) {
       val others = mutable.ArrayBuffer[CU]()
       others ++= mappingOut.values.flatten.flatten

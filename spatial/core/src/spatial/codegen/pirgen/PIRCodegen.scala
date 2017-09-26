@@ -1,8 +1,5 @@
 package spatial.codegen.pirgen
 
-import java.io.PrintWriter
-import java.nio.file.{Files, Paths}
-
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core.Config
 import argon.core._
@@ -13,58 +10,56 @@ import spatial.SpatialConfig
 import scala.collection.mutable
 import scala.language.postfixOps
 
-trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
+trait PIRCodegen extends Codegen with FileDependencies with PIRStruct with PIRLogger {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
 
   implicit def codegen:PIRCodegen = this
 
-  override val globals    = mutable.Set[GlobalComponent]()
-  override val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
-  override val composed   = mutable.Map[Expr, Expr]()
+  val globals    = mutable.Set[GlobalComponent]()
+  val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
+  val composed   = mutable.Map[Expr, Expr]()
   val pcus       = mutable.Map[Expr, List[PCU]]()
   val cus        = mutable.Map[Expr,List[CU]]()
 
   lazy val allocater = new PIRAllocation(pcus)
   lazy val scheduler = new PIRScheduler(pcus, cus)
   lazy val optimizer = new PIROptimizer(cus)
+  lazy val pirStats  = new PIRStats(cus)
   lazy val splitter  = new PIRSplitter(cus)
   lazy val dse       = new PIRDSE(cus)
   lazy val printout  = new PIRPrintout(cus)
   lazy val areaModel = new PIRAreaModelHack(cus)
 
+  val preprocessPasses = mutable.ListBuffer[PIRTraversal]()
+
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     globals.clear
-    allocater.run(block)
-    scheduler.run(block)
-    optimizer.run(block)
+    
+    preprocessPasses += allocater
+    preprocessPasses += scheduler
+    preprocessPasses += optimizer
 
-    emitCUStats(cus.values.flatten)
-
-    areaModel.run(block)
+    preprocessPasses += areaModel
+    preprocessPasses += pirStats
 
     if (SpatialConfig.enableSplitting) {
-      printout.run(block)
-      splitter.run(block)
+      preprocessPasses += printout
+      preprocessPasses += splitter
+      preprocessPasses += optimizer
     }
-    printout.run(block)
-
-    //HACK remove unused copy from parent after splitting
-    cus.foreach { case (sym, cus) => cus.foreach { cu => optimizer.removeUnusedCChainCopy(cu) } }
+    preprocessPasses += printout
 
     if (SpatialConfig.enableArchDSE) {
-      dse.run(block)
+      preprocessPasses += dse
     } else {
-      tallyCUs(cus.values.toList.flatten)
+      preprocessPasses += pirStats
     }
 
-    super.preprocess(block) // generateHeader
-  }
+    preprocessPasses.foreach { pass => pass.runAll(block) }
 
-  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
-    super.postprocess(block)
-    block
+    super.preprocess(block) // generateHeader
   }
 
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
@@ -83,18 +78,5 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
   override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 
-  def emitCUStats(cus: Iterable[CU]) = {
-    val pwd = sys.env("SPATIAL_HOME")
-    val dir = s"$pwd/csvs"
-    Files.createDirectories(Paths.get(dir))
-    val file = new PrintWriter(s"$dir/${Config.name}_unsplit.csv")
-    cus.filter{ cu => cu.allStages.nonEmpty || cu.isPMU }.foreach{ cu =>
-      val isPCU = if (cu.isPCU) 1 else 0
-      val util = getUtil(cu, cus)
-      val line = s"$isPCU, ${cu.lanes},${util.stages},${util.addr},${util.regsMax},${util.vecIn},${util.vecOut},${util.sclIn},${util.sclOut}"
-      file.println(line)
-    }
-    file.close()
-  }
 }
 

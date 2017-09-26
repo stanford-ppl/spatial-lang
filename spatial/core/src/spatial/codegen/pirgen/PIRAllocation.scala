@@ -76,6 +76,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
       FringeCU(allocateDRAM(dram), MemGather)
     case Def(FringeSparseStore(dram, _, _))  => 
       FringeCU(allocateDRAM(dram), MemScatter)
+    //case Def(SwitchCase(body)) =>
     case _ if isAccess(exp) => getCUStyle(parentOf(exp).get)
     case _ if isControlNode(exp) => styleOf(exp) match {
       case SeqPipe if isInnerControl(exp) => PipeCU
@@ -97,10 +98,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     val cu = PseudoComputeUnit(quote(exp), exp, style)
     cu.parent = parent
 
-    cu.innerPar = style match {
-      case FringeCU(dram, mode) => None
-      case _ => Some(getInnerPar(exp))
-    } 
+    cu.innerPar = getInnerPar(exp)
  
     if (top.isEmpty && parent.isEmpty) top = Some(exp)
 
@@ -133,13 +131,6 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
           }
-
-          //val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp$i", dsram, MemoryCU(i, 0)) //TODO
-          //dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, duplicateId=$i")
-          //cu.parent = parentCU
-          //val psram = createSRAM(dsram, m, i, cu)
-          //List(cu)
-
         }.toList
       }
     })
@@ -678,6 +669,12 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           prescheduleStages(lhs, func)
           allocateCChains(lhs) 
 
+        case Switch(body, selects, cases) =>
+          allocateCU(lhs)
+
+        case SwitchCase(body) =>
+          allocateCU(lhs)
+
         case _ if isFringe(lhs) =>
           val dram = rhs.allInputs.filter { e => isDRAM(e) }.head
           val streamIns = rhs.allInputs.filter { e => isStreamIn(e) }.toList
@@ -710,6 +707,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           }
 
         // Something bad happened if these are still in the IR
+        case _:ParallelPipe => throw new Exception(s"Disallowed op $lhs = $rhs")
         case _:OpForeach => throw new Exception(s"Disallowed compact op $lhs = $rhs")
         case _:OpReduce[_] => throw new Exception(s"Disallowed compact op $lhs = $rhs")
         case _:OpMemReduce[_,_] => throw new Exception(s"Disallowed compact op $lhs = $rhs")

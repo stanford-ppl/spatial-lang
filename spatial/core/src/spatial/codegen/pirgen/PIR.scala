@@ -270,12 +270,6 @@ abstract class AbstractComputeUnit {
   val pipe: Expr
   var style: CUStyle
   var parent: Option[AbstractComputeUnit] = None
-  var innerPar: Option[Int] = None
-  /*def isUnit = style match { // TODO: remove this. This should no longer be used
-    case MemoryCU(i) => throw new Exception(s"isUnit is not defined on MemoryCU")
-    case FringeCU(dram, mode) => throw new Exception(s"isUnit is not defined on FringeCU")
-    case _ => innerPar == Some(1)
-  }*/
 
   var cchains: Set[CUCChain] = Set.empty
   val memMap: mutable.Map[Any, CUMemory] = mutable.Map.empty
@@ -294,6 +288,7 @@ abstract class AbstractComputeUnit {
 
   val fringeGlobals = mutable.Map[String, GlobalBus]()
 
+  var innerPar:Int = _
   //def innermostIter(cc: CUCChain) = {
     //val iters = iterators.flatMap{case (e,CounterReg(`cc`,i)) => Some((e,i)); case _ => None}
     //if (iters.isEmpty) None  else Some(iters.reduce{(a,b) => if (a._2 > b._2) a else b}._1)
@@ -333,11 +328,8 @@ case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends Abs
                                    computeStages.iterator ++
                                    controlStages.iterator
   var isDummy: Boolean = false
-  def lanes: Int = style match {
-    case _:MemoryCU => 1
-    case _:FringeCU => 0
-    case _ => if (innerPar.isDefined) innerPar.get else 1
-  }
+
+  def lanes: Int = innerPar
   def allParents: Iterable[CU] = parentCU ++ parentCU.map(_.allParents).getOrElse(Nil)
   def isPMU = style.isInstanceOf[MemoryCU]
   def isPCU = !isPMU && !style.isInstanceOf[FringeCU]

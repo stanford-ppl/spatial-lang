@@ -595,22 +595,4 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
   }
 
-
-  def tallyCUs(cus: Seq[CU]): Unit = {
-    val total = cus.map { cu => getUtil(cu, cus) }.fold(Utilization()){_+_}
-
-    val pcuOnly = cus.filter(_.isPCU).map{cu =>
-      val util = getUtil(cu, cus)
-      dbgs(s"$cu: ")
-      reportUtil(util)
-      util
-    }.fold(Utilization()){_+_}
-
-    val pmuOnly = cus.filter(_.isPMU).map{cu => getUtil(cu, cus) }.fold(Utilization()){_+_}
-
-    val stats = Statistics(total, pcuOnly, pmuOnly)
-    stats.makeReport()
-  }
-
-
 }
