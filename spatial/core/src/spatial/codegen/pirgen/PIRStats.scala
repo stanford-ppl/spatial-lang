@@ -14,9 +14,10 @@ class PIRStats(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCode
 
   def cus = mapping.values.toList.flatten
 
-  override protected def visit(lhs: Sym[_], rhs: Op[_]) {
+  override protected def process[S:Type](block: Block[S]): Block[S] = {
     statsFile
     tallyCUs
+    block
   }
 
   def statsFile = {
