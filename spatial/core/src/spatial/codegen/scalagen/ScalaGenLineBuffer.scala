@@ -19,7 +19,8 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
 
     val written = localMems.filter{mem => writersOf(mem).exists{wr =>
       topControllerOf(wr.node,mem,0).exists(_.node == ctrl) && (wr.node match {
-        case Def(_:LineBufferEnq[_]) | Def(_:ParLineBufferEnq[_]) | Def(_:ParLineBufferRotateEnq[_]) => true
+        case Def(_:LineBufferEnq[_]) | Def(_:ParLineBufferEnq[_]) => true
+        //case Def(_:LineBufferRotateEnq[_]) | Def(_:ParLineBufferRotateEnq[_]) => true
         case _ => false
       })
     }}
@@ -27,8 +28,9 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
     if (lineBuffers.nonEmpty) {
       emit("/** Rotating LineBuffers from Ctrl Done**/")
       lineBuffers.foreach{lb => 
-        val stride = lb match {case Def(LineBufferNew(_,_,st)) => st match {case Exact(c: BigInt) => c}} // See bug #227
-        if (stride == 1) emit(src"$lb.rotate()") 
+        //val stride = lb match {case Def(LineBufferNew(_,_,Exact(c: BigInt))) => c.toInt } // See bug #227
+        //if (stride == 1)
+        emit(src"$lb.rotate()")
       }
       emit("/***********************/")
     }

@@ -411,14 +411,9 @@ object utils {
     }
   }
 
-  @stateful def delayLineTrace(x: Exp[_]): Exp[_] = {
-    x match {
-      case Def(DelayLine(_,xx)) => xx match {
-        case Def(DelayLine(_,_)) => delayLineTrace(xx) 
-        case _ => xx
-      }
+  @stateful def delayLineTrace(x: Exp[_]): Exp[_] = x match {
+    case Def(DelayLine(_,xx)) => delayLineTrace(xx)
     case _ => x
-    }
   }
 
   def reductionTreeHeight(nLeaves: Int): Int = {

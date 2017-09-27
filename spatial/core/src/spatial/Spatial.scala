@@ -88,6 +88,7 @@ trait SpatialCompiler extends ArgonCompiler {
     }
 
     lazy val friendlyTransformer = FriendlyTransformer(IR = state)
+    lazy val rotateFixer = RotateTransformer(IR = state)
 
     lazy val lutTransform  = MemoryTransformer(IR = state)
     lazy val sramTransform = new AffineAccessTransformer { var IR = state }
@@ -205,6 +206,8 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += uctrlAnalyzer     // Readers/writers for CSE
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += printer
+    passes += uctrlAnalyzer
+    passes += rotateFixer       //
 
     passes += uctrlAnalyzer     // Analysis for unused register reads
     passes += regCleanup        // Duplicate register reads for each use

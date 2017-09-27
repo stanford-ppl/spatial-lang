@@ -136,4 +136,5 @@ case class ParLineBufferRotateEnq[T:Type:Bits](
   def mirror(f:Tx) = LineBuffer.par_rotateEnq(f(linebuffer),f(row),f(data),f(ens))
   override def aliases = Nil
   val mT = typ[T]
+  val bT = bits[T]
 }
