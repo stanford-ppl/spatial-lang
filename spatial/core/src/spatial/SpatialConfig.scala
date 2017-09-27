@@ -14,7 +14,6 @@ object SpatialConfig {
     interpret: Boolean,
     inputs: Seq[String],
     pir: Boolean,
-    pirsrc: String,
     dse: Boolean,
     dot: Boolean,
     retiming: Boolean,
@@ -64,7 +63,7 @@ object SpatialConfig {
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
   var enablePIRSim: Boolean = false
-  var pirsrc: String = _
+  var pirsrc: String = s"${sys.env("PIR_HOME")}/pir/apps/src"
 
   var enableRetiming: Boolean = _
 
@@ -109,7 +108,6 @@ spatial {
   inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
-  pirsrc = "${sys.env("PIR_HOME")}/pir/apps/src"
   dse = false
   dot = false
   retiming = false
@@ -133,7 +131,6 @@ spatial {
         enableSim = spatialConf.sim
         enableSynth = spatialConf.synth
         enablePIR = spatialConf.pir
-        pirsrc = spatialConf.pirsrc
 
         enableRetiming = spatialConf.retiming
 
