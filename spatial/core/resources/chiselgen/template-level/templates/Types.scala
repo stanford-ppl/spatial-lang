@@ -575,6 +575,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 		}
 	}
 
+	
 	def isNeg (): Bool = {
 		Mux(s.B && number(f+d-1), true.B, false.B)
 	}

@@ -377,14 +377,28 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
 
     case op@ParLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
-      val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
-      val ii = dispatch.head
-      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      data.zipWithIndex.foreach { case (d, i) =>
-        emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
+      if (!isTransient(lhs)) {
+        val dispatch = dispatchOf(lhs, lb).toList.distinct
+        if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+        val ii = dispatch.head
+        val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+        data.zipWithIndex.foreach { case (d, i) =>
+          emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
+        }
+        emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+      } else {
+        val dispatch = dispatchOf(lhs, lb).toList.distinct
+        if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+        val ii = dispatch.head
+        val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+        emit(src"""val ${lb}_${ii}_transient_base = ${lb}_$ii.col_wPar*${lb}_$ii.rstride""")
+        data.zipWithIndex.foreach { case (d, i) =>
+          emit(src"${lb}_$ii.io.data_in(${lb}_${ii}_transient_base + $i) := ${d}.raw")
+        }
+        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${lb}_$ii.io.transientDone := ${parent}_done""")
+        emit(src"""${lb}_$ii.io.transientSwap := ${parentOf(parent).get}_done""")
       }
-      emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
 
     case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
       val dispatch = dispatchOf(lhs, rf).toList.head

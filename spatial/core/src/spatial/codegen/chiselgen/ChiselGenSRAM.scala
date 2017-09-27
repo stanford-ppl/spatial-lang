@@ -377,7 +377,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
-      val trgt = s"${SpatialConfig.target.name}"
+      val trgt = s"${SpatialConfig.target.name}".replace("DE1", "de1soc")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${SpatialConfig.enableRetiming}""")
     }

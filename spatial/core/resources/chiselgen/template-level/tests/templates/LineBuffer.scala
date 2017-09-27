@@ -10,6 +10,40 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
     
   var gold = ArrayBuffer.fill[BigInt](c.extra_rows_to_buffer + c.num_lines, c.line_size)(0)
 
+  def pushUp(n: Int): Unit = {
+    // Handle gold
+    for (i <- c.num_lines+c.extra_rows_to_buffer-1 until n by -1) {
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = gold(i-n)(j)
+      }
+    }
+    for (i <- 0 until n){
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = 0
+      }      
+    }
+  }
+
+  def miniswap(): Unit = {
+    // Poke lb
+    poke(c.io.transientDone, 1)
+    step(1)
+    poke(c.io.transientDone, 0)
+    step(1)
+
+    // Handle gold
+    for (i <- c.num_lines+c.extra_rows_to_buffer-1 until 0 by -1) {
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = gold(i-1)(j)
+      }
+    }
+    for (i <- 0 until 1){
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = 0
+      }      
+    }
+
+  }
   def swap(): Unit = {
     // Poke lb
     poke(c.io.sDone(0), 1)
@@ -31,6 +65,29 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
     }
   }
 
+  def initSwap(n: Int): Unit = {
+    // // Poke lb
+    // poke(c.io.transientPushup, n)
+    // poke(c.io.transientSwap, 1)
+    // step(1)
+    // poke(c.io.transientSwap, 0)
+    // step(1)
+
+
+    // Handle gold
+    for (i <- c.num_lines+c.extra_rows_to_buffer-1 until n by -1) {
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = gold(i-n)(j)
+      }
+    }
+    for (i <- 0 until n){
+      for (j <- 0 until c.line_size) {
+        gold(i)(j) = 0
+      }      
+    }
+  
+  }
+
   def printGold(): Unit = {
     println("Current Gold:")
     for (i <- c.num_lines+c.extra_rows_to_buffer-1 to 0 by -1) {
@@ -49,20 +106,41 @@ class LineBufferTests(c: LineBuffer) extends PeekPokeTester(c) {
   poke(c.io.reset, 0)
 
 
-  // Flush lb
-  for (i <- 0 until c.num_lines*c.line_size + 1 by c.col_wPar) {
-    poke(c.io.sEn(0), 1)
-    for (j <- 0 until c.rstride) {
-      poke(c.io.w_en(j), 1)
-      for (k <- 0 until c.col_wPar) {
-        poke(c.io.data_in(j*c.col_wPar + k), 0)      
+  if (c.transientPar == 0) {
+    // Flush lb
+    for (i <- 0 until c.num_lines*c.line_size + 1 by c.col_wPar) {
+      poke(c.io.sEn(0), 1)
+      for (j <- 0 until c.rstride) {
+        poke(c.io.w_en(j), 1)
+        for (k <- 0 until c.col_wPar) {
+          poke(c.io.data_in(j*c.col_wPar + k), 0)      
+        }
       }
-    }
-    step(1)
-    if (i % c.line_size == 0) {
-      swap()
-    }
+      step(1)
+      if (i % c.line_size == 0) {
+        swap()
+      }
 
+    }
+  } else {
+    // fill all visible lines of lb by first read
+    println("painting first " + {c.num_lines - c.rstride})
+    for (line <- 0 until c.num_lines - c.rstride) {
+      for (i <- 0 until c.line_size by c.col_wPar) {
+        poke(c.io.w_en(c.rstride), 1)
+        for (j <- 0 until c.col_wPar) {
+          poke(c.io.data_in(c.col_wPar*c.rstride + j), line+1)
+        }
+        for (j <- 0 until c.line_size) {
+          gold(0)(j) = line + 1
+        }
+        step(1)
+      }
+      poke(c.io.w_en(c.rstride), 0)
+      miniswap()
+      step(3)
+    }
+    initSwap(c.num_lines - c.rstride)
   }
 
   for(j <- 0 until c.rstride){

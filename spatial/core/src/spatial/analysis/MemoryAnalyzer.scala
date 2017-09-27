@@ -685,11 +685,56 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val dims: Seq[Int] = stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]).map{case Exact(c) => c.toInt}
     val strides = constDimsToStrides(dims)
 
+    // TODO: Like FIFO, should not allow outer loop parallelization w.r.t. LineBuffer for enqueue operations
+
+    // Simple check, fragile if load structure ever changes.  If this is ParLineBufferRotateEnq with rows =/= lb stride, then this is transient. We get rows from parent of parent of access' counter
+    val rowstride = mem match {case Def(LineBufferNew(_,_,stride)) => stride match {case Exact(c) => c.toInt; case _ => 0}; case _ => 0}
+    val rowsWritten = access match {
+      case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => dims.dropRight(1).last match {case Exact(c: BigInt) => c}
+      case Def(_: LineBufferLoad[_]) => rowstride // Not transient
+      case Def(_: ParLineBufferLoad[_]) => rowstride // Not transient
+      case Def(_: LineBufferColSlice[_]) => rowstride // Not transient
+      case _ => 
+        if (parentOf(access).isDefined) {
+          if (parentOf(parentOf(access).get).isDefined) {
+            // Console.println(s"parent 1 is ${parentOf(access).get}, parent 2 is ${parentOf(parentOf(access).get).get}")
+            parentOf((parentOf(access).get)).get match {
+              case Def(UnrolledForeach(_,cchain,_,_,_)) => 
+                cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
+                  case Def(CounterNew(s,e,str,p)) => (s,e) match {
+                    case (Exact(st), Exact(e)) => e - st
+                    case _ => throw new Exception(s"Cannot load variable number of rows into linebuffer $mem, since we cannot determine which is the transient")
+                  }
+                }
+              }
+              case Def(OpForeach(_,cchain,_,_)) =>             
+                cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
+                  case Def(CounterNew(s,e,str,p)) => (s,e) match {
+                    case (Exact(st), Exact(e)) => e - st
+                    case _ => throw new Exception(s"Cannot load variable number of rows into linebuffer $mem, since we cannot determine which is the transient")
+                  }
+                }
+              }
+              case Def(UnitPipe(_,_)) => 1
+              case Def(Hwblock(_,_)) => // This seems to be first mem analyzer pass
+                access match {
+                  case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => 
+                    dims.dropRight(1).last match {case Exact(c: BigInt) => c}
+                }
+              case _ => 0
+            }        
+          } else 0
+        } else 0
+      }
+    // Console.println(s"checking $mem $access for $rowstride $rowsWritten")
+    isTransient(access) = if (rowstride == rowsWritten) false else true
+
     // TODO: Is inner loop here?
     val banking = access match {
       case Def(LineBufferColSlice(_,row,col,Exact(len))) => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), len.toInt, true))
       case Def(LineBufferRowSlice(_,row,Exact(len),col)) => Seq(Banking(strides.head, dims.head, true),  NoBanking(1))
       case Def(LineBufferEnq(_,_,_))                     => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
+      case Def(LineBufferRotateEnq(_,_,_,_))             => Seq(Banking(strides.head, dims.head, false), Banking(strides(1), channels, true))
       case Def(LineBufferLoad(_,row,col,_)) =>
         val patterns = accessPatternOf(access)
         indexPatternsToBanking(mem, access, patterns, strides)

@@ -165,7 +165,7 @@ object Reduce extends ReduceClass(InnerPipe) {
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bit]]]
   )(implicit mT: Type[T], mC: Type[C[T]]): Exp[Controller] = {
-    val fBlk = stageColdLambda1(accum) { func() }
+    val fBlk = stageSealedLambda1(accum) { func() }
     val effects = fBlk.effects
     stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, iters, valids), effects.star)(ctx)
   }

@@ -17,7 +17,7 @@ case class LineBuffer[T:ClassTag](rows: Int, cols: Int, stride: Int, invalid: T)
 
   // Expected to be called after a row has been written
   def rotate(): Unit = {
-    activeRow = (activeRow + stride) % totalRows
+    activeRow = (activeRow + 1) % totalRows
     activeCol = 0
   }
 
