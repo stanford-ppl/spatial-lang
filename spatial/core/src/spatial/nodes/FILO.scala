@@ -41,7 +41,7 @@ case class FILOPop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bit]) extends LocalR
   val mT = typ[T]
   val bT = bits[T]
 }
-case class FILOPeek[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReaderOp[T](filo) {
+case class FILOPeek[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T](filo) {
   def mirror(f:Tx) = FILO.peek(f(filo))
   val mT = typ[T]
   val bT = bits[T]

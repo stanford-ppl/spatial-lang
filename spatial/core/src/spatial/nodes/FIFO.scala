@@ -48,7 +48,7 @@ case class FIFODeq[T:Type:Bits](
   val mT = typ[T]
   val bT = bits[T]
 }
-case class FIFOPeek[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReaderOp[T](fifo) {
+case class FIFOPeek[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T](fifo) {
   def mirror(f:Tx) = FIFO.peek(f(fifo))
   val mT = typ[T]
   val bT = bits[T]
