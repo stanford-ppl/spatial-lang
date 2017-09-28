@@ -58,8 +58,13 @@ case class FriendlyTransformer(var IR: State) extends ForwardTransformer {
 
     case op @ RegRead(Mirrored(reg)) if !inHwScope && isArgIn(reg) =>
       mostRecentWrite.get(reg) match {
-        case Some(Def(SetArg(_,data))) =>
-          data.asInstanceOf[Exp[T]]
+        case Some(Def(SetArg(_,data)))  =>
+          // Don't get rid of reads being used for DRAM allocations
+          if (lhs.dependents.exists{case Def(DRAMNew(_,_)) => true; case _ => false})
+            super.transform(lhs,rhs)
+          else
+            data.asInstanceOf[Exp[T]]
+
         case None =>
           warn(lhs.ctx, u"ArgIn $reg was used before being set. This will always result in 0s at runtime.")
           warn(lhs.ctx)
