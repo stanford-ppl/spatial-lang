@@ -70,7 +70,7 @@ object utils {
 
   // Assumes stride of outermost dimension is first
   @stateful def stridesToDims(mem: Exp[_], strides: Seq[Int]): Seq[Int] = {
-    val size = dimsOf(mem).product
+    val size = constDimsOf(mem).product
     val allStrides = size +: strides
     List.tabulate(allStrides.length-1){i => allStrides(i)/allStrides(i+ 1) }
   }
@@ -411,14 +411,9 @@ object utils {
     }
   }
 
-  @stateful def delayLineTrace(x: Exp[_]): Exp[_] = {
-    x match {
-      case Def(DelayLine(_,xx)) => xx match {
-        case Def(DelayLine(_,_)) => delayLineTrace(xx) 
-        case _ => xx
-      }
+  @stateful def delayLineTrace(x: Exp[_]): Exp[_] = x match {
+    case Def(DelayLine(_,xx)) => delayLineTrace(xx)
     case _ => x
-    }
   }
 
   def reductionTreeHeight(nLeaves: Int): Int = {
@@ -639,6 +634,19 @@ object utils {
 
   /** Allocations **/
   @stateful def stagedDimsOf(x: Exp[_]): Seq[Exp[Index]] = x match {
+    // Hack for making memory analysis code easier
+    case Def(ArgOutNew(_)) =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(ArgInNew(_))  =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(HostIONew(_)) =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(RegNew(_))    =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
     case Def(BufferedOutNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) =>
       implicit val ctx: SrcCtx = x.ctx
@@ -652,23 +660,21 @@ object utils {
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
-  @stateful def dimsOf(x: Exp[_]): Seq[Int] = x match {
-    case Def(ArgOutNew(_)) => Seq(1)
-    case Def(ArgInNew(_))  => Seq(1)
-    case Def(HostIONew(_)) => Seq(1)
-    case Def(RegNew(_))    => Seq(1) // Hack for making memory analysis code easier
-    case Def(LUTNew(dims,_)) => dims
-    case _ => stagedDimsOf(x).map{
-      case Exact(c: BigInt) => c.toInt
-      case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
-    }
+  @stateful def constDimsOf(x: Exp[_]): Seq[Int] = stagedDimsOf(x).map{
+    case Exact(c) => c.toInt
+    case dim => throw new spatial.UndefinedDimensionsException(x, Some(dim))(x.ctx, state)
   }
 
-  @stateful def sizeOf(fifo: FIFO[_]): Index = wrap(sizeOf(fifo.s))
-  @stateful def sizeOf(fifo: FILO[_]): Index = wrap(sizeOf(fifo.s))
-  @stateful def sizeOf(x: Exp[_]): Exp[Index] = x match {
+  @stateful def stagedSizeOf(fifo: FIFO[_]): Index = wrap(stagedSizeOf(fifo.s))
+  @stateful def stagedSizeOf(fifo: FILO[_]): Index = wrap(stagedSizeOf(fifo.s))
+  @stateful def stagedSizeOf(x: Exp[_]): Exp[Index] = x match {
     case Def(FIFONew(size)) => size
     case Def(FILONew(size)) => size
+    case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
+  }
+  @stateful def constSizeOf(x: Exp[_]): Int = stagedSizeOf(x) match {
+    case Literal(c) => c.toInt
+    case Exact(c) => c.toInt
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
@@ -677,7 +683,7 @@ object utils {
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
-  @stateful def rankOf(x: Exp[_]): Int = dimsOf(x).length
+  @stateful def rankOf(x: Exp[_]): Int = constDimsOf(x).length
   @stateful def rankOf(x: MetaAny[_]): Int = rankOf(x.s)
 
   @stateful def isAllocation(e: Exp[_]): Boolean = getDef(e).exists(isAllocation)
@@ -773,8 +779,8 @@ object utils {
 
 
 
-  @stateful def isFringe(e:Exp[_]):Boolean = getDef(e).exists(isFringe)
-  def isFringe(d:Def):Boolean = d.isInstanceOf[FringeNode[_]]
+  @stateful def isFringe(e:Exp[_]): Boolean = getDef(e).exists(isFringe)
+  def isFringe(d:Def): Boolean = d.isInstanceOf[FringeNode[_]]
 
   /** Host Transfer **/
   @stateful def isTransfer(e: Exp[_]): Boolean = isTransferToHost(e) || isTransferFromHost(e)
@@ -855,113 +861,24 @@ object utils {
     def en = x._2
   }
 
-  private object LocalWrite {
+  object LocalWrite {
     def apply(mem: Exp[_]): List[LocalWrite] = List( (mem, None, None, None) )
     def apply(mem: Exp[_], value: Exp[_] = null, addr: Seq[Exp[Index]] = null, en: Exp[Bit] = null) = {
       List( (mem, Option(value), Option(addr), Option(en)) )
     }
   }
 
-  private object LocalRead {
+  object LocalRead {
     def apply(mem: Exp[_]): List[LocalRead] = List( (mem, None, None) )
     def apply(mem: Exp[_], addr: Seq[Exp[Index]] = null, en: Exp[Bit] = null): List[LocalRead] = {
       List( (mem, Option(addr), Option(en)) )
     }
   }
 
-  private object LocalReset {
+  object LocalReset {
     def apply(mem: Exp[_]): List[LocalReset] = List( (mem, None) )
     def apply(mem: Exp[_], en: Exp[Bit] = null): List[LocalReset] = {
       List( (mem, Option(en)) )
-    }
-  }
-
-  def writerUnapply(d: Def): Option[List[LocalWrite]] = d match {
-    case RegWrite(reg,data,en)             => Some(LocalWrite(reg, value=data, en=en))
-    case RegFileStore(reg,inds,data,en)    => Some(LocalWrite(reg, value=data, addr=inds, en=en))
-    case SRAMStore(mem,_,inds,_,data,en)   => Some(LocalWrite(mem, value=data, addr=inds, en=en))
-    case FIFOEnq(fifo,data,en)             => Some(LocalWrite(fifo, value=data, en=en))
-    case FILOPush(filo,data,en)             => Some(LocalWrite(filo, value=data, en=en))
-
-    case RegFileShiftIn(reg,is,d,data,en)  => Some(LocalWrite(reg, value=data, addr=is, en=en))
-    case ParRegFileShiftIn(reg,is,d,data,en) => Some(LocalWrite(reg,value=data, addr=is, en=en))
-
-    case LineBufferEnq(lb,data,en)         => Some(LocalWrite(lb, value=data, en=en))
-    case LineBufferRotateEnq(lb,_,data,en) => Some(LocalWrite(lb, value=data, en=en))
-
-    case e: DenseTransfer[_,_] if e.isLoad => Some(LocalWrite(e.local, addr=e.iters))
-    case e: SparseTransfer[_]  if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
-    case e: SparseTransferMem[_,_,_] if e.isLoad => Some(LocalWrite(e.local, addr=Seq(e.i)))
-
-    case StreamWrite(stream, data, en)        => Some(LocalWrite(stream, value=data, en=en))
-    case BufferedOutWrite(buffer,data,is,en)  => Some(LocalWrite(buffer, value=data, addr=is, en=en))
-
-    // TODO: Address and enable are in different format in parallelized accesses
-    case ParStreamWrite(stream, data, ens) => Some(LocalWrite(stream))
-
-    case ParLineBufferEnq(lb,data,ens)         => Some(LocalWrite(lb))
-    case ParLineBufferRotateEnq(lb,_,data,ens) => Some(LocalWrite(lb))
-
-    case ParRegFileStore(reg,is,data,ens)  => Some(LocalWrite(reg))
-    case ParSRAMStore(mem,addr,data,en)    => Some(LocalWrite(mem))
-    case ParFIFOEnq(fifo,data,ens)         => Some(LocalWrite(fifo))
-    case ParFILOPush(filo,data,ens)         => Some(LocalWrite(filo))
-    case _ => None
-  }
-  def readerUnapply(d: Def): Option[List[LocalRead]] = d match {
-    case RegRead(reg)                       => Some(LocalRead(reg))
-    case RegFileLoad(reg,inds,en)           => Some(LocalRead(reg, addr=inds, en=en))
-    case LUTLoad(lut,inds,en)               => Some(LocalRead(lut, addr=inds, en=en))
-    case SRAMLoad(mem,dims,inds,ofs,en)     => Some(LocalRead(mem, addr=inds, en=en))
-    case FIFODeq(fifo,en)                   => Some(LocalRead(fifo, en=en))
-    case FILOPop(filo,en)                   => Some(LocalRead(filo, en=en))
-
-    case LineBufferLoad(lb,row,col,en)      => Some(LocalRead(lb, addr=Seq(row,col), en=en))
-    case LineBufferColSlice(lb,row,col,len) => Some(LocalRead(lb, addr=Seq(row,col)))
-    case LineBufferRowSlice(lb,row,len,col) => Some(LocalRead(lb, addr=Seq(row,col)))
-
-    case e: DenseTransfer[_,_] if e.isStore => Some(LocalRead(e.local, addr=e.iters))
-    case e: SparseTransfer[_]  if e.isLoad  => Some(LocalRead(e.addrs))
-    case e: SparseTransfer[_]  if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
-    case e: SparseTransferMem[_,_,_] if e.isLoad  => Some(LocalRead(e.addrs))
-    case e: SparseTransferMem[_,_,_] if e.isStore => Some(LocalRead(e.addrs) ++ LocalRead(e.local))
-
-    case StreamRead(stream, en)              => Some(LocalRead(stream, en=en))
-
-    // TODO: Address and enable are in different format in parallelized accesses
-    case ParStreamRead(stream, ens)         => Some(LocalRead(stream))
-    case ParLineBufferLoad(lb,row,col,ens)  => Some(LocalRead(lb))
-    case ParRegFileLoad(reg,inds,ens)       => Some(LocalRead(reg))
-    case ParSRAMLoad(sram,addr,ens)         => Some(LocalRead(sram))
-    case ParFIFODeq(fifo,ens)               => Some(LocalRead(fifo))
-    case ParFILOPop(filo,ens)               => Some(LocalRead(filo))
-    case _ => None
-  }
-
-  def resetterUnapply(d: Def): Option[List[LocalReset]] = d match {
-    case RegReset(reg, en)                       => Some(LocalReset(reg, en=en))
-    case RegFileReset(reg, en)                   => Some(LocalReset(reg, en=en))
-    case _ => None
-  }
-
-  object LocalWriter {
-    @stateful def unapply(x: Exp[_]): Option[List[LocalWrite]] = getDef(x).flatMap(writerUnapply)
-    def unapply(d: Def): Option[List[LocalWrite]] = writerUnapply(d)
-  }
-  object LocalResetter {
-    @stateful def unapply(x: Exp[_]): Option[List[LocalReset]] = getDef(x).flatMap(resetterUnapply)
-    def unapply(d: Def): Option[List[LocalReset]] = resetterUnapply(d)
-  }
-  object LocalReader {
-    @stateful def unapply(x: Exp[_]): Option[List[LocalRead]] = getDef(x).flatMap(readerUnapply)
-    def unapply(d: Def): Option[List[LocalRead]] = readerUnapply(d)
-  }
-  object LocalAccess {
-    @stateful def unapply(x: Exp[_]): Option[List[Exp[_]]] = getDef(x).flatMap(LocalAccess.unapply)
-    def unapply(d: Def): Option[List[Exp[_]]] = {
-      val accessed = readerUnapply(d).map(_.map(_.mem)).getOrElse(Nil) ++
-        writerUnapply(d).map(_.map(_.mem)).getOrElse(Nil)
-      if (accessed.isEmpty) None else Some(accessed)
     }
   }
 
@@ -974,8 +891,6 @@ object utils {
     def ens = x._4
   }
 
-
-
   // Memory, optional indices, optional enable
   type ParLocalRead = (Exp[_], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Bit]]])
   implicit class ParLocalReadOps(x: ParLocalRead) {
@@ -984,55 +899,33 @@ object utils {
     def ens = x._3
   }
 
-  private object ParLocalWrite {
+  object ParLocalWrite {
     def apply(mem: Exp[_]): List[ParLocalWrite] = List( (mem, None, None, None) )
-    def apply(mem: Exp[_], value: Seq[Exp[_]] = null, addrs: Seq[Seq[Exp[Index]]] = null, ens: Seq[Exp[Bit]] = null) = {
-      List( (mem, Option(value), Option(addrs), Option(ens)) )
+    def apply(mem: Exp[_], values: Seq[Exp[_]] = null, addrs: Seq[Seq[Exp[Index]]] = null, ens: Seq[Exp[Bit]] = null) = {
+      List( (mem, Option(values), Option(addrs), Option(ens)) )
     }
   }
-  private object ParLocalRead {
+  object ParLocalRead {
     def apply(mem: Exp[_]): List[ParLocalRead] = List( (mem, None, None) )
     def apply(mem: Exp[_], addrs: Seq[Seq[Exp[Index]]] = null, ens: Seq[Exp[Bit]] = null): List[ParLocalRead] = {
       List( (mem, Option(addrs), Option(ens)) )
     }
   }
-  def parWriterUnapply(d: Def): Option[List[ParLocalWrite]] = d match {
-    //case BurstLoad(dram,fifo,ofs,_,_)       => Some(ParLocalWrite(fifo))
-    case ParSRAMStore(mem,addrs,data,ens)     => Some(ParLocalWrite(mem, value=data, addrs=addrs, ens=ens))
-    case ParFIFOEnq(fifo,data,ens)            => Some(ParLocalWrite(fifo, value=data, ens=ens))
-    case ParFILOPush(filo,data,ens)            => Some(ParLocalWrite(filo, value=data, ens=ens))
-    case ParStreamWrite(stream, data, ens)    => Some(ParLocalWrite(stream, value=data, ens=ens))
-    case d => writerUnapply(d).map{writer => writer.map{
-      case (mem, value, addr, en) => (mem, value.map{x => Seq(x)}, addr.map{a => Seq(a)}, en.map{e => Seq(e)})
-    }}
-  }
-  def parReaderUnapply(d: Def): Option[List[ParLocalRead]] = d match {
-    //case BurstStore(dram,fifo,ofs,_,_) => Some(ParLocalRead(fifo))
-    case ParSRAMLoad(sram, addrs, ens)   => Some(ParLocalRead(sram, addrs=addrs, ens=ens))
-    case ParFIFODeq(fifo, ens)           => Some(ParLocalRead(fifo, ens=ens))
-    case ParFILOPop(filo, ens)           => Some(ParLocalRead(filo, ens=ens))
-    case ParStreamRead(stream, ens)      => Some(ParLocalRead(stream, ens=ens))
-    case d => readerUnapply(d).map{reader => reader.map{
-      case (mem, addr, en) => (mem, addr.map{a => Seq(a)}, en.map{e => Seq(e) })
-    }}
-  }
-  object ParLocalWriter {
-    @stateful def unapply(x: Exp[_]): Option[List[ParLocalWrite]] = getDef(x).flatMap(parWriterUnapply)
-    def unapply(d: Def): Option[List[ParLocalWrite]] = parWriterUnapply(d)
-  }
-  object ParLocalReader {
-    @stateful def unapply(x: Exp[_]): Option[List[ParLocalRead]] = getDef(x).flatMap(parReaderUnapply)
-    def unapply(d: Def): Option[List[ParLocalRead]] = parReaderUnapply(d)
-  }
+
+  @stateful def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
 
   @stateful def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
-  def isReader(d: Def): Boolean = readerUnapply(d).isDefined
+  def isReader(d: Def): Boolean = LocalReader.unapply(d).isDefined
+
   @stateful def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
-  def isWriter(d: Def): Boolean = writerUnapply(d).isDefined
+  def isWriter(d: Def): Boolean = LocalWriter.unapply(d).isDefined
+
+  @stateful def isReadModify(x: Exp[_]): Boolean = LocalReadModify.unapply(x).isDefined
+  def isReadModify(d: Def): Boolean = LocalReadModify.unapply(d).isDefined
+
   @stateful def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
-  def isResetter(d: Def): Boolean = resetterUnapply(d).isDefined
-  @stateful def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
-  @stateful def getAccess(x:Exp[_]):Option[Access] = x match {
+  def isResetter(d: Def): Boolean = LocalResetter.unapply(d).isDefined
+  /*@stateful def getAccess(x:Exp[_]):Option[Access] = x match {
     case LocalReader(reads) =>
       val ras = reads.flatMap{ case (mem, _, _) => readersOf(mem).filter { _.node == x } }
       assert(ras.size==1)
@@ -1046,7 +939,7 @@ object utils {
       assert(ras.size==1)
       Some(ras.head)
     case _ => None
-  }
+  }*/
 
   @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {
     case LocalReader(reads) => reads.exists(_.addr.isEmpty)

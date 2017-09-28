@@ -100,7 +100,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
       if (!isTransient(lhs)) {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
-        val stride = lb match {case Def(LineBufferNew(_,_,stride)) => getConstValue(stride).toInt}
+        val stride = lb match {case Def(LineBufferNew(_,_,Exact(s))) => s.toInt}
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
         val ii = dispatch.head
         val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
@@ -138,7 +138,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val dispatch = dispatchOf(lhs, lb).toList.distinct
       if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
-      for ( k <- 0 until getConstValue(len).toInt) {
+      for ( k <- 0 until lenOf(lhs)) {
         emit(src"${lb}_$i.io.col_addr($k) := ${col}.r + ${k}.U")  
       }
       val rowtext = row match {
@@ -146,7 +146,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         case _ => src"${row}.r"
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${getConstValue(len)}, ${newWire(lhs.tp.typeArguments.head)}))""")
-      for ( k <- 0 until getConstValue(len).toInt) {
+      for ( k <- 0 until lenOf(lhs)) {
         emit(src"${lhs}($k) := ${quote(lb)}_$i.readRowSlice(${rowtext}, ${k}.U).r")  
       }
 

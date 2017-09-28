@@ -64,9 +64,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emit(src"""val ${lhs}${suffix}_maxed = ${lhs}${suffix}.io.output.saturated""")
     ctrs.zipWithIndex.foreach { case (c, i) =>
       val x = c match {
-        case Def(CounterNew(_,_,_,p)) => 
-          val Const(xx: BigDecimal) = p
-          xx
+        case Def(CounterNew(_,_,_,Literal(p))) => p
         case Def(Forever()) => 1
       }
       emit(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")

@@ -47,7 +47,7 @@ case class FIFO[T:Type:Bits](s: Exp[FIFO[T]]) extends Template[FIFO[T]] {
   @api def gather[A[_]](dram: DRAMSparseTileMem[T,A]): MUnit = DRAMTransfers.sparse_transfer_mem(dram, this, isLoad = true)
   //@api def load(dram: DRAM1[T]): MUnit = dense_transfer(dram.toTile(this.ranges), this, isLoad = true)
 
-  @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(sizeOf(s)),None,None))
+  @internal def ranges: Seq[Range] = Seq(Range.alloc(None, wrap(stagedSizeOf(s)),None,None))
 
   protected[spatial] var p: Option[Index] = None
 }

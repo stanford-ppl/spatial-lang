@@ -18,9 +18,9 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
 
   override protected def postprocess[T:Type](block: Block[T]): Block[T] = {
     // Remove CSE'd register duplicates from the metadata
-    for ((k,v) <- subst) {
+    /*for ((k,v) <- subst) {
       dbg(c"$k -> $v")
-    }
+    }*/
 
     for ((reg,csed) <- csedDuplicates) {
       val orig = duplicatesOf(reg)
@@ -98,7 +98,11 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
           lhs2
       }
 
-    case _ if isInnerControl(lhs) => inInner{ super.transform(lhs,rhs) }
-    case _ => super.transform(lhs,rhs)
+    case _ if isInnerControl(lhs) =>
+      dbgs(str(lhs))
+      inInner{ super.transform(lhs,rhs) }
+    case _ =>
+      dbgs(str(lhs))
+      super.transform(lhs,rhs)
   }
 }

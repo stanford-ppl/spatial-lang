@@ -4,7 +4,7 @@ import argon.core._
 import argon.transform.Transformer
 import forge._
 import spatial.aliases._
-
+import spatial.utils._
 
 /** Abstract IR Nodes **/
 case class DenseTransfer[T,C[T]](
@@ -16,9 +16,14 @@ case class DenseTransfer[T,C[T]](
   p:      Const[Index],
   isLoad: Boolean,
   iters:  List[Bound[Index]]
-)(implicit val mem: Mem[T,C], val mT: Type[T], val bT: Bits[T], val mC: Type[C[T]], mD: Type[DRAM[T]]) extends DRAMTransfer {
+)(implicit val mem: Mem[T,C], val mT: Type[T], val bT: Bits[T], val mC: Type[C[T]], mD: Type[DRAM[T]])
+  extends DRAMTransfer with LocalReader[MUnit] with LocalWriter[MUnit]
+{
+  def isStore: Boolean = !isLoad
 
-  def isStore = !isLoad
+  override def localReads: Seq[LocalRead] = if (isStore) LocalRead(local,addr=iters) else Nil
+  override def localWrites: Seq[LocalWrite] = if (isLoad) LocalWrite(local,addr=iters) else Nil
+
   var isAlign = false
 
   def mirror(f:Tx): Exp[MUnit] = DRAMTransfers.op_dense_transfer(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,isAlign,iters)
@@ -40,8 +45,11 @@ case class SparseTransfer[T:Type:Bits](
   p:      Const[Index],
   isLoad: Boolean,
   i:      Bound[Index]
-)(implicit mD: Type[DRAM[T]]) extends DRAMTransfer {
-  def isStore = !isLoad
+)(implicit mD: Type[DRAM[T]]) extends DRAMTransfer with LocalReader[MUnit] with LocalWriter[MUnit] {
+  def isStore: Boolean = !isLoad
+
+  override def localReads: Seq[LocalRead] = if (isLoad) LocalRead(addrs) else LocalRead(local) ++ LocalRead(addrs)
+  override def localWrites: Seq[LocalWrite] = if (isLoad) LocalWrite(local) else Nil
 
   def mirror(f:Tx) = DRAMTransfers.op_sparse_transfer(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
 
@@ -72,8 +80,12 @@ case class SparseTransferMem[T,C[T],A[_]](
   val memA: Mem[Index,A],
   val mA:   Type[A[Index]],
   val mD:   Type[DRAM[T]]
-) extends DRAMTransfer {
-  def isStore = !isLoad
+) extends DRAMTransfer with LocalReader[MUnit] with LocalWriter[MUnit] {
+  def isStore: Boolean = !isLoad
+
+  override def localReads: Seq[LocalRead] = if (isLoad) LocalRead(addrs) else LocalRead(local) ++ LocalRead(addrs)
+  override def localWrites: Seq[LocalWrite] = if (isLoad) LocalWrite(local) else Nil
+
   def mirror(f:Tx) = DRAMTransfers.op_sparse_transfer_mem(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
 
   override def inputs = dyns(dram, local, addrs, size, p)
