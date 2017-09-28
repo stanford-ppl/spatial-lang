@@ -16,16 +16,16 @@ trait SpaceGenerator {
     if (restricts.nonEmpty) {
       Domain.restricted(
         range  = domainOf(p).toRange,
-        setter = {(v: Int, state: State) => p.setValue(BigDecimal(v))(state) },
-        getter = {(state: State) => p.value(state).asInstanceOf[BigDecimal].toInt },
+        setter = {(v: Int, state: State) => p.setValue(FixedPoint(v))(state) },
+        getter = {(state: State) => p.value(state).asInstanceOf[FixedPoint].toInt },
         cond   = {state => restricts.forall(_.evaluate()(state)) }
       )
     }
     else {
       Domain(
         range = domainOf(p).toRange,
-        setter = { (v: Int, state: State) => p.setValue(BigDecimal(v))(state) },
-        getter = { (state: State) => p.value(state).asInstanceOf[BigDecimal].toInt }
+        setter = { (v: Int, state: State) => p.setValue(FixedPoint(v))(state) },
+        getter = { (state: State) => p.value(state).asInstanceOf[FixedPoint].toInt }
       )
     }
   }

@@ -22,12 +22,12 @@ trait ConstantFolding extends ForwardTransformer {
         implicit val mS = tp.mS.asInstanceOf[BOOL[s]]
         implicit val mI = tp.mI.asInstanceOf[INT[i]]
         implicit val mF = tp.mF.asInstanceOf[INT[f]]
-        FixPt.const[s,i,f](BigDecimal(c))
+        FixPt.const[s,i,f](c)
 
       case tp: FltPtType[g,e]   =>
         implicit val mG = tp.mG.asInstanceOf[INT[g]]
         implicit val mE = tp.mE.asInstanceOf[INT[e]]
-        FltPt.const[g,e](BigDecimal(c))
+        FltPt.const[g,e](c)
 
       case _ => super.transform(lhs, rhs)
     }).asInstanceOf[Exp[T]]

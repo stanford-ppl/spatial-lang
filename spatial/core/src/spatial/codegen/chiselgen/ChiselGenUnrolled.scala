@@ -174,7 +174,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val rPar = inds.length
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimR vector""")
-      emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${dimsOf(sram)}), ${width})))""")
+      emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
       if (dispatch.toList.length == 1) {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
@@ -223,7 +223,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"${parent}_datapath_en"
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, List(${dimsOf(sram)}), ${width}))) """)
+      emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, List(${constDimsOf(sram)}), ${width}))) """)
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"""${lhs}_wVec($i).data := ${d}.r""")
@@ -417,7 +417,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor && ${parent}_II_done"""
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${dimsOf(rf)}), ${width}))) """)
+      emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${constDimsOf(rf)}), ${width}))) """)
       (0 until ens.length).foreach{ k => 
         emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
         emit(src"""${lhs}_wVec($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)}, rr)""")

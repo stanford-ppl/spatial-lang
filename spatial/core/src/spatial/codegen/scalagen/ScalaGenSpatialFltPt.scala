@@ -12,7 +12,7 @@ trait ScalaGenSpatialFltPt extends ScalaGenBits {
   }
 
   override protected def quoteConst(c: Const[_]): String = (c.tp, c) match {
-    case (FltPtType(g,e), Const(c: BigDecimal)) => s"""FloatPoint(BigDecimal("$c"), FltFormat(${g-1},$e))"""
+    case (FltPtType(g,e), Const(c: FloatPoint)) => s"""FloatPoint(BigDecimal("$c"), FltFormat(${g-1},$e))"""
     case _ => super.quoteConst(c)
   }
 

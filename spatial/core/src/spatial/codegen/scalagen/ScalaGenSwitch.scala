@@ -7,24 +7,24 @@ import spatial.nodes._
 trait ScalaGenSwitch extends ScalaGenBits {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@Switch(body,selects,cases) =>
-      visitBlock(body)
-      if (Bits.unapply(op.mT).isDefined) {
-        open(src"val $lhs = {")
-          selects.indices.foreach { i =>
-            emit(src"""${if (i == 0) "if" else "else if"} (${selects(i)}) { ${cases(i)} }""")
-          }
-          emit(src"else { ${invalid(op.mT)} }")
-        close("}")
-      }
-      else {
-        emit(src"val $lhs = ()")
-      }
-
-    case SwitchCase(body) =>
+    case op@Switch(_,selects,cases) =>
+      val isBits = Bits.unapply(op.mT).isDefined
+      emit(src"/** BEGIN SWITCH $lhs **/")
       open(src"val $lhs = {")
-        emitBlock(body)
+        selects.indices.foreach { i =>
+          open(src"""${if (i == 0) "if" else "else if"} (${selects(i)}) {""")
+            val Def(SwitchCase(body)) = cases(i)
+            open(src"val ${cases(i)} = {")
+              emitBlock(body)
+            close("}")
+            emit(src"${cases(i)}")
+          close("}")
+        }
+        if (isBits) emit(src"else { ${invalid(op.mT)} }") else emit(src"()")
       close("}")
+      emit(src"/** END SWITCH $lhs **/")
+
+    case SwitchCase(body) => // Controlled by Switch
 
     case _ => super.emitNode(lhs, rhs)
   }

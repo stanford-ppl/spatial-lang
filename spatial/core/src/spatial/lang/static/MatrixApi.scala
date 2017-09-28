@@ -7,22 +7,25 @@ import org.virtualized.virtualize
 trait MatrixApi { this: SpatialApi =>
 
   implicit class VectorReshaper[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
-    // private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
+    /** Returns an immutable view of the data in this Array as a @Matrix with given `rows` and `cols`. **/
     @virtualize
-    @api def reshape(dim0: Index, dim1: Index): Matrix[T] = {
-      assert(dim0*dim1 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+")")
-      matrix(a, dim0, dim1)
+    @api def reshape(rows: Index, cols: Index): Matrix[T] = {
+      assert(rows*cols == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+rows.toText+"x"+cols.toText+")")
+      matrix(a, rows, cols)
     }
+    /** Returns an immutable view of the data in this Array as a @Tensor3 with given dimensions. **/
     @virtualize
     @api def reshape(dim0: Index, dim1: Index, dim2: Index): Tensor3[T] = {
       assert(dim0*dim1*dim2 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+"x"+dim2.toText+")")
       tensor3(a, dim0, dim1, dim2)
     }
+    /** Returns an immutable view of the data in this Array as a @Tensor4 with given dimensions. **/
     @virtualize
     @api def reshape(dim0: Index, dim1: Index, dim2: Index, dim3: Index): Tensor4[T] = {
       assert(dim0*dim1*dim2*dim3 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+"x"+dim2.toText+"x"+dim3.toText+")")
       tensor4(a, dim0, dim1, dim2, dim3)
     }
+    /** Returns an immutable view of the data in this Array as a @Tensor5 with given dimensions. **/
     @virtualize
     @api def reshape(dim0: Index, dim1: Index, dim2: Index, dim3: Index, dim4: Index): Tensor5[T] = {
       assert(dim0*dim1*dim2*dim3*dim4 == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+dim0.toText+"x"+dim1.toText+"x"+dim2.toText+"x"+dim3.toText+"x"+dim4.toText+")")
@@ -36,9 +39,7 @@ trait MatrixApi { this: SpatialApi =>
       val out_rows = ((imgdim0+pad0-filterdim0+stride0) * (imgdim1+pad1-filterdim1+stride1)) / (stride0 * stride1)
       val out_cols = (imgdim0+pad0)*(imgdim1+pad1)
 
-      Console.println("toeplitz dims are " + out_rows +","+ out_cols)
-
-      val data = MArray.tabulate(out_rows * out_cols){k => 
+      val data = MArray.tabulate(out_rows * out_cols){k =>
         val i = (k / out_cols)
         val j = (k % out_cols)
         // val sliding_window_row_correction = (i / (imgdim1/stride1)) * pad1 // Jump an extra pad1 for each time the sliding window drops a row
@@ -71,18 +72,12 @@ trait MatrixApi { this: SpatialApi =>
 
   }
 
-
   implicit class MatrixConstructor(ranges: (MRange, MRange) ) {
     @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
       implicit val mT: Type[T] = lft.staged
       val rows = ranges._1.length
       val cols = ranges._2.length
-      val data = MArray.tabulate(rows*cols){x =>
-        val i = (x / cols) * ranges._1.step.getOrElse(lift[Int,Index](1))
-        val j = (x % cols) * ranges._2.step.getOrElse(lift[Int,Index](1))
-        lft(func(i,j))
-      }
-      matrix(data, rows, cols)
+      Matrix.tabulate(rows, cols){(i,j) => lft(func(ranges._1(i), ranges._2(j))) }
     }
   }
 
@@ -92,13 +87,7 @@ trait MatrixApi { this: SpatialApi =>
       val dim0 = ranges._1.length
       val dim1 = ranges._2.length
       val dim2 = ranges._3.length
-      val data = MArray.tabulate(dim0*dim1*dim2){x =>
-        val id0 = x / (dim1*dim2) * ranges._1.step.getOrElse(lift[Int,Index](1)) // Page
-      val id1 = ((x / dim2) % dim1) * ranges._2.step.getOrElse(lift[Int,Index](1)) // Row
-      val id2 = (x % dim2) * ranges._3.step.getOrElse(lift[Int,Index](1)) // Col
-        lft(func(id0,id1,id2))
-      }
-      tensor3(data, dim0, dim1, dim2)
+      Tensor3.tabulate(dim0,dim1,dim2){(i,j,k) => lft(func(ranges._1(i), ranges._2(j), ranges._3(k))) }
     }
   }
 
@@ -109,14 +98,9 @@ trait MatrixApi { this: SpatialApi =>
       val dim1 = ranges._2.length
       val dim2 = ranges._3.length
       val dim3 = ranges._4.length
-      val data = MArray.tabulate(dim0*dim1*dim2*dim3){x =>
-        val id0 = x / (dim1*dim2*dim3) * ranges._1.step.getOrElse(lift[Int,Index](1)) // Cube
-      val id1 = ((x / (dim2*dim3)) % dim1 ) * ranges._2.step.getOrElse(lift[Int,Index](1)) // Page
-      val id2 = ((x / dim3) % dim2) * ranges._3.step.getOrElse(lift[Int,Index](1)) // Row
-      val id3 = (x % dim3) * ranges._4.step.getOrElse(lift[Int,Index](1)) // Col
-        lft(func(id0,id1,id2,id3))
+      Tensor4.tabulate(dim0,dim1,dim2,dim3){(i0,i1,i2,i3) =>
+        lft(func(ranges._1(i0), ranges._2(i1), ranges._3(i2), ranges._4(i3)))
       }
-      tensor4(data, dim0, dim1, dim2, dim3)
     }
   }
 
@@ -128,48 +112,11 @@ trait MatrixApi { this: SpatialApi =>
       val dim2 = ranges._3.length
       val dim3 = ranges._4.length
       val dim4 = ranges._5.length
-      val data = MArray.tabulate(dim0*dim1*dim2*dim3*dim4){x =>
-        val id0 = x / (dim1*dim2*dim3*dim4) * ranges._1.step.getOrElse(lift[Int,Index](1))
-        val id1 = ((x / (dim2*dim3*dim4)) % dim1 ) * ranges._2.step.getOrElse(lift[Int,Index](1))
-        val id2 = ((x / (dim3*dim4)) % dim2) * ranges._3.step.getOrElse(lift[Int,Index](1))
-        val id3 = ((x / (dim4)) % dim3) * ranges._4.step.getOrElse(lift[Int,Index](1))
-        val id4 = (x % dim4) * ranges._5.step.getOrElse(lift[Int,Index](1))
-        lft(func(id0,id1,id2,id3,id4))
+      Tensor5.tabulate(dim0,dim1,dim2,dim3,dim4){(i0,i1,i2,i3,i4) =>
+        lft(func(ranges._1(i0), ranges._2(i1), ranges._3(i2), ranges._4(i3), ranges._5(i4)))
       }
-      tensor5(data, dim0, dim1, dim2, dim3, dim4)
     }
   }
-
-  implicit class MatrixOps[T](a: Matrix[T]) {
-    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
-    @api def foreach(func: T => MUnit): MUnit = a.data.foreach(func)
-    @api def map[R:Type](func: T => R): Matrix[R] = matrix(a.data.map(func), a.rows, a.cols)
-    @api def zip[S:Type,R:Type](b: Matrix[S])(func: (T,S) => R): Matrix[R] = matrix(a.data.zip(b.data)(func), a.rows, a.cols)
-    @api def reduce(rfunc: (T,T) => T): T = a.data.reduce(rfunc)
-    @api def transpose(): Matrix[T] = (0::a.cols, 0::a.rows){(j, i) => a(i,j) }
-  }
-  implicit class Tensor3Ops[T](a: Tensor3[T]) {
-    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
-    @api def foreach(func: T => MUnit): MUnit = a.data.foreach(func)
-    @api def map[R:Type](func: T => R): Tensor3[R] = tensor3(a.data.map(func), a.dim0, a.dim1, a.dim2)
-    @api def zip[S:Type,R:Type](b: Tensor3[S])(func: (T,S) => R): Tensor3[R] = tensor3(a.data.zip(b.data)(func), a.dim0, a.dim1, a.dim2)
-    @api def reduce(rfunc: (T,T) => T): T = a.data.reduce(rfunc)
-  }
-  implicit class Tensor4Ops[T](a: Tensor4[T]) {
-    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
-    @api def foreach(func: T => MUnit): MUnit = a.data.foreach(func)
-    @api def map[R:Type](func: T => R): Tensor4[R] = tensor4(a.data.map(func), a.dim0, a.dim1, a.dim2, a.dim3)
-    @api def zip[S:Type,R:Type](b: Tensor4[S])(func: (T,S) => R): Tensor4[R] = tensor4(a.data.zip(b.data)(func), a.dim0, a.dim1, a.dim2, a.dim3)
-    @api def reduce(rfunc: (T,T) => T): T = a.data.reduce(rfunc)
-  }
-  implicit class Tensor5Ops[T](a: Tensor5[T]) {
-    private implicit val mT = a.s.tp.typeArguments.head.asInstanceOf[Type[T]]
-    @api def foreach(func: T => MUnit): MUnit = a.data.foreach(func)
-    @api def map[R:Type](func: T => R): Tensor5[R] = tensor5(a.data.map(func), a.dim0, a.dim1, a.dim2, a.dim3, a.dim4)
-    @api def zip[S:Type,R:Type](b: Tensor5[S])(func: (T,S) => R): Tensor5[R] = tensor5(a.data.zip(b.data)(func), a.dim0, a.dim1, a.dim2, a.dim3, a.dim4)
-    @api def reduce(rfunc: (T,T) => T): T = a.data.reduce(rfunc)
-  }
-
 
   @internal def matrix[T:Type](data: MArray[T], rows: Index, cols: Index): Matrix[T] = {
     struct[Matrix[T]]("data" -> data.s, "rows" -> rows.s, "cols" -> cols.s)

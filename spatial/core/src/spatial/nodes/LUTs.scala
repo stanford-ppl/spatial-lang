@@ -35,7 +35,11 @@ case class LUT5Type[T:Bits](child: Type[T]) extends Type[LUT5[T]] with LUTType[T
 
 
 /** IR Nodes **/
-case class LUTNew[T:Type:Bits,C[_]<:LUT[_]](dims: Seq[Int], elems: Seq[Exp[T]])(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
+case class LUTNew[T:Type:Bits,C[_]<:LUT[_]](
+  dims:  Seq[Int],
+  elems: Seq[Exp[T]]
+)(implicit cT: Type[C[T]]) extends Alloc[C[T]] {
+
   def mirror(f:Tx) = LUT.alloc[T,C](dims, f(elems))
   val mT = typ[T]
   val bT = bits[T]
@@ -51,7 +55,7 @@ case class LUTLoad[T:Type:Bits](
   lut:  Exp[LUT[T]],
   inds: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends EnabledOp[T](en) {
+) extends LocalReaderOp[T](lut,addr=inds,en=en) {
   def mirror(f:Tx) = LUT.load(f(lut),f(inds),f(en))
   override def aliases = Nil
   val mT = typ[T]

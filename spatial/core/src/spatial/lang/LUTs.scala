@@ -124,9 +124,9 @@ object LUT {
   @internal def load[T:Type:Bits](lut: Exp[LUT[T]], inds: Seq[Exp[Index]], en: Exp[Bit]) = {
     def node = stage(LUTLoad(lut, inds, en))(ctx)
 
-    if (inds.forall{case Const(c: BigDecimal) => true; case _ => false}) lut match {
+    if (inds.forall(_.isConst)) lut match {
       case Op(LUTNew(dims, elems)) =>
-        val is = inds.map{case Const(c: BigDecimal) => c.toInt }
+        val is = inds.map{case Literal(c) => c.toInt }
         val index = flatIndexConst(is, dims)
         if (index < 0 || index >= elems.length) {
           if (Globals.staging) {
