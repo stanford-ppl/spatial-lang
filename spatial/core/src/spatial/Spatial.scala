@@ -33,7 +33,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // Traversals
     lazy val scalarAnalyzer = new ScalarAnalyzer { var IR = state }
-    lazy val levelAnalyzer  = new PipeLevelAnalyzer { var IR = state }
+    lazy val levelAnalyzer  = new ControlLevelAnalyzer { var IR = state }
     lazy val dimAnalyzer    = new DimensionAnalyzer { var IR = state }
 
     lazy val affineAnalyzer = new SpatialAccessAnalyzer { var IR = state }
