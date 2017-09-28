@@ -132,6 +132,15 @@ object utils {
       }
       dfs(Seq(x))
     }
+    @stateful def dependsOnlyOnType(y: PartialFunction[Exp[_],Boolean]): Boolean = {
+      def dfs(frontier: Seq[Exp[_]]): Boolean = frontier.forall{
+        case s if y.isDefinedAt(s) && y(s) => true
+        case Def(d) => dfs(d.inputs)
+        case _ => false
+      }
+      dfs(Seq(x))
+    }
+
     @stateful def collectDeps(y: PartialFunction[Exp[_],Exp[_]]): Seq[Exp[_]] = {
       def dfs(frontier: Seq[Exp[_]]): Seq[Exp[_]] = frontier.flatMap{
         case s @ Def(d) if y.isDefinedAt(s) => y(s) +: dfs(d.inputs)
