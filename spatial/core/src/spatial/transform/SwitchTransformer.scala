@@ -136,7 +136,7 @@ case class SwitchTransformer(var IR: State) extends ForwardTransformer with Spat
 
   override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
     case op: EnabledControlNode => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(f, enable.toSeq)) }._1
-    case op: EnabledOp[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(this, enable.get)) }._1
+    case op: EnabledPrimitive[_] if enable.isDefined => transferMetadataIfNew(lhs){ Seq(op.mirrorAndEnable(this, enable.get)) }._1
     case _ => super.mirror(lhs, rhs)
   }
 

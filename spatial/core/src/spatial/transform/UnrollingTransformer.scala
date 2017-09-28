@@ -74,7 +74,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
     // Total number of address channels needed
     val channels = unrolled match {
-      case Def(op: EnabledOp[_]) => op.enables.length
+      case Def(op: EnabledPrimitive[_]) => op.enables.length
       case _ => unrolled.tp match {
         case tp: VectorType[_] => tp.width
         case _ => 1
@@ -352,7 +352,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
       dups
 
     // For inner loop invariant ops, no need to copy the operation - can just do once and broadcast to all lanes
-    case _:EnabledOp[_] if shouldUnifyAccess(lhs, rhs, lanes) =>
+    case _:EnabledPrimitive[_] if shouldUnifyAccess(lhs, rhs, lanes) =>
       logs(s"Unifying $lhs = $rhs (loop invariant)")
       val lhs2 = lanes.inLane(0){ cloneOp(lhs, rhs) } // Doesn't matter which lane, as long as it's in one of them
       lanes.unify(lhs, lhs2)
@@ -842,8 +842,8 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
-      case Def(op: EnabledControlNode) => op.mirrorAndEnable(this, globalValids)
-      case Def(op: EnabledOp[_])       => op.mirrorAndEnable(this, globalValid)
+      case Def(op: EnabledControlNode)  => op.mirrorAndEnable(this, globalValids)
+      case Def(op: EnabledPrimitive[_]) => op.mirrorAndEnable(this, globalValid)
       case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 
