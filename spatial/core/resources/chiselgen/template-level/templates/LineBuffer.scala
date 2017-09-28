@@ -27,21 +27,23 @@ import chisel3.util.MuxLookup
 // col_rPar == stride
 class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buffer: Int, val rstride: Int, 
   val col_wPar: Int, val col_rPar:Int, val col_banks: Int, 
-  val row_wPar: Int, val row_rPar:Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
+  val row_wPar: Int, val row_rPar:Int, val transientPar: Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
 
-  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9, tuple._10)
+  def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9, tuple._10, tuple._11)
 
   val extra_rows_to_buffer = empty_stages_to_buffer * rstride
 
   val io = IO(new Bundle {
-    val data_in  = Vec(col_wPar*rstride, Input(UInt(bitWidth.W)))
-    val w_en     = Vec(rstride, Input(Bool()))
+    val data_in  = Vec(col_wPar*rstride+transientPar, Input(UInt(bitWidth.W)))
+    val w_en     = Vec(rstride+{if (transientPar != 0) 1 else 0}, Input(Bool()))
     // val r_en     = Input(UInt(1.W))
     // val w_done   = Input(UInt(1.W))
 
     // Buffering signals
     val sEn = Vec(numAccessors, Input(Bool())) // Too many but at least this is safe
     val sDone = Vec(numAccessors, Input(Bool())) // Too many but at least this is safe
+    val transientDone = Input(Bool())
+    val transientSwap = Input(Bool())
 
     // val r_done   = Input(UInt(1.W)) // Like double buffering
 
@@ -77,7 +79,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled //| io.transientSwap
   io.swap := swap
 
   // assert(ROW_PAR == 1 || ROW_PAR == num_lines)
@@ -114,6 +116,17 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     cnt.io.input.gap := 0.S
     cnt
   }  
+  // Inner counter over row width -- keep track of write address in current row for transient writer
+  val WRITE_countRowPx_transient = Module(new SingleCounter(transientPar))
+  WRITE_countRowPx_transient.io.input.enable := io.w_en.last
+  WRITE_countRowPx_transient.io.input.reset := io.reset | swap
+  WRITE_countRowPx_transient.io.input.saturate := false.B
+  WRITE_countRowPx_transient.io.input.start := 0.S
+  WRITE_countRowPx_transient.io.input.stop := line_size.S
+  WRITE_countRowPx_transient.io.input.stride := 1.S
+  WRITE_countRowPx_transient.io.input.gap := 0.S
+  val px_transient = WRITE_countRowPx_transient.io.output.count.asUInt
+
   // Outer counter over number of SRAM -- keep track of current row
   val wCRN_width = 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)
   val WRITE_countRowNum = (0 until rstride).map{i =>
@@ -124,24 +137,36 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     cnt.io.input.countUp := true.B
     cnt
   }
+  // Outer counter over number of SRAM -- keep track of current row for transient writer
+  val WRITE_countRowNum_transient = Module(new NBufCtr(1, wCRN_width))
+  WRITE_countRowNum_transient.io.input.start := 0.U 
+  WRITE_countRowNum_transient.io.input.stop := (num_lines+extra_rows_to_buffer).U
+  WRITE_countRowNum_transient.io.input.enable := io.transientDone
+  WRITE_countRowNum_transient.io.input.countUp := true.B
+  val transient_row = WRITE_countRowNum_transient.io.output.count
   
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     val wen_muxing = (Array.tabulate(rstride)){ ii =>
-      (WRITE_countRowNum(ii).io.output.count -> io.w_en(ii))
+      ((WRITE_countRowNum(ii).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U -> io.w_en(ii))
     }
     for (j <- 0 until col_wPar) {
       // Figure out which input to draw 
       val wdata_muxing = (Array.tabulate(rstride)){ ii =>
-        (WRITE_countRowNum(ii).io.output.count -> io.data_in(ii * col_wPar + j))
+        ((WRITE_countRowNum(ii).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U -> io.data_in(ii * col_wPar + j))
       }
       val waddr_muxing = (Array.tabulate(rstride)){ ii =>
-        (WRITE_countRowNum(ii).io.output.count -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
+        ((WRITE_countRowNum(ii).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
       }
-
-      linebuffer(i).io.w(j).addr(0) := MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing)
-      linebuffer(i).io.w(j).data := MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing)
-      linebuffer(i).io.w(j).en := true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing)
+      if (transientPar != 0) {
+        linebuffer(i).io.w(j).addr(0) := Mux(io.w_en.last, px_transient, MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing))
+        linebuffer(i).io.w(j).data := Mux(io.w_en.last, io.data_in(col_wPar*rstride + j), MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing))
+        linebuffer(i).io.w(j).en := Mux(io.w_en.last, true.B & (i.U(wCRN_width.W) === transient_row), true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing))
+      } else {
+        linebuffer(i).io.w(j).addr(0) := MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing)
+        linebuffer(i).io.w(j).data := MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing)
+        linebuffer(i).io.w(j).en := true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing)
+      }
     }
   }
     
@@ -178,7 +203,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       // }
     }
     for (i <- 0 until (row_rPar)) { // ENHANCEMENT: num_lines -> row par
-      io.data_out(i*-*col_rPar + j) := MuxLookup(READ_countRowNum(i).io.output.count, 0.U, linebuf_read_wires_map)
+      io.data_out(i*-*col_rPar + j) := MuxLookup((READ_countRowNum(i).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U, 0.U, linebuf_read_wires_map)
     }    
   }
   

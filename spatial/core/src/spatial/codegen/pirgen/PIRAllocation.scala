@@ -201,7 +201,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
       val cuMem = CUMemory(quote(dmem), dmem, cu)
       cuMem.mode = SRAMMode
-      cuMem.size = dimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
+      cuMem.size = constDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
       inst match {
         case BankedMemory(dims, depth, isAccum) =>
           dims.last match { case Banking(stride, banks, _) =>
@@ -250,7 +250,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           cuMem.mode = ScalarBufferMode
           cuMem.bufferDepth = 1
         case mem if isFIFO(mem) =>
-          cuMem.size = sizeOf(mem.asInstanceOf[Exp[FIFO[Any]]]) match { case Exact(d) => d.toInt } 
+          cuMem.size = stagedSizeOf(mem.asInstanceOf[Exp[FIFO[Any]]]) match { case Exact(d) => d.toInt }
           cuMem.mode = if (getInnerPar(reader)==1) ScalarFIFOMode else VectorFIFOMode
         case mem if isStream(mem) =>
           cuMem.size = 1

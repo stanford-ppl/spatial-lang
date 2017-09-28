@@ -51,8 +51,8 @@ case class MBound(bound: BigInt, isExact: Boolean, isFinal: Boolean) extends Met
 
   def set[T:Type](x: T, value: BigInt): Unit = { boundOf(x.s) = value }
   def get(x: Exp[_]): Option[MBound] = x match {
-    case Param(c: BigDecimal) if c.isWhole => Some(Exact(c.toBigInt))
-    case Const(c: BigDecimal) if c.isWhole => Some(Final(c.toBigInt))
+    case Param(c: FixedPoint) => Some(Exact(c.toBigInt))
+    case Const(c: FixedPoint) => Some(Final(c.toBigInt))
     case _ => metadata[MBound](x)
   }
 }
@@ -363,6 +363,15 @@ case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = thi
 @data object isAccum {
   def apply(x: Exp[_]): Boolean = metadata[MAccum](x).exists(_.is)
   def update(x: Exp[_], is: Boolean) = metadata.add(x, MAccum(is))
+}
+
+/**
+  * Identifies whether a writer to a linebuffer is one doing a transient load or a steady state load
+  */
+case class MTransientLoad(is: Boolean) extends Metadata[MTransientLoad] { def mirror(f:Tx) = this }
+@data object isTransient {
+  def apply(x: Exp[_]): Boolean = metadata[MTransientLoad](x).exists(_.is)
+  def update(x: Exp[_], is: Boolean) = metadata.add(x, MTransientLoad(is))
 }
 
 /**

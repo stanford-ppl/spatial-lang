@@ -199,8 +199,8 @@ class SingleCounter(val par: Int, val width: Int = 32) extends Module {
       val saturate = Input(Bool())
     }
     val output = new Bundle {
-      val count      = Vec(par, Output(SInt((width).W)))
-      val countWithoutWrap = Vec(par, Output(SInt((width).W))) // Rough estimate of next val without wrap, used in FIFO
+      val count      = Vec(1 max par, Output(SInt((width).W)))
+      val countWithoutWrap = Vec(1 max par, Output(SInt((width).W))) // Rough estimate of next val without wrap, used in FIFO
       val done   = Output(Bool())
       val extendedDone = Output(Bool())
       // val debug1 = Output(SInt((width).W))
@@ -238,6 +238,7 @@ class SingleCounter(val par: Int, val width: Int = 32) extends Module {
     io.output.saturated := io.input.saturate & isMax
     io.output.extendedDone := (io.input.enable | wasEnabled) & (isMax | wasMax)
   } else { // Forever21 counter
+    io.output.count(0) := 0.S(width.W)
     io.output.saturated := false.B
     io.output.extendedDone := false.B
     io.output.done := false.B

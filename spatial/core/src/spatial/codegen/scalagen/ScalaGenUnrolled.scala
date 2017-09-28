@@ -41,7 +41,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
     }
 
     func
-    iters.foreach{is =>
+    iters.reverse.foreach{is =>
       emitControlIncrement(lhs, is)
       close("}")
     }

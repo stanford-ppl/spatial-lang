@@ -15,7 +15,7 @@ trait ScalaGenLUTs extends ScalaGenMemories {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LUTNew(dims,elems) => emitMem(lhs, src"""$lhs = Array[${op.mT}]($elems)""")
     case op@LUTLoad(rf,inds,en) =>
-      val dims = dimsOf(rf).map(int32s(_))
+      val dims = constDimsOf(rf).map(int32s(_))
       open(src"val $lhs = {")
       oobApply(op.mT, rf, lhs, inds){ emit(src"if ($en) $rf.apply(${flattenAddress(dims,inds,None)}) else ${invalid(op.mT)}") }
       close("}")

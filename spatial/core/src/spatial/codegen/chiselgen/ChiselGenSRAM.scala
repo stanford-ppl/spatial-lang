@@ -19,12 +19,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var validPassMap = new scala.collection.mutable.HashMap[(Exp[_], String), Seq[Exp[_]]] // Map from a valid bound sym to its ctrl node, for computing suffix on a valid before we enter the ctrler
 
   // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
-  protected def getConstValues(all: Seq[Exp[_]]): Seq[BigDecimal] = {
-    all.map{i => getConstValue(i)} 
-  }
-  protected def getConstValue(one: Exp[_]): BigDecimal = {
-    one match {case Const(c: BigDecimal) => c }
-  }
+  protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
+  protected def getConstValue(one: Exp[_]): Any = one match {case Const(c) => c }
 
   protected def computeSuffix(s: Bound[_]): String = {
     var result = super.quote(s)
@@ -258,7 +254,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@SRAMNew(_) =>
-      val dimensions = dimsOf(lhs)
+      val dimensions = constDimsOf(lhs)
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val rParZip = readersOf(lhs)
           .filter{read => dispatchOf(read, lhs) contains i}
@@ -344,7 +340,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
-        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${dimsOf(sram)}), ${width})))""")
+        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
         emit(src"""${lhs}_rVec(0).en := ShiftRegister($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
@@ -360,7 +356,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${dimsOf(sram)}), $width))) """)
+      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
       emit(src"""${lhs}_wVec(0).data := $v.raw""")
       emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${parent}_II_done).D(${symDelay(lhs)}, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 

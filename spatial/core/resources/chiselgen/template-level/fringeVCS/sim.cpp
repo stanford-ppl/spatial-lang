@@ -50,9 +50,13 @@ int sendResp(simCmd *cmd) {
   return cmd->id;
 }
 
+typedef struct {
+  simCmd *cmd;
+  int waitCycles;
+} pendingOp;
 // Set containing allocated pages
 set<uint64_t> allocatedPages;
-queue<simCmd*> pendingOps;
+queue<pendingOp*> pendingOps;
 uint64_t numCycles = 0;
 
 extern "C" {
@@ -78,29 +82,36 @@ extern "C" {
 
     // Handle pending operations, if any
     if (pendingOps.size() > 0) {
-      simCmd *cmd = pendingOps.front();
-      pendingOps.pop();
-
-      switch (cmd->cmd) {
-        case READ_REG:
-          // Construct and send response
-          simCmd resp;
-          resp.id = cmd->id;
-          resp.cmd = cmd->cmd;
-          SV_BIT_PACKED_ARRAY(32, rdataHi);
-          SV_BIT_PACKED_ARRAY(32, rdataLo);
-          readRegRdataHi32((svBitVec32*)&rdataHi);
-          readRegRdataLo32((svBitVec32*)&rdataLo);
-          *(uint32_t*)resp.data = (uint32_t)*rdataLo;
-          *((uint32_t*)resp.data + 1) = (uint32_t)*rdataHi;
-          resp.size = sizeof(uint64_t);
-          respChannel->send(&resp);
-          break;
-        default:
-          EPRINTF("[SIM] Ignoring unknown pending command %u\n", cmd->cmd);
-          break;
+//      simCmd *cmd = pendingOps.front();
+      pendingOp *op = pendingOps.front();
+      op->waitCycles--;
+      if (op->waitCycles == 0) {
+        pendingOps.pop();
+        simCmd *cmd = op->cmd;
+        switch (cmd->cmd) {
+          case READ_REG:
+            // Construct and send response
+            simCmd resp;
+            resp.id = cmd->id;
+            resp.cmd = cmd->cmd;
+            SV_BIT_PACKED_ARRAY(32, rdataHi);
+            SV_BIT_PACKED_ARRAY(32, rdataLo);
+            readRegRdataHi32((svBitVec32*)&rdataHi);
+            readRegRdataLo32((svBitVec32*)&rdataLo);
+            *(uint32_t*)resp.data = (uint32_t)*rdataLo;
+            *((uint32_t*)resp.data + 1) = (uint32_t)*rdataHi;
+            resp.size = sizeof(uint64_t);
+            respChannel->send(&resp);
+            break;
+          default:
+            EPRINTF("[SIM] Ignoring unknown pending command %u\n", cmd->cmd);
+            break;
+        }
+        free(op);
+        free(cmd);
+      } else {
+        exitTick = true;
       }
-      free(cmd);
     }
 
     // Drain an element from DRAM queue if it exists
@@ -200,7 +211,10 @@ extern "C" {
             // Append to pending ops - will return in the next cycle
             simCmd *pendingCmd = (simCmd*) malloc(sizeof(simCmd));
             memcpy(pendingCmd, cmd, sizeof(simCmd));
-            pendingOps.push(pendingCmd);
+            pendingOp *op = (pendingOp*)malloc(sizeof(pendingOp));
+            op->cmd = pendingCmd;
+            op->waitCycles = 2;
+            pendingOps.push(op);
 
             exitTick = true;
             break;

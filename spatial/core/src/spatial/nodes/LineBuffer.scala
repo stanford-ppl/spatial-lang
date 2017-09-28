@@ -54,7 +54,7 @@ case class LineBufferColSlice[T:Type:Bits](
   row:        Exp[Index],
   colStart:   Exp[Index],
   length:     Exp[Index]
-)(implicit val vT: Type[VectorN[T]]) extends Op[VectorN[T]] {
+)(implicit val vT: Type[VectorN[T]]) extends LocalReaderOp[VectorN[T]](linebuffer,addr=Seq(row,colStart)) {
   def mirror(f:Tx) = LineBuffer.col_slice(f(linebuffer),f(row),f(colStart),f(length))
   override def aliases = Nil
   val mT = typ[T]
@@ -65,7 +65,7 @@ case class LineBufferRowSlice[T:Type:Bits](
   rowStart:   Exp[Index],
   length:     Exp[Index],
   col:        Exp[Index]
-)(implicit val vT: Type[VectorN[T]]) extends Op[VectorN[T]] {
+)(implicit val vT: Type[VectorN[T]]) extends LocalReaderOp[VectorN[T]](linebuffer, addr=Seq(rowStart,col)) {
   def mirror(f:Tx) = LineBuffer.row_slice(f(linebuffer),f(rowStart),f(length),f(col))
   override def aliases = Nil
   val mT = typ[T]
@@ -76,7 +76,7 @@ case class LineBufferLoad[T:Type:Bits](
   row:        Exp[Index],
   col:        Exp[Index],
   en:         Exp[Bit]
-) extends EnabledOp[T](en) {
+) extends LocalReaderOp[T](linebuffer, addr=Seq(row,col), en=en) {
   def mirror(f:Tx) = LineBuffer.load(f(linebuffer),f(row),f(col),f(en))
   override def aliases = Nil
   val mT = typ[T]
@@ -87,7 +87,7 @@ case class LineBufferEnq[T:Type:Bits](
   linebuffer: Exp[LineBuffer[T]],
   data:       Exp[T],
   en:         Exp[Bit]
-) extends EnabledOp[MUnit](en) {
+) extends LocalWriterOp(linebuffer,value=data,en=en) {
   def mirror(f:Tx) = LineBuffer.enq(f(linebuffer),f(data),f(en))
   override def aliases = Nil
   val mT = typ[T]
@@ -99,7 +99,7 @@ case class LineBufferRotateEnq[T:Type:Bits](
   row:        Exp[Index],
   data:       Exp[T],
   en:         Exp[Bit]
-) extends EnabledOp[MUnit](en) {
+) extends LocalWriterOp(linebuffer,value=data,en=en) {
   def mirror(f:Tx) = LineBuffer.rotateEnq(f(linebuffer),f(row),f(data),f(en))
   override def aliases = Nil
   val mT = typ[T]
@@ -111,7 +111,7 @@ case class ParLineBufferLoad[T:Type:Bits](
   rows:       Seq[Exp[Index]],
   cols:       Seq[Exp[Index]],
   ens:        Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
+)(implicit val vT: Type[VectorN[T]]) extends ParLocalReaderOp[VectorN[T]](linebuffer,rows.zip(cols).map{case (r,c) => Seq(r,c)}, ens=ens) {
   def mirror(f:Tx) = LineBuffer.par_load(f(linebuffer),f(rows),f(cols),f(ens))
   override def aliases = Nil
   val mT = typ[T]
@@ -121,7 +121,7 @@ case class ParLineBufferEnq[T:Type:Bits](
   linebuffer: Exp[LineBuffer[T]],
   data:       Seq[Exp[T]],
   ens:        Seq[Exp[Bit]]
-) extends EnabledOp[MUnit](ens:_*) {
+) extends ParLocalWriterOp(linebuffer,values=data,ens=ens) {
   def mirror(f:Tx) = LineBuffer.par_enq(f(linebuffer),f(data),f(ens))
   override def aliases = Nil
   val mT = typ[T]
@@ -132,8 +132,9 @@ case class ParLineBufferRotateEnq[T:Type:Bits](
   row:        Exp[Index],
   data:       Seq[Exp[T]],
   ens:        Seq[Exp[Bit]]
-) extends EnabledOp[MUnit](ens:_*) {
+) extends ParLocalWriterOp(linebuffer,values=data,ens=ens) {
   def mirror(f:Tx) = LineBuffer.par_rotateEnq(f(linebuffer),f(row),f(data),f(ens))
   override def aliases = Nil
   val mT = typ[T]
+  val bT = bits[T]
 }

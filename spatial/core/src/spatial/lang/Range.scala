@@ -47,6 +47,8 @@ case class Range(start: Option[Index], end: Index, step: Option[Index], p: Optio
     case (None, e, Some(st)) => (e + st - 1) / st
     case (Some(s), e, Some(st)) => (e - s + st - 1) / st
   }
+
+
 }
 object Range {
   /** Constructors **/
@@ -61,7 +63,6 @@ object Range {
   @internal def alloc(start: Option[Index], end: Index, stride: Option[Index], par: Option[Index], isUnit: Boolean = false) = {
     Range(start,end,stride,par,isUnit)
   }
-
 
 }
 

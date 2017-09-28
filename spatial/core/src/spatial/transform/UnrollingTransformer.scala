@@ -842,8 +842,8 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
-      case Def(op: EnabledControlNode) => op.mirrorAndEnable(f, globalValids)
-      case Def(op: EnabledOp[_])       => op.mirrorAndEnable(f, globalValid)
+      case Def(op: EnabledControlNode) => op.mirrorAndEnable(this, globalValids)
+      case Def(op: EnabledOp[_])       => op.mirrorAndEnable(this, globalValid)
       case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 

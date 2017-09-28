@@ -14,7 +14,8 @@ sealed abstract class Restrict {this: Product =>
 object Restrict {
   implicit class ParamValue(x: Param[Index]) {
     @stateful def v: Int = x.value match {
-      case c: BigDecimal => c.toInt
+      case c: FloatPoint => c.toInt
+      case c: FixedPoint => c.toInt
       case c: Int        => c
     }
   }

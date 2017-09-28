@@ -27,12 +27,14 @@ package object pirgen {
   }
 
   @stateful def getConstant(x: Expr): Option[AnyVal] = x match {
-    case Const(c: BigDecimal) if c.isWhole => Some(c.toInt)
-    case Const(c: BigDecimal) => Some(c.toFloat)
+    case Const(c: FixedPoint) if c.fmt.isExactInt => Some(c.toInt)
+    case Const(c: FixedPoint) => Some(c.toFloat)
+    case Const(c: FloatPoint) => Some(c.toFloat)
     case Const(c: Boolean) => Some(c)
 
-    case Param(c: BigDecimal) if c.isWhole => Some(c.toInt)
-    case Param(c: BigDecimal) => Some(c.toFloat  )
+    case Param(c: FixedPoint) if c.fmt.isExactInt => Some(c.toInt)
+    case Param(c: FixedPoint) => Some(c.toFloat)
+    case Param(c: FloatPoint) => Some(c.toFloat)
     case Param(c: Boolean) => Some(c)
 
     case Final(c: BigInt)  => Some(c.toInt)
@@ -238,8 +240,7 @@ package object pirgen {
   // returns (sym of flatten addr, List[Addr Stages])
   @stateful def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
     val cdims:Seq[Int] = dims.map{
-      case Final(d) => d.toInt
-      case Param(d:BigDecimal) => d.toInt
+      case Exact(d) => d.toInt
       case d => throw new Exception(s"Unable to get bound of memory size $d")
     }
     val strides:List[Expr] = List.tabulate(dims.length){ d =>

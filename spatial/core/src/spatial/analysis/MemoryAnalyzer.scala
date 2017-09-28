@@ -65,17 +65,17 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         case (List(Banking(s1,p,o1), Banks(1)), List(Banks(1), Banking(s2,q,o2))) if p > 1 && q > 1 && !o1 && !o2 =>
           DiagonalMemory(List(s1,s2), lcm(p,q), Math.max(d1,d2), a1 || a2)
         case _ =>
-          val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+          val banking = (b1,b2,constDimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
           BankedMemory(banking, Math.max(d1,d2), a1 || a2)
       }
       case (DiagonalMemory(strides,p,d1,a1), BankedMemory(b2,d2,a2)) =>
         val b1 = strides.map{x => Banking(x,p,isOuter = false) }
-        val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+        val banking = (b1,b2,constDimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
         BankedMemory(banking, Math.max(d1,d2), a1 || a2)
 
       case (BankedMemory(b1,d1,a1), DiagonalMemory(strides,p,d2,a2)) =>
         val b2 = strides.map{x => Banking(x,p,isOuter = false) }
-        val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+        val banking = (b1,b2,constDimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
         BankedMemory(banking, Math.max(d1,d2), a1 || a2)
     }
     // Calculate duplicates
@@ -686,6 +686,48 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val strides = constDimsToStrides(dims)
 
     // TODO: Like FIFO, should not allow outer loop parallelization w.r.t. LineBuffer for enqueue operations
+
+    // Simple check, fragile if load structure ever changes.  If this is ParLineBufferRotateEnq with rows =/= lb stride, then this is transient. We get rows from parent of parent of access' counter
+    val rowstride = mem match {case Def(LineBufferNew(_,_,stride)) => stride match {case Exact(c) => c.toInt; case _ => 0}; case _ => 0}
+    val rowsWritten = access match {
+      case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => dims.dropRight(1).last match {case Exact(c: BigInt) => c}
+      case Def(_: LineBufferLoad[_]) => rowstride // Not transient
+      case Def(_: ParLineBufferLoad[_]) => rowstride // Not transient
+      case Def(_: LineBufferColSlice[_]) => rowstride // Not transient
+      case _ => 
+        if (parentOf(access).isDefined) {
+          if (parentOf(parentOf(access).get).isDefined) {
+            // Console.println(s"parent 1 is ${parentOf(access).get}, parent 2 is ${parentOf(parentOf(access).get).get}")
+            parentOf((parentOf(access).get)).get match {
+              case Def(UnrolledForeach(_,cchain,_,_,_)) => 
+                cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
+                  case Def(CounterNew(s,e,str,p)) => (s,e) match {
+                    case (Exact(st), Exact(e)) => e - st
+                    case _ => throw new Exception(s"Cannot load variable number of rows into linebuffer $mem, since we cannot determine which is the transient")
+                  }
+                }
+              }
+              case Def(OpForeach(_,cchain,_,_)) =>             
+                cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
+                  case Def(CounterNew(s,e,str,p)) => (s,e) match {
+                    case (Exact(st), Exact(e)) => e - st
+                    case _ => throw new Exception(s"Cannot load variable number of rows into linebuffer $mem, since we cannot determine which is the transient")
+                  }
+                }
+              }
+              case Def(UnitPipe(_,_)) => 1
+              case Def(Hwblock(_,_)) => // This seems to be first mem analyzer pass
+                access match {
+                  case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => 
+                    dims.dropRight(1).last match {case Exact(c: BigInt) => c}
+                }
+              case _ => 0
+            }        
+          } else 0
+        } else 0
+      }
+    // Console.println(s"checking $mem $access for $rowstride $rowsWritten")
+    isTransient(access) = if (rowstride == rowsWritten) false else true
 
     // TODO: Is inner loop here?
     val banking = access match {

@@ -7,6 +7,7 @@ import spatial.lang.File._
 
 trait FileIOApi { this: SpatialApi =>
 
+  /** Loads the CSV at `filename` as an @Array, using the supplied `delimeter` (comma by default). **/
   @api def loadCSV1D[T:Type](filename: MString, delim: MString = opt[MString])(implicit cast: Cast[MString,T]): MArray[T] = {
     val del = delim.getOrElseCreate(",")
     val file = open_file(filename.s, write = false)
@@ -16,6 +17,7 @@ trait FileIOApi { this: SpatialApi =>
   }
 
   // FIXME: This will not work if delim2 is not \n, so we need to have a read_tokens take multiple delimiters
+  /** Loads the CSV at `filename`as a @Matrix, using the supplied element delimeter and linebreaks across rows. **/
   @api def loadCSV2D[T:Type](filename: MString, delim1: MString = opt[MString], delim2: MString = opt[MString])(implicit cast: Cast[MString,T]): Matrix[T] = {
     val del1 = delim1.getOrElseCreate(",")
     val del2 = delim2.getOrElseCreate("\n")
@@ -27,6 +29,9 @@ trait FileIOApi { this: SpatialApi =>
     matrix(data, row_tokens.length, all_tokens.length / row_tokens.length)
   }
 
+  /** Writes the given Array to the file at `filename` using the given `delimiter`.
+    * If no delimiter is given, defaults to comma.
+    **/
   @virtualize
   @api def writeCSV1D[T:Type](array: MArray[T], filename: MString, delim: MString = opt[MString]): MUnit = {
     val del = delim.getOrElseCreate(",")
@@ -38,6 +43,9 @@ trait FileIOApi { this: SpatialApi =>
     wrap(close_file(file))
   }
 
+  /** Writes the given Matrix to the file at `filename` using the given element delimiter.
+    * If no element delimiter is given, defaults to comma.
+    **/
   @virtualize
   @api def writeCSV2D[T:Type](matrix: Matrix[T], filename: MString, delim1: MString = opt[MString], delim2: MString = opt[MString]): MUnit = {
     val del1 = delim1.getOrElseCreate(",")
@@ -64,7 +72,7 @@ trait FileIOApi { this: SpatialApi =>
     wrap(close_file(file))
   }
 
-
+  /** Loads the given binary file at `filename` as an @Array. **/
   @virtualize
   @api def loadBinary[T:Type:Num](filename: MString): MArray[T] = {
     val file = MBinaryFile.open(filename.s, write = false)
@@ -73,6 +81,7 @@ trait FileIOApi { this: SpatialApi =>
     wrap(array)
   }
 
+  /** Saves the given Array to disk as a binary file at `filename`. **/
   @virtualize
   @api def writeBinary[T:Type:Num](array: MArray[T], filename: MString): MUnit = {
     val file = MBinaryFile.open(filename.s, write = true)
