@@ -3,6 +3,7 @@ package spatial.transform
 import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
+import spatial.SpatialConfig
 import spatial.analysis.SpatialTraversal
 import spatial.aliases._
 import spatial.metadata._
@@ -125,7 +126,7 @@ case class SwitchTransformer(var IR: State) extends ForwardTransformer with Spat
       dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch
-      levelOf(switch) = level //controlLevel.getOrElse(InnerControl)
+      levelOf(switch) = if (SpatialConfig.enablePIR) OuterControl else level
 
       controlLevel = prevLevel
 
