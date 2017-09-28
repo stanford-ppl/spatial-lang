@@ -8,7 +8,7 @@ import spatial.nodes._
 import spatial.utils._
 
 /** Used to make sure the user (and David) didn't do anything stupid **/
-trait ScopeCheck extends SpatialTraversal {
+trait SanityCheck extends SpatialTraversal {
   override val name = "Accel Scope Check"
   override val recurse = Always
 
