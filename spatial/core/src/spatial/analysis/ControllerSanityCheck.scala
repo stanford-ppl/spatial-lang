@@ -11,8 +11,18 @@ trait ControllerSanityCheck extends SpatialTraversal {
   override val name = "Control Sanity Check"
   override val recurse = Default
 
-  override def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if (isControlNode(lhs)) {
+  private def checkIters(lhs: Exp[_], iters: Seq[Exp[_]]) = iters.foreach{i =>
+    if (isGlobal(i)) bug(lhs.ctx, c"Iterator $i of loop $lhs is global?")
+  }
+
+  override def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
+    case _ if isControlNode(lhs) =>
+      rhs match {
+        case e: UnrolledForeach     => checkIters(lhs, e.iters.flatten)
+        case e: UnrolledReduce[_,_] => checkIters(lhs, e.iters.flatten)
+        case _ =>
+      }
+
       val blocks = rhs.blocks
       blocks.foreach{block =>
         val primitives = getPrimitiveNodes(block)
@@ -37,8 +47,9 @@ trait ControllerSanityCheck extends SpatialTraversal {
           dbg("\n\n\n")
         }
       }
-    }
-    super.visit(lhs, rhs)
+      super.visit(lhs,rhs)
+
+    case _ => super.visit(lhs, rhs)
   }
 
 }

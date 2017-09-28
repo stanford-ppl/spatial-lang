@@ -51,7 +51,7 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val paramAnalyzer  = new ParameterAnalyzer{var IR = state }
     lazy val heuristicAnalyzer = new HeuristicAnalyzer { var IR = state }
 
-    lazy val scopeCheck     = new ScopeCheck { var IR = state }
+    lazy val sanityCheck     = new SanityCheck { var IR = state }
 
     lazy val contentionAnalyzer = new ContentionAnalyzer{ var IR = state; def top = ctrlAnalyzer.top.get }
     lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
@@ -138,7 +138,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
     passes += regCleanup        // Remove unused registers and corresponding reads/writes created in unit pipe transform
     passes += printer
-    passes += scopeCheck        // Check that illegal host values are not used in the accel block
+    passes += sanityCheck        // Check that illegal host values are not used in the accel block
 
     // --- Pre-DSE Analysis
     passes += scalarAnalyzer    // Bounds / global analysis
@@ -233,7 +233,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
 
     // --- Sanity Checks
-    passes += scopeCheck        // Check that illegal host values are not used in the accel block
+    passes += sanityCheck        // Check that illegal host values are not used in the accel block
     passes += controlSanityCheck
     passes += finalizer         // Finalize any remaining parameters
 
