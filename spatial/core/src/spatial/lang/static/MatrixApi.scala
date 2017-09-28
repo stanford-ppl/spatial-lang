@@ -36,7 +36,7 @@ trait MatrixApi { this: SpatialApi =>
       // TODO: Incorporate stride
       val pad0 = filterdim0 - 1 - (stride0-1)
       val pad1 = filterdim1 - 1 - (stride1-1)
-      val out_rows = ((imgdim0+pad0)-filterdim0+1) * ((imgdim1+pad1)-filterdim1+1) / (stride0 * stride1)
+      val out_rows = ((imgdim0+pad0-filterdim0+stride0) * (imgdim1+pad1-filterdim1+stride1)) / (stride0 * stride1)
       val out_cols = (imgdim0+pad0)*(imgdim1+pad1)
 
       Console.println("toeplitz dims are " + out_rows +","+ out_cols)
@@ -44,6 +44,7 @@ trait MatrixApi { this: SpatialApi =>
       val data = MArray.tabulate(out_rows * out_cols){k =>
         val i = (k / out_cols)
         val j = (k % out_cols)
+<<<<<<< HEAD
         val sliding_window_row_correction = (i / imgdim1) * pad1
         val stride0_correction = (i / imgdim1) * ((stride0-1)*imgdim1)
         val stride1_correction = (i % imgdim1) * (stride1-1)
@@ -51,9 +52,34 @@ trait MatrixApi { this: SpatialApi =>
         val filter_i = (filter_i_base) / (imgdim1+pad1)
         val filter_j = ((j - i - sliding_window_row_correction) % (imgdim1+pad1))
         if (filter_i_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0) a(filter_i * filterdim1 + filter_j) else 0.to[T]
+=======
+        // val sliding_window_row_correction = (i / (imgdim1/stride1)) * pad1 // Jump an extra pad1 for each time the sliding window drops a row
+        val current_slide_row = i / (imgdim1/stride1)
+        val current_slide_col = i % (imgdim1/stride1)
+        val rows_correction = current_slide_row * stride0 * (imgdim1+pad1)
+        val cols_correction = current_slide_col * stride1
+        // val stride0_correction = stride0 * (i / (imgdim1/stride1)) * ((stride0-1)*(imgdim1+pad1)) // Jump an extra (stride0-1)*(pad1+dim1) for each time the sliding window drops a row
+        // val stride1_correction = (i % (imgdim1/stride1)) * (stride1-1)  // Jump an extra (stride1-1) for each time the sliding window moves -> by 1
+        val filter_base = j - rows_correction - cols_correction //i - (sliding_window_row_correction + stride0_correction + stride1_correction) 
+        val filter_i = (filter_base) / (imgdim1+pad1)
+        val filter_j = (filter_base) % (imgdim1+pad1)
+        println("at " + i + "," + j +", " + current_slide_row + " row, correct " + rows_correction + ", " + cols_correction + " filter stuff " + filter_base + ", " + filter_i + ", " + filter_j + " == " + {filter_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0})
+      
+        // println("at " + i + "," + j + " slidwind " + sliding_window_row_correction + ", stride0 " + stride0_correction + " stride1 " +  stride1_correction + ", filter numbers " + filter_base + " - " + filter_i + ", " + filter_j + " = " + {filter_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0})
+        if (filter_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0) a(filter_i * filterdim1 + filter_j) else 0.to[T]
+
+        // val i = (k / out_cols)
+        // val j = (k % out_cols)
+        // val sliding_window_row_correction = (i / imgdim1) * pad1
+        // val stride0_correction = (i / imgdim1) * ((stride0-1)*imgdim1)
+        // val stride1_correction = (i % imgdim1) * (stride1-1)
+        // val filter_i_base = j - i - (sliding_window_row_correction + stride0_correction + stride1_correction) 
+        // val filter_i = (filter_i_base) / (imgdim1+pad1)
+        // val filter_j = ((j - i - sliding_window_row_correction) % (imgdim1+pad1))
+        // if (filter_i_base >= 0 && filter_j < filterdim1 && filter_j >= 0 && filter_i < filterdim0 && filter_i >= 0) a(filter_i * filterdim1 + filter_j) else 0.to[T]
+>>>>>>> origin/fpga
       }
       matrix(data, out_rows, out_cols)
-      // a.reshape(filterdim0, filterdim1) 
     }
 
   }
