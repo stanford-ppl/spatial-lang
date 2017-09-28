@@ -48,6 +48,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             }
             par
           }.head
+        Console.println(s"working on $lhs ${writersOf(lhs)} on $i")
         val col_wPar = writersOf(lhs) // Currently assumes all readers have same par
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{a => !isTransient(a.node.asInstanceOf[Exp[_]])}
