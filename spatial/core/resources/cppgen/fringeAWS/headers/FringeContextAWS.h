@@ -265,7 +265,7 @@ public:
       if (write_offset != 0) {
         printf("Partial write by driver, trying again with remainder of buffer (%lu bytes)\n", size - write_offset);
       }
-      rc = pwrite(fd, write_buffer + write_offset, size - write_offset, 0x10000000 + channel*MEM_16G + devmem + write_offset);
+      rc = pwrite(fd, write_buffer + write_offset, size - write_offset, channel*MEM_16G + devmem + write_offset);
       assert(rc >= 0);
       write_offset += rc;
     }
@@ -298,7 +298,7 @@ public:
       if (read_offset != 0) {
         printf("Partial read by driver, trying again with remainder of buffer (%lu bytes)\n", size - read_offset);
       }
-      rc = pread(fd, read_buffer + read_offset, size - read_offset, 0x10000000 + channel*MEM_16G + devmem + read_offset);
+      rc = pread(fd, read_buffer + read_offset, size - read_offset, channel*MEM_16G + devmem + read_offset);
       assert(rc >= 0);
       read_offset += rc;
     }
