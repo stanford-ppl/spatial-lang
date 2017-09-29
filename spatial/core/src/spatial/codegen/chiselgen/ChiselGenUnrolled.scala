@@ -141,20 +141,26 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //   }
       if (levelOf(lhs) == InnerControl) {
         val dlay = bodyLatency.sum(lhs)
-        emit(s"val ${quote(accum)}_wren = (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
-        emit(src"val ${accum}_resetter = ${lhs}_rst_en")
+        emitGlobalWire(s"val ${quote(accum)}_wren = Wire(Bool())")
+        emit(s"${quote(accum)}_wren := (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
+        emitGlobalWire(src"val ${accum}_resetter = Wire(Bool())")
+        emit(src"${accum}_resetter := ${lhs}_rst_en")
       } else {
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
-            emit(src"val ${accum}_wren = (${childrenOf(lhs).last}_done).D(0, rr) // TODO: Skeptical these codegen rules are correct")
+            emitGlobalWire(src"val ${accum}_wren = Wire(Bool())")
+            emit(src"${accum}_wren := (${childrenOf(lhs).last}_done).D(0, rr) // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
-            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            emitGlobalWire(src"val ${accum}_wren = Wire(Bool())")
+            emit(src"${accum}_wren := ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
           case Def(_:RegFileNew[_,_]) =>
-            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            emitGlobalWire(src"val ${accum}_wren = Wire(Bool())")
+            emit(src"${accum}_wren := ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
-        emit(src"val ${accum}_resetter = ${lhs}_rst_en.D(0)")
+        emitGlobalWire(src"val ${accum}_resetter = Wire(Bool())")
+        emit(src"${accum}_resetter := ${lhs}_rst_en.D(0)")
       }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
@@ -244,10 +250,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       if (SpatialConfig.useCheapFifos){
         val en = ens.map(quote).mkString("&")
-        emitGlobalWire(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")  
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")  
       } else {
         val en = ens.map{i => src"$i & (${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)})"}
-        emitGlobalWire(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
       }
       
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")

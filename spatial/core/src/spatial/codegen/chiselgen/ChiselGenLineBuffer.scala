@@ -45,13 +45,12 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         if (readers.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no readers.")
         if (nonTransientWrites.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no non-transient writers.")
 
-        // Currently assumes all readers have same par
-        val col_rPar = readers.map(accessWidth).headOption.getOrElse(1)
+        // // Currently assumes all readers have same par
+        // val col_rPar = readers.map(accessWidth).reduce{_+_}/*headOption.getOrElse(1)*/ / {rows match {case Exact(r) => r}}
         // Currently assumes all writers have same par
         val col_wPar = nonTransientWrites.map(accessWidth).headOption.getOrElse(1)
         // Assumes there is either 0 of these (returns 0) or 1 of these
         val transient_wPar = transientWrites.map(accessWidth).sum
-        /*
         val col_rPar = readersOf(lhs) // Currently assumes all readers have same par
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
@@ -62,6 +61,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             }
             par
           }.head
+        /*
         Console.println(s"working on $lhs ${writersOf(lhs)} on $i")
         val col_wPar = writersOf(lhs) // Currently assumes all readers have same par
           .filter{write => dispatchOf(write, lhs) contains i}
