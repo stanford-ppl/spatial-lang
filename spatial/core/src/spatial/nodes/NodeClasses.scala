@@ -51,7 +51,11 @@ trait EnabledPrimitive[T] { this: Op[T] =>
   }
 }
 
-trait LocalReader[T] extends EnabledPrimitive[T] { this: Op[T] =>
+trait EnabledAccess[T] extends EnabledPrimitive[T] { this: Op[T] =>
+  def accessWidth: Int = 1
+}
+
+trait LocalReader[T] extends EnabledAccess[T] { this: Op[T] =>
   def localReads: Seq[LocalRead]
   override def enables: Seq[Exp[Bit]] = localReads.flatMap(_.en)
 }
@@ -62,7 +66,7 @@ object LocalReader {
     case _ => None
   }
 }
-trait LocalWriter[T] extends EnabledPrimitive[T] { this: Op[T] =>
+trait LocalWriter[T] extends EnabledAccess[T] { this: Op[T] =>
   def localWrites: Seq[LocalWrite]
   override def enables: Seq[Exp[Bit]] = localWrites.flatMap(_.en)
 }
@@ -165,6 +169,8 @@ abstract class LocalResetterOp(
 
 trait ParLocalReader[T] extends LocalReader[T] { this: Op[T] =>
   def parLocalReads: Seq[ParLocalRead]
+  override def accessWidth: Int = enables.length / parLocalReads.length
+
   override def enables: Seq[Exp[Bit]] = parLocalReads.flatMap(_.ens.getOrElse(Nil))
   final override def localReads: Seq[LocalRead] = parLocalReads.flatMap{case (mem,inds,ens) => LocalRead(mem) }
 }
@@ -180,6 +186,8 @@ object ParLocalReader {
 
 trait ParLocalWriter[T] extends LocalWriter[T] { this: Op[T] =>
   def parLocalWrites: Seq[ParLocalWrite]
+  override def accessWidth: Int = enables.length / parLocalWrites.length
+
   override def enables: Seq[Exp[Bit]] = parLocalWrites.flatMap(_.ens.getOrElse(Nil))
   override def localWrites: Seq[LocalWrite] = parLocalWrites.flatMap{case (mem,datas,inds,ens) => LocalWrite(mem)}
 }

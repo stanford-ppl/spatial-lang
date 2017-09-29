@@ -37,7 +37,21 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     // TODO: Need to account for stride here
     case op@LineBufferNew(rows, cols, stride) =>
-      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) =>
+        val readers = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i }
+        val writers = writersOf(lhs).filter{write => dispatchOf(write, lhs) contains i }
+        val (nonTransientWrites, transientWrites) = writers.partition(write => isTransient(write.node))
+
+        if (readers.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no readers.")
+        if (nonTransientWrites.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no non-transient writers.")
+
+        // Currently assumes all readers have same par
+        val col_rPar = readers.map(accessWidth).headOption.getOrElse(1)
+        // Currently assumes all writers have same par
+        val col_wPar = nonTransientWrites.map(accessWidth).headOption.getOrElse(1)
+        // Assumes there is either 0 of these (returns 0) or 1 of these
+        val transient_wPar = transientWrites.map(accessWidth).sum
+        /*
         val col_rPar = readersOf(lhs) // Currently assumes all readers have same par
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
@@ -73,7 +87,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             }
             par
           }.sum // Assumes there is either 0 of these (returns 0) or 1 of these
-
+        */
         val col_banks = mem match { case BankedMemory(dims, depth, isAccum) => dims.last.banks; case _ => 1 }
         // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
         val empty_stages_to_buffer = bufferControlInfo(lhs, i).length - 1

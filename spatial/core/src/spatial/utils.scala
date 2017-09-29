@@ -958,4 +958,11 @@ object utils {
     case _ => false
   }
 
+  @stateful def accessWidth(e: Access): Int = accessWidth(e.node)
+  @stateful def accessWidth(e: Exp[_]): Int = getDef(e).map(accessWidth).getOrElse(1)
+  def accessWidth(d: Def): Int = d match {
+    case e: EnabledAccess[_] => e.accessWidth
+    case _ => 1
+  }
+
 }
