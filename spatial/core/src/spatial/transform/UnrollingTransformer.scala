@@ -73,13 +73,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     }.getOrElse(Seq(-1))
 
     // Total number of address channels needed
-    val channels = unrolled match {
-      case Def(op: EnabledPrimitive[_]) => op.enables.length
-      case _ => unrolled.tp match {
-        case tp: VectorType[_] => tp.width
-        case _ => 1
-      }
-    }
+    val channels = accessWidth(unrolled)
 
     // For each memory this access reads, set the new dispatch value
     reads.foreach{mem =>
@@ -179,6 +173,13 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           dispatches.foreach{d => portsOf(unrolled, mem, d) = portsOf(unrolled, mem, orig) }
           dispatches
         }
+
+        if (dispatches.isEmpty) {
+          dbg(c"Dispatches created for $unrolled on memory $mem (dispatches: $origDispatches) was empty")
+          bug(unrolled.ctx, c"Dispatches created for $unrolled on memory $mem (dispatches: $origDispatches) was empty.")
+          bug(c"${str(unrolled)}")
+        }
+
         dispatchOf(unrolled, mem) = dispatches
       }
     }

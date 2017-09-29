@@ -40,7 +40,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) =>
         val readers = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i }
         val writers = writersOf(lhs).filter{write => dispatchOf(write, lhs) contains i }
-        val (nonTransientWrites, transientWrites) = writers.partition(write => isTransient(write.node))
+        val (transientWrites, nonTransientWrites) = writers.partition(write => isTransient(write.node))
 
         if (readers.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no readers.")
         if (nonTransientWrites.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no non-transient writers.")

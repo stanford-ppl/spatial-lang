@@ -959,10 +959,12 @@ object utils {
   }
 
   @stateful def accessWidth(e: Access): Int = accessWidth(e.node)
-  @stateful def accessWidth(e: Exp[_]): Int = getDef(e).map(accessWidth).getOrElse(1)
-  def accessWidth(d: Def): Int = d match {
-    case e: EnabledAccess[_] => e.accessWidth
-    case _ => 1
+  @stateful def accessWidth(e: Exp[_]): Int = e match {
+    case Def(e: EnabledAccess[_]) => e.accessWidth
+    case _ => e.tp match {
+      case t: VectorType[_] => t.width
+      case _ => 1
+    }
   }
 
 }
