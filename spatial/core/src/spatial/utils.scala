@@ -959,4 +959,13 @@ object utils {
     case _ => false
   }
 
+  @stateful def accessWidth(e: Access): Int = accessWidth(e.node)
+  @stateful def accessWidth(e: Exp[_]): Int = e match {
+    case Def(e: EnabledAccess[_]) => e.accessWidth
+    case _ => e.tp match {
+      case t: VectorType[_] => t.width
+      case _ => 1
+    }
+  }
+
 }

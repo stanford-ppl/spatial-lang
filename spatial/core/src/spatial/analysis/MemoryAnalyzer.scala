@@ -698,7 +698,9 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         if (parentOf(access).isDefined) {
           if (parentOf(parentOf(access).get).isDefined) {
             // Console.println(s"parent 1 is ${parentOf(access).get}, parent 2 is ${parentOf(parentOf(access).get).get}")
-            parentOf((parentOf(access).get)).get match {
+            val prnt = parentOf((parentOf(access).get)).get
+            val counter_holder = if (styleOf(prnt) == StreamPipe) {prnt} else parentOf(prnt).get
+            counter_holder match {
               case Def(UnrolledForeach(_,cchain,_,_,_)) => 
                 cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
                   case Def(CounterNew(s,e,str,p)) => (s,e) match {
@@ -723,6 +725,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
                 }
               case _ => 0
             }        
+
           } else 0
         } else 0
       }
