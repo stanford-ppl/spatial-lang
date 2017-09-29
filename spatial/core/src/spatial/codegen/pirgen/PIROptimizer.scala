@@ -200,7 +200,7 @@ class PIROptimizer(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIR
     dbgs(s"$cu globalOutputs=${globalOutputs(cu)} ${cu.mems.map{m => m.readPort.map(globalOutputs)}}")
 
     if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe 
-        && !isCopied && noOutput) {
+        && !isCopied && noOutput && cu.switchTable.nonEmpty) {
       cus.foreach{ c =>
         if (c.deps.contains(cu)) {
           c.deps -= cu

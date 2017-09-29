@@ -212,17 +212,15 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     def portOut(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
+      case bus:BitBus => BitOut(bus)
       case bus:ScalarBus => ScalarOut(bus)
       case bus:VectorBus => VectorOut(bus)
     }
 
-    def portIn(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
-      case bus:ScalarBus => 
-        val fifo = allocateRetimingFIFO(reg, bus, cu)
-        MemLoadReg(fifo)
-      case bus:VectorBus => 
-        val fifo = allocateRetimingFIFO(reg, bus, cu)
-        MemLoadReg(fifo)
+    def portIn(reg: LocalComponent, isScalar:Option[Boolean] = None) = {
+      val bus = globalBus(reg, isScalar)
+      val fifo = allocateRetimingFIFO(reg, bus, cu)
+      MemLoadReg(fifo)
     }
 
     def rerefIn(reg: LocalComponent): LocalRef = {

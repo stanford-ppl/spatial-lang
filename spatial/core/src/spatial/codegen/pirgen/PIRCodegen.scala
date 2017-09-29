@@ -21,7 +21,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRStruct with PIRLo
   val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
   val composed   = mutable.Map[Expr, Expr]()
   val pcus       = mutable.Map[Expr, List[PCU]]()
-  val cus        = mutable.Map[Expr,List[CU]]()
+  val cus        = mutable.Map[Expr, List[CU]]()
 
   lazy val allocater = new PIRAllocation(pcus)
   lazy val scheduler = new PIRScheduler(pcus, cus)

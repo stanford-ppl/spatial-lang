@@ -147,6 +147,8 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRStruct with 
     val memSym = null //TODO: fix this??
     val mem = CUMemory(s"$reg", memSym, cu)
     bus match {
+      case bus:BitBus =>
+        mem.mode = BitFIFOMode
       case bus:ScalarBus =>
         mem.mode = ScalarFIFOMode
       case bus:VectorBus =>
