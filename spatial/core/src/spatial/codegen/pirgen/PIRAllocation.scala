@@ -82,14 +82,21 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
       case SeqPipe if isInnerControl(exp) => PipeCU
       case SeqPipe if isOuterControl(exp) => SequentialCU
       case InnerPipe                       => PipeCU
-      case MetaPipe                        => MetaPipeCU
+      case MetaPipe if isInnerControl(exp) => PipeCU // TODO: shouldn't happen
+      case MetaPipe if isOuterControl(exp) => MetaPipeCU
       case StreamPipe                      => StreamCU
+      case ForkSwitch                      => StreamCU 
       case ForkJoin                        => throw new Exception("ForkJoin is not supported in PIR")
-      case ForkSwitch                      => throw new Exception("ForkSwitch is not supported in PIR")
     }
   }
 
-  def allocateCU(exp: Expr): PCU = getOrElseUpdate(mapping, exp, {
+  def allocateCU(exp: Expr): PCU = getOrElseUpdate(mapping, exp, dbgblk(s"allocateCU($exp)") {
+    if (isControlNode(exp)) {
+      dbgs(s"isInnerControl = ${isInnerControl(exp)}")
+      dbgs(s"styleOf = ${styleOf(exp)}")
+    }
+    dbgs(s"parent = ${parentOf(exp)}")
+    dbgs(s"parent.parent = ${parentOf(exp).map{ p => parentOf(p) }}")
     val parent = if (isAccess(exp)) parentOf(parentOf(exp).get).map(allocateCU)
                  else               parentOf(exp).map(allocateCU)
 
@@ -102,7 +109,6 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
  
     if (top.isEmpty && parent.isEmpty) top = Some(exp)
 
-    dbgs(s"Allocating CU $cu for $exp")
     List(cu)
   }).head
 
@@ -162,7 +168,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
   /*
    * Schedule stages of PCU corresponding to pipe
    * */
-  def prescheduleStages(pipe: Expr, func: Block[Any]):PseudoComputeUnit = dbgblk(s"prescheduleStages ${qdef(pipe)}") {
+  def allocateStages(pipe: Expr, func: Block[Any]):PseudoComputeUnit = dbgblk(s"allocateStages ${qdef(pipe)}") {
     val cu = allocateCU(pipe)
 
     val stms = getStms(pipe) 
@@ -195,6 +201,13 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
       }
     }
     cu
+  }
+
+  def allocateSwitchControl(exp:Expr, selects:Seq[Expr], cases:Seq[Expr]) = {
+    val cu = allocateCU(exp)
+    selects.zip(cases).foreach { case (sel, switchCase) => 
+      cu.switchTable += CUBit(s"$sel") -> allocateCU(switchCase)
+    }
   }
 
   def createSRAM(dmem:Expr, inst:Memory, i:Int, cu:PCU):CUMemory = {
@@ -487,6 +500,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           val output = bus match {
             case bus:ScalarBus => ScalarOut(bus)
             case bus:VectorBus => VectorOut(bus)
+            case bus:BitBus => BitOut(bus)
           }
           val writerCU = getWriterCU(dwriter) 
           writerCU.addReg(dwriter, output)
@@ -656,21 +670,22 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
 
         case UnitPipe(en, func) =>
           allocateCU(lhs)
-          prescheduleStages(lhs, func)
+          allocateStages(lhs, func)
           allocateCChains(lhs) 
 
         case UnrolledForeach(en, cchain, func, iters, valids) =>
           allocateCU(lhs)
-          prescheduleStages(lhs, func)
+          allocateStages(lhs, func)
           allocateCChains(lhs) 
 
         case UnrolledReduce(en, cchain, accum, func, iters, valids) =>
           allocateCU(lhs)
-          prescheduleStages(lhs, func)
+          allocateStages(lhs, func)
           allocateCChains(lhs) 
 
         case Switch(body, selects, cases) =>
           allocateCU(lhs)
+          allocateSwitchControl(lhs, selects, cases)
 
         case SwitchCase(body) =>
           allocateCU(lhs)

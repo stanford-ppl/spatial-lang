@@ -149,16 +149,14 @@ trait PIRRetiming extends PIRTraversal {
   }
 
   def allocateFIFO(bus: GlobalBus, depth: Int, cu:CU) = {
-    val name = bus match {
-      case bus:ScalarBus => bus.name+"_fifo"
-      case bus:VectorBus => bus.name+"_fifo"
-    }
+    val name = bus.name+"_fifo"
     val memSym = null
     val memAccess = null
     val sram = CUMemory(name, memSym, cu)
     sram.mode = bus match {
       case bus:ScalarBus => ScalarFIFOMode
       case bus:VectorBus => VectorFIFOMode
+      case bus:BitBus => throw new Exception(s"Unsupport sram data scale $bus") 
     }
     sram.size = depth
     sram.writePort += bus //TODO: readport?

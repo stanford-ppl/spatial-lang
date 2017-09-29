@@ -90,6 +90,7 @@ trait PIRGenController extends PIRCodegen {
     cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
     srams.foreach(emitComponent(_))      // Allocate all SRAMs. address calculation might depends on counters
     emitFringeVectors(cu)
+    emitSwitchTable(cu)
 
     cu.style match {
       case PipeCU => emitAllStages(cu)
@@ -98,6 +99,12 @@ trait PIRGenController extends PIRCodegen {
     }
 
     close("}")
+  }
+
+  def emitSwitchTable(cu:CU) = {
+    cu.switchTable.foreach { case (bus, caseCU) =>
+      emit(s"CU.enableWhen(en=$bus, child=${caseCU.name})")
+    }
   }
 
   def emitComponent(x: Any): Unit = x match {
@@ -189,15 +196,17 @@ trait PIRGenController extends PIRCodegen {
       cu.fringeGlobals.foreach { 
         case (field, bus:ScalarBus) => emit(s"""CU.newSout("$field", ${quote(bus)})""")
         case (field, bus:VectorBus) => emit(s"""CU.newVout("$field", ${quote(bus)})""")
+        case (field, bus:BitBus) => emit(s"""CU.newBout("$field", ${quote(bus)})""")
       }
     }
   }
 
   def quote(mode: LocalMemoryMode): String = mode match {
     case SRAMMode => "SRAM"
+    case BitFIFOMode => "BitFIFO"
+    case ScalarFIFOMode => "ScalarFIFO"
     case VectorFIFOMode => "VectorFIFO"
     case ScalarBufferMode => "ScalarBuffer"
-    case ScalarFIFOMode => "ScalarFIFO"
   }
 
   def quote(mem: CUMemory): String = mem.name
@@ -210,6 +219,7 @@ trait PIRGenController extends PIRCodegen {
     case OutputArg(name)     => s"${name}_argout"
     case bus:ScalarBus       => s"${bus.name}_s"
     case bus:VectorBus       => s"${bus.name}_v"
+    case bus:BitBus       => s"${bus.name}_b"
   }
 
   def quote(cu: CU): String = cu.style match {
@@ -236,6 +246,8 @@ trait PIRGenController extends PIRCodegen {
     case reg:TempReg             => s"${quote(reg.x)}"                  // Temporary register
     case reg:ControlReg          => s"cr${reg.id}"                  // Control register
 
+    case BitIn(bus)              => quote(bus)                      // Scalar output
+    case BitOut(bus)             => quote(bus)                      // Scalar output
     case ScalarIn(bus)           => quote(bus)                      // Scalar input
     case ScalarOut(bus)          => quote(bus)                      // Scalar output
     case VectorIn(bus)           => quote(bus)                      // Vector input

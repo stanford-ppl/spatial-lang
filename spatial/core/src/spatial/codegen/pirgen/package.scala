@@ -127,8 +127,8 @@ package object pirgen {
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
-    case _:ScalarOut | _:VectorOut => false
-    case _:ScalarIn  | _:VectorIn  => true
+    case _:ScalarOut | _:VectorOut | _:BitOut => false
+    case _:ScalarIn  | _:VectorIn  | _:BitIn => true
     case _:MemLoadReg| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => false
@@ -136,8 +136,8 @@ package object pirgen {
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
   def isWritable(x: LocalComponent): Boolean = x match {
-    case _:ScalarOut | _:VectorOut => true
-    case _:ScalarIn  | _:VectorIn  => false
+    case _:ScalarOut | _:VectorOut | _:BitOut => true
+    case _:ScalarIn  | _:VectorIn  | _:BitIn => false
     case _:MemLoadReg| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => true

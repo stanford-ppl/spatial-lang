@@ -36,8 +36,9 @@ case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 // --- Local memory modes
 sealed abstract class LocalMemoryMode
 case object SRAMMode extends LocalMemoryMode
-case object VectorFIFOMode extends LocalMemoryMode
+case object BitFIFOMode extends LocalMemoryMode
 case object ScalarFIFOMode extends LocalMemoryMode
+case object VectorFIFOMode extends LocalMemoryMode
 case object ScalarBufferMode extends LocalMemoryMode
 
 // --- Global buses
@@ -49,12 +50,16 @@ sealed abstract class GlobalBus(override val name: String)(implicit codegen:PIRC
 }
 sealed abstract class VectorBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
 sealed abstract class ScalarBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
+sealed abstract class BitBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
 
 case class CUVector(override val name: String)(implicit codegen:PIRCodegen) extends VectorBus(name) {
   override def toString = s"v$name"
 }
 case class CUScalar(override val name: String)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
   override def toString = s"s$name"
+}
+case class CUBit(override val name: String)(implicit codegen:PIRCodegen) extends BitBus(name) {
+  override def toString = s"b$name"
 }
 
 case class LocalReadBus(mem:CUMemory)(implicit codegen:PIRCodegen) extends VectorBus(s"$mem.localRead")
@@ -147,6 +152,14 @@ case class ScalarIn(bus: ScalarBus) extends LocalPort[ScalarIn] {
 case class ScalarOut(bus: ScalarBus) extends LocalPort[ScalarOut] {
   override def eql(that: ScalarOut) = this.bus == that.bus
   override def toString = bus.toString + ".sOut"
+}
+case class BitIn(bus: BitBus) extends LocalPort[BitIn] {
+  override def eql(that: BitIn) = this.bus == that.bus
+  override def toString = bus.toString + ".bIn"
+}
+case class BitOut(bus: BitBus) extends LocalPort[BitOut] {
+  override def eql(that: BitOut) = this.bus == that.bus
+  override def toString = bus.toString + ".bOut"
 }
 case class VectorIn(bus: VectorBus) extends LocalPort[VectorIn] {
   override def eql(that: VectorIn) = this.bus == that.bus
@@ -278,6 +291,7 @@ abstract class AbstractComputeUnit {
 
   val regTable = mutable.HashMap[Expr, LocalComponent]()
   val expTable = mutable.HashMap[LocalComponent, List[Expr]]()
+  val switchTable = mutable.HashMap[BitBus, AbstractComputeUnit]()
 
   def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
   def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
@@ -360,6 +374,7 @@ case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) exten
     cu.deps ++= this.deps
     cu.regTable ++= this.regTable
     cu.expTable ++= this.expTable
+    cu.switchTable ++= this.switchTable
     cu
   }
 }
