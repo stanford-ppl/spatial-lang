@@ -43,9 +43,10 @@ trait EnabledPrimitive[T] { this: Op[T] =>
   def enables: Seq[Exp[Bit]]
 
   /** Mirrors this node, also adding ANDs with the current enables and the given additional enable bit. **/
-  final def mirrorAndEnable(f: SubstTransformer, addEn: Exp[Bit])(implicit state: State): Exp[T] = {
+  def mirrorAndEnable(f: SubstTransformer, addEn: () => Exp[Bit])(implicit state: State): Exp[T] = {
     this.IR = state
-    val newEns: Seq[Exp[Bit]] = f(enables).map{Bit.and(_,addEn)(EmptyContext, state) }
+    val en = addEn()
+    val newEns: Seq[Exp[Bit]] = f(enables).map{Bit.and(_,en)(EmptyContext, state) }
     f.withSubstScope(enables.zip(newEns):_*){ this.mirror(f) }
   }
 }
