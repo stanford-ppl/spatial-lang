@@ -1,6 +1,7 @@
 package spatial.nodes
 
 import argon.core._
+import argon.transform.SubstTransformer
 import forge._
 import spatial.aliases._
 import spatial.utils._
@@ -46,6 +47,12 @@ case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends LocalReaderOp[T](reg) 
   val mT = typ[T]
   val bT = bits[T]
   override def aliases = Nil
+
+  // Register read is stateless, so it doesn't have any enables
+  override def mirrorAndEnable(f: SubstTransformer, addEn: () => Exp[Bit])(implicit state: State): Exp[T] = {
+    this.IR = state
+    this.mirror(f)
+  }
 }
 
 case class RegWrite[T:Type:Bits](

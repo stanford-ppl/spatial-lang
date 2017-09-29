@@ -205,35 +205,35 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
     case (lanes, e@LineBufferEnq(lb,data,en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       LineBuffer.par_enq(f(lb), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@LineBufferRotateEnq(lb,row,data,en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       val rw    = lanes.inLane(0){ f(row) }
       LineBuffer.par_rotateEnq(f(lb), rw, datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid()) }
       FIFO.par_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FILOPush(filo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid()) }
       FILO.par_push(f(filo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid()) }
       StreamOut.par_write(f(stream), datas, ens)(e.mT,e.bT,ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMStore(sram,dims,inds,ofs,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       SRAM.par_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx,state)
   }
 
@@ -250,21 +250,21 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
       LineBuffer.par_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx, state)
 
     case (lanes, e@FIFODeq(fifo, en), ctx) =>
-      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      val enables = lanes.map{p => Bit.and(f(en), globalValid()) }
       FIFO.par_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@FILOPop(filo, en), ctx) =>
-      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      val enables = lanes.map{p => Bit.and(f(en), globalValid()) }
       FILO.par_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@StreamRead(stream, en), ctx) =>
-      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      val enables = lanes.map{p => Bit.and(f(en), globalValid()) }
       StreamIn.par_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMLoad(sram,dims,inds,ofs,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       SRAM.par_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx,state)
   }
 
