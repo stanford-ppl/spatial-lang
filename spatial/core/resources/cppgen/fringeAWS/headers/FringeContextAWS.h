@@ -10,7 +10,10 @@
 
 #ifdef SIM // Sim
   #include "sh_dpi_tasks.h"
-  #define BASE_ADDR           UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL A
+  #define BASE_ADDR_A         UINT64_C_AWS(0x0000000000000100)   // DDR CHANNEL A
+  #define BASE_ADDR_B         UINT64_C_AWS(0x0000000000000200)   // DDR CHANNEL B
+  #define BASE_ADDR_C         UINT64_C_AWS(0x0000000000000300)   // DDR CHANNEL C
+  #define BASE_ADDR_D         UINT64_C_AWS(0x0000000000000400)   // DDR CHANNEL D
   #define ATG                 UINT64_C_AWS(0x30)
 #else // F1
   #include <fcntl.h>    // Probably don't need most of these headers
@@ -241,7 +244,7 @@ public:
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
 #ifdef SIM
     printf("[memcpy HOST->DEV] hostmem = %p, devmem = %lx, size = %lx\n", hostmem, devmem, size);
-    TMP_que_buffer_to_cl((uint64_t)hostmem, devmem + 0x10000000, size);
+    TMP_que_buffer_to_cl((uint64_t)hostmem, devmem, size);
     TMP_start_que_to_cl();
     /*
     int timeout_count = 0;
@@ -262,7 +265,7 @@ public:
       if (write_offset != 0) {
         printf("Partial write by driver, trying again with remainder of buffer (%lu bytes)\n", size - write_offset);
       }
-      rc = pwrite(fd, write_buffer + write_offset, size - write_offset, 0x10000000 + channel*MEM_16G + devmem + write_offset);
+      rc = pwrite(fd, write_buffer + write_offset, size - write_offset, channel*MEM_16G + devmem + write_offset);
       assert(rc >= 0);
       write_offset += rc;
     }
@@ -274,7 +277,7 @@ public:
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
 #ifdef SIM
     printf("[memcpy DEV->HOST] hostmem = %p, devmem = %lx, size = %lx\n", hostmem, devmem, size);
-    TMP_que_cl_to_buffer((uint64_t)hostmem, devmem + 0x10000000, size);
+    TMP_que_cl_to_buffer((uint64_t)hostmem, devmem, size);
     TMP_start_que_to_buffer();
     /*
     int timeout_count = 0;
@@ -295,7 +298,7 @@ public:
       if (read_offset != 0) {
         printf("Partial read by driver, trying again with remainder of buffer (%lu bytes)\n", size - read_offset);
       }
-      rc = pread(fd, read_buffer + read_offset, size - read_offset, 0x10000000 + channel*MEM_16G + devmem + read_offset);
+      rc = pread(fd, read_buffer + read_offset, size - read_offset, channel*MEM_16G + devmem + read_offset);
       assert(rc >= 0);
       read_offset += rc;
     }
@@ -306,8 +309,12 @@ public:
   // set enable high in app and poll until done is high
   virtual void run() {
 #ifdef SIM
+    // These may not be needed anymore
     printf("[run] Begin\n");
-    aws_poke(BASE_ADDR + ATG, 0x00000001);
+    aws_poke(BASE_ADDR_A + ATG, 0x00000001);
+    aws_poke(BASE_ADDR_B + ATG, 0x00000001);
+    aws_poke(BASE_ADDR_C + ATG, 0x00000001);
+    aws_poke(BASE_ADDR_D + ATG, 0x00000001);
 #else // F1
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
@@ -319,7 +326,11 @@ public:
     } while (!status);
     // De-assert enable?
 #ifdef SIM
-    aws_poke(BASE_ADDR + ATG, 0x00000000);
+    // These may not be needed anymore
+    aws_poke(BASE_ADDR_A + ATG, 0x00000000);
+    aws_poke(BASE_ADDR_B + ATG, 0x00000000);
+    aws_poke(BASE_ADDR_C + ATG, 0x00000000);
+    aws_poke(BASE_ADDR_D + ATG, 0x00000000);
     printf("[run] Done\n");
 #else // F1
     /*

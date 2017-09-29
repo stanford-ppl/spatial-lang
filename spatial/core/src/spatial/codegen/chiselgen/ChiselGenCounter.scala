@@ -67,7 +67,8 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
         case Def(CounterNew(_,_,_,Literal(p))) => p
         case Def(Forever()) => 1
       }
-      emit(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
+      emitGlobalWire(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => Wire(SInt(${counter_data(i)._5}.W)) }""")
+      emit(s"""(0 until $x).map{ j => ${quote(c)}${suffix}(j) := ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
 
   }

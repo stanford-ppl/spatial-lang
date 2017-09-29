@@ -3,6 +3,7 @@ package spatial.nodes
 import argon.core._
 import forge._
 import spatial.aliases._
+import spatial.metadata._
 import spatial.utils._
 
 case class LineBufferType[T:Bits](child: Type[T]) extends Type[LineBuffer[T]] {
@@ -58,6 +59,8 @@ case class LineBufferColSlice[T:Type:Bits](
   def mirror(f:Tx) = LineBuffer.col_slice(f(linebuffer),f(row),f(colStart),f(length))
   override def aliases = Nil
   val mT = typ[T]
+
+  override def accessWidth: Int = length match {case Exact(len) => len.toInt}
 }
 
 case class LineBufferRowSlice[T:Type:Bits](
@@ -69,6 +72,8 @@ case class LineBufferRowSlice[T:Type:Bits](
   def mirror(f:Tx) = LineBuffer.row_slice(f(linebuffer),f(rowStart),f(length),f(col))
   override def aliases = Nil
   val mT = typ[T]
+
+  override def accessWidth: Int = length match {case Exact(len) => len.toInt}
 }
 
 case class LineBufferLoad[T:Type:Bits](

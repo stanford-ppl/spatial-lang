@@ -73,13 +73,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     }.getOrElse(Seq(-1))
 
     // Total number of address channels needed
-    val channels = unrolled match {
-      case Def(op: EnabledOp[_]) => op.enables.length
-      case _ => unrolled.tp match {
-        case tp: VectorType[_] => tp.width
-        case _ => 1
-      }
-    }
+    val channels = accessWidth(unrolled)
 
     // For each memory this access reads, set the new dispatch value
     reads.foreach{mem =>
@@ -179,6 +173,13 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           dispatches.foreach{d => portsOf(unrolled, mem, d) = portsOf(unrolled, mem, orig) }
           dispatches
         }
+
+        if (dispatches.isEmpty) {
+          dbg(c"Dispatches created for $unrolled on memory $mem (dispatches: $origDispatches) was empty")
+          bug(unrolled.ctx, c"Dispatches created for $unrolled on memory $mem (dispatches: $origDispatches) was empty.")
+          bug(c"${str(unrolled)}")
+        }
+
         dispatchOf(unrolled, mem) = dispatches
       }
     }
@@ -205,35 +206,35 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
     case (lanes, e@LineBufferEnq(lb,data,en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       LineBuffer.par_enq(f(lb), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@LineBufferRotateEnq(lb,row,data,en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       val rw    = lanes.inLane(0){ f(row) }
       LineBuffer.par_rotateEnq(f(lb), rw, datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FIFOEnq(fifo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid()) }
       FIFO.par_enq(f(fifo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@FILOPush(filo, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid()) }
       FILO.par_push(f(filo), datas, ens)(e.mT,e.bT,ctx,state)
 
     case (lanes, e@StreamWrite(stream, data, en), ctx) =>
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and( f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and( f(en), globalValid()) }
       StreamOut.par_write(f(stream), datas, ens)(e.mT,e.bT,ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMStore(sram,dims,inds,ofs,data,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
       val datas = lanes.map{p => f(data) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       SRAM.par_store(f(sram), addrs, datas, ens)(e.mT,e.bT,ctx,state)
   }
 
@@ -250,21 +251,21 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
       LineBuffer.par_load(f(lb), rows, cols, ens)(mtyp(e.mT),mbits(e.bT),ctx, state)
 
     case (lanes, e@FIFODeq(fifo, en), ctx) =>
-      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      val enables = lanes.map{p => Bit.and(f(en), globalValid()) }
       FIFO.par_deq(f(fifo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@FILOPop(filo, en), ctx) =>
-      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      val enables = lanes.map{p => Bit.and(f(en), globalValid()) }
       FILO.par_pop(f(filo), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     case (lanes, e@StreamRead(stream, en), ctx) =>
-      val enables = lanes.map{p => Bit.and(f(en), globalValid) }
+      val enables = lanes.map{p => Bit.and(f(en), globalValid()) }
       StreamIn.par_read(f(stream), enables)(mtyp(e.mT),mbits(e.bT),ctx,state)
 
     // TODO: Assuming dims and ofs are not needed for now
     case (lanes, e@SRAMLoad(sram,dims,inds,ofs,en), ctx) =>
       val addrs = lanes.map{p => inds.map(f(_)) }
-      val ens   = lanes.map{p => Bit.and(f(en), globalValid) }
+      val ens   = lanes.map{p => Bit.and(f(en), globalValid()) }
       SRAM.par_load(f(sram), addrs, ens)(mtyp(e.mT),mbits(e.bT),ctx,state)
   }
 
@@ -352,7 +353,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
       dups
 
     // For inner loop invariant ops, no need to copy the operation - can just do once and broadcast to all lanes
-    case _:EnabledOp[_] if shouldUnifyAccess(lhs, rhs, lanes) =>
+    case _:EnabledPrimitive[_] if shouldUnifyAccess(lhs, rhs, lanes) =>
       logs(s"Unifying $lhs = $rhs (loop invariant)")
       val lhs2 = lanes.inLane(0){ cloneOp(lhs, rhs) } // Doesn't matter which lane, as long as it's in one of them
       lanes.unify(lhs, lhs2)
@@ -842,8 +843,8 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
-      case Def(op: EnabledControlNode) => op.mirrorAndEnable(this, globalValids)
-      case Def(op: EnabledOp[_])       => op.mirrorAndEnable(this, globalValid)
+      case Def(op: EnabledControlNode)  => op.mirrorAndEnable(this, globalValids)
+      case Def(op: EnabledPrimitive[_]) => op.mirrorAndEnable(this, globalValid)
       case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 

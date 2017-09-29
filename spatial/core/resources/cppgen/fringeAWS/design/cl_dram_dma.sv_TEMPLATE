@@ -823,7 +823,7 @@ assign sh_cl_dma_pcis_bus.rready = sh_cl_dma_pcis_rready;
 
 // DDR-C channel
 assign cl_sh_ddr_awid = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWID : cl_sh_ddr_bus.awid;
-assign cl_sh_ddr_awaddr = ddr_commands_from_design ? 64'h40000000 + Top_Out_io_M_AXI_2_AWADDR : cl_sh_ddr_bus.awaddr;
+assign cl_sh_ddr_awaddr = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWADDR : cl_sh_ddr_bus.awaddr;
 assign cl_sh_ddr_awlen = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWLEN : cl_sh_ddr_bus.awlen;
 assign cl_sh_ddr_awsize = ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWSIZE : cl_sh_ddr_bus.awsize;
 assign cl_sh_ddr_awvalid =  ddr_commands_from_design ? Top_Out_io_M_AXI_2_AWVALID : cl_sh_ddr_bus.awvalid;
@@ -839,7 +839,7 @@ assign cl_sh_ddr_bus.bresp = sh_cl_ddr_bresp;
 assign cl_sh_ddr_bus.bvalid = sh_cl_ddr_bvalid;
 assign cl_sh_ddr_bready = ddr_commands_from_design ? Top_Out_io_M_AXI_2_BREADY : cl_sh_ddr_bus.bready;
 assign cl_sh_ddr_arid = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARID : cl_sh_ddr_bus.arid;
-assign cl_sh_ddr_araddr = ddr_commands_from_design ? 64'h40000000 + Top_Out_io_M_AXI_2_ARADDR : cl_sh_ddr_bus.araddr;
+assign cl_sh_ddr_araddr = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARADDR : cl_sh_ddr_bus.araddr;
 assign cl_sh_ddr_arlen = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARLEN : cl_sh_ddr_bus.arlen;
 assign cl_sh_ddr_arsize = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARSIZE : cl_sh_ddr_bus.arsize;
 assign cl_sh_ddr_arvalid = ddr_commands_from_design ? Top_Out_io_M_AXI_2_ARVALID : cl_sh_ddr_bus.arvalid;
@@ -1068,7 +1068,7 @@ logic[2:0] sh_cl_ddr_rvalid_2d;
 logic[2:0] cl_sh_ddr_rready_2d;
 
 assign cl_sh_ddr_awid_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_AWID : lcl_cl_sh_ddrd.awid, ddr_commands_from_design ? Top_Out_io_M_AXI_1_AWID : lcl_cl_sh_ddrb.awid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWID : lcl_cl_sh_ddra.awid};
-assign cl_sh_ddr_awaddr_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_AWADDR + 64'h10000000 : lcl_cl_sh_ddrd.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_1_AWADDR + 64'h10000000 : lcl_cl_sh_ddrb.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWADDR + 64'h10000000 : lcl_cl_sh_ddra.awaddr};
+assign cl_sh_ddr_awaddr_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_AWADDR : lcl_cl_sh_ddrd.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_1_AWADDR : lcl_cl_sh_ddrb.awaddr, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWADDR : lcl_cl_sh_ddra.awaddr};
 assign cl_sh_ddr_awlen_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_AWLEN : lcl_cl_sh_ddrd.awlen, ddr_commands_from_design ? Top_Out_io_M_AXI_1_AWLEN : lcl_cl_sh_ddrb.awlen, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWLEN : lcl_cl_sh_ddra.awlen};
 assign cl_sh_ddr_awsize_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_AWSIZE :  lcl_cl_sh_ddrd.awsize, ddr_commands_from_design ? Top_Out_io_M_AXI_1_AWSIZE : lcl_cl_sh_ddrb.awsize, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWSIZE : lcl_cl_sh_ddra.awsize};
 assign cl_sh_ddr_awvalid_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_AWVALID :  lcl_cl_sh_ddrd.awvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_1_AWVALID : lcl_cl_sh_ddrb.awvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_AWVALID : lcl_cl_sh_ddra.awvalid};
@@ -1087,7 +1087,7 @@ assign {lcl_cl_sh_ddrd.bvalid, lcl_cl_sh_ddrb.bvalid, lcl_cl_sh_ddra.bvalid} = s
 assign cl_sh_ddr_bready_2d = {ddr_commands_from_design ? Top_Out_io_M_AXI_3_BREADY : lcl_cl_sh_ddrd.bready, ddr_commands_from_design ? Top_Out_io_M_AXI_1_BREADY : lcl_cl_sh_ddrb.bready, ddr_commands_from_design ? Top_Out_io_M_AXI_0_BREADY : lcl_cl_sh_ddra.bready};
 
 assign cl_sh_ddr_arid_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_ARID : lcl_cl_sh_ddrd.arid, ddr_commands_from_design ? Top_Out_io_M_AXI_1_ARID : lcl_cl_sh_ddrb.arid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARID : lcl_cl_sh_ddra.arid};
-assign cl_sh_ddr_araddr_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_ARADDR + 64'h10000000 :  lcl_cl_sh_ddrd.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_1_ARADDR + 64'h10000000 : lcl_cl_sh_ddrb.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARADDR + 64'h10000000 : lcl_cl_sh_ddra.araddr};
+assign cl_sh_ddr_araddr_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_ARADDR : lcl_cl_sh_ddrd.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_1_ARADDR : lcl_cl_sh_ddrb.araddr, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARADDR : lcl_cl_sh_ddra.araddr};
 assign cl_sh_ddr_arlen_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_ARLEN : lcl_cl_sh_ddrd.arlen, ddr_commands_from_design ? Top_Out_io_M_AXI_1_ARLEN : lcl_cl_sh_ddrb.arlen, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARLEN : lcl_cl_sh_ddra.arlen};
 assign cl_sh_ddr_arsize_2d = '{ddr_commands_from_design ? Top_Out_io_M_AXI_3_ARSIZE : lcl_cl_sh_ddrd.arsize, ddr_commands_from_design ? Top_Out_io_M_AXI_1_ARSIZE : lcl_cl_sh_ddrb.arsize, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARSIZE : lcl_cl_sh_ddra.arsize};
 assign cl_sh_ddr_arvalid_2d = {ddr_commands_from_design ? Top_Out_io_M_AXI_3_ARVALID : lcl_cl_sh_ddrd.arvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_1_ARVALID : lcl_cl_sh_ddrb.arvalid, ddr_commands_from_design ? Top_Out_io_M_AXI_0_ARVALID : lcl_cl_sh_ddra.arvalid};
@@ -1269,7 +1269,31 @@ always_ff @(posedge clk or negedge sync_rst_n)
     $display("[%t]   [AXI-4 W]  :               `--> AND5 = %x", $realtime, lcl_cl_sh_ddra.bvalid & cl_sh_ddr_bready_2d[0]);
     $display("[%t]   [AXI-4 W]  : lcl_cl_sh_ddra.bid      = %x", $realtime, lcl_cl_sh_ddra.bid);
   end
+
+always_ff @(posedge clk or negedge sync_rst_n)
+  begin
+    if (cl_sh_ddr_arvalid_2d[0] && lcl_cl_sh_ddra.arready) begin
+      $display("[%t]   [AXI-4 R]  : Addr A   = %x", $realtime, cl_sh_ddr_araddr_2d[0]);
+    end
+    if (cl_sh_ddr_arvalid_2d[1] && lcl_cl_sh_ddrb.arready) begin
+      $display("[%t]   [AXI-4 R]  : Addr B   = %x", $realtime, cl_sh_ddr_araddr_2d[1]);
+    end
+    if (cl_sh_ddr_arvalid_2d[2] && lcl_cl_sh_ddrd.arready) begin
+      $display("[%t]   [AXI-4 R]  : Addr D   = %x", $realtime, cl_sh_ddr_araddr_2d[2]);
+    end
+
+    if (cl_sh_ddr_rready_2d[0] && lcl_cl_sh_ddra.rvalid) begin
+      $display("[%t]   [AXI-4 R]  : Data A   = %x", $realtime, sh_cl_ddr_rdata_2d[0]);
+    end
+    if (cl_sh_ddr_rready_2d[1] && lcl_cl_sh_ddrb.rvalid) begin
+      $display("[%t]   [AXI-4 R]  : Data B   = %x", $realtime, sh_cl_ddr_rdata_2d[1]);
+    end
+    if (cl_sh_ddr_rready_2d[2] && lcl_cl_sh_ddrd.rvalid) begin
+      $display("[%t]   [AXI-4 R]  : Data D   = %x", $realtime, sh_cl_ddr_rdata_2d[2]);
+    end
+  end
 */
+
 
 //-----------------------------------------
 // Interrrupt example

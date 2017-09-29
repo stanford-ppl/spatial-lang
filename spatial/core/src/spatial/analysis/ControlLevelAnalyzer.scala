@@ -15,10 +15,9 @@ import spatial.SpatialConfig
   *   1. Control nodes are not allowed within reduction functions
   *   2. Control nodes are not allowed within state machine termination or state transition functions
   */
-trait PipeLevelAnalyzer extends SpatialTraversal {
-  override val name = "Pipe Level Analyzer"
+trait ControlLevelAnalyzer extends SpatialTraversal {
+  override val name = "Control Level Analyzer"
   override val recurse = Default
-
 
   def annotateControl(pipe: Exp[_], isOuter: Boolean) = {
     (styleOf.get(pipe), isOuter) match {
