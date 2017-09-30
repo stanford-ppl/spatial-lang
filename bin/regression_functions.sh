@@ -684,14 +684,21 @@ cd ${SPATIAL_HOME}
     instrument_flag=""
   fi
 
+  # Set proper multifile flag
+  if [[ ${branch} = *"aggressive_splitting"* ]]; then
+    mf=5
+  else
+    mf=4
+  fi
+
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} ${syncMem_flag} ${instrument_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=${mf} ${retime_flag} ${syncMem_flag} ${instrument_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} ${syncMem_flag} ${instrument_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=${mf} ${retime_flag} ${syncMem_flag} ${instrument_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
@@ -744,12 +751,12 @@ if [ \"\$wc\" -gt 0 ]; then
   if [[ ${type_todo} = "scala" ]]; then
     echo "  # Compile app
   cd ${SPATIAL_HOME}
-  ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+  ${SPATIAL_HOME}/bin/spatial --sim --multifile=${mf} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "  # Compile app
   cd ${SPATIAL_HOME}
-  ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+  ${SPATIAL_HOME}/bin/spatial --synth --multifile=${mf} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
   echo "  cd ${5}/out
