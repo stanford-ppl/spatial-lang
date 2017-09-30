@@ -794,7 +794,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
-      emit(src"""val ${lhs}_II_done = Wire(Bool())""")
+      emitGlobalWire(src"""val ${lhs}_II_done = Wire(Bool())""")
       emit(src"""${lhs}_II_done := ${parent_kernel}_II_done""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")

@@ -677,14 +677,21 @@ cd ${SPATIAL_HOME}
     syncMem_flag=""
   fi
 
+  # Include instrumentation if this is a pre-master branch
+  if [[ ${branch} = *"pre-master"* ]]; then
+    instrument_flag="--instrument"
+  else
+    instrument_flag=""
+  fi
+
   # Compile command
   if [[ ${type_todo} = "scala" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} ${syncMem_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} ${syncMem_flag} ${instrument_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   elif [[ ${type_todo} = "chisel" ]]; then
     echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} ${syncMem_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} ${syncMem_flag} ${instrument_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
   fi
 
