@@ -5,7 +5,7 @@ import pureconfig._
 import argon.util.Report
 import spatial.targets.FPGATarget
 
-object SpatialConfig {
+class SpatialConfig() extends argon.core.Config() {
 
   case class SpatialConf(
     fpga: String,
@@ -43,7 +43,6 @@ object SpatialConfig {
   )
 
   var useBasicBlocks: Boolean = false
-  var useAffine: Boolean = false
 
   var targetName: String = _
   var target: FPGATarget = targets.DefaultTarget
@@ -98,7 +97,9 @@ object SpatialConfig {
 
   var threads: Int = 8
 
-  def init(): Unit = {
+  override def init(): Unit = {
+    super.init()
+
     val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"
