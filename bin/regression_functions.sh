@@ -190,7 +190,7 @@ get_flags() {
   fi
 
   # Set proper multifile flag
-  if [[ ${branch} = *"aggressive_splitting"* ]]; then
+  if [[ ${branch} = *"aggressive_splitting"* || ${branch} = *"syncMem"* ]]; then
     mf=5
   else
     mf=4
