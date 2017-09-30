@@ -139,13 +139,23 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //     case _ => 
       //       throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
       //   }
+      val dlay = bodyLatency.sum(lhs)
       if (levelOf(lhs) == InnerControl) {
-        val dlay = bodyLatency.sum(lhs)
+        if (SpatialConfig.enableRetiming) {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+        } else {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        }
         emitGlobalWire(s"val ${quote(accum)}_wren = Wire(Bool())")
         emit(s"${quote(accum)}_wren := (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
         emitGlobalWire(src"val ${accum}_resetter = Wire(Bool())")
         emit(src"${accum}_resetter := ${lhs}_rst_en")
       } else {
+        if (SpatialConfig.enableRetiming) {
+          emitGlobalWire(src"val ${accum}_II_dlay = ${iiOf(lhs)} + 1 // Hack to fix Arbitrary Lambda")
+        } else {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        }
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {

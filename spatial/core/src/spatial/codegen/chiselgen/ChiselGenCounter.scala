@@ -33,7 +33,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
         ("0.S", "999.S", "1.S", "1", "32") 
     }}
     if (cchainPassMap.contains(lhs)) {controllerStack.pop()}
-
+    disableSplit = true
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
     // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
@@ -71,6 +71,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       emit(s"""(0 until $x).map{ j => ${quote(c)}${suffix}(j) := ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
 
+    disableSplit = false
   }
 
   private def getCtrSuffix(head: Exp[_]): String = {
