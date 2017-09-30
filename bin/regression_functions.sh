@@ -703,7 +703,7 @@ date >> ${5}/log" >> $1
 cd ${SPATIAL_HOME}
   " >> $1
 
-  get_flags()
+  get_flags
 
   # Compile command
   echo "# Compile app
@@ -748,7 +748,7 @@ make vcs 2>&1 | tee -a ${5}/log" >> $1
     echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
   fi
 
-get_flags()
+get_flags
 
 echo "
 # Check for annoying sbt compile not working
