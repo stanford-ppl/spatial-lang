@@ -703,19 +703,12 @@ date >> ${5}/log" >> $1
 cd ${SPATIAL_HOME}
   " >> $1
 
-
   get_flags()
 
   # Compile command
-  if [[ ${type_todo} = "scala" ]]; then
-    echo "# Compile app
+  echo "# Compile app
 ${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
-  elif [[ ${type_todo} = "chisel" ]]; then
-    echo "# Compile app
-${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
-    " >> $1
-  fi
 
   # Check for compile errors
   echo "
@@ -755,6 +748,8 @@ make vcs 2>&1 | tee -a ${5}/log" >> $1
     echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
   fi
 
+get_flags()
+
 echo "
 # Check for annoying sbt compile not working
 wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
@@ -763,17 +758,10 @@ if [ \"\$wc\" -gt 0 ]; then
   echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   cd ${5}" >> $1
   # Compile command
-  if [[ ${type_todo} = "scala" ]]; then
-    echo "  # Compile app
+  echo "  # Compile app
   cd ${SPATIAL_HOME}
   ${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
-  elif [[ ${type_todo} = "chisel" ]]; then
-    echo "  # Compile app
-  cd ${SPATIAL_HOME}
-  ${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
-    " >> $1
-  fi
   echo "  cd ${5}/out
   make vcs 2>&1 | tee -a ${5}/log" >> $1
   if [[ ${type_todo} = "chisel" ]]; then
