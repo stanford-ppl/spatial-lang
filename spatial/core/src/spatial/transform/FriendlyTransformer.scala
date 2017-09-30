@@ -28,7 +28,7 @@ case class FriendlyTransformer(var IR: State) extends ForwardTransformer {
         case d if dimMapping.contains(d) => d -> dimMapping(d)
         case d =>
           // TODO: Why doesn't this work?
-          val isConst = d.isConst //.dependsOnlyOnType{case Exact(_) => true}
+          val isConst = d.isConst || d.isParam //.dependsOnlyOnType{case Exact(_) => true}
           if (!isConst) {
             val argIn = ArgIn[Index]
             setArg(argIn, wrap(d))
