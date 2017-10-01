@@ -23,6 +23,8 @@ help:
 	@echo "make zynq-hw     : Build Chisel for Zynq"
 	@echo "make vcs         : VCS SW + HW build"
 	@echo "make vcs-hw      : Build Chisel for VCS"
+	@echo "make xsim         : XSIM SW + HW build"
+	@echo "make xsim-hw      : Build Chisel for XSIM"
 	@echo "make sim-clean   : Verilator simulation clean up"
 	@echo "make de1soc	: Build Chisel for DE1-SoC"
 	@echo "------- END HELP -------"
@@ -289,6 +291,31 @@ vcs-clean:
 	make -C cpp clean
 	rm -rf verilog-vcs
 	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
+	rm -rf target
+
+xsim: xsim-hw xsim-sw
+	tar -czf TopXSIM.tar.gz -C verilog-xsim accel.bit.bin -C ../cpp Top
+
+xsim-sw:
+	cp xsim.mk cpp/Makefile
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
+	make -j8 -C cpp
+	ln -sf cpp/Top .
+
+xsim-hw:
+	sbt "run-main top.Instantiator --verilog --testArgs xsim"
+	cp -r chisel/template-level/fringeXSIM/* verilog-xsim
+	touch in.txt
+	make -C verilog-xsim
+	ln -sf verilog-xsim verilog
+
+xsim-clean:
+	make -C verilog-xsim clean
+	make -C cpp clean
+	rm -rf verilog-xsim
+	rm -f verilog TopXSIM.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
 	rm -rf target
 
 sim-clean:
