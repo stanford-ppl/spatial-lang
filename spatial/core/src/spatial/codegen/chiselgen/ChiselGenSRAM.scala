@@ -17,6 +17,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
   var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
   var validPassMap = new scala.collection.mutable.HashMap[(Exp[_], String), Seq[Exp[_]]] // Map from a valid bound sym to its ctrl node, for computing suffix on a valid before we enter the ctrler
+  var accumsWithIIDlay = new scala.collection.mutable.ListBuffer[Exp[_]]
 
   // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }

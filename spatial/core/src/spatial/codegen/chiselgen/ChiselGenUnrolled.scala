@@ -140,6 +140,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //       throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
       //   }
       val dlay = bodyLatency.sum(lhs)
+      accumsWithIIDlay += accum.asInstanceOf[Exp[_]]
       if (levelOf(lhs) == InnerControl) {
         if (SpatialConfig.enableRetiming) {
           emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")

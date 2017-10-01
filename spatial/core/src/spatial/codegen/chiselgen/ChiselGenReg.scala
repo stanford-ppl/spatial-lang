@@ -238,10 +238,11 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
+                  val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0"
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D(${reg}_II_dlay)).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D(${reg}_II_dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }
