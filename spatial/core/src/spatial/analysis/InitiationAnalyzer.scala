@@ -2,7 +2,6 @@ package spatial.analysis
 
 import argon.core._
 import argon.nodes._
-import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models.LatencyModel
@@ -53,7 +52,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
       val nextStateRead = blockNestedContents(nextState).flatMap(_.lhs).flatMap{case LocalReader(readers) => readers.map(_.mem); case _ => Nil }.toSet
       val dependencies  = nextStateRead intersect actionWritten
 
-      val writeLatency = if (!SpatialConfig.enableRetiming || latencyModel.requiresRegisters(nextState.result, inReduce = true)) 1L else 0L
+      val writeLatency = if (!spatialConfig.enableRetiming || latencyModel.requiresRegisters(nextState.result, inReduce = true)) 1L else 0L
 
       val actionLatency = latNextState + writeLatency + (1L +: actionLats.values.toSeq).max
 

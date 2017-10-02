@@ -5,7 +5,7 @@ import pureconfig._
 import argon.util.Report
 import spatial.targets.FPGATarget
 
-class SpatialConfig() extends argon.core.Config() {
+class SpatialConfig extends argon.core.Config {
 
   case class SpatialConf(
     fpga: String,
@@ -74,7 +74,6 @@ class SpatialConfig() extends argon.core.Config() {
   var enableTree: Boolean = _
 
   def enableBufferCoalescing: Boolean = !enablePIR
-  def enablePrimitiveSwitches: Boolean = !enablePIR
   def removeParallelNodes: Boolean = enablePIR
   def rewriteLUTs: Boolean = enablePIR
 

@@ -6,7 +6,6 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.targets.DE1._
-import spatial.SpatialConfig
 
 
 trait ChiselGenController extends ChiselGenCounter{
@@ -52,7 +51,7 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   def createInstrumentation(lhs: Sym[Any]): Unit = {
-    if (SpatialConfig.enableInstrumentation) {
+    if (spatialConfig.enableInstrumentation) {
       val ctx = s"${lhs.ctx}"
       emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
       emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
@@ -196,7 +195,7 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
+    if (spatialConfig.enableNaming) {
       s match {
         case lhs: Sym[_] =>
           lhs match {
@@ -794,7 +793,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitStandardSignals(lhs)
       emit(src"""${lhs}_en := ${parent_kernel}_en & ${lhs}_switch_select""")
       // emit(src"""${lhs}_base_en := ${parent_kernel}_base_en & ${lhs}_switch_select""")
-      emit(src"""val ${lhs}_II_done = Wire(Bool())""")
+      emitGlobalWire(src"""val ${lhs}_II_done = Wire(Bool())""")
       emit(src"""${lhs}_II_done := ${parent_kernel}_II_done""")
       emit(src"""${lhs}_mask := true.B // No enable associated with switch, never mask it""")
       emit(src"""${lhs}_resetter := ${parent_kernel}_resetter""")

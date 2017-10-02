@@ -3,9 +3,10 @@ package spatial
 import argon.ArgonApp
 import argon.ArgonCompiler
 import argon.analysis.ParamFinalizer
-import argon.core.State
+import argon.core.{Config, State}
 import argon.traversal.IRPrinter
 import argon.util.Report
+import spatial.aliases._
 import spatial.dse._
 import spatial.analysis._
 import spatial.transform._
@@ -27,7 +28,7 @@ object dsl extends SpatialExternal {
 trait SpatialCompiler extends ArgonCompiler {
   // Traversal schedule
   override def createTraversalSchedule(state: State) = {
-    if (SpatialConfig.enableRetiming) Report.warn("Spatial: retiming enabled")
+    if (spatialConfig.enableRetiming) Report.warn("Spatial: retiming enabled")
 
     lazy val printer = IRPrinter(state)
 
@@ -55,7 +56,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val contentionAnalyzer = new ContentionAnalyzer{ var IR = state; def top = ctrlAnalyzer.top.get }
     lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
-    lazy val areaAnalyzer = SpatialConfig.target.areaAnalyzer(state)
+    lazy val areaAnalyzer = spatialConfig.target.areaAnalyzer(state)
 
     lazy val controlSanityCheck = new ControllerSanityCheck { var IR = state }
 
@@ -114,7 +115,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
     passes += friendlyTransformer
     passes += printer
-    if (SpatialConfig.rewriteLUTs) {
+    if (spatialConfig.rewriteLUTs) {
       passes += lutTransform    // Change LUTs to SRAM with initial value metadata
       passes += printer
     }
@@ -153,7 +154,7 @@ trait SpatialCompiler extends ArgonCompiler {
     // passes += latencyAnalyzer
 
     // --- DSE
-    if (SpatialConfig.enableDSE) {
+    if (spatialConfig.enableDSE) {
       passes += paramAnalyzer
       passes += heuristicAnalyzer
     }
@@ -198,7 +199,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- Design Elaboration
 
-    if (SpatialConfig.enablePIRSim) passes += pirRetimer
+    if (spatialConfig.enablePIRSim) passes += pirRetimer
 
     passes += printer
     passes += unroller          // Unrolling
@@ -217,7 +218,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
 
     // --- Retiming
-    if (SpatialConfig.enableRetiming) {
+    if (spatialConfig.enableRetiming) {
       passes += retiming        // Add delay shift registers where necessary
       passes += printer
     }
@@ -229,7 +230,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
-    if (SpatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
+    if (spatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 
     // --- Sanity Checks
@@ -238,13 +239,13 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += finalizer         // Finalize any remaining parameters
 
     // --- Code generation
-    if (SpatialConfig.enableTree)  passes += treegen
-    if (SpatialConfig.enableSim)   passes += scalagen
-    if (SpatialConfig.enableSynth) passes += cppgen
-    if (SpatialConfig.enableSynth) passes += chiselgen
-    if (SpatialConfig.enableDot)   passes += dotgen
-    if (SpatialConfig.enablePIR)   passes += pirgen
-    if (SpatialConfig.enableInterpret)   passes += interpreter
+    if (spatialConfig.enableTree)  passes += treegen
+    if (spatialConfig.enableSim)   passes += scalagen
+    if (spatialConfig.enableSynth) passes += cppgen
+    if (spatialConfig.enableSynth) passes += chiselgen
+    if (spatialConfig.enableDot)   passes += dotgen
+    if (spatialConfig.enablePIR)   passes += pirgen
+    if (spatialConfig.enableInterpret)   passes += interpreter
 
   }
 
@@ -258,23 +259,19 @@ trait SpatialCompiler extends ArgonCompiler {
   }
 
   override def settings(): Unit = {
-    if (SpatialConfig.useBasicBlocks) {
+    if (spatialConfig.useBasicBlocks) {
       Report.warn("Setting compiler to use basic blocks. Code motion will be disabled.")
       _IR.useBasicBlocks = true
     }
   }
 
-  override protected def parseArguments(args: Seq[String]): Unit = {
-    SpatialConfig.init()
-    SpatialConfig.target = this.target
-    val parser = new SpatialArgParser
-    parser.parse(args)
-    /*if (SpatialConfig.targetName != "Default") {
-      SpatialConfig.target = Targets.targets.find(_.name == SpatialConfig.targetName).getOrElse{
-        Report.warn(s"Could not find target with name ${SpatialConfig.targetName}.")
-        DefaultTarget
-      }
-    }*/
+  override protected def createConfig(): Config = new SpatialConfig()
+  override protected def parseArguments(config: Config, sargs: Array[String]): Unit  = {
+    val spatialConfig = config.asInstanceOf[SpatialConfig]
+    spatialConfig.target = this.target
+
+    val parser = new SpatialArgParser(spatialConfig)
+    parser.parse(sargs.toSeq)
   }
   
 }
