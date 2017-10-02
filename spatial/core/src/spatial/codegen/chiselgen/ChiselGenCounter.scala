@@ -40,7 +40,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3)}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
-    emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
+    emitGlobalModule(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") {
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")
