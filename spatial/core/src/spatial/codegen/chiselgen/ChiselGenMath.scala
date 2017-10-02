@@ -70,7 +70,7 @@ trait ChiselGenMath extends ChiselGenSRAM {
     case FltAtan(x) => throw new spatial.TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => 
-      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
       // lhs.tp match { 
       //   case FixPtType(s,d,f) => 
       //     emitGlobalWire(s"""val ${quote(lhs)} = Wire(new FixedPoint($s,$d,$f))""")
