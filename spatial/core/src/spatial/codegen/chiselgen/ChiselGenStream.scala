@@ -202,10 +202,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
       }
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_rId = getStreamInLane("$stream")""")
-      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
+      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
 
-      // emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${parent}_done & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
-//      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${parent}_datapath_en & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+      // emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${swap(parent, Done)} & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+//      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -233,7 +233,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
     case StreamWrite(stream, data, en) =>
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
-      emit(src"""${stream}_valid_options(${lhs}_wId) := (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & $en""")
+      emit(src"""${stream}_valid_options(${lhs}_wId) := (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & $en""")
       emit(src"""${stream}_data_options(${lhs}_wId) := $data""")
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
@@ -253,10 +253,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
                 emit(src"""stream_out_startofpacket := io.stream_in_startofpacket""")
                 emit(src"""stream_out_endofpacket := io.stream_in_endofpacket""")                
               } else {
-                emit(src"""stream_out_startofpacket := Utils.risingEdge(${parent}_datapath_en)""")
-                emit(src"""stream_out_endofpacket := ${parent}_done""")
+                emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
+                emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
               }
-              // emit(src"""${stream}_valid := ${en} & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)})""")
+              // emit(src"""${stream}_valid := ${en} & ShiftRegister(${swap(parent, DatapathEn)} & ~${parent}_inhibitor,${symDelay(lhs)})""")
             case LEDR =>
               // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
         //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
@@ -271,15 +271,15 @@ trait ChiselGenStream extends ChiselGenSRAM {
               // emit(src"""${stream} := $data""")
               emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${stream}_valid := $en & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case _ => 
-              // emit(src"""${stream}_valid := ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
+              // emit(src"""${stream}_valid := ShiftRegister(${swap(parent, DatapathEn)} & ~${parent}_inhibitor,${symDelay(lhs)}) & $en""")
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
               emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now

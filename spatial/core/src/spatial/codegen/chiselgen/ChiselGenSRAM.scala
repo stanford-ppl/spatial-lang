@@ -10,6 +10,18 @@ import spatial.nodes._
 import spatial.utils._
 import spatial.SpatialConfig
 
+sealed trait StandardSignal
+object En extends StandardSignal
+object Done extends StandardSignal
+object BaseEn extends StandardSignal
+object Mask extends StandardSignal
+object Resetter extends StandardSignal
+object DatapathEn extends StandardSignal
+object CtrTrivial extends StandardSignal
+// A few non-canonical signals
+object IIDone extends StandardSignal
+object RstEn extends StandardSignal
+object CtrEn extends StandardSignal
 
 trait ChiselGenSRAM extends ChiselCodegen {
   private var nbufs: List[(Sym[SRAM[_]], Int)] = Nil
@@ -38,6 +50,36 @@ trait ChiselGenSRAM extends ChiselCodegen {
       }
     } 
     result
+  }
+
+  def swap(lhs: Exp[_], s: StandardSignal): String = {
+    s match {
+      case En => wireMap(src"${lhs}_en")
+      case Done => wireMap(src"${lhs}_done")
+      case BaseEn => wireMap(src"${lhs}_base_en")
+      case Mask => wireMap(src"${lhs}_mask")
+      case Resetter => wireMap(src"${lhs}_resetter")
+      case DatapathEn => wireMap(src"${lhs}_datapath_en")
+      case CtrTrivial => wireMap(src"${lhs}_ctr_trivial")
+      case IIDone => wireMap(src"${lhs}_II_done")
+      case RstEn => wireMap(src"${lhs}_rst_en")
+      case CtrEn => wireMap(src"${lhs}_ctr_en")
+    }
+  }
+
+  def swap(lhs: => String, s: StandardSignal): String = {
+    s match {
+      case En => wireMap(src"${lhs}_en")
+      case Done => wireMap(src"${lhs}_done")
+      case BaseEn => wireMap(src"${lhs}_base_en")
+      case Mask => wireMap(src"${lhs}_mask")
+      case Resetter => wireMap(src"${lhs}_resetter")
+      case DatapathEn => wireMap(src"${lhs}_datapath_en")
+      case CtrTrivial => wireMap(src"${lhs}_ctr_trivial")
+      case IIDone => wireMap(src"${lhs}_II_done")
+      case RstEn => wireMap(src"${lhs}_rst_en")
+      case CtrEn => wireMap(src"${lhs}_ctr_en")
+    }
   }
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -375,6 +417,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
       val trgt = s"${SpatialConfig.target.name}".replace("DE1", "de1soc")
+      emit(src"""${boolMap.map{x => src"// ${x._1} = ${x._2}"}.mkString("\n")}""")
+      emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${SpatialConfig.enableRetiming}""")
     }
@@ -382,7 +426,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_${i}.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
       }
     }

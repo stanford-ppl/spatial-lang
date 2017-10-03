@@ -94,7 +94,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case op@RegFileStore(rf,inds,data,en) =>
       val width = bitWidth(rf.tp.typeArguments.head)
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor & ${parent}_II_done"""
+      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor & ${swap(parent, IIDone)}"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${inds.length}, List(${constDimsOf(rf)}), ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${data}.r""")
@@ -185,7 +185,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_${i}.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
 
       }

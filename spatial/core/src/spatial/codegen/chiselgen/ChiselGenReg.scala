@@ -188,7 +188,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(reg).map{_._1}.indexOf(lhs)
-      emit(src"${reg}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
+      emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}) ")
 
     case RegWrite(reg,v,en) => 
       val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
@@ -212,37 +212,38 @@ trait ChiselGenReg extends ChiselGenSRAM {
             case _ => 
               emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
             }
-          emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)})""")
+          emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
             if (fully_unrolled_accum) {
-              emit(src"""val ${reg}_wren = ${parentOf(lhs).get}_datapath_en""")
-              emit(src"""val ${reg}_resetter = ${parentOf(lhs).get}_rst_en""")
+              emit(src"""val ${reg}_wren = ${swap(parentOf(lhs).get, DatapathEn)}""")
+              emit(src"""val ${reg}_resetter = ${swap(parentOf(lhs).get, RstEn)}""")
             }
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
+              val wren = wireMap(src"${reg}_wren")
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
-                    emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren.D(${symDelay(lhs)})""")
+                    emit(src"""${reg}_${ii}.io.input.enable := $wren.D(${symDelay(lhs)})""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | (${reg}_resetter ${manualReset}).D(${symDelay(lhs)}, rr)""")
+                    emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}, rr)""")
                     emit(src"""${lhs} := ${reg}_${ii}.io.output""")
                     emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-                    emit(src"""${reg}_${ii}.write(${data_string}, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write(${data_string}, $en & ($wren & ${swap(parent, IIDone)}).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & ($wren & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & ($wren & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }
@@ -250,7 +251,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-              emit(src"""${reg}_${ii}.write($v, $en & (${parent}_datapath_en & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+              emit(src"""${reg}_${ii}.write($v, $en & (${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
             }
         }
       }
@@ -263,7 +264,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_${i}.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
       }
     }
