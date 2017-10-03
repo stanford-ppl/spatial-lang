@@ -13,7 +13,7 @@ import argon.core.Config
 
 import scala.util.control.Breaks._
 
-class PIRDSE(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
+class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
   override val name = "Plasticine DSE"
   override val recurse = Always
   var IR = codegen.IR
@@ -27,7 +27,7 @@ class PIRDSE(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodege
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mapping.contains(lhs)) cus ++= mapping(lhs)
+    if (cusOf.contains(lhs)) cus ++= cusOf(lhs)
   }
 
   def dse() {

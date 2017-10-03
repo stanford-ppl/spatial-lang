@@ -9,17 +9,17 @@ import spatial.utils._
 
 import scala.collection.mutable
 
-class PIRScheduler(mappingIn:mutable.Map[Expr, List[PCU]], mappingOut:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
+class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
   var IR = codegen.IR
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
-    val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>
+    val cuMapping:Map[ACU, ACU] = pcusOf.keys.flatMap{s =>
 
-      dbgs(s"${mappingIn(s)} -> ${mappingOut(s)}")
+      dbgs(s"${pcusOf(s)} -> ${cusOf(s)}")
 
-      mappingIn(s).zip(mappingOut(s)).map { case (pcu, cu) =>
+      pcusOf(s).zip(cusOf(s)).map { case (pcu, cu) =>
         pcu.asInstanceOf[ACU] -> cu.asInstanceOf[ACU]
       }
     }.toMap
@@ -33,19 +33,19 @@ class PIRScheduler(mappingIn:mutable.Map[Expr, List[PCU]], mappingOut:mutable.Ma
     }
 
     dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
-    for (cu <- mappingOut.values.flatten) {
+    for (cu <- cusOf.values.flatten) {
       dbgcu(cu)
     }
     block
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if (mappingIn.contains(lhs)) schedulePCU(lhs, mappingIn(lhs))
+    if (pcusOf.contains(lhs)) schedulePCU(lhs, pcusOf(lhs).toList)
   }
 
-  def schedulePCU(sym: Expr, pcus: List[PCU]):Unit = {
-    mappingOut += sym -> pcus.map { pcu =>
-      dbgblk(s"Scheduling $sym CU: $pcu") {
+  def schedulePCU(exp: Expr, pcus: List[PCU]):Unit = {
+    pcus.foreach { pcu =>
+      cusOf(exp) = dbgblk(s"Scheduling $exp CU: $pcu") {
         dbgpcu(pcu)
 
         val cu = pcu.copyToConcrete()
@@ -220,7 +220,7 @@ class PIRScheduler(mappingIn:mutable.Map[Expr, List[PCU]], mappingOut:mutable.Ma
       val Def(RegRead(accumReg)) = accum
       val zero = extractConstant(resetValue(accumReg))
       val acc = ReduceReg()
-      val accParents = mappingIn(parentOf(accumReg).get)
+      val accParents = pcusOf(parentOf(accumReg).get)
       assert(accParents.size==1)
       val accParent = accParents.head
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)

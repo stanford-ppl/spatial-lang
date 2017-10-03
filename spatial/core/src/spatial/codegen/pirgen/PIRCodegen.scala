@@ -10,33 +10,34 @@ import spatial.SpatialConfig
 import scala.collection.mutable
 import scala.language.postfixOps
 
-trait PIRCodegen extends Codegen with FileDependencies with PIRStruct with PIRLogger {
+trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
 
   implicit def codegen:PIRCodegen = this
 
-  val globals    = mutable.Set[GlobalComponent]()
-  val decomposed = mutable.Map[Expr, Seq[(String, Expr)]]()
-  val composed   = mutable.Map[Expr, Expr]()
-  val pcus       = mutable.Map[Expr, List[PCU]]()
-  val cus        = mutable.Map[Expr, List[CU]]()
-
-  lazy val allocater = new PIRAllocation(pcus)
-  lazy val scheduler = new PIRScheduler(pcus, cus)
-  lazy val optimizer = new PIROptimizer(cus)
-  lazy val pirStats  = new PIRStats(cus)
-  lazy val splitter  = new PIRSplitter(cus)
-  lazy val dse       = new PIRDSE(cus)
-  lazy val printout  = new PIRPrintout(cus)
-  lazy val areaModel = new PIRAreaModelHack(cus)
+  lazy val memoryAnalyzer = new PIRMemoryAnalyzer
+  lazy val allocater      = new PIRAllocation
+  lazy val scheduler      = new PIRScheduler
+  lazy val optimizer      = new PIROptimizer
+  lazy val pirStats       = new PIRStats
+  lazy val splitter       = new PIRSplitter
+  lazy val dse            = new PIRDSE
+  lazy val printout       = new PIRPrintout
+  lazy val areaModel      = new PIRAreaModelHack
 
   val preprocessPasses = mutable.ListBuffer[PIRTraversal]()
 
-  override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
+  def reset = {
     globals.clear
+    metadatas.foreach { _.reset }
+  }
+
+  override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
+    reset
     
+    preprocessPasses += memoryAnalyzer
     preprocessPasses += allocater
     preprocessPasses += scheduler
     preprocessPasses += optimizer
@@ -66,12 +67,12 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRStruct with PIRLo
   override protected def quoteConst(c: Const[_]): String = s"Const($c)"
   override protected def quote(x: Exp[_]): String = spatial.codegen.pirgen.quote(x) 
 
-  final def emitCUs(lhs: Exp[_]): Unit = cus(lhs).foreach{cu => emitCU(lhs, cu) }
+  final def emitCUs(lhs: Exp[_]): Unit = cusOf(lhs).foreach{cu => emitCU(lhs, cu) }
   def emitCU(lhs: Exp[_], cu: CU): Unit
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     dbgblk(s"Emitting $lhs = $rhs") {
-      if (cus.contains(lhs)) emitCUs(lhs)
+      if (cusOf.contains(lhs)) emitCUs(lhs)
       rhs.blocks.foreach(emitBlock)
     }
   }

@@ -5,7 +5,7 @@ import spatial.metadata._
 
 import scala.collection.mutable
 
-class PIRAreaModelHack(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
+class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Area Model Hack"
   override val recurse = Always
   var IR = codegen.IR
@@ -23,8 +23,8 @@ class PIRAreaModelHack(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mapping.contains(lhs)) {
-      mapping(lhs).foreach{cu =>
+    if (cusOf.contains(lhs)) {
+      cusOf(lhs).foreach{cu =>
         dbgs(c"CU:  $cu (lanes = ${cu.lanes}")
         val stageArea = cu.allStages.map{stage => areaOf(stage, cu) }.sum
         val ccArea = cu.cchains.map(cchainArea).sum

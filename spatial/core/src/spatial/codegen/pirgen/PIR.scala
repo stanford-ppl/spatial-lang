@@ -30,7 +30,7 @@ case object PipeCU extends CUStyle
 case object SequentialCU extends CUStyle
 case object MetaPipeCU extends CUStyle
 case object StreamCU extends CUStyle
-case class MemoryCU(instId:Int, bank:Int) extends CUStyle
+case object MemoryCU extends CUStyle
 case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
 // --- Local memory modes
@@ -45,31 +45,31 @@ case object ScalarBufferMode extends LocalMemoryMode
 sealed abstract class GlobalComponent(val name: String)
 case class OffChip(override val name: String) extends GlobalComponent(name)
 
-sealed abstract class GlobalBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalComponent(name) {
-  codegen.globals += this
+sealed abstract class GlobalBus(override val name: String) extends GlobalComponent(name) {
+  globals += this
 }
-sealed abstract class VectorBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
-sealed abstract class ScalarBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
-sealed abstract class BitBus(override val name: String)(implicit codegen:PIRCodegen) extends GlobalBus(name)
+sealed abstract class VectorBus(override val name: String) extends GlobalBus(name)
+sealed abstract class ScalarBus(override val name: String) extends GlobalBus(name)
+sealed abstract class BitBus(override val name: String) extends GlobalBus(name)
 
-case class CUVector(override val name: String)(implicit codegen:PIRCodegen) extends VectorBus(name) {
+case class CUVector(override val name: String) extends VectorBus(name) {
   override def toString = s"v$name"
 }
-case class CUScalar(override val name: String)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
+case class CUScalar(override val name: String) extends ScalarBus(name) {
   override def toString = s"s$name"
 }
-case class CUBit(override val name: String)(implicit codegen:PIRCodegen) extends BitBus(name) {
+case class CUBit(override val name: String) extends BitBus(name) {
   override def toString = s"b$name"
 }
 
-case class LocalReadBus(mem:CUMemory)(implicit codegen:PIRCodegen) extends VectorBus(s"$mem.localRead")
-case class InputArg(override val name: String, dmem:Expr)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
+case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
+case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
   override def toString = s"ain$name"
 }
-case class OutputArg(override val name: String)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
+case class OutputArg(override val name: String) extends ScalarBus(name) {
   override def toString = s"aout$name"
 }
-case class DramAddress(override val name: String, dram:Expr, mem:Expr)(implicit codegen:PIRCodegen) extends ScalarBus(name) {
+case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends ScalarBus(name) {
   override def toString = s"dramAddr$name"
   // DramAddress of the same dram are the same
   override def equals(that: Any): Boolean =
@@ -345,20 +345,18 @@ case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends Abs
 
   def lanes: Int = innerPar
   def allParents: Iterable[CU] = parentCU ++ parentCU.map(_.allParents).getOrElse(Nil)
-  def isPMU = style.isInstanceOf[MemoryCU]
+  def isPMU = style == MemoryCU
   def isPCU = !isPMU && !style.isInstanceOf[FringeCU]
 }
 
 
 case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages = mutable.ArrayBuffer[PseudoStage]() // List(mem) -> List[Stages]
-  val readStages = mutable.ArrayBuffer[PseudoStage]() // List(mem) -> List[Stages]
+  val writeStages = mutable.ArrayBuffer[PseudoStage]() // 
+  val readStages = mutable.ArrayBuffer[PseudoStage]() // 
   val computeStages = mutable.ArrayBuffer[PseudoStage]()
-  val remoteReadStages = mutable.Set[Expr]() // reg read, fifo deq
-  val remoteWriteStages = mutable.Set[Expr]() // reg write, fifo enq
 
   def sram = {
-    assert(style.isInstanceOf[MemoryCU], s"Only MemoryCU has sram. cu:$this")
+    assert(style == MemoryCU, s"Only MemoryCU has sram. cu:$this")
     val srams = mems.filter{ _.mode == SRAMMode }
     assert(srams.size==1, s"Each MemoryCU should only has one sram, srams:[${srams.mkString(",")}]")
     srams.head

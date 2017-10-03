@@ -25,7 +25,7 @@ trait PIRSplitting extends PIRTraversal {
     Could model this as conditional costs for nodes in context of their partition?
    **/
   def splitCU(cu: CU, archCU: CUCost, archMU: MUCost, others: Seq[CU]): List[CU] = cu.style match {
-    case _:MemoryCU => splitPMU(cu, archMU, others)
+    case MemoryCU => splitPMU(cu, archMU, others)
     case _:FringeCU => List(cu)
     case _ if cu.computeStages.isEmpty => List(cu)
     case _ => splitPCU(cu, archCU, others)

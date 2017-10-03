@@ -7,12 +7,12 @@ import argon.core._
 
 import scala.collection.mutable
 
-class PIRStats(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
+class PIRStats(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR CU Stats"
   override val recurse = Always
   var IR = codegen.IR
 
-  def cus = mapping.values.toList.flatten
+  def cus = cusOf.values.flatten
 
   override protected def process[S:Type](block: Block[S]): Block[S] = {
     statsFile

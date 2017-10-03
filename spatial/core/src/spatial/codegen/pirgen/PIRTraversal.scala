@@ -12,14 +12,7 @@ import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 
-trait PIRTraversal extends SpatialTraversal with Partitions with PIRStruct with PIRLogger {
-  implicit def codegen:PIRCodegen
-  def globals:mutable.Set[GlobalComponent] = codegen.globals
-
-  // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
-  def decomposed: mutable.Map[Expr, Seq[(String, Expr)]] = codegen.decomposed
-  // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
-  def composed: mutable.Map[Expr, Expr] = codegen.composed
+trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
 
   def getOrElseUpdate[K, V](map:mutable.Map[K, V], key:K, value: =>V):V = {
     if (!map.contains(key)) {
@@ -113,14 +106,39 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRStruct with 
     writers.map { _.node }
   }
 
-  def getDuplicate(dmem:Expr, dreader:Expr):Memory = {
+  /*
+   * Returns a single id for reader
+   * */
+  def getDispatches(dmem:Expr, daccess:Expr) = {
     val mem = compose(dmem)
-    val reader = compose(dreader)
-    val instIds = dispatchOf(reader, mem)
-    assert(instIds.size==1, s"number of dispatch = ${instIds.size} for $mem but expected to be 1")
-    val instId = instIds.head
+    val access = compose(daccess)
+    val instIds = dispatchOf(access, mem).toList
+    if (isReader(access)) {
+      assert(instIds.size==1, 
+        s"number of dispatch = ${instIds.size} for reader $access but expected to be 1")
+    }
+    instIds
+  }
+
+  /*
+   * Returns a single duplicate for reader
+   * */
+  def getDuplicates(dmem:Expr, access:Expr):List[Memory] = {
+    val instIds = getDispatches(dmem, access)
+    val insts = duplicatesOf(composed(dmem))
+    instIds.map{ id => insts(id) }
+  }
+
+  def getDuplicate(dmem:Expr, id:Int):Memory = {
+    val insts = duplicatesOf(composed(dmem))
+    insts(id)
+  }
+
+  def getWritersForInst(dmem:Expr, inst:Memory):List[Expr] = {
+    val mem = composed(dmem)
     val insts = duplicatesOf(mem)
-    insts(instId)
+    val instId = insts.indexOf(inst)
+    writersOf(mem).filter { writer => getDispatches(mem, writer.node).contains(instId) }.map{_.node}
   }
 
   //def getInnerDimension(dmem:Expr, instId:Int):Option[Int] = {

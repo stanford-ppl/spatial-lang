@@ -11,7 +11,7 @@ import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 
-trait PIRLogger extends SpatialTraversal with PIRStruct {
+trait PIRLogger extends SpatialTraversal {
 
   var listing = false
   var listingSaved = false
@@ -100,5 +100,23 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
     }
   }
 
+  def qdef(lhs:Any):String = {
+    val rhs = lhs match {
+      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
+      case Def(e:UnrolledForeach) => 
+        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(e:UnrolledReduce[_,_]) => 
+        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case Op(rhs) => s"$rhs"
+      case Def(rhs) => s"$rhs"
+      case lhs => s"$lhs"
+    }
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
+    }
+    s"$lhs = $rhs$name"
+  }
 
 }

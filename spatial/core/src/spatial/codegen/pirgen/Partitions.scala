@@ -288,7 +288,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
 
   def getUtil(cu: CU, cus: Iterable[CU]): Utilization = cu.style match {
-    case _:MemoryCU =>
+    case MemoryCU =>
       val vIn = nVectorIns(cu)
       val vOut = nVectorOuts(cu)
       val regs = regsPerStage(cu)

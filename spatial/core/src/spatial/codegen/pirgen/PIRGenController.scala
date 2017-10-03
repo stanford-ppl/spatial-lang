@@ -54,12 +54,7 @@ trait PIRGenController extends PIRCodegen {
     decs += s"""name="${cu.name}""""
     val parent = cu.parent.map(_.name).getOrElse("top")
 
-    //TODO: refactor this
-    if (cu.style.isInstanceOf[MemoryCU]) {
-      decs += s"""parent="$parent"""" // MemoryPipeline's parent might be declared later 
-    } else {
-      decs += s"""parent=$parent"""
-    }
+    decs += s"""parent="$parent""""
     cu.style match {
       case FringeCU(dram, mode) =>
         decs += s"""offchip=${quote(dram)}, mctpe=$mode"""
@@ -94,7 +89,7 @@ trait PIRGenController extends PIRCodegen {
 
     cu.style match {
       case PipeCU => emitAllStages(cu)
-      case MemoryCU(i, bank) => emitAllStages(cu)
+      case MemoryCU => emitAllStages(cu)
       case _ => 
     }
 
@@ -103,7 +98,7 @@ trait PIRGenController extends PIRCodegen {
 
   def emitSwitchTable(cu:CU) = {
     cu.switchTable.foreach { case (bus, caseCU) =>
-      emit(s"CU.enableWhen(en=$bus, child=${caseCU.name})")
+      //emit(s"""CU.enableWhen(en=$bus, child="${caseCU.name})"""")
     }
   }
 
@@ -227,7 +222,7 @@ trait PIRGenController extends PIRCodegen {
     case PipeCU => "Pipeline"
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
-    case MemoryCU(i, bank)     => "MemoryPipeline"
+    case MemoryCU     => "MemoryPipeline"
     case FringeCU(dram, mode)     => "MemoryController"
   }
 

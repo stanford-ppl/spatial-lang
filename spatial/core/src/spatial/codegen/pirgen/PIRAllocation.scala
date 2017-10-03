@@ -10,7 +10,7 @@ import org.virtualized.SourceContext
 
 import scala.collection.mutable
 
-class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
+class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR CU Allocation"
   var IR = codegen.IR
 
@@ -90,7 +90,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     }
   }
 
-  def allocateCU(exp: Expr): PCU = getOrElseUpdate(mapping, exp, dbgblk(s"allocateCU($exp)") {
+  def allocateCU(exp: Expr): PCU = pcusOf.getOrElseUpdate(exp, dbgblk(s"allocateCU($exp)") {
     if (isControlNode(exp)) {
       dbgs(s"isInnerControl = ${isInnerControl(exp)}")
       dbgs(s"styleOf = ${styleOf(exp)}")
@@ -109,38 +109,40 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
  
     if (top.isEmpty && parent.isEmpty) top = Some(exp)
 
-    List(cu)
+    mutable.Set(cu)
   }).head
 
   def allocateMemoryCU(dsram:Expr):List[PCU] = {
-    val cus = getOrElseUpdate(mapping, dsram, { 
+    val cus = pcusOf.getOrElseUpdate(dsram, { 
       val sram = compose(dsram)
       val parentCU = parentOf(sram).map(allocateCU)
       val writers = getWriters(sram)
       dbgblk(s"Allocating memory cu for ${qdef(sram)}, writers:$writers") {
-        duplicatesOf(sram).zipWithIndex.flatten { case (m, i) =>
+        mutable.Set() ++ duplicatesOf(sram).zipWithIndex.flatten { case (m, i) =>
           m match {
             case m@BankedMemory(dims, depth, isAccum) =>
               dbgs(s"BankedMemory # banks:${dims.map { 
                 case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
               }.mkString(",")}")
-              val outerDims = dims.dropRight(1) // Assume last dimension is the inner dimension
+              val outerDims = getOuterDims(sram, dims) 
               val totalOuterBanks = outerDims.map{_.banks}.product
               dbgs(s"totalOuterBanks=$totalOuterBanks")
               List.tabulate(totalOuterBanks) { bank =>
-                val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp${i}_bank${bank}", dsram, MemoryCU(i, bank))
+                val cu = PseudoComputeUnit(s"${quote(dsram)}_dsp${i}_bank${bank}", dsram, MemoryCU)
                 dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, duplicateId=$i")
                 cu.parent = parentCU
                 val psram = createSRAM(dsram, m, i, cu)
+                bankOf(psram) = bank
+                instOf(psram) = i
                 cu
               }
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
           }
-        }.toList
+        }
       }
     })
-    cus
+    cus.toList
   }
 
   def copyBounds(exps: Seq[Expr], cu:PseudoComputeUnit) = {
@@ -150,7 +152,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
       case b:Bound[_] => 
         if (cu.get(b).isEmpty) {
           val fromPipe = parentOf(b).getOrElse(throw new Exception(s"$b doesn't have parent"))
-          val fromCUs = mapping(fromPipe)
+          val fromCUs = pcusOf(fromPipe)
           assert(fromCUs.size==1) // parent of bounds must be a controller in spatial
           val fromCU = fromCUs.head 
           val (cchain, iters, valids) = cchainOf(fromPipe).getOrElse {
@@ -210,14 +212,17 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     }
   }
 
-  def createSRAM(dmem:Expr, inst:Memory, i:Int, cu:PCU):CUMemory = {
-    val cuMem = getOrElseUpdate(cu.memMap, dmem, {
-      val cuMem = CUMemory(quote(dmem), dmem, cu)
-      cuMem.mode = SRAMMode
-      cuMem.size = constDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
-      inst match {
-        case BankedMemory(dims, depth, isAccum) =>
-          dims.last match { case Banking(stride, banks, _) =>
+  def createSRAM(dmem:Expr, inst:Memory, i:Int, cu:PCU):CUMemory = getOrElseUpdate(cu.memMap, dmem, {
+    val mem = compose(dmem)
+    val cuMem = CUMemory(quote(dmem), dmem, cu)
+    cuMem.mode = SRAMMode
+    cuMem.size = constDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
+    inst match {
+      case BankedMemory(dims, depth, isAccum) =>
+        innerDimOf.get(mem).fold {
+          cuMem.banking = Some(NoBanks)
+        } { dim =>
+          dims(dim) match { case Banking(stride, banks, _) =>
             // Inner loop dimension 
             if (banks > 1) {
               assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
@@ -227,15 +232,14 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
               cuMem.banking = Some(NoBanks)
             }
           }
-        case DiagonalMemory(strides, banks, depth, isAccum) =>
-          throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
-      }
-      cuMem.bufferDepth = inst.depth
-      dbgs(s"Add sram=$cuMem to cu=$cu")
-      cuMem
-    })
+        }
+      case DiagonalMemory(strides, banks, depth, isAccum) =>
+        throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+    }
+    cuMem.bufferDepth = inst.depth
+    dbgs(s"Add sram=$cuMem to cu=$cu")
     cuMem
-  }
+  })
 
   def createRetimingFIFO(exp:Expr, isScalar:Boolean, cu:PCU):CUMemory = {
     val cuMem = getOrElseUpdate(cu.memMap, exp, {
@@ -252,12 +256,14 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     val mem = compose(dmem)
     val reader = compose(dreader)
     val cuMem = getOrElseUpdate(cu.memMap, dmem, {
+      val instId = getDispatches(mem,reader).head
       val cuMem = CUMemory(quote(dmem), dmem, cu)
+      instOf(cuMem) = instId
       mem match {
         case mem if isReg(mem) => //TODO: Consider initValue of Reg?
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
-          cuMem.bufferDepth = getDuplicate(dmem, dreader).depth
+          cuMem.bufferDepth = getDuplicates(dmem, dreader).head.depth
         case mem if isGetDRAMAddress(mem) =>
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
@@ -316,9 +322,12 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
             val localWritten = isLocallyWritten(dmem, dreader, readerCU)
             if (!localWritten) { // Write to FIFO/StreamOut/RemoteReg
               // Allocate local mem in the readerCU
-              createLocalMem(dmem, dreader, readerCU)
+              val lmem = createLocalMem(dmem, dreader, readerCU)
               // Set writeport of the local mem who doesn't have a writer (ArgIn and GetDRAMAddress)
-              bus.foreach { bus => readerCU.memMap(dmem).writePort += bus }
+              bus.foreach { bus =>  //TODO: move this to prescheduleLocalMemWrite
+                val topController = getTopController(mem, reader, instOf(lmem))
+                readerCU.memMap(dmem).writePort += bus
+              }
             } else { // Local reg accumulation
               allocateLocal(readerCU, dmem)
             }
@@ -390,20 +399,15 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     val access = compose(daccess)
     dbgs(s"mem=$mem access=$access")
     var cus = allocateMemoryCU(dmem)
-    val insts = if (isReader(access)) {
-      val instId = dispatchOf(access, mem).head
-      val inst = getDuplicate(mem, access) 
-      cus = cus.filter{_.style match { case MemoryCU(`instId`, _) => true; case _ => false } }
-      List(inst)
-    } else { // isWriter
-      duplicatesOf(mem)
-    }
-
+    val instIds = getDispatches(mem, access)
+    val insts = duplicatesOf(mem).zipWithIndex.filter { case (inst, instId) =>
+      instIds.contains(instId)
+    }.map { _._1 }
+    cus = cus.filter { _.srams.exists { sram => instIds.contains(instOf(sram)) } }
     val addr = access match {
       case ParLocalReader(List((_, Some(addr), _))) => addr
       case ParLocalWriter(List((_, _, Some(addr), _))) => addr
     }
-
     val banks = insts.flatMap { inst =>
       inst match {
         case m@BankedMemory(dims, depth, isAccum) =>
@@ -412,7 +416,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           dbgs(s"BankedMemory # banks:${dims.map { 
             case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
           }.mkString(",")}")
-          val bankInds = inds.dropRight(1).zip(dims.dropRight(1)).zipWithIndex.map { 
+          val bankInds = getOuterDims(mem, inds.zip(dims).zipWithIndex).map { 
             case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size>1 =>
               dbgs(s"dim=$dim vinds=${vinds} all banks=${banks}")
               (0 until banks).map { b => (b, banks)}.toList
@@ -456,7 +460,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
       }
     }
     
-    cus = cus.filter{_.style match { case MemoryCU(_, bank) => banks.contains(bank); case _ => false } }
+    cus = cus.filter { _.srams.exists { sram => banks.contains(bankOf(sram)) } } 
     
     cus
   } 
@@ -507,10 +511,12 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
           remoteReaders.foreach { reader =>
             getReaderCUs(reader).foreach { readerCU =>
+              val lmem = readerCU.memMap(dmem)
               val locallyWritten = isLocallyWritten(dmem, reader, readerCU)
               if (!locallyWritten) {
+                val topController = getTopController(mem, reader, instOf(lmem))
                 dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
-                readerCU.memMap(dmem).writePort += bus
+                lmem.writePort += bus
               }
             }
           }
@@ -564,15 +570,21 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
     (bus, flatAddr)
   }
 
+  def getTopController(mem:Expr, access:Expr, instId:Int) = {
+    topControllerOf(access, mem, instId).map { case (ctrl, _) => allocateCU(ctrl) }
+  }
+
   def prescheduleRemoteMemRead(mem: Expr, reader:Expr) = {
     dbgblk(s"Allocating remote memory read: ${qdef(reader)}") {
       val parBy1 = getInnerPar(reader)==1
       val readerCUs = getReaderCUs(reader)
       val addrCU = allocateCU(reader)
       val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, reader, addrCU)
+
       decompose(mem).zip(decompose(reader)).foreach { case (dmem, dreader) =>
         val sramCUs = getMCUforAccess(dmem, dreader)
         sramCUs.foreach { sramCU =>
+          val topController = getTopController(mem, reader, instOf(sramCU.srams.head))
           val dataBus = if (parBy1) CUScalar(s"${quote(dmem)}_${sramCU.name}_data") 
                         else        CUVector(s"${quote(dmem)}_${sramCU.name}_data")
 
@@ -619,6 +631,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
         // Setup PMUs connections
         val sramCUs = getMCUforAccess(dmem, dwriter) 
         sramCUs.foreach { sramCU =>
+          val topController = getTopController(mem, writer, instOf(sramCU.srams.head))
           val sram = sramCU.memMap(mem)
           // Wire up writeAddr
           val addrFifo = createRetimingFIFO(flatAddr, parBy1, sramCU)
@@ -626,7 +639,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
           sram.writeAddr += MemLoadReg(addrFifo)
           val dataFifo = createRetimingFIFO(dwriter, parBy1, sramCU)
           // Wire up writePort
-          dataFifo.writePort += dataBus 
+          dataFifo.writePort += dataBus
           sram.writePort += LocalReadBus(dataFifo)
           dbgs(s"sram=$sram writePort=$dataFifo dataBus=$dataBus writeAddr=$addrBus")
         }
@@ -689,6 +702,7 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
 
         case SwitchCase(body) =>
           allocateCU(lhs)
+          allocateStages(lhs, body)
 
         case _ if isFringe(lhs) =>
           val dram = rhs.allInputs.filter { e => isDRAM(e) }.head
@@ -741,15 +755,13 @@ class PIRAllocation(mapping:mutable.Map[Expr, List[PCU]])(implicit val codegen:P
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
     dbgs(s"\n\n//----------- Finishing Allocation ------------- //")
     dbgblk(s"decomposition") {
-      dbgs(s"decomposed.keys=${decomposed.keys.toList.mkString(s",")}")
-      decomposed.foreach { case(s, dss) => dbgs(s"${qdef(s)} -> [${dss.mkString(",")}]") }
+      decomposed.keys.foreach { k => dbgs(s"${qdef(k)} -> [${decompose(k).mkString(",")}]") }
     }
     dbgblk(s"composition") {
-      dbgs(s"composed.keys=${composed.keys.toList.mkString(s",")}")
-      composed.foreach { case(ds, s) => dbgs(s"${qdef(ds)}")}
+      composed.keys.foreach { k => dbgs(s"${qdef(compose(k))}")}
     }
     dbgs(s"// ----- CU Allocation ----- //")
-    mapping.foreach { case (sym, cus) =>
+    pcusOf.foreach { case (exp, cus) =>
       cus.foreach { cu => dbgpcu(cu) }
     }
 

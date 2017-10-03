@@ -4,17 +4,17 @@ import argon.core._
 
 import scala.collection.mutable
 
-class PIRPrintout(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
+class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Printout"
   override val recurse = Always
   var IR = codegen.IR
 
-  def cus = mapping.values.toList.flatten
+  def cus = cusOf.values.toList.flatten
 
   def printCU(cu: CU): Unit = {
 
     val style = cu.style match {
-      case _:MemoryCU => "PMU"
+      case MemoryCU => "PMU"
       case _:FringeCU => "Fringe"
       case _          => "PCU"
     }
@@ -56,7 +56,7 @@ class PIRPrintout(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRC
       }
 
       cu.style match {
-        case _:MemoryCU =>
+        case MemoryCU =>
           val cost = getUtil(cu, cus)
           reportUtil(cost)
         case _:FringeCU =>
@@ -68,8 +68,8 @@ class PIRPrintout(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRC
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mapping.contains(lhs)) {
-      mapping(lhs).foreach{cu => printCU(cu) }
+    if (cusOf.contains(lhs)) {
+      cusOf(lhs).foreach{cu => printCU(cu) }
     }
   }
 

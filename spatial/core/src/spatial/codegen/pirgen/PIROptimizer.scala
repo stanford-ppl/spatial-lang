@@ -4,11 +4,11 @@ import argon.core._
 
 import scala.collection.mutable
 
-class PIROptimizer(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIRCodegen) extends PIRTraversal {
+class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Optimization"
   var IR = codegen.IR
 
-  def cus = mapping.values.flatMap{cus => cus}.toList
+  def cus = cusOf.values.flatMap{cus => cus}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
@@ -25,10 +25,10 @@ class PIROptimizer(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIR
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
     dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
     dbgs(s"Mapping:")
-    mapping.foreach { case (sym, cus) =>
+    cusOf.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
-    for (cu <- mapping.values.flatten) {
+    for (cu <- cusOf.values.flatten) {
       dbgcu(cu)
     }
     super.postprocess(b)
@@ -208,7 +208,7 @@ class PIROptimizer(mapping:mutable.Map[Expr, List[CU]])(implicit val codegen:PIR
         }
       }
       dbgs(s"Removing empty CU $cu")
-      mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
+      cusOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }
   }
 
