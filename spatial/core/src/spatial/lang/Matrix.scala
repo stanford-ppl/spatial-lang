@@ -133,7 +133,7 @@ object Tensor4 {
 
   /** Returns an immutable Tensor4 with the given dimensions and elements defined by `func`. **/
   @api def tabulate[T:Type](dim0: Index, dim1: Index, dim2: Index, dim3: Index)(func: (Index, Index, Index, Index) => T): Tensor4[T] = {
-    val data = MArray.tabulate(dim0*dim1*dim2){x =>
+    val data = MArray.tabulate(dim0*dim1*dim2*dim3){x =>
       val i0 = x / (dim1*dim2*dim3)       // Cube
       val i1 = (x / (dim2*dim3)) % dim1   // Page
       val i2 = (x / dim3) % dim2          // Row
@@ -187,7 +187,7 @@ object Tensor5 {
 
   /** Returns an immutable Tensor5 with the given dimensions and elements defined by `func`. **/
   @api def tabulate[T:Type](dim0: Index, dim1: Index, dim2: Index, dim3: Index, dim4: Index)(func: (Index, Index, Index, Index, Index) => T): Tensor5[T] = {
-    val data = MArray.tabulate(dim0*dim1*dim2){x =>
+    val data = MArray.tabulate(dim0*dim1*dim2*dim3*dim4){x =>
       val i0 = x / (dim1*dim2*dim3*dim4)
       val i1 = (x / (dim2*dim3*dim4)) % dim1
       val i2 = (x / (dim3*dim4)) % dim2

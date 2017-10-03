@@ -17,6 +17,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
   var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
   var validPassMap = new scala.collection.mutable.HashMap[(Exp[_], String), Seq[Exp[_]]] // Map from a valid bound sym to its ctrl node, for computing suffix on a valid before we enter the ctrler
+  var accumsWithIIDlay = new scala.collection.mutable.ListBuffer[Exp[_]]
 
   // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
@@ -192,13 +193,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def logRetime(lhs: String, data: String, delay: Int, isVec: Boolean = false, vecWidth: Int = 1, wire: String = "", isBool: Boolean = false): Unit = {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
-      emit(src"val $lhs = Wire(${wire})")
+      emitGlobalWire(src"val $lhs = Wire(${wire})")
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
     } else {
       if (isBool) {
         emitGlobalWire(src"""val $lhs = Wire(Bool())""");emit(src"""$lhs := ${data}.D($delay, rr)""")
       } else {
-        emit(src"""val $lhs = ShiftRegister($data, $delay)""")
+        emitGlobalWire(src"""val $lhs = Wire(${wire})""");emit(src"""$lhs := ShiftRegister($data, $delay)""")
       }
     }
   }

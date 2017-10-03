@@ -170,6 +170,7 @@ class Top(
   val io = target match {
     case "verilator"  => IO(new VerilatorInterface(topParams))
     case "vcs"        => IO(new VerilatorInterface(topParams))
+    case "xsim"       => IO(new VerilatorInterface(topParams))
     case "aws"        => IO(new AWSInterface(topParams))
     case "aws-sim"    => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
@@ -181,7 +182,7 @@ class Top(
   val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
-    case "verilator" | "vcs" =>
+    case "verilator" | "vcs" | "xsim" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
       val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))

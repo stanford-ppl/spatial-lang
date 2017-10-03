@@ -140,10 +140,10 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       }
       
     case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
-    case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
-    case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
-    case FIFOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")
-    case FIFOAlmostFull(fifo) => emit(src"val $lhs = ${fifo}.io.almostFull")
+    case FIFOEmpty(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.empty")
+    case FIFOFull(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.full")
+    case FIFOAlmostEmpty(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.almostEmpty")
+    case FIFOAlmostFull(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.almostFull")
     case FIFONumel(fifo) => emit(src"val $lhs = ${fifo}.io.numel")
 
     case _ => super.emitNode(lhs, rhs)
