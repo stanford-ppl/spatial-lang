@@ -42,7 +42,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     !isUnitPipe(readAnc)
   }
 
-  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:PseudoComputeUnit) = {
+  def isLocallyWritten(dmem:Expr, dreader:Expr, cu:CU) = {
     val reader = compose(dreader)
     val mem = compose(dmem)
     val isLocal = if (isArgIn(mem) || isStreamIn(mem) || isGetDRAMAddress(mem) || isFringe(reader)) {
@@ -53,7 +53,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
       dbgs(s"depsOf($reader)=${depsOf(reader)} isUnitPipe($pipe)=${isUnitPipe(pipe)}")
       writers.exists { writer => 
         writer.ctrlNode == pipe && 
-        cu.pipe == pipe && 
+        cusOf(cu) == pipe && 
         (depsOf(reader).contains(writer.node) || carriedDep(mem, reader, writer.node))
       }
     }
@@ -80,10 +80,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   def getRemoteReaders(dmem:Expr, dwriter:Expr):List[Expr] = {
     val mem = compose(dmem)
     val writer = compose(dwriter)
-    if (isStreamOut(mem)) { 
+    if (isArgIn(mem) || isGetDRAMAddress(mem) || isStreamOut(mem)) {
       getReaders(mem)
     } else {
-      readersOf(mem).filter { reader => reader.ctrlNode!=parentOf(writer).get }.map(_.node)
+      readersOf(mem).filter { reader => 
+        reader.ctrlNode!=parentOf(writer).get }.map(_.node)
     }
   }
 
@@ -112,7 +113,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   def getDispatches(dmem:Expr, daccess:Expr) = {
     val mem = compose(dmem)
     val access = compose(daccess)
-    val instIds = dispatchOf(access, mem).toList
+    val instIds = if (isStreamOut(mem) || isArgOut(mem) || isGetDRAMAddress(mem) || isArgIn(mem) || isStreamIn(mem)) {
+      List(0)
+    } else {
+      dispatchOf(access, mem).toList
+    }
     if (isReader(access)) {
       assert(instIds.size==1, 
         s"number of dispatch = ${instIds.size} for reader $access but expected to be 1")
@@ -125,17 +130,17 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
    * */
   def getDuplicates(dmem:Expr, access:Expr):List[Memory] = {
     val instIds = getDispatches(dmem, access)
-    val insts = duplicatesOf(composed(dmem))
+    val insts = duplicatesOf(compose(dmem))
     instIds.map{ id => insts(id) }
   }
 
   def getDuplicate(dmem:Expr, id:Int):Memory = {
-    val insts = duplicatesOf(composed(dmem))
+    val insts = duplicatesOf(compose(dmem))
     insts(id)
   }
 
   def getWritersForInst(dmem:Expr, inst:Memory):List[Expr] = {
-    val mem = composed(dmem)
+    val mem = compose(dmem)
     val insts = duplicatesOf(mem)
     val instId = insts.indexOf(inst)
     writersOf(mem).filter { writer => getDispatches(mem, writer.node).contains(instId) }.map{_.node}
@@ -159,7 +164,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     //writers.head
   //}
 
-  def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:AbstractComputeUnit):CUMemory = {
+  def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:CU):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
     //Probably LocalComponent should keep a copy of sym at allocation time?
     val memSym = null //TODO: fix this??
@@ -188,7 +193,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     }
   }
 
-  def allocateLocal(cu:AbstractComputeUnit, dx: Expr): LocalComponent = cu.getOrElseUpdate(dx) {
+  def allocateLocal(cu:CU, dx: Expr): LocalComponent = cu.getOrElseUpdate(dx) {
     compose(dx) match {
       case c if isConstant(c) => extractConstant(dx)
       case Def(FIFONumel(fifo)) => 
@@ -212,7 +217,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     }
   }
 
-  def copyIterators(destCU: AbstractComputeUnit, srcCU: AbstractComputeUnit, iterIdx:Option[(Int, Int)]=None): Map[CUCChain,CUCChain] = {
+  def copyIterators(destCU: CU, srcCU: CU, iterIdx:Option[(Int, Int)]=None): Map[CUCChain,CUCChain] = {
     if (destCU != srcCU) {
       val cchainCopies = srcCU.cchains.toList.map {
         case cc@CChainCopy(name, inst, owner)   => cc -> CChainCopy(name, inst, owner)
@@ -395,39 +400,37 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   }
 
 
-  def swapCUs(mapping: Map[ACU, ACU]): Unit = mapping.foreach {
-    case (pcu, cu:CU) =>
-      cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
-      cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
-      cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
-      cu.mems.foreach{mem => swapCU_sram(mem) }
-      cu.allStages.foreach{stage => swapCU_stage(stage) }
-      cu.fringeGlobals ++= pcu.fringeGlobals
+  def swapCUs(mapping: Map[CU, CU]): Unit = mapping.foreach { case (pcu, cu) =>
+    cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
+    cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
+    cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
+    cu.mems.foreach{mem => swapCU_sram(mem) }
+    cu.allStages.foreach{stage => swapCU_stage(stage) }
+    cu.fringeGlobals ++= pcu.fringeGlobals
 
-      def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
-        case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
-        case _ => // No action
-      }
+    def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
+      case cc: CChainCopy => cc.owner = mapping.getOrElse(cc.owner,cc.owner)
+      case _ => // No action
+    }
 
-      def swapCU_stage(stage:Stage) = {
-        stage match {
-          case stage:ReduceStage => stage.accParent = mapping.getOrElse(stage.accParent, stage.accParent)
-          case stage =>
-        }
-        stage.inputMems.foreach(swapCU_reg)
+    def swapCU_stage(stage:Stage) = {
+      stage match {
+        case stage:ReduceStage => stage.accParent = mapping.getOrElse(stage.accParent, stage.accParent)
+        case stage =>
       }
+      stage.inputMems.foreach(swapCU_reg)
+    }
 
-      def swapCU_reg(reg: LocalComponent): Unit = reg match {
-        case CounterReg(cc,i,iter) => swapCU_cchain(cc)
-        case ValidReg(cc,i,valid) => swapCU_cchain(cc)
-        case _ =>
-      }
+    def swapCU_reg(reg: LocalComponent): Unit = reg match {
+      case CounterReg(cc,i,iter) => swapCU_cchain(cc)
+      case ValidReg(cc,i,valid) => swapCU_cchain(cc)
+      case _ =>
+    }
 
-      def swapCU_sram(sram: CUMemory) {
-        sram.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
-        sram.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
-      }
-    case (pcu, cu) =>
+    def swapCU_sram(sram: CUMemory) {
+      sram.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
+      sram.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
+    }
   }
 
   // --- Context for creating/modifying CUs
@@ -537,18 +540,18 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     def isWriteContext = false
     def init() = {}
   }
-  case class WriteContext(override val cu: ComputeUnit) extends CUContext(cu) {
-    def init() { cu.writeStages.clear }
-    def stages = cu.writeStages
-    def addStage(stage: Stage) { cu.writeStages += stage }
-    def isWriteContext = true
-  }
-  case class ReadContext(override val cu: ComputeUnit) extends CUContext(cu) {
-    def init() { cu.readStages.clear }
-    def stages = cu.readStages
-    def addStage(stage: Stage) { cu.readStages += stage }
-    def isWriteContext = false 
-  }
+  //case class WriteContext(override val cu: ComputeUnit) extends CUContext(cu) {
+    //def init() { cu.writeStages.clear }
+    //def stages = cu.writeStages
+    //def addStage(stage: Stage) { cu.writeStages += stage }
+    //def isWriteContext = true
+  //}
+  //case class ReadContext(override val cu: ComputeUnit) extends CUContext(cu) {
+    //def init() { cu.readStages.clear }
+    //def stages = cu.readStages
+    //def addStage(stage: Stage) { cu.readStages += stage }
+    //def isWriteContext = false 
+  //}
 
   // Given result register type A, reroute to type B as necessary
   def propagateReg(exp: Expr, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {

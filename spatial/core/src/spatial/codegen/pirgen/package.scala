@@ -17,10 +17,7 @@ import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 package object pirgen {
   type Expr = Exp[_]
   type CU = ComputeUnit
-  type PCU = PseudoComputeUnit
-  type ACU = AbstractComputeUnit
   type CUControl = ControlType
-  type DataBus = (GlobalBus, Option[AbstractComputeUnit]) // (Bus, TopControllerName) TopController: Controller for Done
 
   val globals    = mutable.Set[GlobalComponent]()
   val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
@@ -433,6 +430,7 @@ package object pirgen {
     case Def(_:FILOPop[_]) => 1 
     case Def(_:RegWrite[_]) => 1 
     case Def(_:RegRead[_]) => 1 
+    case n if isArgIn(n) | isArgOut(n) | isGetDRAMAddress(n) => 1
     case n => throw new Exception(s"Undefined getInnerPar for ${codegen.qdef(n)}")
   }
 

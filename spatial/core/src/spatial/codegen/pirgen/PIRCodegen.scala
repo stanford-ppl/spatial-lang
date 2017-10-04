@@ -72,9 +72,12 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     dbgblk(s"Emitting $lhs = $rhs") {
-      if (cusOf.contains(lhs)) emitCUs(lhs)
-      rhs.blocks.foreach(emitBlock)
+      rhs match {
+        case Hwblock(_, _) => 
+        case _ => if (cusOf.contains(lhs)) emitCUs(lhs)
+      }
     }
+    rhs.blocks.foreach(emitBlock)
   }
 
   override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }

@@ -32,12 +32,6 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
       dbgl("Compute stages:") {
         cu.computeStages.foreach{stage => dbgs(s"$stage") }
       }
-      dbgl("Read stages:") {
-        cu.readStages.foreach { stage => dbgs(s"$stage") }
-      }
-      dbgl("Write stages:") {
-        cu.writeStages.foreach { stage => dbgs(s"$stage") }
-      }
       dbgl("Control stages:") {
         cu.controlStages.foreach{stage => dbgs(s"$stage") }
       }

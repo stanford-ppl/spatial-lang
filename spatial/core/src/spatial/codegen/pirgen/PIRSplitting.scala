@@ -45,7 +45,7 @@ trait PIRSplitting extends PIRTraversal {
 
     val partitions = mutable.ArrayBuffer[Partition]()
 
-    val current = new MUPartition(cu.writeStages, cu.readStages, ctrl, false)
+    val current = new MUPartition(mutable.ArrayBuffer.empty, mutable.ArrayBuffer.empty, ctrl, false) //TODO
 
     val cost = getMUCost(current, partitions, allStages, others)
 
@@ -126,7 +126,7 @@ trait PIRSplitting extends PIRTraversal {
     } // end while
 
     val parent = if (partitions.length > 1) {
-      val parent = ComputeUnit(cu.name, cu.pipe, StreamCU)
+      val parent = ComputeUnit(cu.name, StreamCU)
       parent.parent = cu.parent
       parent.deps = cu.deps
       parent.cchains ++= cu.cchains
@@ -159,7 +159,7 @@ trait PIRSplitting extends PIRTraversal {
   def scheduleCUPartition(orig: CU, part: CUPartition, i: Int, parent: Option[CU]): CU = dbgblk(s"scheduleCUPartition(orig=$orig, part=$part, i=$i, parent=$parent)"){
     val isUnit = orig.lanes == 1
 
-    val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, orig.style)
+    val cu = ComputeUnit(orig.name+"_"+i, orig.style)
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
     cu.fringeGlobals ++= orig.fringeGlobals

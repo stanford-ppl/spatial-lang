@@ -25,6 +25,13 @@ trait PIRLogger extends SpatialTraversal {
     listingSaved = listing
     listing = false
     val res = block
+    res match {
+      case res:Iterable[_] => 
+        dbgl(s"res:") { res.foreach { res => dbgs(s"$res")} }
+      case _:Unit =>
+      case _ =>
+        dbgs(s"res=$res")
+    }
     tablevel -=1
     dbgs(s"}")
     listing = listingSaved
@@ -39,32 +46,6 @@ trait PIRLogger extends SpatialTraversal {
     tablevel -=1
     res
   }
-  def dbgpcu(pcu:PseudoComputeUnit) = {
-    dbgblk(s"${qdef(pcu.pipe)} -> ${pcu.name}") {
-      dbgl(s"regs:") {
-        for ((s,r) <- pcu.regTable) { dbgs(s"$s -> $r") }
-      }
-      dbgl(s"cchains:") {
-        pcu.cchains.foreach { cchain => dbgs(s"$cchain") }
-      }
-      dbgl(s"MEMs:") {
-        for ((exp, mem) <- pcu.memMap) {
-          dbgs(s"""$mem (mode: ${mem.mode}) ${qdef(exp)}""")
-        }
-      }
-      dbgl(s"Write stages:") {
-        pcu.writeStages.foreach { stage => dbgs(s"  $stage") }
-      }
-      dbgl(s"Read stages:") {
-        pcu.readStages.foreach { stage => dbgs(s"  $stage") }
-      }
-      dbgl(s"FringeGlobals:") {
-        pcu.fringeGlobals.foreach { case (f, vec) => dbgs(s"$f -> $vec") }
-      }
-      dbgl(s"Compute stages:") { pcu.computeStages.foreach { stage => dbgs(s"$stage") } }
-    }
-  }
-
   def dbgcu(cu:ComputeUnit):Unit = dbgblk(s"Generated CU: $cu") {
     dbgblk(s"cchains: ") {
       cu.cchains.foreach{cchain => dbgs(s"$cchain") }
@@ -86,11 +67,8 @@ trait PIRLogger extends SpatialTraversal {
         }
       }
     }
-    dbgl(s"Generated write stages: ") {
-      cu.writeStages.foreach(stage => dbgs(s"  $stage"))
-    }
-    dbgl(s"Generated read stages: ") {
-      cu.readStages.foreach(stage => dbgs(s"$stage"))
+    dbgl("Generated PseudoStage: ") {
+      cu.pseudoStages.foreach { stage => dbgs(s"$stage") }
     }
     dbgl("Generated compute stages: ") {
       cu.computeStages.foreach(stage => dbgs(s"$stage"))

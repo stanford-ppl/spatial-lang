@@ -51,7 +51,7 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
           if (cuOuts.isEmpty)
             throw new Exception(c"$k was split into 0 CUs?")
 
-          cuIn.asInstanceOf[ACU] -> cuOuts.head.asInstanceOf[ACU]
+          cuIn.asInstanceOf[CU] -> cuOuts.head.asInstanceOf[CU]
         }
       }.toMap
       swapCUs(cuMapping)

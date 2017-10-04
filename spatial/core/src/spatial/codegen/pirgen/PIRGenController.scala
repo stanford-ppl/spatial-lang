@@ -37,12 +37,6 @@ trait PIRGenController extends PIRCodegen {
     if (cu.controlStages.nonEmpty && genControlLogic) {
       emitStages(cu.controlStages)
     }
-    if (cu.writeStages.nonEmpty) {
-      emitStages(cu.writeStages, "WA")
-    }
-    if (cu.readStages.nonEmpty) {
-      emitStages(cu.readStages, "RA")
-    }
     if (cu.computeStages.nonEmpty) {
       emitStages(cu.computeStages)
     }
@@ -139,37 +133,39 @@ trait PIRGenController extends PIRCodegen {
         case None => //ScalarBuffer doesn't have banking
       }
 
-      var ports = ""
+      var attrs = ""
 
       mem.writePort.foreach {
         //case LocalVectorBus => // Nothing?
-        case LocalReadBus(vfifo) => ports += s".wtPort(${quote(vfifo)}.readPort)" 
-        case vec => ports += s""".wtPort(${quote(vec)})"""
+        case LocalReadBus(vfifo) => attrs += s".wtPort(${quote(vfifo)}.readPort)" 
+        case vec => attrs += s""".wtPort(${quote(vec)})"""
         //case None => throw new Exception(s"Memory $mem has no writePort defined")
       }
       mem.readPort.foreach {
-        case vec => ports += s""".rdPort(${quote(vec)})"""
+        case vec => attrs += s""".rdPort(${quote(vec)})"""
       }
       mem.readAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => ports += s""".rdAddr(${quote(a)})"""
+        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => attrs += s""".rdAddr(${quote(a)})"""
         case _ =>
       }
       mem.writeAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => ports += s""".wtAddr(${quote(a)})"""
+        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => attrs += s""".wtAddr(${quote(a)})"""
         case _ =>
       }
-      if (!mem.isSRAM) {
-        mem.writeStart match {
-          case Some(start) => ports += s""".wtStart(${quote(start)})"""
-          case _ =>
-        }
-        mem.writeEnd match {
-          case Some(end) => ports += s""".wtEnd(${quote(end)})"""
-          case _ =>
-        }
+
+      readControllerOf(mem).foreach {
+        case (reader, Some(consumer)) => 
+          attrs += s""".consumer("${reader.name}", "${consumer.name}")"""
+        case _ =>
       }
 
-      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$ports""")
+      writeControllerOf(mem).foreach {
+        case (writer, Some(producer)) => 
+          attrs += s""".producer("${writer.name}", "${producer.name}")"""
+        case _ =>
+      }
+
+      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$attrs""")
 
     //case mc@MemoryController(name,region,mode,parent) =>
       //emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
@@ -187,7 +183,7 @@ trait PIRGenController extends PIRCodegen {
   }
 
   def emitFringeVectors(cu:ComputeUnit) = {
-    if (isFringe(cu.pipe)) {
+    if (isFringe(cusOf(cu))) {
       cu.fringeGlobals.foreach { 
         case (field, bus:ScalarBus) => emit(s"""CU.newSout("$field", ${quote(bus)})""")
         case (field, bus:VectorBus) => emit(s"""CU.newVout("$field", ${quote(bus)})""")

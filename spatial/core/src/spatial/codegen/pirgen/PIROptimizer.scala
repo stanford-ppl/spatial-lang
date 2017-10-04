@@ -65,8 +65,6 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     stages.foreach { stage =>
       if (stage.outputMems.isEmpty) {
         dbgs(s"Removing stage with no output from $cu: $stage")
-        cu.writeStages -= stage 
-        cu.readStages -= stage
         cu.computeStages -= stage
         cu.controlStages -= stage
       }
@@ -199,7 +197,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     val noOutput = globalOutputs(cu).isEmpty
     dbgs(s"$cu globalOutputs=${globalOutputs(cu)} ${cu.mems.map{m => m.readPort.map(globalOutputs)}}")
 
-    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe 
+    if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
         && !isCopied && noOutput && cu.switchTable.nonEmpty) {
       cus.foreach{ c =>
         if (c.deps.contains(cu)) {

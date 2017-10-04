@@ -26,6 +26,7 @@ case object Duplicated extends SRAMBanking { override def toString = "Duplicated
 
 // --- Compute types
 sealed abstract class CUStyle
+case object TopCU extends CUStyle
 case object PipeCU extends CUStyle
 case object SequentialCU extends CUStyle
 case object MetaPipeCU extends CUStyle
@@ -63,14 +64,9 @@ case class CUBit(override val name: String) extends BitBus(name) {
 }
 
 case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
-case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name) {
-  override def toString = s"ain$name"
-}
-case class OutputArg(override val name: String) extends ScalarBus(name) {
-  override def toString = s"aout$name"
-}
+case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name)
+case class OutputArg(override val name: String) extends ScalarBus(name)
 case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends ScalarBus(name) {
-  override def toString = s"dramAddr$name"
   // DramAddress of the same dram are the same
   override def equals(that: Any): Boolean =
     that match {
@@ -184,7 +180,7 @@ case class CChainInstance(override val name: String, sym:Expr, counters: Seq[CUC
   override def toString = name
   def longString: String = s"$name (" + counters.mkString(", ") + ")"
 }
-case class CChainCopy(override val name: String, inst: CUCChain, var owner: AbstractComputeUnit) extends CUCChain(name) {
+case class CChainCopy(override val name: String, inst: CUCChain, var owner: CU) extends CUCChain(name) {
   override def toString = s"$owner.copy($name)"
   def longString: String = this.toString
   val iterIndices = mutable.Map[Int, Int]() // CtrIdx -> IterIdx
@@ -196,7 +192,7 @@ case class UnitCChain(override val name: String) extends CUCChain(name) {
 
 
 // --- Compute unit memories
-case class CUMemory(name: String, mem: Expr, cu:AbstractComputeUnit) {
+case class CUMemory(name: String, mem: Expr, cu:CU) {
   var mode: LocalMemoryMode = _ 
   var bufferDepth: Int = 1
   var banking: Option[SRAMBanking] = None
@@ -212,8 +208,8 @@ case class CUMemory(name: String, mem: Expr, cu:AbstractComputeUnit) {
   var writeStart: Option[LocalComponent] = None
   var writeEnd: Option[LocalComponent] = None
 
-  var producer:Option[PseudoComputeUnit] = None
-  var consumer:Option[PseudoComputeUnit] = None
+  var producer:Option[CU] = None
+  var consumer:Option[CU] = None
 
   override def toString = name
 
@@ -254,7 +250,6 @@ case class OpStage(op: PIROp, inputs: List[Expr], out: Expr, isReduce: Boolean =
 case class AddrStage(mem: Expr, addr: Expr) extends PseudoStage { def output = None }
 case class FifoOnWriteStage(mem: Expr, start: Option[Expr], end: Option[Expr]) extends PseudoStage { def output = None }
 
-
 // --- Scheduled stages
 case class LocalRef(stage: Int, reg: LocalComponent)
 
@@ -270,7 +265,7 @@ case class MapStage(op: PIROp, var ins: Seq[LocalRef], var outs: Seq[LocalRef]) 
   def inputRefs = ins
   def outputRefs = outs
 }
-case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg, var accParent:AbstractComputeUnit) extends Stage {
+case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg, var accParent:CU) extends Stage {
   def inputMems = List(in.reg, acc)
   def outputMems = List(acc)
   def inputRefs = List(in)
@@ -278,20 +273,17 @@ case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: 
 }
 
 // --- Compute units
-abstract class AbstractComputeUnit {
-  val name: String
-  val pipe: Expr
-  var style: CUStyle
-  var parent: Option[AbstractComputeUnit] = None
+case class ComputeUnit(name: String, var style: CUStyle) {
+  var parent: Option[CU] = None
 
   var cchains: Set[CUCChain] = Set.empty
   val memMap: mutable.Map[Any, CUMemory] = mutable.Map.empty
   var regs: Set[LocalComponent] = Set.empty
-  var deps: Set[AbstractComputeUnit] = Set.empty
+  var deps: Set[CU] = Set.empty
 
   val regTable = mutable.HashMap[Expr, LocalComponent]()
   val expTable = mutable.HashMap[LocalComponent, List[Expr]]()
-  val switchTable = mutable.HashMap[BitBus, AbstractComputeUnit]()
+  val switchTable = mutable.HashMap[BitBus, CU]()
 
   def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
   def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
@@ -326,20 +318,14 @@ abstract class AbstractComputeUnit {
       addReg(x, reg)
       reg
   }
-}
 
-
-case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages   = mutable.ArrayBuffer[Stage]()
-  val readStages    = mutable.ArrayBuffer[Stage]()
+  val pseudoStages = mutable.ArrayBuffer[PseudoStage]()
   val computeStages = mutable.ArrayBuffer[Stage]()
   val controlStages = mutable.ArrayBuffer[Stage]()
 
   def parentCU: Option[CU] = parent.flatMap{case cu: CU => Some(cu); case _ => None}
 
-  def allStages: Iterator[Stage] = writeStages.iterator ++
-                                   readStages.iterator ++
-                                   computeStages.iterator ++
+  def allStages: Iterator[Stage] = computeStages.iterator ++
                                    controlStages.iterator
   var isDummy: Boolean = false
 
@@ -347,13 +333,6 @@ case class ComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends Abs
   def allParents: Iterable[CU] = parentCU ++ parentCU.map(_.allParents).getOrElse(Nil)
   def isPMU = style == MemoryCU
   def isPCU = !isPMU && !style.isInstanceOf[FringeCU]
-}
-
-
-case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) extends AbstractComputeUnit {
-  val writeStages = mutable.ArrayBuffer[PseudoStage]() // 
-  val readStages = mutable.ArrayBuffer[PseudoStage]() // 
-  val computeStages = mutable.ArrayBuffer[PseudoStage]()
 
   def sram = {
     assert(style == MemoryCU, s"Only MemoryCU has sram. cu:$this")
@@ -362,21 +341,7 @@ case class PseudoComputeUnit(name: String, pipe: Expr, var style: CUStyle) exten
     srams.head
   }
 
-  def copyToConcrete(): ComputeUnit = {
-    val cu = ComputeUnit(name, pipe, style)
-    cu.innerPar = this.innerPar
-    cu.parent = this.parent
-    cu.cchains ++= this.cchains
-    cu.memMap ++= this.memMap
-    cu.regs ++= this.regs
-    cu.deps ++= this.deps
-    cu.regTable ++= this.regTable
-    cu.expTable ++= this.expTable
-    cu.switchTable ++= this.switchTable
-    cu
-  }
 }
-
 
 sealed abstract class PIROp
 case object PIRALUMux  extends PIROp { override def toString = "MuxOp"    }

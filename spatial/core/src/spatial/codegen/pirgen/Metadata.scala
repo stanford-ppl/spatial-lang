@@ -1,5 +1,6 @@
 package spatial.codegen.pirgen
 
+import scala.collection.mutable
 import scala.util.{Try, Success, Failure}
 
 trait MetadataMaps extends MMap { 
@@ -20,14 +21,11 @@ object composed extends MOneToOneMap with MetadataMaps {
   type V = Expr 
 }
 
-object pcusOf extends MOneToManyMap with MetadataMaps {
-  type K = Expr
-  type V = PCU
-}
-
-object cusOf extends MOneToManyMap with MetadataMaps {
+object cusOf extends MBiOneToManyMap with MetadataMaps {
   type K = Expr
   type V = CU
+
+  def apply(v:V) = imap(v)
 }
 
 object innerDimOf extends MOneToOneMap with MetadataMaps {
@@ -43,4 +41,16 @@ object bankOf extends MOneToOneMap with MetadataMaps {
 object instOf extends MOneToOneMap with MetadataMaps {
   type K = CUMemory
   type V = Int
+}
+
+object writeControllerOf extends MOneToManyMap with MetadataMaps {
+  type K = CUMemory
+  type V = (CU, Option[CU])
+  override def apply(k:K):VV = map.getOrElse(k, mutable.Set[V]())
+}
+
+object readControllerOf extends MOneToManyMap with MetadataMaps {
+  type K = CUMemory
+  type V = (CU, Option[CU])
+  override def apply(k:K):VV = map.getOrElse(k, mutable.Set[V]())
 }
