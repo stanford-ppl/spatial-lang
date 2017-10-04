@@ -183,7 +183,7 @@ trait PIRGenController extends PIRCodegen {
   }
 
   def emitFringeVectors(cu:ComputeUnit) = {
-    if (isFringe(cusOf(cu))) {
+    if (isFringe(mappingOf(cu))) {
       cu.fringeGlobals.foreach { 
         case (field, bus:ScalarBus) => emit(s"""CU.newSout("$field", ${quote(bus)})""")
         case (field, bus:VectorBus) => emit(s"""CU.newVout("$field", ${quote(bus)})""")

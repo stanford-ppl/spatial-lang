@@ -32,13 +32,13 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {
     mappingIn.clear
-    mappingIn ++= cusOf.map.map { case (e,cus) => (e, cus.toList) }
+    mappingIn ++= mappingOf.map.map { case (e,cus) => (e, cus.toList) }
     super.preprocess(b)
   }
 
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
-    cusOf.reset
-    cusOf.map ++= mappingOut.map { case (k, v) => k -> mutable.Set(v.flatten :_*) }
+    mappingOf.reset
+    mappingOf.map ++= mappingOut.map { case (k, v) => k -> mutable.Set(v.flatten :_*) }
     super.postprocess(b)
   }
 

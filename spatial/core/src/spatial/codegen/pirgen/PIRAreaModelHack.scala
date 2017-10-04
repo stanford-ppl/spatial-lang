@@ -23,8 +23,8 @@ class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (cusOf.contains(lhs)) {
-      cusOf(lhs).foreach{cu =>
+    if (mappingOf.contains(lhs)) {
+      mappingOf(lhs).foreach{cu =>
         dbgs(c"CU:  $cu (lanes = ${cu.lanes}")
         val stageArea = cu.allStages.map{stage => areaOf(stage, cu) }.sum
         val ccArea = cu.cchains.map(cchainArea).sum

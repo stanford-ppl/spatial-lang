@@ -27,7 +27,7 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (cusOf.contains(lhs)) cus ++= cusOf(lhs)
+    if (mappingOf.contains(lhs)) cus ++= mappingOf(lhs)
   }
 
   def dse() {

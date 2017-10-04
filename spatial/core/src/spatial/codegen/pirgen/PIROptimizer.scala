@@ -8,7 +8,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Optimization"
   var IR = codegen.IR
 
-  def cus = cusOf.values.flatMap{cus => cus}.toList
+  def cus = mappingOf.values.flatMap{cus => cus}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
@@ -25,10 +25,10 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
     dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
     dbgs(s"Mapping:")
-    cusOf.foreach { case (sym, cus) =>
+    mappingOf.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
-    for (cu <- cusOf.values.flatten) {
+    for (cu <- mappingOf.values.flatten) {
       dbgcu(cu)
     }
     super.postprocess(b)
@@ -206,7 +206,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         }
       }
       dbgs(s"Removing empty CU $cu")
-      cusOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
+      mappingOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }
   }
 

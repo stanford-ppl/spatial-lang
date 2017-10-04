@@ -12,7 +12,7 @@ class PIRStats(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val recurse = Always
   var IR = codegen.IR
 
-  def cus = cusOf.values.flatten
+  def cus = mappingOf.values.flatten
 
   override protected def process[S:Type](block: Block[S]): Block[S] = {
     statsFile

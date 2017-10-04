@@ -21,7 +21,7 @@ object composed extends MOneToOneMap with MetadataMaps {
   type V = Expr 
 }
 
-object cusOf extends MBiOneToManyMap with MetadataMaps {
+object mappingOf extends MBiOneToManyMap with MetadataMaps {
   type K = Expr
   type V = CU
 

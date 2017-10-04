@@ -91,7 +91,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def allocateCU(exp: Expr): CU = cusOf.getOrElseUpdate(exp, dbgblk(s"allocateCU($exp)") {
+  def allocateCU(exp: Expr): CU = mappingOf.getOrElseUpdate(exp, dbgblk(s"allocateCU($exp)") {
     if (isControlNode(exp)) {
       dbgs(s"isInnerControl = ${isInnerControl(exp)}")
       dbgs(s"styleOf = ${styleOf(exp)}")
@@ -118,7 +118,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }).head
 
   def allocateMemoryCU(dsram:Expr):List[CU] = {
-    val cus = cusOf.getOrElseUpdate(dsram, { 
+    val cus = mappingOf.getOrElseUpdate(dsram, { 
       val sram = compose(dsram)
       val parentCU = parentOf(sram).map(allocateCU)
       val writers = getWriters(sram)
@@ -157,7 +157,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case b:Bound[_] => 
         if (cu.get(b).isEmpty) {
           val fromPipe = parentOf(b).getOrElse(throw new Exception(s"$b doesn't have parent"))
-          val fromCUs = cusOf(fromPipe)
+          val fromCUs = mappingOf(fromPipe)
           assert(fromCUs.size==1) // parent of bounds must be a controller in spatial
           val fromCU = fromCUs.head 
           val (cchain, iters, valids) = cchainOf(fromPipe).getOrElse {
@@ -777,7 +777,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       composed.keys.foreach { k => dbgs(s"${qdef(compose(k))}")}
     }
     dbgs(s"// ----- CU Allocation ----- //")
-    cusOf.foreach { case (exp, cus) =>
+    mappingOf.foreach { case (exp, cus) =>
       cus.foreach { cu => dbgcu(cu) }
     }
 

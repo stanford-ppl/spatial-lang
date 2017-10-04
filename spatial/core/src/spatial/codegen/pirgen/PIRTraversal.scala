@@ -53,7 +53,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
       dbgs(s"depsOf($reader)=${depsOf(reader)} isUnitPipe($pipe)=${isUnitPipe(pipe)}")
       writers.exists { writer => 
         writer.ctrlNode == pipe && 
-        cusOf(cu) == pipe && 
+        mappingOf(cu) == pipe && 
         (depsOf(reader).contains(writer.node) || carriedDep(mem, reader, writer.node))
       }
     }

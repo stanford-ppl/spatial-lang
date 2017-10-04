@@ -17,19 +17,19 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     // Swap dependencies, parents, cchain owners from pcu to cu
     dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
-    for (cu <- cusOf.values.flatten) {
+    for (cu <- mappingOf.values.flatten) {
       dbgcu(cu)
     }
     block
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if (cusOf.contains(lhs)) schedulePCU(lhs, cusOf(lhs).toList)
+    if (mappingOf.contains(lhs)) schedulePCU(lhs, mappingOf(lhs).toList)
   }
 
   def schedulePCU(exp: Expr, cus: List[CU]):Unit = {
     cus.foreach { cu =>
-      cusOf(exp) = dbgblk(s"Scheduling $exp CU: $cu") {
+      mappingOf(exp) = dbgblk(s"Scheduling $exp CU: $cu") {
         dbgcu(cu)
 
         val ctx = ComputeContext(cu)
@@ -163,7 +163,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val inputs = mutable.ListBuffer[Expr]()
       val accums = mutable.ListBuffer[Expr]()
       ins.foreach {
-        case in@Def(RegRead(reg)) if isAccum(reg) & isWrittenInPipe(reg, cusOf(ctx.cu)) => accums += in
+        case in@Def(RegRead(reg)) if isAccum(reg) & isWrittenInPipe(reg, mappingOf(ctx.cu)) => accums += in
         case in => inputs += in
       }
       assert(accums.size==1, s"accums:[${accums.mkString(",")}]")
@@ -176,7 +176,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val Def(RegRead(accumReg)) = accum
       val zero = extractConstant(resetValue(accumReg))
       val acc = ReduceReg()
-      val accParents = cusOf(parentOf(accumReg).get)
+      val accParents = mappingOf(parentOf(accumReg).get)
       assert(accParents.size==1)
       val accParent = accParents.head
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)
