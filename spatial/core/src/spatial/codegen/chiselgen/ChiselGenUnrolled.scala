@@ -66,6 +66,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
+        createValidsPassMap(lhs, cchain, iters, valids)
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
@@ -73,23 +74,31 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
         emitValids(lhs, cchain, iters, valids)
       } else {
+        // Not sure if these layer slicers belong at beginning or end of this else
+        valids.foreach{ layer =>
+          layer.foreach{ v =>
+            streamCtrCopy = streamCtrCopy :+ v
+          }
+        }
+        iters.foreach{ is =>
+          is.foreach{ iter =>
+            streamCtrCopy = streamCtrCopy :+ iter
+          }
+        }
+
+        // if (childrenOf(lhs).length > 0) {
+        //   childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+        //     createValidsPassMap(lhs, cchain, iters, valids, src"_copy$c")
+        //   }
+        // }
+        emitGlobalWire(s"// passmap: $validPassMap ")
+        emitGlobalWire(s"// cchainpassmap: $cchainPassMap ")
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
             emitParallelizedLoop(iters, cchain, src"_copy$c")
           }
           // Register the remapping for bound syms in children
-          valids.foreach{ layer =>
-            layer.foreach{ v =>
-              streamCtrCopy = streamCtrCopy :+ v
-            }
-          }
-          iters.foreach{ is =>
-            is.foreach{ iter =>
-              streamCtrCopy = streamCtrCopy :+ iter
-            }
-          }
-
           emitBlock(func)
         }
         if (childrenOf(lhs).length > 0) {
@@ -103,7 +112,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       emitChildrenCxns(lhs, Some(cchain), Some(iters.flatten))
       emitCopiedCChain(lhs)
-      connectCtrTrivial(cchain)
+      if (!(styleOf(lhs) == StreamPipe && childrenOf(lhs).length > 0)) {
+        connectCtrTrivial(cchain)
+      }
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
@@ -113,7 +124,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
-      emitValids(lhs, cchain, iters, valids)
+      createValidsPassMap(lhs, cchain, iters, valids)
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {
@@ -171,6 +182,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emitParallelizedLoop(iters, cchain)
         emitBlock(func)
       }
+      emitValids(lhs, cchain, iters, valids)
       emitChildrenCxns(lhs, Some(cchain), Some(iters.flatten))
       emitCopiedCChain(lhs)
       connectCtrTrivial(cchain)

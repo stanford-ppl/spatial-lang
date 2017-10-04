@@ -80,20 +80,25 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     if (parentOf(head).isDefined) {
       if (styleOf(parentOf(head).get) == StreamPipe) {src"_copy${head}"} else {getCtrSuffix(parentOf(head).get)}  
     } else {
-      "NO_SUFFIX_ERROR"
+      "" // TODO: Should this actually throw error??
     }
     
   }
 
   private def getValidSuffix(head: Exp[_], candidates: Seq[Exp[_]]): String = {
-    if (candidates.contains(head)) {
-      val id = candidates.toList.indexOf(head)
-      if (id > 0) src"_chain_read_${id}" else ""
+    // Specifically check if head == parent of candidates and do not add suffix if so
+    if (!candidates.isEmpty && parentOf(candidates.head).get == head) {
+      ""
     } else {
-      if (parentOf(head).isDefined) {
-        getValidSuffix(parentOf(head).get, candidates)
+      if (candidates.contains(head)) {
+        val id = candidates.toList.indexOf(head)
+        if (id > 0) src"_chain_read_${id}" else ""
       } else {
-        "NO_SUFFIX_ERROR"
+        if (parentOf(head).isDefined) {
+          getValidSuffix(parentOf(head).get, candidates)
+        } else {
+          "" // TODO: Should this actually throw error??
+        }
       }
     }
   }

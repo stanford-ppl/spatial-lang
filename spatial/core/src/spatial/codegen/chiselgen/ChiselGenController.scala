@@ -83,6 +83,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
+        // emitGlobalWire(s"//${validPassMap}")
         emitGlobalWire(src"val ${v}${suffix} = Wire(Bool())")
         emit(src"${v}${suffix} := Mux(${counter_data(i)._3} >= 0.S, ${c}${suffix} < ${counter_data(i)._2}, ${c}${suffix} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
@@ -96,12 +97,22 @@ trait ChiselGenController extends ChiselGenCounter{
             }
           }
           emit(src"""${v}${suffix}_chain.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
-          validPassMap += ((v, suffix) -> childrenOf(lhs))
         }
       }
     }
     // Console.println(s"map is $validPassMap")
   }
+
+  def createValidsPassMap(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
+    if (levelOf(lhs) != InnerControl) {
+      valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
+        layer.zip(count).foreach{ case (v, c) =>
+          validPassMap += ((v, suffix) -> childrenOf(lhs))
+        }
+      }
+    }
+  }
+
   def emitValidsDummy(iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
@@ -786,12 +797,13 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       emitChildrenCxns(lhs, None, None)
       emitCopiedCChain(lhs)
+      // emit(s"//${validPassMap} and ${cchainPassMap} on $ens")
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
 
     case ParallelPipe(ens,func) =>
-      emitGlobalWireMap(src"$${lhs}_II_done", "Wire(Bool())")
+      emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B""")
