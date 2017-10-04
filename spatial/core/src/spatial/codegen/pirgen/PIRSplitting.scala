@@ -65,9 +65,9 @@ trait PIRSplitting extends PIRTraversal {
   }
 
   def splitPCU(cu: CU, arch: CUCost, others: Seq[CU]): List[CU] = dbgblk(s"splitCU($cu)"){
-    dbgs(s"Splitting PCU: $cu")
-    dbgs(s"Compute: ")
-    cu.computeStages.foreach{stage => dbgs(s"  $stage")}
+    dbgl(s"Compute: ") {
+      cu.computeStages.foreach{stage => dbgs(s"$stage")}
+    }
     val allStages = cu.allStages.toList
     val ctrl = cu.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}
     val isUnit = cu.lanes == 1
@@ -127,8 +127,8 @@ trait PIRSplitting extends PIRTraversal {
 
     val parent = if (partitions.length > 1) {
       val parent = ComputeUnit(cu.name, StreamCU)
+      mappingOf(mappingOf(cu)) = parent
       parent.parent = cu.parent
-      parent.deps = cu.deps
       parent.cchains ++= cu.cchains
       val mems = usedMem(cu.cchains)
       parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
@@ -147,8 +147,9 @@ trait PIRSplitting extends PIRTraversal {
       dbgs(cost)
       dbgs(s"Util: ")
       reportUtil(getUtil(cu, cus.filterNot(_ == cu)++others))
-      dbgs(s"Compute stages: ")
-      cu.computeStages.foreach{stage => dbgs(s"  $stage") }
+      dbgl(s"Compute stages: ") {
+        cu.computeStages.foreach{stage => dbgs(s"$stage") }
+      }
     }
 
     parent.toList ++ cus.toList
@@ -160,10 +161,10 @@ trait PIRSplitting extends PIRTraversal {
     val isUnit = orig.lanes == 1
 
     val cu = ComputeUnit(orig.name+"_"+i, orig.style)
+    mappingOf(mappingOf(orig)) = cu
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
     cu.fringeGlobals ++= orig.fringeGlobals
-    if (parent.isEmpty) cu.deps ++= orig.deps
     if (parent.isEmpty) cu.cchains ++= orig.cchains
 
     val local = part.cstages
@@ -172,7 +173,7 @@ trait PIRSplitting extends PIRTraversal {
     val localIns  = local.flatMap(_.inputMems).toSet ++ cu.cchains.flatMap(localInputs)
     val localOuts = local.flatMap(_.outputMems).toSet
 
-    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    val readMems = localIns.collect{case MemLoad(mem) => mem }
     orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
     val remoteIns = remote.flatMap(_.inputMems).toSet
@@ -186,11 +187,11 @@ trait PIRSplitting extends PIRTraversal {
         case VectorIn(bus) => bus
         case ScalarOut(bus) => bus
         case VectorOut(bus) => bus
-        case MemLoadReg(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
+        case MemLoad(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
           val bus = CUVector(mem.name+"_sdata")
           globals += bus
           bus
-        case MemLoadReg(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
+        case MemLoad(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
           val bus = CUScalar(mem.name+"_vdata")
           globals += bus
           bus
@@ -220,7 +221,7 @@ trait PIRSplitting extends PIRTraversal {
     def portIn(reg: LocalComponent, isScalar:Option[Boolean] = None) = {
       val bus = globalBus(reg, isScalar)
       val fifo = allocateRetimingFIFO(reg, bus, cu)
-      MemLoadReg(fifo)
+      MemLoad(fifo)
     }
 
     def rerefIn(reg: LocalComponent): LocalRef = {
@@ -228,7 +229,7 @@ trait PIRSplitting extends PIRTraversal {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
         case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg)
-        case MemLoadReg(mem) => 
+        case MemLoad(mem) => 
           assert(localIns.contains(reg), s"localIns=$localIns doesn't contains $reg")
           assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} doesn't contains $mem")
           reg
@@ -299,10 +300,10 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     // --- Add bypass stages for locally hosted, remotely read SRAMs
-    /*val remoteSRAMReads = remoteIns.collect{case MemLoadReg(sram) => sram}
+    /*val remoteSRAMReads = remoteIns.collect{case MemLoad(sram) => sram}
     val localBypasses = remoteSRAMReads intersect cu.mems
     localBypasses.foreach{sram =>
-      val reg = MemLoadReg(sram)
+      val reg = MemLoad(sram)
       val out = portOut(reg, isUnit)
 
       if (!cu.computeStages.flatMap(_.outputMems).contains(out)) {

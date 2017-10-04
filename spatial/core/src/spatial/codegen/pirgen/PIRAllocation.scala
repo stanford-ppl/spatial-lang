@@ -470,7 +470,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
             readerCU.addReg(dreader, reg)
           } else {
             val lmem = readerCU.memMap(dmem)
-            readerCU.addReg(dreader, MemLoadReg(lmem))
+            readerCU.addReg(dreader, MemLoad(lmem))
             val consumer = getTopController(mem, reader, instOf(lmem))
             readControllerOf(lmem) = (readerCU, consumer)
             dbgs(s"readerCU=$readerCU")
@@ -595,7 +595,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           // Wire up readAddr
           val addrFifo = createRetimingFIFO(flatAddr, parBy1, sramCU)
           addrFifo.writePort += addrBus
-          sram.readAddr += MemLoadReg(addrFifo)
+          sram.readAddr += MemLoad(addrFifo)
           // Wire up readPort
           sram.readPort = Some(dataBus)
           val consumer = getTopController(mem, reader, instOf(sramCU.srams.head))
@@ -608,7 +608,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           readerCUs.foreach { readerCU =>
             val fifo = createRetimingFIFO(dreader, parBy1, readerCU) 
             fifo.writePort += dataBus
-            readerCU.addReg(dreader, MemLoadReg(fifo))
+            readerCU.addReg(dreader, MemLoad(fifo))
             dbgs(s"readerCU = $readerCU reads from fifo=$fifo dataBus=$dataBus")
           }
         }
@@ -620,8 +620,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     dbgblk(s"Allocating remote memory write: ${qdef(writer)}") {
       val parBy1 = getInnerPar(writer)==1
       val writerCU = getWriterCU(writer)
-      val addrCU = allocateCU(writer)
-      val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, writer, addrCU)
+      //val addrCU = allocateCU(writer)
+      val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, writer, /*addrCU*/writerCU)
 
       decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
 
@@ -641,11 +641,11 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           // Wire up writeAddr
           val addrFifo = createRetimingFIFO(flatAddr, parBy1, sramCU)
           addrFifo.writePort += addrBus
-          sram.writeAddr += MemLoadReg(addrFifo)
+          sram.writeAddr += MemLoad(addrFifo)
           val dataFifo = createRetimingFIFO(dwriter, parBy1, sramCU)
           // Wire up writePort
           dataFifo.writePort += dataBus
-          sram.writePort += LocalReadBus(dataFifo)
+          sram.writePort += MemLoad(dataFifo)
           val producer = getTopController(mem, writer, instOf(sramCU.srams.head))
           writeControllerOf(sram) = (writerCU, producer)
           dbgs(s"sram=$sram writePort=$dataFifo dataBus=$dataBus writeAddr=$addrBus")

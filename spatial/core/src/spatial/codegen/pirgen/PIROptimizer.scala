@@ -37,7 +37,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   def removeUnusedCUComponents(cu: CU) = {
     removeUnusedStages(cu)
     removeUnusedCChainCopy(cu)
-    removeUnusedFIFO(cu)
+    removeUnusedMems(cu)
   }
 
   def removeUnusedStages(cu: CU) = dbgl(s"Checking CU $cu for unused stages...") {
@@ -84,13 +84,13 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def removeUnusedFIFO(cu: CU) = dbgl(s"Checking CU $cu for unused FIFO...") {
+  def removeUnusedMems(cu: CU) = dbgl(s"Checking CU $cu for unused FIFO...") {
     var refMems = usedMem(cu) 
-    val unusedFifos = cu.fifos.filterNot{ fifo => refMems.contains(fifo) }
-    if (unusedFifos.nonEmpty) {
-      dbgs(s"Removing unused fifos from $cu")
-      unusedFifos.foreach{ fifo => dbgs(s"$fifo")}
-      cu.memMap.retain { case (e, m) => !unusedFifos.contains(m) }
+    val unusedMems = cu.mems.filterNot{ mem => refMems.contains(mem) }
+    if (unusedMems.nonEmpty) {
+      dbgs(s"Removing unused mems from $cu")
+      unusedMems.foreach{ mem => dbgs(s"$mem")}
+      cu.memMap.retain { case (e, m) => !unusedMems.contains(m) }
     }
   }
 
@@ -133,8 +133,12 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     cu.computeStages.foreach{stage => dbgs(s"$stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
-        val in = mem.writePort.head
+      case bypass@MapStage(
+        PIRBypass, 
+        List(LocalRef(_,MemLoad(mem:CUMemory))), 
+        List(LocalRef(_,VectorOut(out: VectorBus)))
+      ) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
+        val in = mem.writePort.head.asInstanceOf[GlobalBus]
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
@@ -142,20 +146,27 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head
+      case bypass@MapStage(
+        PIRBypass, 
+        List(LocalRef(_,MemLoad(mem:CUMemory))), 
+        List(LocalRef(_,ScalarOut(out: OutputArg)))
+      ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head.asInstanceOf[GlobalBus]
         dbgs(s"Found route-thru: $in -> $out")
         swapBus(cus, in, out)
         Some(bypass)
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: ScalarBus)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head
+      case bypass@MapStage(
+        PIRBypass, 
+        List(LocalRef(_,MemLoad(mem:CUMemory))), 
+        List(LocalRef(_,ScalarOut(out: ScalarBus)))
+      ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head.asInstanceOf[GlobalBus]
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
           Some(bypass)
-        }
-        else None
+        } else None
       case _ => None
     }
     if (bypassStages.nonEmpty) {
@@ -199,12 +210,6 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
     if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
         && !isCopied && noOutput && cu.switchTable.nonEmpty) {
-      cus.foreach{ c =>
-        if (c.deps.contains(cu)) {
-          c.deps -= cu
-          c.deps ++= cu.deps
-        }
-      }
       dbgs(s"Removing empty CU $cu")
       mappingOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }

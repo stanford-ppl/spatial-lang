@@ -135,21 +135,15 @@ trait PIRGenController extends PIRCodegen {
 
       var attrs = ""
 
-      mem.writePort.foreach {
-        //case LocalVectorBus => // Nothing?
-        case LocalReadBus(vfifo) => attrs += s".wtPort(${quote(vfifo)}.readPort)" 
-        case vec => attrs += s""".wtPort(${quote(vec)})"""
-        //case None => throw new Exception(s"Memory $mem has no writePort defined")
-      }
-      mem.readPort.foreach {
-        case vec => attrs += s""".rdPort(${quote(vec)})"""
-      }
+      mem.writePort.foreach { vec => attrs += s""".wtPort(${quote(vec)})""" }
+      mem.readPort.foreach { vec => attrs += s""".rdPort(${quote(vec)})""" }
+
       mem.readAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => attrs += s""".rdAddr(${quote(a)})"""
+        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoad) => attrs += s""".rdAddr(${quote(a)})"""
         case _ =>
       }
       mem.writeAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoadReg) => attrs += s""".wtAddr(${quote(a)})"""
+        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoad) => attrs += s""".wtAddr(${quote(a)})"""
         case _ =>
       }
 
@@ -202,17 +196,6 @@ trait PIRGenController extends PIRCodegen {
 
   def quote(mem: CUMemory): String = mem.name
 
-  def quote(x: GlobalComponent): String = x match {
-    case OffChip(name)       => s"${name}_oc"
-    //case mc:MemoryController => s"${mc.name}_mc"
-    case DramAddress(name, _, _)      => s"${name}_da"
-    case InputArg(name, _)      => s"${name}_argin"
-    case OutputArg(name)     => s"${name}_argout"
-    case bus:ScalarBus       => s"${bus.name}_s"
-    case bus:VectorBus       => s"${bus.name}_v"
-    case bus:BitBus       => s"${bus.name}_b"
-  }
-
   def quote(cu: CU): String = cu.style match {
     case StreamCU if cu.allStages.isEmpty && !cu.isDummy => "StreamController"
     case PipeCU => "Pipeline"
@@ -222,14 +205,23 @@ trait PIRGenController extends PIRCodegen {
     case FringeCU(dram, mode)     => "MemoryController"
   }
 
-  def quote(reg: LocalComponent): String = reg match {
+  def quote(x:Component):String = x match {
+    case OffChip(name)       => s"${name}_oc"
+    //case mc:MemoryController => s"${mc.name}_mc"
+    case DramAddress(name, _, _)      => s"${name}_da"
+    case InputArg(name, _)      => s"${name}_argin"
+    case OutputArg(name)     => s"${name}_argout"
+    case bus:ScalarBus       => s"${bus.name}_s"
+    case bus:VectorBus       => s"${bus.name}_v"
+    case bus:BitBus       => s"${bus.name}_b"
+
     case ConstReg(c)             => s"""Const($c)"""              // Constant
     case CounterReg(cchain, counterIdx, iterIdx) => s"${cchain.name}($counterIdx)"         // Counter TODO
     case ValidReg(cchain, counterIdx, validIdx)    => s"${cchain.name}.valids($counterIdx)"  // Counter valid TODO
 
     case WriteAddrWire(mem)      => s"${quote(mem)}.writeAddr"      // Write address wire
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
-    case MemLoadReg(mem)        => s"${quote(mem)}.readPort"                      // SRAM read
+    case MemLoad(mem)        => s"${quote(mem)}.readPort"                      // SRAM read
     case MemNumel(mem)        => s"${quote(mem)}.numel"                      // Mem number of element
 
     case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
@@ -258,7 +250,7 @@ trait PIRGenController extends PIRCodegen {
     case LocalRef(stage, reg: AccumReg)    => s"CU.accum(${quote(reg)})"
     case LocalRef(stage, reg: TempReg)     => s"${quote(reg)}"
     case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(${quote(reg)})"
-    case LocalRef(stage, reg@MemLoadReg(mem)) => s"CU.load(${quote(mem)})"
+    case LocalRef(stage, reg@MemLoad(mem)) => s"CU.load(${quote(mem)})"
 
     case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(${quote(reg)})"
     case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(${quote(reg)})"

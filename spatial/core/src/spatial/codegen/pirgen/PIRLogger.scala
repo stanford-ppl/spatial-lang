@@ -76,6 +76,11 @@ trait PIRLogger extends SpatialTraversal {
     dbgl(s"CU global inputs:") {
       globalInputs(cu).foreach{in => dbgs(s"$in") }
     }
+    dbgl(s"regTable:") {
+      cu.regTable.foreach { case (exp, comp) => 
+        dbgs(s"$exp -> $comp")
+      }
+    }
   }
 
   def qdef(lhs:Any):String = {

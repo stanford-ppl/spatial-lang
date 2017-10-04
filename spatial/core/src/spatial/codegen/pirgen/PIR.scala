@@ -42,8 +42,9 @@ case object ScalarFIFOMode extends LocalMemoryMode
 case object VectorFIFOMode extends LocalMemoryMode
 case object ScalarBufferMode extends LocalMemoryMode
 
+trait Component
 // --- Global buses
-sealed abstract class GlobalComponent(val name: String)
+sealed abstract class GlobalComponent(val name: String) extends Component
 case class OffChip(override val name: String) extends GlobalComponent(name)
 
 sealed abstract class GlobalBus(override val name: String) extends GlobalComponent(name) {
@@ -63,7 +64,6 @@ case class CUBit(override val name: String) extends BitBus(name) {
   override def toString = s"b$name"
 }
 
-case class LocalReadBus(mem:CUMemory) extends VectorBus(s"$mem.localRead")
 case class InputArg(override val name: String, dmem:Expr) extends ScalarBus(name)
 case class OutputArg(override val name: String) extends ScalarBus(name)
 case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends ScalarBus(name) {
@@ -79,7 +79,9 @@ case class DramAddress(override val name: String, dram:Expr, mem:Expr) extends S
 }
 
 // --- Local registers / wires
-sealed abstract class LocalComponent { final val id = {LocalComponent.id += 1; LocalComponent.id} }
+sealed abstract class LocalComponent extends Component { 
+  final val id = {LocalComponent.id += 1; LocalComponent.id}
+}
 object LocalComponent { var id = 0 }
 
 sealed abstract class LocalMem[T<:LocalComponent] extends LocalComponent {
@@ -118,11 +120,11 @@ case class ReadAddrWire(mem: CUMemory) extends LocalMem[ReadAddrWire] {
 case class WriteAddrWire(mem: CUMemory) extends LocalMem[WriteAddrWire] {
   override def eql(that: WriteAddrWire) = this.mem == that.mem
 }
-case class MemLoadReg(mem: CUMemory) extends LocalMem[MemLoadReg] {
-  override def eql(that: MemLoadReg) = this.mem == that.mem
+case class MemLoad(mem: CUMemory) extends LocalMem[MemLoad] {
+  override def eql(that: MemLoad) = this.mem == that.mem
 }
-case class MemNumel(mem: CUMemory) extends LocalMem[MemLoadReg] {
-  override def eql(that: MemLoadReg) = this.mem == that.mem
+case class MemNumel(mem: CUMemory) extends LocalMem[MemLoad] {
+  override def eql(that: MemLoad) = this.mem == that.mem
 }
 
 sealed abstract class ReduceMem[T<:LocalComponent] extends LocalMem[T]
@@ -200,8 +202,8 @@ case class CUMemory(name: String, mem: Expr, cu:CU) {
 
   // writePort either from bus or for sram can be from a vector FIFO
   //val writePort = mutable.ListBuffer[GlobalBus]()
-  var writePort = mutable.ListBuffer[GlobalBus]()
-  var readPort: Option[GlobalBus] = None
+  var writePort = mutable.ListBuffer[Component]()
+  var readPort: Option[Component] = None
   var readAddr = mutable.ListBuffer[LocalComponent]()
   var writeAddr = mutable.ListBuffer[LocalComponent]()
 
@@ -279,7 +281,6 @@ case class ComputeUnit(name: String, var style: CUStyle) {
   var cchains: Set[CUCChain] = Set.empty
   val memMap: mutable.Map[Any, CUMemory] = mutable.Map.empty
   var regs: Set[LocalComponent] = Set.empty
-  var deps: Set[CU] = Set.empty
 
   val regTable = mutable.HashMap[Expr, LocalComponent]()
   val expTable = mutable.HashMap[LocalComponent, List[Expr]]()

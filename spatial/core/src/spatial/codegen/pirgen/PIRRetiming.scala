@@ -70,7 +70,6 @@ trait PIRRetiming extends PIRTraversal {
         }*/
       }
 
-      cu.deps ++= deps(cu).flatMap{dep => producer.get(dep) } // Only use dependencies within this virtual CU
     }}
 
 
@@ -140,8 +139,8 @@ trait PIRRetiming extends PIRTraversal {
     cu.allStages.foreach{
       case stage@MapStage(op, ins, outs) =>
         stage.ins = ins.map{
-          case LocalRef(_,ScalarIn(`bus`)) => LocalRef(-1, MemLoadReg(sram))
-          case LocalRef(_,VectorIn(`bus`)) => LocalRef(-1, MemLoadReg(sram))
+          case LocalRef(_,ScalarIn(`bus`)) => LocalRef(-1, MemLoad(sram))
+          case LocalRef(_,VectorIn(`bus`)) => LocalRef(-1, MemLoad(sram))
           case ref => ref
         }
       case _ =>

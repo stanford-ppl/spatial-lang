@@ -79,18 +79,15 @@ package object pirgen {
   }
 
   def globalInputs(a: Any): Set[GlobalBus] = a match {
-    case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    //case MemLoadReg(mem) => Set(LocalReadBus(mem))
     case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
     case _ => collectX[GlobalBus](a)(globalInputs)
   }
   def globalOutputs(a: Any): Set[GlobalBus] = a match {
-    case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
     case ScalarOut(out) => Set(out)
     case VectorOut(out) => Set(out)
@@ -119,8 +116,7 @@ package object pirgen {
   }
 
   def usedMem(x:Any):Set[CUMemory] = x match {
-    case MemLoadReg(mem) => Set(mem)
-    case LocalReadBus(mem) => Set(mem)
+    case MemLoad(mem) => Set(mem)
     case x:CUMemory if x.mode == SRAMMode =>
       usedMem(x.readAddr ++ x.writeAddr ++ x.writeStart ++ x.writeEnd ++ x.writePort) + x
     case x:CUMemory => Set(x)
@@ -128,13 +124,14 @@ package object pirgen {
     case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
     case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => usedMem(x.mems)
     case x:ComputeUnit => usedMem(x.allStages) ++ usedMem(x.cchains) ++ usedMem(x.srams)
+    case LocalRef(stage, reg) => usedMem(reg)
     case _ => collectX[CUMemory](x)(usedMem)
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut | _:BitOut => false
     case _:ScalarIn  | _:VectorIn  | _:BitIn => true
-    case _:MemLoadReg| _:MemNumel => true
+    case _:MemLoad| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => false
     case _:ControlReg => true
@@ -143,7 +140,7 @@ package object pirgen {
   def isWritable(x: LocalComponent): Boolean = x match {
     case _:ScalarOut | _:VectorOut | _:BitOut => true
     case _:ScalarIn  | _:VectorIn  | _:BitIn => false
-    case _:MemLoadReg| _:MemNumel => false
+    case _:MemLoad| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => true
     case _:ControlReg => true
@@ -160,7 +157,7 @@ package object pirgen {
   }
 
   def memRef(x: LocalComponent):Option[CUMemory] = x match {
-    case MemLoadReg(mem) => Some(mem)
+    case MemLoad(mem) => Some(mem)
     case _ => None
   }
 

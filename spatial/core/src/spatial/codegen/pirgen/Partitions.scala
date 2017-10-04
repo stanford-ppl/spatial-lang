@@ -170,7 +170,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val remoteOuts: Set[LocalComponent] = remote.flatMap(_.outputMems).toSet
 
     // --- Memory reads
-    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    val readMems = localIns.collect{case MemLoad(mem) => mem }
     dbgs(s"Read Mems: " + readMems.mkString(", "))
 
     // --- CU inputs and outputs
@@ -216,7 +216,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
 
     // Live values throughout CU
-    val cuInputs  = liveIns ++ localIns.filter{case _:VectorIn | _:ScalarIn | _:MemLoadReg | _:CounterReg => true; case _ => false }
+    val cuInputs  = liveIns ++ localIns.filter{case _:VectorIn | _:ScalarIn | _:MemLoad | _:CounterReg => true; case _ => false }
     val cuOutputs = liveOuts ++ localOuts.filter{case _:VectorOut | _:ScalarOut => true; case _ => false }
 
     val liveRegs = (1 until local.size).map{i =>
@@ -353,7 +353,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
   def regsPerStage(cu: CU): Seq[Int] = {
     val local = cu.allStages.toList
-    val cuInputs  = local.flatMap(_.inputMems).filter{case _:VectorIn | _:ScalarIn | _:MemLoadReg | _:CounterReg => true; case _ => false }.toSet
+    val cuInputs  = local.flatMap(_.inputMems).filter{case _:VectorIn | _:ScalarIn | _:MemLoad | _:CounterReg => true; case _ => false }.toSet
     val cuOutputs = local.flatMap(_.outputMems).filter{case _:VectorOut | _:ScalarOut => true; case _ => false }.toSet
 
     dbgs(s"  Live values: ")

@@ -403,7 +403,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   def swapCUs(mapping: Map[CU, CU]): Unit = mapping.foreach { case (pcu, cu) =>
     cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
     cu.parent = cu.parent.map{parent => mapping.getOrElse(parent,parent) }
-    cu.deps = cu.deps.map{dep => mapping.getOrElse(dep, dep) }
     cu.mems.foreach{mem => swapCU_sram(mem) }
     cu.allStages.foreach{stage => swapCU_stage(stage) }
     cu.fringeGlobals ++= pcu.fringeGlobals
@@ -470,7 +469,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     def ref(reg: LocalComponent, out: Boolean, stage: Int = stageNum): LocalRef = reg match {
       // If the previous stage computed the read address for this load, use the registered output
       // of the memory directly. Otherwise, use the previous stage
-      case MemLoadReg(sram) => //TODO: rework out the logic here
+      case MemLoad(sram) => //TODO: rework out the logic here
         /*debug(s"Referencing SRAM $sram in stage $stage")
         debug(s"  Previous stage: $prevStage")
         debug(s"  SRAM read addr: ${sram.readAddr}")*/
