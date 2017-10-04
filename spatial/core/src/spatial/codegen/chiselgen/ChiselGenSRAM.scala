@@ -9,6 +9,20 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
+sealed trait StandardSignal
+object En extends StandardSignal
+object Done extends StandardSignal
+object BaseEn extends StandardSignal
+object Mask extends StandardSignal
+object Resetter extends StandardSignal
+object DatapathEn extends StandardSignal
+object CtrTrivial extends StandardSignal
+// A few non-canonical signals
+object IIDone extends StandardSignal
+object RstEn extends StandardSignal
+object CtrEn extends StandardSignal
+
+
 trait ChiselGenSRAM extends ChiselCodegen {
   private var nbufs: List[(Sym[SRAM[_]], Int)] = Nil
 
@@ -36,6 +50,36 @@ trait ChiselGenSRAM extends ChiselCodegen {
       }
     } 
     result
+  }
+
+  def swap(lhs: Exp[_], s: StandardSignal): String = {
+    s match {
+      case En => wireMap(src"${lhs}_en")
+      case Done => wireMap(src"${lhs}_done")
+      case BaseEn => wireMap(src"${lhs}_base_en")
+      case Mask => wireMap(src"${lhs}_mask")
+      case Resetter => wireMap(src"${lhs}_resetter")
+      case DatapathEn => wireMap(src"${lhs}_datapath_en")
+      case CtrTrivial => wireMap(src"${lhs}_ctr_trivial")
+      case IIDone => wireMap(src"${lhs}_II_done")
+      case RstEn => wireMap(src"${lhs}_rst_en")
+      case CtrEn => wireMap(src"${lhs}_ctr_en")
+    }
+  }
+
+  def swap(lhs: => String, s: StandardSignal): String = {
+    s match {
+      case En => wireMap(src"${lhs}_en")
+      case Done => wireMap(src"${lhs}_done")
+      case BaseEn => wireMap(src"${lhs}_base_en")
+      case Mask => wireMap(src"${lhs}_mask")
+      case Resetter => wireMap(src"${lhs}_resetter")
+      case DatapathEn => wireMap(src"${lhs}_datapath_en")
+      case CtrTrivial => wireMap(src"${lhs}_ctr_trivial")
+      case IIDone => wireMap(src"${lhs}_II_done")
+      case RstEn => wireMap(src"${lhs}_rst_en")
+      case CtrEn => wireMap(src"${lhs}_ctr_en")
+    }
   }
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -323,7 +367,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimR vector""")
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+        val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
         emit(src"""${lhs}_rVec(0).en := ShiftRegister($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
@@ -338,11 +382,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case SRAMStore(sram, dims, is, ofs, v, en) =>
       val width = bitWidth(sram.tp.typeArguments.head)
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
       emit(src"""${lhs}_wVec(0).data := $v.raw""")
-      emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${parent}_II_done).D(${symDelay(lhs)}, rr)""")
+      emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
@@ -358,6 +402,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
       val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
+      emit(src"""${boolMap.map{x => src"// ${x._1} = ${x._2}"}.mkString("\n")}""")
+      emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
     }
@@ -365,7 +411,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_${i}.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
       }
     }

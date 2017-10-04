@@ -18,22 +18,22 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
       alphaconv_register(src"$state")
-      emit(src"${lhs}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial.D(1,rr) | false.B")
 
       emitController(lhs, None, None, true)
+      emit(src"${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B")
       if (iiOf(lhs) <= 1 | levelOf(lhs) == OuterControl) {
-        emitGlobalWire(src"""val ${lhs}_II_done = true.B""")
+        emitGlobalWire(src"""val ${swap(lhs, IIDone)} = true.B""")
       } else {
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr());""")
-        emitGlobalWire(src"""val ${lhs}_II_done = Wire(Bool())""")
-        emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
-        emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_en""")
+        emitGlobalWire(src"""val ${swap(lhs, IIDone)} = Wire(Bool())""")
+        emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
+        emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs, En)}""")
         val stop = if (levelOf(lhs) == InnerControl) { iiOf(lhs) + 1} else {iiOf(lhs)} // I think innerpipes need one extra delay because of logic inside sm
         emit(src"""${lhs}_IICtr.io.input.stop := ${stop}.S // ${lhs}_retime.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${lhs}_II_done.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
-      // emitGlobalWire(src"""val ${lhs}_II_done = true.B // Maybe this should handled differently""")
+      // emitGlobalWire(src"""val ${swap(lhs, IIDone)} = true.B // Maybe this should handled differently""")
 
       emit("// Emitting notDone")
       emitBlock(notDone)
@@ -47,8 +47,8 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       }
       emit("// Emitting nextState")
       visitBlock(nextState)
-      emit(src"${lhs}_sm.io.input.enable := ${lhs}_en ")
-      emit(src"${lhs}_sm.io.input.nextState := Mux(${lhs}_II_done.D(1 max ${lhs}_retime - 1), ${nextState.result}.r.asSInt, ${lhs}_sm.io.output.state.r.asSInt) // Assume always int")
+      emit(src"${lhs}_sm.io.input.enable := ${swap(lhs, En)} ")
+      emit(src"${lhs}_sm.io.input.nextState := Mux(${swap(lhs, IIDone)}.D(1 max ${lhs}_retime - 1), ${nextState.result}.r.asSInt, ${lhs}_sm.io.output.state.r.asSInt) // Assume always int")
       emit(src"${lhs}_sm.io.input.initState := ${start}.r.asSInt")
       emitGlobalWire(src"val $state = Wire(${newWire(state.tp)})")
       emit(src"${state}.r := ${lhs}_sm.io.output.state.r")
@@ -56,8 +56,8 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit(src"${lhs}_doneCondition := ~${notDone.result}")
       emit(src"${lhs}_sm.io.input.doneCondition := ${lhs}_doneCondition")
       val extraEn = if (ens.length > 0) {src"""List($ens).map(en=>en).reduce{_&&_}"""} else {"true.B"}
-      emit(src"${lhs}_mask := ${extraEn}")
-      
+      emit(src"${swap(lhs, Mask)} := ${extraEn}")
+      emitChildrenCxns(lhs, None, None, true)
       controllerStack.pop()
       
     case _ => super.emitNode(lhs,rhs)

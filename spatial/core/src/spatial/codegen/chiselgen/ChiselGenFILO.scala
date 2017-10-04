@@ -71,9 +71,9 @@ trait ChiselGenFILO extends ChiselGenSRAM {
 
     case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
-      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
-      val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
+      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${swap(writer, DatapathEn)}" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = src"${swap(writer, DatapathEn)}"
+      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${swap(writer, En)} & ($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
 
 
     case FILOPop(fifo,en) =>
@@ -83,9 +83,9 @@ trait ChiselGenFILO extends ChiselGenSRAM {
           if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}" 
         case _ => src"${symDelay(lhs)}" 
       }
-      val enabler = src"${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done"
+      val enabler = src"${swap(reader, DatapathEn)} & ~${reader}_inhibitor & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${enabler}).D(${bug202delay}) & $en & ~${reader}_inhibitor).apply(0)""")
+      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${swap(reader, En)} & (${enabler}).D(${bug202delay}) & $en & ~${reader}_inhibitor).apply(0)""")
 
     case FILOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")

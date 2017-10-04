@@ -1,16 +1,18 @@
 package spatial.codegen.pirgen
 
 import argon.core._
+import forge._
 import spatial.analysis.SpatialTraversal
 import spatial.aliases._
 
 import scala.collection.mutable
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
-  var STAGES: Int = spatialConfig.stages                            // Number of compute stages per CU
+
+  @lazyvar var STAGES: Int = spatialConfig.stages                   // Number of compute stages per CU
   def LANES: Int = spatialConfig.lanes                              // Number of SIMD lanes per CU
   def REDUCE_STAGES: Int = (Math.log(LANES)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
-  var READ_WRITE: Int = spatialConfig.readWrite
+  @lazyvar var READ_WRITE: Int = spatialConfig.readWrite
 
   abstract class Partition {
     var cchains: Set[CUCChain] = Set[CUCChain]()

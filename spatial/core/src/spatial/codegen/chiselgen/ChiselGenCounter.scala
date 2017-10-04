@@ -12,8 +12,8 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
   var streamCtrCopy = List[Bound[_]]()
 
   // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")
-
-  def emitCounterChain(lhs: Exp[_], ctrs: Seq[Exp[Counter]], suffix: String = ""): Unit = {
+  def emitCounterChain(lhs: Exp[_], suffix: String = ""): Unit = {
+    val Def(CounterChainNew(ctrs)) = lhs
     var isForever = false
     // Temporarily shove ctrl node onto stack so the following is quoted properly
     if (cchainPassMap.contains(lhs)) {controllerStack.push(cchainPassMap(lhs))}
@@ -38,13 +38,14 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
     emitGlobalModule(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
-    val ctrl = usersOf(lhs).head._1
-    if (suffix != "") {
-      emit(src"// this trivial signal will be assigned multiple times but each should be the same")
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.tail.head}_ctr_trivial.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
-    } else {
-      emit(src"""${ctrl}_ctr_trivial := ${controllerStack.head}_ctr_trivial.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
-    }
+    // ctr_trivial connection is now responsibility of controller
+    // val ctrl = usersOf(lhs).head._1
+    // if (suffix != "") {
+    //   emit(src"// this trivial signal will be assigned multiple times but each should be the same")
+    //   emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
+    // } else {
+    //   emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
+    // }
     emit(src"""${lhs}${suffix}.io.input.stops.zip(${lhs}${suffix}_stops).foreach { case (port,stop) => port := stop.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.r.asSInt }""")
@@ -75,20 +76,25 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     if (parentOf(head).isDefined) {
       if (styleOf(parentOf(head).get) == StreamPipe) {src"_copy${head}"} else {getCtrSuffix(parentOf(head).get)}  
     } else {
-      "NO_SUFFIX_ERROR"
+      "" // TODO: Should this actually throw error??
     }
     
   }
 
   private def getValidSuffix(head: Exp[_], candidates: Seq[Exp[_]]): String = {
-    if (candidates.contains(head)) {
-      val id = candidates.toList.indexOf(head)
-      if (id > 0) src"_chain_read_${id}" else ""
+    // Specifically check if head == parent of candidates and do not add suffix if so
+    if (!candidates.isEmpty && parentOf(candidates.head).get == head) {
+      ""
     } else {
-      if (parentOf(head).isDefined) {
-        getValidSuffix(parentOf(head).get, candidates)
+      if (candidates.contains(head)) {
+        val id = candidates.toList.indexOf(head)
+        if (id > 0) src"_chain_read_${id}" else ""
       } else {
-        "NO_SUFFIX_ERROR"
+        if (parentOf(head).isDefined) {
+          getValidSuffix(parentOf(head).get, candidates)
+        } else {
+          "" // TODO: Should this actually throw error??
+        }
       }
     }
   }
@@ -129,7 +135,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
       emit(s"// $lhs = ($start to $end by $step par $par")
     case CounterChainNew(ctrs) => 
       val user = usersOf(lhs).head._1
-      if (styleOf(user) != StreamPipe) emitCounterChain(lhs, ctrs)
+      if (styleOf(user) != StreamPipe) emitCounterChain(lhs)
     case Forever() => 
       emit("// $lhs = Forever")
 
