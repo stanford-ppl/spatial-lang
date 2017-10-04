@@ -91,7 +91,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def allocateCU(exp: Expr): CU = mappingOf.getOrElseUpdate(exp, dbgblk(s"allocateCU($exp)") {
+  def allocateCU(exp: Expr): CU = mappingOf.getOrElseUpdate(exp) { dbgblk(s"allocateCU($exp)") {
     if (isControlNode(exp)) {
       dbgs(s"isInnerControl = ${isInnerControl(exp)}")
       dbgs(s"styleOf = ${styleOf(exp)}")
@@ -115,10 +115,10 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     if (top.isEmpty && parent.isEmpty) top = Some(exp)
 
     mutable.Set(cu)
-  }).head
+  }}.head
 
   def allocateMemoryCU(dsram:Expr):List[CU] = {
-    val cus = mappingOf.getOrElseUpdate(dsram, { 
+    val cus = mappingOf.getOrElseUpdate(dsram) { 
       val sram = compose(dsram)
       val parentCU = parentOf(sram).map(allocateCU)
       val writers = getWriters(sram)
@@ -146,7 +146,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           }
         }
       }
-    })
+    }
     cus.toList
   }
 
@@ -337,7 +337,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
    * load/regRead/fifoDeq is used for both data calculation and address calculation for remote
    * memory, this function returns both the CU and MCUs
    * */
-  def getReaderCUs(reader: Expr): List[CU] = if (readerCUs.contains(reader)) readerCUs(reader) else
+  def getReaderCUs(reader: Expr): List[CU] = readerCUsOf.getOrElseUpdate(reader) { 
     dbgblk(s"getReaderCUs(${qdef(reader)})") {
       val readerCUs = mutable.Set[CU]()
       if (isFringe(reader)) { readerCUs += allocateCU(reader) } // Fringe is considered to be a reader of the stream
@@ -370,9 +370,9 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           }
         }
       }
-      this.readerCUs += reader -> readerCUs.toList
       readerCUs.toList
     }
+  }
 
   /**
    * @param dwriter decomposed writer

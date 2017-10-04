@@ -474,7 +474,7 @@ package object pirgen {
       })
     }
     else {
-      Right(decomposed.getOrElseUpdate(exp, {
+      Right(decomposed.getOrElseUpdate(exp) {
         fields.map { f => 
           val (field, dexp) = f match {
             case field:String => (field, fresh[Int32]) 
@@ -487,7 +487,7 @@ package object pirgen {
           }
           (field, dexp)
         }
-      }))
+      })
     }
   }
 

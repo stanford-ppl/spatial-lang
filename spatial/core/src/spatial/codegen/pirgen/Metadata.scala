@@ -28,6 +28,11 @@ object mappingOf extends MBiOneToManyMap with MetadataMaps {
   def apply(v:V) = imap(v)
 }
 
+object readerCUsOf extends MOneToOneMap with MetadataMaps {
+  type K = Expr
+  type V = List[CU]
+}
+
 object innerDimOf extends MOneToOneMap with MetadataMaps {
   type K = Expr
   type V = Int

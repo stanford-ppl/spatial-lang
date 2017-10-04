@@ -6,7 +6,8 @@ import scala.collection.mutable.Set
 trait MMap extends UniMap {
   override type M = Map[K,VV]
   def clear = { map.clear }
-  def getOrElseUpdate(k:K, v:VV) = map.getOrElseUpdate(k,v)
+  def update(n:K, v:V):Unit
+  def getOrElseUpdate(k:K)(v: => VV):VV
   def transform(f: (K, VV) ⇒ VV): M = map.transform(f)
   def filterNot(p: ((K, VV)) ⇒ Boolean) = map.filterNot(p)
   def retain(p: (K, VV) ⇒ Boolean): M = map.retain(p)
@@ -21,6 +22,10 @@ trait MOneToOneMap extends OneToOneMap with MMap {
   override type M = Map[K, VV]
   val map:Map[K, VV] = Map.empty
   def update(n:K, v:V):Unit = { check((n,v)); map += (n -> v) }
+  def getOrElseUpdate(k:K)(v: => VV):VV = {
+    if (!map.contains(k)) update(k,v) 
+    map(k)
+  }
 }
 
 trait MBiOneToOneMap extends MOneToOneMap with BiOneToOneMap with MBiMap {
@@ -33,7 +38,11 @@ trait MOneToManyMap extends OneToManyMap with MMap {
   override type VV = Set[V]
   override type M = Map[K, VV]
   val map:Map[K, VV] = Map.empty
-  def update(n:K, v:V):Unit = map.getOrElseUpdate(n, Set[V]()) += v
+  def update(n:K, v:V):Unit = { check((n,v)); map.getOrElseUpdate(n, Set[V]()) += v }
+  def getOrElseUpdate(k:K)(v: => VV):VV = {
+    if (!map.contains(k)) v.foreach { v => update(k,v) }
+    map(k)
+  }
 }
 
 trait MBiOneToManyMap extends MOneToManyMap with BiOneToManyMap with MBiMap {
