@@ -1,1 +1,3 @@
-sbt "apps/runMain Regression"
+#!/bin/bash
+
+sbt "apps/runMain Regression $@"
