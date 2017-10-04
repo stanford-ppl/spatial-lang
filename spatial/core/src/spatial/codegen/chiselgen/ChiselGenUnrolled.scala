@@ -46,7 +46,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
@@ -103,7 +103,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
