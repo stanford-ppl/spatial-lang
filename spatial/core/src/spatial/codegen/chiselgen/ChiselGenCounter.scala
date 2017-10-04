@@ -38,9 +38,9 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
     // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
-    emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3)}) // TODO: Safe to get rid of this and connect directly?""")
-    emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
-    emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
+    emitGlobalWire(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3)}) // TODO: Safe to get rid of this and connect directly?""")
+    emitGlobalWire(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
+    emitGlobalWire(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
     emitGlobalModule(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
     // ctr_trivial connection is now responsibility of controller
     // val ctrl = usersOf(lhs).head._1
