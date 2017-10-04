@@ -4,10 +4,8 @@ import argon.core._
 import argon.nodes._
 import spatial.nodes._
 import argon.interpreter.{Interpreter => AInterpreter}
-import math.BigDecimal
 import java.util.concurrent.{ LinkedBlockingQueue => Queue }
 import java.util.concurrent.TimeUnit
-import spatial.SpatialConfig
 import spatial.targets.Bus
 
 object Streams {

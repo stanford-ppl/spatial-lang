@@ -67,7 +67,7 @@ class SpatialConfig extends argon.core.Config {
 
   var enableSplitting: Boolean = _
   var enableArchDSE: Boolean = _
-  var enableNaming: Boolean = _
+
   var enableSyncMem: Boolean = _
   var enableInstrumentation: Boolean = _
   var useCheapFifos: Boolean = _

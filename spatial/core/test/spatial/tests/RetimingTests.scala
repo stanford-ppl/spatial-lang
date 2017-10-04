@@ -2,13 +2,13 @@ package spatial.tests
 
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
+import spatial.aliases._
 import spatial.nodes.DelayLine
-import spatial.SpatialConfig
 
 trait RetimeTest extends SpatialTest {
   override def settings(): Unit = {
     super.settings()
-    SpatialConfig.enableRetiming = true
+    spatialConfig.enableRetiming = true
   }
 }
 

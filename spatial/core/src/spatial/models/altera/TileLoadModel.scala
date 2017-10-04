@@ -3,7 +3,6 @@ package altera
 
 import java.io.File
 
-import argon.core.Config
 import argon.util.Report._
 import org.encog.engine.network.activation.ActivationSigmoid
 import org.encog.ml.data.basic.{BasicMLData, BasicMLDataSet}
@@ -24,10 +23,10 @@ class TileLoadModel {
   val verbose = false
   val MAX_EPOCH = 600
 
-  private val pwd = System.getenv().getOrDefault("SPATIAL_HOME", Config.cwd)
+  private val cwd = System.getenv().getOrDefault("SPATIAL_HOME", new java.io.File(".").getAbsolutePath)
 
   def init(): Unit = if (needsInit) {
-    val encogFile = s"$pwd/data/$name.eg"
+    val encogFile = s"$cwd/data/$name.eg"
     val exists = new File(encogFile).exists
 
     if (exists) {
@@ -37,7 +36,7 @@ class TileLoadModel {
     else {
       val MODELS = 1000
 
-      val data = Source.fromFile(s"$pwd/data/$filename").getLines().toArray.drop(1).map(_.split(",").map(_.trim.toDouble))
+      val data = Source.fromFile(s"$cwd/data/$filename").getLines().toArray.drop(1).map(_.split(",").map(_.trim.toDouble))
 
       val input = data.map(_.take(4))
 

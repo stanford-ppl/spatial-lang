@@ -4,8 +4,6 @@ import spatial.dsl._
 import org.virtualized._
 import spatial.SpatialCompiler
 import argon.interpreter.{Interpreter => AInterpreter}
-import spatial.SpatialConfig
-import argon.core.Config
 import argon.core.Const
 import scala.collection.JavaConverters._
 import argon.lang.typeclasses.Bits
@@ -38,7 +36,7 @@ trait SpatialStreamInterpreter {
   override def stagingArgs = scala.Array[java.lang.String]("--interpreter") ++ __stagingArgs
 
   def runI() {    
-    initConfig(stagingArgs)
+    init(stagingArgs)
     compileProgram(() => spatial())
   }
 
@@ -58,7 +56,7 @@ trait SpatialStreamInterpreter {
 
     __stagingArgs ++= args
 
-    Config.exit = () => exit()
+    config.exit = () => exit()
 
     inputs.foreach { case (bus, content) =>
       Streams.addStreamIn(bus)

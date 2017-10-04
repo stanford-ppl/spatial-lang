@@ -6,7 +6,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
+
 
 trait ChiselGenReg extends ChiselGenSRAM {
   var argIns: List[Sym[Reg[_]]] = List()
@@ -16,32 +16,23 @@ trait ChiselGenReg extends ChiselGenSRAM {
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
-            case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${lhs.name.getOrElse("reg").replace("$","")}"""
-            case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
-            case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(ArgInNew(_))  => s"${s}_argin"
+    case Def(ArgOutNew(_)) => s"${s}_argout"
+    case Def(HostIONew(_)) => s"${s}_hostio"
+    case Def(RegNew(_))    => s"""${s}_${s.name.getOrElse("reg").replace("$","")}"""
+
+    case Def(RegRead(reg:Sym[_]))      => s"${s}_readx${reg.id}"
+    case Def(RegWrite(reg:Sym[_],_,_)) => s"${s}_writex${reg.id}"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -138,6 +129,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${reg.name.getOrElse("")}""")
         emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg).argInId})""")
       } else {
+        emitGlobalWire(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
         if (dispatchOf(lhs, reg).isEmpty) {
           throw new spatial.EmptyDispatchException(lhs)
         }
@@ -152,36 +144,33 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 case FixPtSum =>
                   if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emit(src"""val ${lhs} = Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval) // get reset value that was created by reduce controller""")                    
+                      case FixPtType(s,d,f) => emit(src"""${lhs}.r := Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval).r // get reset value that was created by reduce controller""")                    
                     }
                   } else {
-                    emit(src"""val ${lhs} = ${reg}_initval // get reset value that was created by reduce controller""")                    
+                    emit(src"""${lhs}.r := ${reg}_initval // get reset value that was created by reduce controller""")                    
                   }
                 case _ =>  
                   lhs.tp match { 
                     case FixPtType(s,d,f) => 
-                      emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
                       emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-                    case BooleanType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
-                    case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+                    case BooleanType() => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
+                    case _ => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
                   }
               }
             case _ =>
               lhs.tp match { 
                 case FixPtType(s,d,f) => 
-                  emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
                   emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-                case BooleanType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
-                case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+                case BooleanType() => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
+                case _ => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
               }
           }
         } else {
           lhs.tp match { 
             case FixPtType(s,d,f) => 
-              emit(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
               emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-            case BooleanType() => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
-            case _ => emit(src"""val $lhs = ${reg}_${inst}.read(${port.head})""")
+            case BooleanType() => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
+            case _ => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
           }
         }
       }
@@ -240,10 +229,11 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
+                  val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }

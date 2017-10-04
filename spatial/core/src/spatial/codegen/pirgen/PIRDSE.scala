@@ -1,17 +1,15 @@
 package spatial.codegen.pirgen
 
 import argon.core._
-import spatial.SpatialConfig
+import spatial.aliases._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.parallel._
+import scala.util.control.Breaks._
 import java.io.PrintStream
 import java.nio.file.{Files, Paths}
 
-import argon.core.Config
-
-import scala.util.control.Breaks._
 
 trait PIRDSE extends PIRSplitting with PIRRetiming {
   override val name = "Plasticine DSE"
@@ -31,9 +29,9 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
   }
 
   def dse() {
-    val prevVerbosity = Config.verbosity
+    val prevVerbosity = config.verbosity
     this.silence()
-    Config.verbosity = -1
+    config.verbosity = -1
     Console.println(s"Running design space exploration")
 
     val unrestrictedPCU = CUCost(sIn=100,sOut=100,vIn=100,vOut=100,comp=10000,regsMax=1000)
@@ -60,7 +58,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
         foundMCU = true
         break // Ugly, but it works.
       }
-      catch {case e:SplitException => }
+      catch {case _:SplitException => }
     }}
 
     if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
@@ -78,7 +76,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
 
     val threads = regsMaxs.flatMap{r => vIns_PCUs.flatMap{v => sIns_PCUs.map{s => (r,v,s) }}}.par
 
-    threads.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(SpatialConfig.threads))
+    threads.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(spatialConfig.threads))
 
     val results = (REDUCE_STAGES to 16).flatMap{stages =>
       STAGES = stages
@@ -155,7 +153,7 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
             //Console.println(s"$n [$perc%]: " + text + s": PASS [PCUs:$nPCUs/PMUs:$nPMUs]")
             entries(n-1) = "P" + (settingsCSV + "," + stats.toCSV)
           }
-          catch {case e:SplitException =>
+          catch {case _:SplitException =>
             fail += 1
             //Console.println(s"$n [$perc%]: " + text + ": FAIL")
             //dbgs(e.msg)
@@ -174,11 +172,11 @@ trait PIRDSE extends PIRSplitting with PIRRetiming {
     val dir = s"$pwd/csvs"
     Files.createDirectories(Paths.get(dir))
 
-    val name = Config.name
+    val name = config.name
     val valid = new PrintStream(s"$dir/${name}_$LANES.csv")
     //val invalid = new PrintStream(s"$dir/${name}_${LANES}_invalid.csv")
 
-    Config.verbosity = prevVerbosity
+    config.verbosity = prevVerbosity
     Console.print(s"Writing results to file $dir/$name.csv...")
 
     valid.println("SIns_PCU, SOuts_PCU, VIns_PCU, Vouts_PCU, Stages, Regs_PCU, SIns_PMU, SOuts_PMU, VIns_PMU, VOuts_PMU, R/W, Regs_PMU, " + Statistics.header)

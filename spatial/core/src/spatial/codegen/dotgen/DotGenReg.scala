@@ -1,7 +1,6 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
-import argon.core.Config
 import argon.core._
 import spatial.aliases._
 import spatial.metadata._
@@ -52,11 +51,11 @@ trait DotGenReg extends DotCodegen {
     case ArgInNew(init)  => emitVert(lhs, forceful=true)
     case ArgOutNew(init) => emitVert(lhs, forceful=true)
     case RegNew(init)    => emitVert(lhs)
-    case RegRead(reg)    => if (Config.dotDetail == 0) {emitMemRead(lhs)} else {
+    case RegRead(reg)    => if (config.dotDetail == 0) {emitMemRead(lhs)} else {
                   emitVert(lhs)
                   emitEdge(reg, lhs)
                 }
-    case RegWrite(reg,v,en) => if (Config.dotDetail == 0) {emitMemWrite(lhs)} else {
+    case RegWrite(reg,v,en) => if (config.dotDetail == 0) {emitMemWrite(lhs)} else {
                   emitEdge(v, reg)
                   emitEn(en, reg)
                 }

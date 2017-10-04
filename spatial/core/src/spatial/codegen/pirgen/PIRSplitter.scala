@@ -1,7 +1,7 @@
 package spatial.codegen.pirgen
 
 import argon.core._
-import spatial.SpatialConfig
+import spatial.aliases._
 
 import scala.collection.mutable
 
@@ -14,20 +14,20 @@ trait PIRSplitter extends PIRSplitting with PIRRetiming {
   val mappingOut = mutable.HashMap[Expr, List[List[CU]]]()
 
   lazy val PCUMax = CUCost(
-    sIn=SpatialConfig.sIn_PCU,
-    sOut=SpatialConfig.sOut_PCU,
-    vIn=SpatialConfig.vIn_PCU,
-    vOut=SpatialConfig.vOut_PCU,
+    sIn=spatialConfig.sIn_PCU,
+    sOut=spatialConfig.sOut_PCU,
+    vIn=spatialConfig.vIn_PCU,
+    vOut=spatialConfig.vOut_PCU,
     comp=STAGES,
-    regsMax = SpatialConfig.regs_PCU
+    regsMax = spatialConfig.regs_PCU
   )
   lazy val PMUMax = MUCost(
-    sIn=SpatialConfig.sIn_PMU,
-    sOut=SpatialConfig.sOut_PMU,
-    vIn=SpatialConfig.vIn_PMU,
-    vOut=SpatialConfig.vOut_PMU,
+    sIn=spatialConfig.sIn_PMU,
+    sOut=spatialConfig.sOut_PMU,
+    vIn=spatialConfig.vIn_PMU,
+    vOut=spatialConfig.vOut_PMU,
     comp=READ_WRITE,
-    regsMax = SpatialConfig.regs_PMU
+    regsMax = spatialConfig.regs_PMU
   )
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {

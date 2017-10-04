@@ -1,7 +1,6 @@
 package spatial
 
 import argon.ArgonArgParser
-import argon.core.Config
 import argon.util.Report._
 
 class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spatialConfig) {

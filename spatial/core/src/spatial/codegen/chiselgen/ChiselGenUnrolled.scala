@@ -6,32 +6,28 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
-
 import spatial.targets.DE1._
 
 
 trait ChiselGenUnrolled extends ChiselGenController {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          val Op(rhs) = lhs
-          rhs match {
-            case e: UnrolledForeach=> s"x${lhs.id}_unrForeach"
-            case e: UnrolledReduce[_,_] => s"x${lhs.id}_unrRed"
-            case e: ParSRAMLoad[_] => s"""x${lhs.id}_parLd${lhs.name.getOrElse("")}"""
-            case e: ParSRAMStore[_] => s"""x${lhs.id}_parSt${lhs.name.getOrElse("")}"""
-            case e: ParFIFODeq[_] => s"x${lhs.id}_parDeq"
-            case e: ParFIFOEnq[_] => s"x${lhs.id}_parEnq"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
+  }
+
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: UnrolledForeach)     => s"${s}_unrForeach"
+    case Def(_: UnrolledReduce[_,_]) => s"${s}_unrRed"
+    case Def(_: ParSRAMLoad[_])      => s"""${s}_parLd${s.name.getOrElse("")}"""
+    case Def(_: ParSRAMStore[_])     => s"""${s}_parSt${s.name.getOrElse("")}"""
+    case Def(_: ParFIFODeq[_])       => s"${s}_parDeq"
+    case Def(_: ParFIFOEnq[_])       => s"${s}_parEnq"
+    case _ => super.name(s)
   } 
 
   private def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]]): String = {
@@ -39,14 +35,6 @@ trait ChiselGenUnrolled extends ChiselGenController {
     indices.zip(strides).map{case (i,s) => src"$i*-*$s"}.mkString(" + ")
   }
 
-  override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
-  }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case UnrolledForeach(ens,cchain,func,iters,valids) =>
@@ -139,13 +127,24 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //     case _ => 
       //       throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
       //   }
+      val dlay = bodyLatency.sum(lhs)
+      accumsWithIIDlay += accum.asInstanceOf[Exp[_]]
       if (levelOf(lhs) == InnerControl) {
-        val dlay = bodyLatency.sum(lhs)
+        if (spatialConfig.enableRetiming) {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+        } else {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        }
         emitGlobalWire(s"val ${quote(accum)}_wren = Wire(Bool())")
         emit(s"${quote(accum)}_wren := (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
         emitGlobalWire(src"val ${accum}_resetter = Wire(Bool())")
         emit(src"${accum}_resetter := ${lhs}_rst_en")
       } else {
+        if (spatialConfig.enableRetiming) {
+          emitGlobalWire(src"val ${accum}_II_dlay = ${iiOf(lhs)} + 1 // Hack to fix Arbitrary Lambda")
+        } else {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        }
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
@@ -248,7 +247,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val par = ens.length
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      if (SpatialConfig.useCheapFifos){
+      if (spatialConfig.useCheapFifos){
         val en = ens.map(quote).mkString("&")
         emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en)""")  
       } else {
@@ -272,7 +271,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${writer}_datapath_en"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      if (SpatialConfig.useCheapFifos) {
+      if (spatialConfig.useCheapFifos) {
         val en = ens.map(quote).mkString("&")
         emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")  
       } else {
@@ -286,7 +285,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      emitGlobalWire(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en).reverse""")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done).D(${symDelay(lhs)}) & $en).reverse""")
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case ParFILOPush(filo, data, ens) =>

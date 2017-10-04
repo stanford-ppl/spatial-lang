@@ -7,13 +7,12 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 import scala.collection.mutable
 
 trait PIRHackyRetimer extends ForwardTransformer with PIRHackyModelingTraversal { retimer =>
   override val name = "Hacky PIR Retimer"
-  override def shouldRun = SpatialConfig.enablePIRSim
+  override def shouldRun = spatialConfig.enablePIRSim
 
   def requiresRetiming(x: Exp[_], inReduce: Boolean): Boolean = latencyModel.requiresRegisters(x, inReduce)
   def retimingDelay(x: Exp[_], inReduce: Boolean): Int = {

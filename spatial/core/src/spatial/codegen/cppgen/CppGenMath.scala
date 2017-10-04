@@ -6,30 +6,20 @@ import argon.core._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
-import spatial.SpatialConfig
+
 
 trait CppGenMath extends CppCodegen {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(FixRandom(x))=> s"x${lhs.id}_fixrnd"
-            case Def(FixNeg(x:Exp[_])) => s"x${lhs.id}_neg${quoteOperand(x)}"
-            case Def(FixAdd(x:Exp[_],y:Exp[_])) => s"x${lhs.id}_sum${quoteOperand(x)}_${quoteOperand(y)}"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(FixRandom(x))              => s"${s}_fixrnd"
+    case Def(FixNeg(x:Exp[_]))          => s"${s}_neg${quoteOperand(x)}"
+    case Def(FixAdd(x:Exp[_],y:Exp[_])) => s"${s}_sum${quoteOperand(x)}_${quoteOperand(y)}"
+    case _ => super.name(s)
   } 
 
   def quoteOperand(s: Exp[_]): String = s match {
-    case ss:Sym[_] => s"x${ss.id}"
-    case Const(xx:Exp[_]) => s"${boundOf(xx).toInt}"
+    case ss: Sym[_] => s"x${ss.id}"
+    case Const(xx: Exp[_]) => s"${boundOf(xx).toInt}"  // FIXME: This should never match
     case _ => "unk"
   }
 

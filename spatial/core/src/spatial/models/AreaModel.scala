@@ -8,9 +8,8 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import argon.util._
-import spatial.SpatialConfig
 
-import scala.io.{BufferedSource, Source}
+import scala.io.Source
 import scala.util.Try
 
 abstract class AreaModel {
@@ -19,12 +18,13 @@ abstract class AreaModel {
   def RegArea(n: Int, bits: Int): Area = model("Reg")("b"->bits, "d"->1) * n
   def MuxArea(n: Int, bits: Int): Area = model("Mux")("b"->bits) * n // TODO: Not sure if this is always right
 
-  final def FIELDS: Array[String] = SpatialConfig.target.FIELDS
-  final def DSP_CUTOFF: Int = SpatialConfig.target.DSP_CUTOFF
-  final implicit def AREA_CONFIG: AreaConfig[Double] = SpatialConfig.target.AREA_CONFIG
-  final implicit def MODEL_CONFIG: AreaConfig[NodeModel] = SpatialConfig.target.MODEL_CONFIG
+  var target: FPGATarget = _
+  final def FIELDS: Array[String] = target.FIELDS
+  final def DSP_CUTOFF: Int = target.DSP_CUTOFF
+  final implicit def AREA_CONFIG: AreaConfig[Double] = target.AREA_CONFIG
+  final implicit def MODEL_CONFIG: AreaConfig[NodeModel] = target.MODEL_CONFIG
 
-  lazy val NoArea: Area = AreaMap.zero[Double]
+  final def NoArea: Area = AreaMap.zero[Double]
 
   var models: Map[String,Model] = Map.empty
   def model(name: String)(args: (String,Double)*): Area = {
@@ -42,7 +42,7 @@ abstract class AreaModel {
   }
   @stateful def reportMissing(): Unit = {
     if (missing.nonEmpty) {
-      warn(s"The target device ${SpatialConfig.target.name} was missing one or more area models.")
+      warn(s"The target device ${target.name} was missing one or more area models.")
       missing.foreach{str => warn(s"  $str") }
       warn(s"Models marked (csv) can be added to $FILE_NAME.")
       warn("")
@@ -55,7 +55,7 @@ abstract class AreaModel {
     missing = Set.empty
   }
 
-  def loadModels(): Map[String,Model] = {
+  @stateful def loadModels(): Map[String,Model] = {
     val resource = Try(Source.fromResource("models/" + FILE_NAME).getLines())
     val direct = Try{
       val SPATIAL_HOME = sys.env("SPATIAL_HOME")
@@ -74,7 +74,7 @@ abstract class AreaModel {
       val fields   = indices.map{i => headings(i) }
       val missing = FIELDS diff fields
       if (missing.nonEmpty) {
-        warn(s"Area model file $FILE_NAME for target ${SpatialConfig.target.name} was missing expected fields: ")
+        warn(s"Area model file $FILE_NAME for target ${target.name} was missing expected fields: ")
         warn(missing.mkString(", "))
       }
       val models = lines.flatMap{line =>
@@ -96,13 +96,14 @@ abstract class AreaModel {
 
       models
     }.getOrElse{
-      warn(s"Area model file $FILE_NAME for target ${SpatialConfig.target.name} was not found.")
+      warn(s"Area model file $FILE_NAME for target ${target.name} was not found.")
       Map.empty
     }
   }
 
   private var needsInit: Boolean = true
-  def init(): Unit = if (needsInit) {
+  @stateful def init(): Unit = if (needsInit) {
+    target = spatialConfig.target
     models = loadModels()
     needsInit = false
   }
@@ -479,7 +480,7 @@ abstract class AreaModel {
       val p = boundOf(tx.p).toInt
       val w = tx.bT.length
       tx.lens.last match {
-        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedStore"+d)("p"->p,"w"->w)
+        case Exact(c) if (c.toInt*tx.bT.length) % target.burstSize == 0 => model("AlignedStore"+d)("p"->p,"w"->w)
         case _ => model("UnalignedStore"+d)("p"->p,"w"->w)
       }
     case tx: DenseTransfer[_,_] if tx.isLoad =>
@@ -487,7 +488,7 @@ abstract class AreaModel {
       val p = boundOf(tx.p).toInt
       val w = tx.bT.length
       tx.lens.last match {
-        case Exact(c) if (c.toInt*tx.bT.length) % SpatialConfig.target.burstSize == 0 => model("AlignedLoad"+d)("p"->p,"w"->w)
+        case Exact(c) if (c.toInt*tx.bT.length) % target.burstSize == 0 => model("AlignedLoad"+d)("p"->p,"w"->w)
         case _ => model("UnalignedLoad"+d)("p"->p,"w"->w)
       }
 

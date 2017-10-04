@@ -3,15 +3,14 @@ package spatial.codegen.pirgen
 import argon.core._
 import spatial.analysis.SpatialTraversal
 import spatial.aliases._
-import spatial.SpatialConfig
 
 import scala.collection.mutable
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
-  var STAGES: Int = SpatialConfig.stages                       // Number of compute stages per CU
-  def LANES = SpatialConfig.lanes                              // Number of SIMD lanes per CU
-  def REDUCE_STAGES = (Math.log(LANES)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
-  var READ_WRITE = SpatialConfig.readWrite
+  var STAGES: Int = spatialConfig.stages                            // Number of compute stages per CU
+  def LANES: Int = spatialConfig.lanes                              // Number of SIMD lanes per CU
+  def REDUCE_STAGES: Int = (Math.log(LANES)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
+  var READ_WRITE: Int = spatialConfig.readWrite
 
   abstract class Partition {
     var cchains: Set[CUCChain] = Set[CUCChain]()
@@ -35,8 +34,8 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val ctrl: Option[CUCChain] = cc
     recomputeCChains(false)
 
-    def nonEmpty = cstages.nonEmpty
-    def allStages = cstages
+    def nonEmpty: Boolean = cstages.nonEmpty
+    def allStages: List[Stage] = cstages
 
     def popHead(n: Int = 1) = {
       val stages = cstages.take(n)
@@ -74,12 +73,12 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     rstages ++= read
     recomputeCChains(false)
 
-    def nonEmpty = wstages.nonEmpty || rstages.nonEmpty
+    def nonEmpty: Boolean = wstages.nonEmpty || rstages.nonEmpty
 
     def allStages: Iterable[Stage] = wstages ++ rstages
   }
 
-  def recomputeOwnedCChains(p: Partition, ctrl: Option[CUCChain], isEdge: Boolean) = {
+  def recomputeOwnedCChains(p: Partition, ctrl: Option[CUCChain], isEdge: Boolean): Unit = {
     p.cchains = usedCChains(p.allStages)
 
     if (isEdge && ctrl.isDefined) p.cchains += ctrl.get
@@ -99,11 +98,11 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     regsMax: Int = 0, // Maximum live values at any given time
     regsUse: Int = 0  // Estimated number of registers used
   ) extends PartitionCost {
-    def >(that: MUCost) = {
+    def >(that: MUCost): Boolean = {
       this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
       this.vOut > that.vOut || this.comp > that.comp || this.regsMax > that.regsMax
     }
-    def +(that: MUCost) = MUCost(
+    def +(that: MUCost): MUCost = MUCost(
       sIn   = this.sIn + that.sIn,
       sOut  = this.sOut + that.sOut,
       vIn   = this.vIn + that.vIn,
@@ -414,22 +413,22 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     pcuOnly: Utilization,
     pmuOnly: Utilization,
     /** UCUs **/
-    sIn_UCU: Int = SpatialConfig.sIn_UCU,       // TODO: These aren't used in splitting, ignored for now
-    stages_UCU: Int = SpatialConfig.stages_UCU, // TODO: These aren't used in splitting, ignored for now
+    sIn_UCU: Int = spatialConfig.sIn_UCU,       // TODO: These aren't used in splitting, ignored for now
+    stages_UCU: Int = spatialConfig.stages_UCU, // TODO: These aren't used in splitting, ignored for now
     /** PCUs **/
-    sIn_PCU:  Int = SpatialConfig.sIn_PCU,
-    sOut_PCU: Int = SpatialConfig.sOut_PCU,
-    vIn_PCU:  Int = SpatialConfig.vIn_PCU,
-    vOut_PCU: Int = SpatialConfig.vOut_PCU,
-    stages:   Int = SpatialConfig.stages,
-    regs_PCU: Int = SpatialConfig.regs_PCU,
+    sIn_PCU:  Int = spatialConfig.sIn_PCU,
+    sOut_PCU: Int = spatialConfig.sOut_PCU,
+    vIn_PCU:  Int = spatialConfig.vIn_PCU,
+    vOut_PCU: Int = spatialConfig.vOut_PCU,
+    stages:   Int = spatialConfig.stages,
+    regs_PCU: Int = spatialConfig.regs_PCU,
     /** PMUs **/
-    sIn_PMU:  Int = SpatialConfig.sIn_PMU,
-    sOut_PMU: Int = SpatialConfig.sOut_PMU,
-    vIn_PMU:  Int = SpatialConfig.vIn_PMU,
-    vOut_PMU: Int = SpatialConfig.vOut_PMU,
-    readWrite:Int = SpatialConfig.readWrite,
-    regs_PMU: Int = SpatialConfig.regs_PMU
+    sIn_PMU:  Int = spatialConfig.sIn_PMU,
+    sOut_PMU: Int = spatialConfig.sOut_PMU,
+    vIn_PMU:  Int = spatialConfig.vIn_PMU,
+    vOut_PMU: Int = spatialConfig.vOut_PMU,
+    readWrite:Int = spatialConfig.readWrite,
+    regs_PMU: Int = spatialConfig.regs_PMU
   ) {
     val nPCUs = total.pcus - total.ucus
     val nUCUs = total.ucus

@@ -15,6 +15,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var itersMap = new scala.collection.mutable.HashMap[Bound[_], List[Exp[_]]]
   var cchainPassMap = new scala.collection.mutable.HashMap[Exp[_], Exp[_]] // Map from a cchain to its ctrl node, for computing suffix on a cchain before we enter the ctrler
   var validPassMap = new scala.collection.mutable.HashMap[(Exp[_], String), Seq[Exp[_]]] // Map from a valid bound sym to its ctrl node, for computing suffix on a valid before we enter the ctrler
+  var accumsWithIIDlay = new scala.collection.mutable.ListBuffer[Exp[_]]
 
   // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
@@ -58,35 +59,32 @@ trait ChiselGenSRAM extends ChiselCodegen {
     //}
   //}
 
-  def cchainWidth(ctr: Exp[Counter]): Int = {
-    ctr match {
-      case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
-        val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
-        val ebits = if (e > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
-        ({ebits max sbits} + 2).toInt
-      case Def(CounterNew(start, stop, _, _)) => 
-        val sbits = bitWidth(start.tp)
-        val ebits = bitWidth(stop.tp)
-        ({ebits max sbits} + 0).toInt
-      case _ => 32
-    }
+  def cchainWidth(ctr: Exp[Counter]): Int = ctr match {
+    case Def(CounterNew(Exact(s), Exact(e), _, _)) =>
+      val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt}
+                  else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+      val ebits = if (e > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt}
+                  else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+      ({ebits max sbits} + 2).toInt
+    case Def(CounterNew(start, stop, _, _)) =>
+      val sbits = bitWidth(start.tp)
+      val ebits = bitWidth(stop.tp)
+      ({ebits max sbits} + 0).toInt
+    case _ => 32
   }
 
   def getWriteAddition(c: Exp[Any]): String = {
-      // If we are inside a stream pipe, the following may be set
-      // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
-      val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
-        case _ => ""
-      }.filter(_ != "").mkString(" & ")
+    // If we are inside a stream pipe, the following may be set
+    // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
+    val lat = bodyLatency.sum(c)
+    val readiers = listensTo(c).distinct.map{_.memory}.map {
+      case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
+      case _ => ""
+    }.filter(_ != "").mkString(" & ")
 
-      val hasReadiers = if (readiers != "") "&" else ""
+    val hasReadiers = if (readiers != "") "&" else ""
 
-      src" ${hasReadiers} ${readiers}"
-
+    src" ${hasReadiers} ${readiers}"
   }
 
   def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
@@ -190,13 +188,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def logRetime(lhs: String, data: String, delay: Int, isVec: Boolean = false, vecWidth: Int = 1, wire: String = "", isBool: Boolean = false): Unit = {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
-      emit(src"val $lhs = Wire(${wire})")
+      emitGlobalWire(src"val $lhs = Wire(${wire})")
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
     } else {
       if (isBool) {
         emitGlobalWire(src"""val $lhs = Wire(Bool())""");emit(src"""$lhs := ${data}.D($delay, rr)""")
       } else {
-        emit(src"""val $lhs = ShiftRegister($data, $delay)""")
+        emitGlobalWire(src"""val $lhs = Wire(${wire})""");emit(src"""$lhs := ShiftRegister($data, $delay)""")
       }
     }
   }
@@ -222,27 +220,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.needsFPType(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    s match {
-      case b: Bound[_] => computeSuffix(b)
-      case _ =>
-        if (spatialConfig.enableNaming) {
-          s match {
-            case lhs: Sym[_] =>
-              val Op(rhs) = lhs
-              rhs match {
-                case SRAMNew(dims)=> 
-                  s"""x${lhs.id}_${lhs.name.getOrElse("sram").replace("$","")}"""
-                case _ =>
-                  super.quote(s)
-              }
-            case _ =>
-              super.quote(s)
-          }
-        } else {
-          super.quote(s)
-        }
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(SRAMNew(_)) => s"""${s}_${s.name.getOrElse("sram").replace("$","")}"""
+    case _ => super.name(s)
+  }
+
+  override protected def quote(e: Exp[_]): String = e match {
+    // FIXME: Unclear precedence with the quote rule for Bound in ChiselGenCounter
+    case b: Bound[_] => computeSuffix(b)
+    case _ => super.quote(e)
   } 
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {

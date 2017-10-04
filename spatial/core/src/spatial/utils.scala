@@ -588,12 +588,13 @@ object utils {
   @stateful def isForever(e: Exp[_]): Boolean = getDef(e).exists(isForever)
   @stateful def isForever(d: Def): Boolean = d match {
     case _: Forever             => true
+    case CounterChainNew(ctrs)  => ctrs.exists(isForever)
     case e: Hwblock             => e.isForever
-    case e: OpForeach           => isForeverCounterChain(e.cchain)
-    case e: OpReduce[_]         => isForeverCounterChain(e.cchain)
-    case e: OpMemReduce[_,_]    => isForeverCounterChain(e.cchainMap) // This should probably never happen
-    case e: UnrolledForeach     => isForeverCounterChain(e.cchain)
-    case e: UnrolledReduce[_,_] => isForeverCounterChain(e.cchain)
+    case e: OpForeach           => isForever(e.cchain)
+    case e: OpReduce[_]         => isForever(e.cchain)
+    case e: OpMemReduce[_,_]    => isForever(e.cchainMap) // This should probably never happen?
+    case e: UnrolledForeach     => isForever(e.cchain)
+    case e: UnrolledReduce[_,_] => isForever(e.cchain)
     case _ => false
   }
 
@@ -626,7 +627,6 @@ object utils {
     case _ => false
   }
 
-  @stateful def isForeverCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).exists(isForever)
   @stateful def isUnitCounterChain(x: Exp[CounterChain]): Boolean = countersOf(x).forall(isUnitCounter)
 
   /** Registers **/

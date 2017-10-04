@@ -1,10 +1,7 @@
 package spatial.dse
 
 import java.io.PrintStream
-import java.util.concurrent.{BlockingQueue, TimeUnit}
-
-import argon.core.Config
-import argon.util.Report._
+import java.util.concurrent.BlockingQueue
 
 case class DSEWriterThread(
   threadId:  Int,

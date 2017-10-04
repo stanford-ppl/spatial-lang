@@ -1,7 +1,6 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
-import argon.core.Config
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
@@ -18,10 +17,10 @@ trait DotGenFIFO extends DotCodegen with DotGenReg {
     case op@FIFONew(size)   => emitVert(lhs)
     case FIFOEnq(fifo,v,en) => 
       emitMemWrite(lhs)
-      if (Config.dotDetail > 0) {emitEn(en, lhs)}
+      if (config.dotDetail > 0) {emitEn(en, lhs)}
     case FIFODeq(fifo,en)   => 
       emitMemRead(lhs)
-      if (Config.dotDetail > 0) {emitEn(en, lhs)}
+      if (config.dotDetail > 0) {emitEn(en, lhs)}
 
     case _ => super.emitNode(lhs, rhs)
   }

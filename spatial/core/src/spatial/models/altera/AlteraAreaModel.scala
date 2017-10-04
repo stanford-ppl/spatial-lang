@@ -1,10 +1,9 @@
 package spatial.models
 package altera
 
-import argon.core.Config
-import argon.util.Report._
+import argon.core._
 import forge._
-import spatial.SpatialConfig
+import spatial.aliases._
 
 abstract class AlteraAreaModel extends AreaModel {
   import spatial.targets.AlteraDevice._
@@ -35,9 +34,9 @@ abstract class AlteraAreaModel extends AreaModel {
     val totalDSPs = design(DSPs)
     val totalBRAM = design(BRAM) + dupBRAMs
 
-    val capacity = SpatialConfig.target.capacity
+    val capacity = spatialConfig.target.capacity
 
-    if (Config.verbosity > 0) {
+    if (config.verbosity > 0) {
       val areaReport = s"""
                           |Resource Estimate Breakdown:
                           |----------------------------

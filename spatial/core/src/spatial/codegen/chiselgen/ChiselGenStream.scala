@@ -11,12 +11,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
   var streamIns: List[Sym[Reg[_]]] = List()
   var streamOuts: List[Sym[Reg[_]]] = List()
 
-  override def quote(s: Exp[_]): String = {
-    s match {
-      case b: Bound[_] => super.quote(s)
-      case _ => super.quote(s)
-
-    }
+  override protected def quote(e: Exp[_]): String = e match {
+    // FIXME: Unclear precedence with ChiselGenSRAM and ChiselGenCounter - probably does nothing
+    case b: Bound[_] => super.quote(e)
+    case _ => super.quote(e)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

@@ -4,26 +4,13 @@ import argon.core._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 
 trait CppGenDRAM extends CppGenSRAM {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: DRAMNew[_,_])=> s"""x${lhs.id}_${lhs.name.getOrElse("dram")}"""
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: DRAMNew[_,_])=> s"""${s}_${s.name.getOrElse("dram")}"""
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -32,7 +19,7 @@ trait CppGenDRAM extends CppGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@DRAMNew(dims,zero) =>
+    case DRAMNew(dims, _) =>
       drams = drams :+ lhs
       emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(${remapIntType(lhs.tp.typeArguments.head)}) * ${dims.map(quote).mkString("*")});""")
       emit(src"c1->setArg(${argMapping(lhs)._2}, $lhs, false); // (memstream in: ${argMapping(lhs)._2}, out: ${{argMapping(lhs)._3}})")

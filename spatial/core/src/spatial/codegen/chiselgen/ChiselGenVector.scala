@@ -4,25 +4,15 @@ import argon.core._
 import argon.nodes._
 import spatial.aliases._
 import spatial.nodes._
-import spatial.SpatialConfig
+
 
 trait ChiselGenVector extends ChiselGenSRAM {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(ListVector(_))=> s"x${lhs.id}_vecified"
-            case Def(VectorApply(_,i:Int)) => s"x${lhs.id}_elem${i}"
-            case Def(VectorSlice(_,s:Int,e:Int)) => s"x${lhs.id}_slice${s}to${e}"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(ListVector(_))            => s"${s}_vecified"
+    case Def(VectorApply(_,i))         => s"${s}_elem$i"
+    case Def(VectorSlice(_,start,end)) => s"${s}_slice${start}to$end"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -49,7 +39,7 @@ trait ChiselGenVector extends ChiselGenSRAM {
 
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
-      case FixPtType(s,i,f) => emit(src"val $lhs = Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
+      case FixPtType(s,i,f) => emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
       case BooleanType()    => emit(src"val $lhs = $v // TODO: Need to do something fancy here?")
     }
 

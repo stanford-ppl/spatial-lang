@@ -191,7 +191,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += memAnalyzer       // Finalize banking/buffering
 
     // TODO: Resurrect this for SRAM views
-    /*if (SpatialConfig.useAffine) {
+    /*if (spatialConfig.useAffine) {
       passes += sramTransform
       passes += printer
       passes += ctrlAnalyzer      // Control signal analysis
@@ -261,14 +261,17 @@ trait SpatialCompiler extends ArgonCompiler {
   override def settings(): Unit = {
     if (spatialConfig.useBasicBlocks) {
       Report.warn("Setting compiler to use basic blocks. Code motion will be disabled.")
-      _IR.useBasicBlocks = true
+      IR.useBasicBlocks = true
     }
+    // Get the target's area and latency models ready for use by any compiler pass
+    target.areaModel.init()
+    target.latencyModel.init()
   }
 
   override protected def createConfig(): Config = new SpatialConfig()
   override protected def parseArguments(config: Config, sargs: Array[String]): Unit  = {
     val spatialConfig = config.asInstanceOf[SpatialConfig]
-    spatialConfig.target = this.target
+    spatialConfig.target = this.target // Default target is the one specified by the App
 
     val parser = new SpatialArgParser(spatialConfig)
     parser.parse(sargs.toSeq)
