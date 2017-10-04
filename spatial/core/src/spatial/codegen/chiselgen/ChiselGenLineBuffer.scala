@@ -37,7 +37,20 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     // TODO: Need to account for stride here
     case op@LineBufferNew(rows, cols, stride) =>
-      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) =>
+        val readers = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i }
+        val writers = writersOf(lhs).filter{write => dispatchOf(write, lhs) contains i }
+        val (transientWrites, nonTransientWrites) = writers.partition(write => isTransient(write.node))
+
+        if (readers.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no readers.")
+        if (nonTransientWrites.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs, duplicate $i has no non-transient writers.")
+
+        // // Currently assumes all readers have same par
+        // val col_rPar = readers.map(accessWidth).reduce{_+_}/*headOption.getOrElse(1)*/ / {rows match {case Exact(r) => r}}
+        // Currently assumes all writers have same par
+        val col_wPar = nonTransientWrites.map(accessWidth).headOption.getOrElse(1)
+        // Assumes there is either 0 of these (returns 0) or 1 of these
+        val transient_wPar = transientWrites.map(accessWidth).sum
         val col_rPar = readersOf(lhs) // Currently assumes all readers have same par
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
@@ -48,6 +61,8 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             }
             par
           }.head
+        /*
+        Console.println(s"working on $lhs ${writersOf(lhs)} on $i")
         val col_wPar = writersOf(lhs) // Currently assumes all readers have same par
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{a => !isTransient(a.node.asInstanceOf[Exp[_]])}
@@ -72,7 +87,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
             }
             par
           }.sum // Assumes there is either 0 of these (returns 0) or 1 of these
-
+        */
         val col_banks = mem match { case BankedMemory(dims, depth, isAccum) => dims.last.banks; case _ => 1 }
         // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
         val empty_stages_to_buffer = bufferControlInfo(lhs, i).length - 1
@@ -100,7 +115,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
       if (!isTransient(lhs)) {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
-        val stride = lb match {case Def(LineBufferNew(_,_,stride)) => getConstValue(stride).toInt}
+        val stride = lb match {case Def(LineBufferNew(_,_,Exact(s))) => s.toInt}
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
         val ii = dispatch.head
         val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
@@ -138,7 +153,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val dispatch = dispatchOf(lhs, lb).toList.distinct
       if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
       val i = dispatch.head
-      for ( k <- 0 until getConstValue(len).toInt) {
+      for ( k <- 0 until lenOf(lhs)) {
         emit(src"${lb}_$i.io.col_addr($k) := ${col}.r + ${k}.U")  
       }
       val rowtext = row match {
@@ -146,7 +161,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         case _ => src"${row}.r"
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${getConstValue(len)}, ${newWire(lhs.tp.typeArguments.head)}))""")
-      for ( k <- 0 until getConstValue(len).toInt) {
+      for ( k <- 0 until lenOf(lhs)) {
         emit(src"${lhs}($k) := ${quote(lb)}_$i.readRowSlice(${rowtext}, ${k}.U).r")  
       }
 

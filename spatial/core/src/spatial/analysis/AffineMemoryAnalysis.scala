@@ -23,7 +23,7 @@ trait AffineMemoryAnalysis { this: MemoryAnalyzer =>
   }*/
 
   def mergeMismatchedChannels(mem: Exp[_], a: Channels, b: Channels): Memory = {
-    val size = dimsOf(mem).product
+    val size = constDimsOf(mem).product
     val memA = a.memory
     val memB = b.memory
     val dupA = a.duplicates

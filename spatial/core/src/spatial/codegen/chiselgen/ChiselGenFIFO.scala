@@ -75,7 +75,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(_)   =>
       if (SpatialConfig.useCheapFifos) {
-        val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
+        val size = constSizeOf(lhs)
         // ASSERT that all pars are the same!
         // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
         val rPar = readersOf(lhs).map { r => 
@@ -93,7 +93,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         val width = bitWidth(lhs.tp.typeArguments.head)
         emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
       } else {
-        val size = sizeOf(lhs) match {case Const(c: BigDecimal) => c.toInt }
+        val size = constSizeOf(lhs)
         // ASSERT that all pars are the same!
         // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
         val rPar = readersOf(lhs).map { r => 
@@ -140,10 +140,10 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       }
       
     case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
-    case FIFOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
-    case FIFOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")
-    case FIFOAlmostEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.almostEmpty")
-    case FIFOAlmostFull(fifo) => emit(src"val $lhs = ${fifo}.io.almostFull")
+    case FIFOEmpty(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.empty")
+    case FIFOFull(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.full")
+    case FIFOAlmostEmpty(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.almostEmpty")
+    case FIFOAlmostFull(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.almostFull")
     case FIFONumel(fifo) => emit(src"val $lhs = ${fifo}.io.numel")
 
     case _ => super.emitNode(lhs, rhs)

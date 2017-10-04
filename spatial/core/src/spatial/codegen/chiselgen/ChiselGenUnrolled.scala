@@ -58,7 +58,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${lhs}_datapath_en""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
@@ -115,7 +115,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${lhs}_II_done := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
         emit(src"""${lhs}_II_done := ${lhs}_IICtr.io.output.done | ${lhs}_ctr_trivial""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${quote(lhs)}_datapath_en""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
@@ -139,22 +139,39 @@ trait ChiselGenUnrolled extends ChiselGenController {
       //     case _ => 
       //       throw new Exception("Cannot emit UnrolledReduce for a nonexistent reduce function!")
       //   }
+      val dlay = bodyLatency.sum(lhs)
+      accumsWithIIDlay += accum.asInstanceOf[Exp[_]]
       if (levelOf(lhs) == InnerControl) {
-        val dlay = bodyLatency.sum(lhs)
-        emit(s"val ${quote(accum)}_wren = (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
-        emit(src"val ${accum}_resetter = ${lhs}_rst_en")
+        if (SpatialConfig.enableRetiming) {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+        } else {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        }
+        emitGlobalWire(s"val ${quote(accum)}_wren = Wire(Bool())")
+        emit(s"${quote(accum)}_wren := (${quote(lhs)}_II_done & ${quote(lhs)}_datapath_en & ~${quote(lhs)}_done & ~${quote(lhs)}_inhibitor).D(0,rr)")
+        emitGlobalWire(src"val ${accum}_resetter = Wire(Bool())")
+        emit(src"${accum}_resetter := ${lhs}_rst_en")
       } else {
+        if (SpatialConfig.enableRetiming) {
+          emitGlobalWire(src"val ${accum}_II_dlay = ${iiOf(lhs)} + 1 // Hack to fix Arbitrary Lambda")
+        } else {
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        }
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
-            emit(src"val ${accum}_wren = (${childrenOf(lhs).last}_done).D(0, rr) // TODO: Skeptical these codegen rules are correct")
+            emitGlobalWire(src"val ${accum}_wren = Wire(Bool())")
+            emit(src"${accum}_wren := (${childrenOf(lhs).last}_done).D(0, rr) // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
-            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            emitGlobalWire(src"val ${accum}_wren = Wire(Bool())")
+            emit(src"${accum}_wren := ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
           case Def(_:RegFileNew[_,_]) =>
-            emit(src"val ${accum}_wren = ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            emitGlobalWire(src"val ${accum}_wren = Wire(Bool())")
+            emit(src"${accum}_wren := ${childrenOf(lhs).last}_done // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${parentOf(lhs).get}_done, 2)")
-        emit(src"val ${accum}_resetter = ${lhs}_rst_en.D(0)")
+        emitGlobalWire(src"val ${accum}_resetter = Wire(Bool())")
+        emit(src"${accum}_resetter := ${lhs}_rst_en.D(0)")
       }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
@@ -174,7 +191,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val rPar = inds.length
       val dims = stagedDimsOf(sram)
       emit(s"""// Assemble multidimR vector""")
-      emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${dimsOf(sram)}), ${width})))""")
+      emitGlobalWire(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
       if (dispatch.toList.length == 1) {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
@@ -223,7 +240,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"${parent}_datapath_en"
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, List(${dimsOf(sram)}), ${width}))) """)
+      emitGlobalWire(src"""val ${lhs}_wVec = Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, List(${constDimsOf(sram)}), ${width}))) """)
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       data.zipWithIndex.foreach { case (d, i) =>
         emit(src"""${lhs}_wVec($i).data := ${d}.r""")
@@ -417,7 +434,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor && ${parent}_II_done"""
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${dimsOf(rf)}), ${width}))) """)
+      emitGlobalWire(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${constDimsOf(rf)}), ${width}))) """)
       (0 until ens.length).foreach{ k => 
         emit(src"""${lhs}_wVec($k).data := ${data(k)}.r""")
         emit(src"""${lhs}_wVec($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)}, rr)""")

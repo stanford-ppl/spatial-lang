@@ -33,11 +33,11 @@ trait ScalaGenFIFO extends ScalaGenMemories {
         case Def(ParFIFOEnq(_,ens,_)) => ens.length
         case _ => 1
       }}.head
-      emit(src"val $lhs = $fifo.size === ${sizeOf(fifo)} - $wPar")
+      emit(src"val $lhs = $fifo.size === ${stagedSizeOf(fifo)} - $wPar")
 
     case op@FIFOPeek(fifo) => emit(src"val $lhs = if (${fifo}.nonEmpty) ${fifo}.head else ${invalid(op.mT)}")
     case FIFONumel(fifo) => emit(src"val $lhs = $fifo.size")
-    case FIFOFull(fifo)  => emit(src"val $lhs = $fifo.size >= ${sizeOf(fifo)} ")
+    case FIFOFull(fifo)  => emit(src"val $lhs = $fifo.size >= ${stagedSizeOf(fifo)} ")
     case op@FIFODeq(fifo,en) => emit(src"val $lhs = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
 
     case op@ParFIFODeq(fifo, ens) =>

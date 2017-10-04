@@ -44,7 +44,7 @@ object DRAMTransfers {
     val p       = extractParFactor(tile.ranges.last.p)
 
     // UNSUPPORTED: Strided ranges for DRAM in burst load/store
-    if (strides.exists{case Const(1) => false ; case _ => true}) {
+    if (strides.exists{case Exact(c) if c == 1 => false ; case _ => true}) {
       new spatial.UnsupportedStridedDRAMError(isLoad)(ctx, state)
     }
 

@@ -33,14 +33,14 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
         ("0.S", "999.S", "1.S", "1", "32") 
     }}
     if (cchainPassMap.contains(lhs)) {controllerStack.pop()}
-
+    disableSplit = true
     emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
     // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
     emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
     emit(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3)}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
     emit(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
-    emit(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
+    emitGlobalModule(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") {
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")
@@ -64,14 +64,14 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emit(src"""val ${lhs}${suffix}_maxed = ${lhs}${suffix}.io.output.saturated""")
     ctrs.zipWithIndex.foreach { case (c, i) =>
       val x = c match {
-        case Def(CounterNew(_,_,_,p)) => 
-          val Const(xx: BigDecimal) = p
-          xx
+        case Def(CounterNew(_,_,_,Literal(p))) => p
         case Def(Forever()) => 1
       }
-      emit(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
+      emitGlobalWire(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => Wire(SInt(${counter_data(i)._5}.W)) }""")
+      emit(s"""(0 until $x).map{ j => ${quote(c)}${suffix}(j) := ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
 
+    disableSplit = false
   }
 
   private def getCtrSuffix(head: Exp[_]): String = {

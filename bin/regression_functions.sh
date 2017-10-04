@@ -167,6 +167,45 @@ build_spatial() {
   # logger "Patch done!"
 }
 
+get_flags() {
+  # Include retiming if this is a retiming branch
+  if [[ ${branch} = *"retim"* ]]; then
+    retime_flag="--retiming"
+  else
+    retime_flag=""
+  fi
+
+  # Include syncMem if this is a syncMem branch
+  if [[ ${branch} = *"syncMem"* ]]; then
+    syncMem_flag="--syncMem"
+  else
+    syncMem_flag=""
+  fi
+
+  # Include instrumentation if this is a pre-master branch
+  if [[ ${branch} = *"pre-master"* ]]; then
+    instrument_flag="--instrument"
+  else
+    instrument_flag=""
+  fi
+
+  # Set proper multifile flag
+  if [[ ${branch} = *"aggressive_splitting"* || ${branch} = *"syncMem"* ]]; then
+    mf=5
+  else
+    mf=4
+  fi
+
+  # get type
+  if [[ ${type_todo} = "scala" ]]; then
+    gen="--sim"
+  else
+    gen="--synth"
+  fi
+
+  flags="$gen --multifile=${mf} ${retime_flag} ${syncMem_flag} ${instrument_flag}"
+}
+
 ## Function for cleaning up iff test was successful
 wipe_clean() {
 summary=`sed -n '1p' $packet | sed -r "s/\| Status-[^\|]*\|/| Status- Success |/g"`
@@ -208,7 +247,8 @@ logger "Putting timestamp in wiki"
 duration=$SECONDS
 echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
-* <---- indicates relative amount of work needed before app will **pass**" > $wiki_file
+* <---- indicates relative amount of work needed before app will **pass**
+* Flags: $flags" > $wiki_file
 
 # Write combined travis button
 combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
@@ -663,30 +703,12 @@ date >> ${5}/log" >> $1
 cd ${SPATIAL_HOME}
   " >> $1
 
-  # Include retiming if this is a retiming branch
-  if [[ ${branch} = *"retim"* ]]; then
-    retime_flag="--retiming"
-  else
-    retime_flag=""
-  fi
-
-  # Include syncMem if this is a syncMem branch
-  if [[ ${branch} = *"syncMem"* ]]; then
-    syncMem_flag="--syncMem"
-  else
-    syncMem_flag=""
-  fi
+  get_flags
 
   # Compile command
-  if [[ ${type_todo} = "scala" ]]; then
-    echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --sim --multifile=4 ${retime_flag} ${syncMem_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+  echo "# Compile app
+${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
-  elif [[ ${type_todo} = "chisel" ]]; then
-    echo "# Compile app
-${SPATIAL_HOME}/bin/spatial --synth --multifile=4 ${retime_flag} ${syncMem_flag} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
-    " >> $1
-  fi
 
   # Check for compile errors
   echo "
@@ -726,6 +748,8 @@ make vcs 2>&1 | tee -a ${5}/log" >> $1
     echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
   fi
 
+get_flags
+
 echo "
 # Check for annoying sbt compile not working
 wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
@@ -734,17 +758,10 @@ if [ \"\$wc\" -gt 0 ]; then
   echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
   cd ${5}" >> $1
   # Compile command
-  if [[ ${type_todo} = "scala" ]]; then
-    echo "  # Compile app
+  echo "  # Compile app
   cd ${SPATIAL_HOME}
-  ${SPATIAL_HOME}/bin/spatial --sim --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
+  ${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
     " >> $1
-  elif [[ ${type_todo} = "chisel" ]]; then
-    echo "  # Compile app
-  cd ${SPATIAL_HOME}
-  ${SPATIAL_HOME}/bin/spatial --synth --multifile=4 --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
-    " >> $1
-  fi
   echo "  cd ${5}/out
   make vcs 2>&1 | tee -a ${5}/log" >> $1
   if [[ ${type_todo} = "chisel" ]]; then

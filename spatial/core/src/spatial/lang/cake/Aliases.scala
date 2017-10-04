@@ -33,9 +33,13 @@ trait SpatialLangAliases extends ArgonCommonAliases {
 /** External (outside spatial.lang) aliases **/
 trait SpatialCommonAliases extends SpatialLangAliases {
   type Matrix[T] = spatial.lang.Matrix[T]
+  val Matrix = spatial.lang.Matrix
   type Tensor3[T] = spatial.lang.Tensor3[T]
+  val Tensor3 = spatial.lang.Tensor3
   type Tensor4[T] = spatial.lang.Tensor4[T]
+  val Tensor4 = spatial.lang.Tensor4
   type Tensor5[T] = spatial.lang.Tensor5[T]
+  val Tensor5 = spatial.lang.Tensor5
 
   type AXI_Master_Slave = spatial.lang.AXI_Master_Slave
   val AXI_Master_Slave = spatial.lang.AXI_Master_Slave

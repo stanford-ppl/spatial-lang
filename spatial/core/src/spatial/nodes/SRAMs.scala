@@ -59,12 +59,25 @@ case class SRAMNew[T:Type:Bits,C[_]<:SRAM[_]](dims: Seq[Exp[Index]])(implicit cT
   val mT = typ[T]
   val bT = bits[T]
 }
-case class SRAMLoad[T:Type:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bit]) extends EnabledOp[T](en) {
+case class SRAMLoad[T:Type:Bits](
+  mem:  Exp[SRAM[T]],
+  dims: Seq[Exp[Index]],
+  is:   Seq[Exp[Index]],
+  ofs:  Exp[Index],
+  en:   Exp[Bit]
+) extends LocalReaderOp[T](mem,addr=is,en=en) {
   def mirror(f:Tx) = SRAM.load(f(mem), f(dims), f(is), f(ofs), f(en))
   val mT = typ[T]
   val bT = bits[T]
 }
-case class SRAMStore[T:Type:Bits](mem: Exp[SRAM[T]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bit]) extends EnabledOp[MUnit](en) {
+case class SRAMStore[T:Type:Bits](
+  mem:  Exp[SRAM[T]],
+  dims: Seq[Exp[Index]],
+  is:   Seq[Exp[Index]],
+  ofs:  Exp[Index],
+  data: Exp[T],
+  en:   Exp[Bit]
+) extends LocalWriterOp(mem,value=data,addr=is,en=en) {
   def mirror(f:Tx) = SRAM.store(f(mem), f(dims), f(is), f(ofs), f(data), f(en))
   val mT = typ[T]
   val bT = bits[T]
@@ -75,7 +88,7 @@ case class ParSRAMLoad[T:Type:Bits](
   sram: Exp[SRAM[T]],
   addr: Seq[Seq[Exp[Index]]],
   ens:  Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends EnabledOp[VectorN[T]](ens:_*) {
+)(implicit val vT: Type[VectorN[T]]) extends ParLocalReaderOp[VectorN[T]](sram,addrs=addr,ens=ens) {
   def mirror(f:Tx) = SRAM.par_load(f(sram), addr.map{inds => f(inds)}, f(ens))
   val mT = typ[T]
   val bT = bits[T]
@@ -86,7 +99,7 @@ case class ParSRAMStore[T:Type:Bits](
   addr: Seq[Seq[Exp[Index]]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]]
-) extends EnabledOp[MUnit](ens:_*) {
+) extends ParLocalWriterOp(sram,values=data,addrs=addr,ens=ens) {
   def mirror(f:Tx) = SRAM.par_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
   val mT = typ[T]
   val bT = bits[T]

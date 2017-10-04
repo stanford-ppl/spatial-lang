@@ -5,6 +5,7 @@ import forge._
 import org.virtualized.virtualize
 
 trait PrintingApi { this: SpatialApi =>
+  /** Prints the given Array to the console, preceded by an optional heading. **/
   @virtualize
   @api def printArray[T:Type](array: MArray[T], heading: MString = opt[MString]): MUnit = {
     val header = heading.getOrElseCreate("")
@@ -13,6 +14,7 @@ trait PrintingApi { this: SpatialApi =>
     println("")
   }
 
+  /** Prints the given Matrix to the console, preceded by an optional heading. **/
   @virtualize
   @api def printMatrix[T:Type](matrix: Matrix[T], heading: MString = opt[MString]): MUnit = {
     val header = heading.getOrElseCreate("")
@@ -25,6 +27,7 @@ trait PrintingApi { this: SpatialApi =>
     }
   }
 
+  /** Prints the given Tensor3 to the console, preceded by an optional heading. **/
   @virtualize
   @api def printTensor3[T:Type](tensor: Tensor3[T], heading: MString = opt[MString]): MUnit = {
     val header = heading.getOrElseCreate("")
@@ -41,6 +44,7 @@ trait PrintingApi { this: SpatialApi =>
     }
   }
 
+  /** Prints the given Tensor4 to the console, preceded by the an optional heading. **/
   @virtualize
   @api def printTensor4[T:Type](tensor: Tensor4[T], heading: MString = opt[MString]): MUnit = {
     val header = heading.getOrElseCreate("")
@@ -61,6 +65,7 @@ trait PrintingApi { this: SpatialApi =>
     }
   }
 
+  /** Prints the given Tensor5 to the console, preceded by the an optional heading. **/
   @virtualize
   @api def printTensor5[T:Type](tensor: Tensor5[T], heading: MString = opt[MString]): MUnit = {
     val header = heading.getOrElseCreate("")

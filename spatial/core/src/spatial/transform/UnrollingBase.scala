@@ -24,7 +24,7 @@ trait UnrollingBase extends ForwardTransformer {
   }
 
   // Single global valid - should only be used in inner pipes - creates AND tree
-  def globalValid: Exp[Bit] = {
+  def globalValid: () => Exp[Bit] = () => {
     if (validBits.isEmpty) Bit.const(true)
     else spatial.lang.Math.reduceTree(validBits){(a,b) => Bit.and(a,b) }
   }

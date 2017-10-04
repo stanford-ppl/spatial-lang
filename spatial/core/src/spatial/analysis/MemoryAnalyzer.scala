@@ -65,17 +65,17 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         case (List(Banking(s1,p,o1), Banks(1)), List(Banks(1), Banking(s2,q,o2))) if p > 1 && q > 1 && !o1 && !o2 =>
           DiagonalMemory(List(s1,s2), lcm(p,q), Math.max(d1,d2), a1 || a2)
         case _ =>
-          val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+          val banking = (b1,b2,constDimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
           BankedMemory(banking, Math.max(d1,d2), a1 || a2)
       }
       case (DiagonalMemory(strides,p,d1,a1), BankedMemory(b2,d2,a2)) =>
         val b1 = strides.map{x => Banking(x,p,isOuter = false) }
-        val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+        val banking = (b1,b2,constDimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
         BankedMemory(banking, Math.max(d1,d2), a1 || a2)
 
       case (BankedMemory(b1,d1,a1), DiagonalMemory(strides,p,d2,a2)) =>
         val b2 = strides.map{x => Banking(x,p,isOuter = false) }
-        val banking = (b1,b2,dimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
+        val banking = (b1,b2,constDimsOf(mem)).zipped.map{case (x,y,d) => mergeBanking(mem,x,y,d) }
         BankedMemory(banking, Math.max(d1,d2), a1 || a2)
     }
     // Calculate duplicates
@@ -698,7 +698,9 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         if (parentOf(access).isDefined) {
           if (parentOf(parentOf(access).get).isDefined) {
             // Console.println(s"parent 1 is ${parentOf(access).get}, parent 2 is ${parentOf(parentOf(access).get).get}")
-            parentOf((parentOf(access).get)).get match {
+            val prnt = parentOf((parentOf(access).get)).get
+            val counter_holder = if (styleOf(prnt) == StreamPipe) {prnt} else parentOf(prnt).get
+            counter_holder match {
               case Def(UnrolledForeach(_,cchain,_,_,_)) => 
                 cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
                   case Def(CounterNew(s,e,str,p)) => (s,e) match {
@@ -723,6 +725,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
                 }
               case _ => 0
             }        
+
           } else 0
         } else 0
       }

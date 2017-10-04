@@ -1,8 +1,10 @@
 package spatial.nodes
 
 import argon.core._
+import argon.transform.SubstTransformer
 import forge._
 import spatial.aliases._
+import spatial.utils._
 
 case class RegType[T:Bits](child: Type[T]) extends Type[Reg[T]] {
   override def wrapped(x: Exp[Reg[T]]) = new Reg(x)(child,bits[T])
@@ -40,18 +42,31 @@ case class HostIONew[T:Type:Bits](init: Exp[T]) extends Alloc[Reg[T]] {
   val bT = bits[T]
 }
 
-case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends Op[T] {
+case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends LocalReaderOp[T](reg) {
   def mirror(f:Tx) = Reg.read(f(reg))
   val mT = typ[T]
   val bT = bits[T]
   override def aliases = Nil
+
+  // Register read is stateless, so it doesn't have any enables
+  override def mirrorAndEnable(f: SubstTransformer, addEn: () => Exp[Bit])(implicit state: State): Exp[T] = {
+    this.IR = state
+    this.mirror(f)
+  }
 }
-case class RegWrite[T:Type:Bits](reg: Exp[Reg[T]], data: Exp[T], en: Exp[Bit]) extends EnabledOp[MUnit](en) {
+
+case class RegWrite[T:Type:Bits](
+  reg:  Exp[Reg[T]],
+  data: Exp[T],
+  en:   Exp[Bit]
+) extends LocalWriterOp(reg,value=data,en=en)
+{
   def mirror(f:Tx) = Reg.write(f(reg),f(data), f(en))
   val mT = typ[T]
   val bT = bits[T]
 }
-case class RegReset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bit]) extends EnabledOp[MUnit](en) {
+
+case class RegReset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bit]) extends LocalResetterOp(reg,en) {
   def mirror(f:Tx) = Reg.reset(f(reg), f(en))
   val mT = typ[T]
   val bT = bits[T]

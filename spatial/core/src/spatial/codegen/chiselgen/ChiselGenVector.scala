@@ -32,7 +32,7 @@ trait ChiselGenVector extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ListVector(elems)      => emit(src"val $lhs = Array($elems)")
-    case VectorApply(vector, i) => emit(src"val $lhs = $vector.apply($i)")
+    case VectorApply(vector, i) => emitGlobalWire(src"""val $lhs = Wire(${newWire(lhs.tp)})"""); emit(src"$lhs := $vector.apply($i)")
     case VectorSlice(vector, start, end) => emit(src"val $lhs = $vector($start, $end)")
 
     // TODO: Use memcpy for these data <-> bits operations
@@ -49,7 +49,7 @@ trait ChiselGenVector extends ChiselGenSRAM {
 
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
-      case FixPtType(s,i,f) => emit(src"val $lhs = Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
+      case FixPtType(s,i,f) => emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
       case BooleanType()    => emit(src"val $lhs = $v // TODO: Need to do something fancy here?")
     }
 
