@@ -16,9 +16,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   // -- State
   var top: Option[Expr] = None
-  val readerCUs = mutable.Map[Expr, List[CU]]()
   val allocated = mutable.ListBuffer[Expr]()
-  lazy val topCU = ComputeUnit("top", TopCU) //TODO: remove exp
+  lazy val topCU = ComputeUnit("top", TopCU)
 
   def addIterators(cu: CU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bit]]]) {
     inds.zipWithIndex.foreach{case (is, ci) =>
@@ -764,7 +763,6 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {
     top = None
-    readerCUs.clear()
     super.preprocess(b)
   }
 
