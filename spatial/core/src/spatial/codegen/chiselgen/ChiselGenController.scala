@@ -489,12 +489,10 @@ trait ChiselGenController extends ChiselGenCounter{
     if (parentOf(sym).isDefined) {
       parentOf(sym).get match {
         case Def(SwitchCase(_)) => 
-          val prntdn = wireMap(src"${parentOf(sym).get}_done")
-          val wiredn = wireMap(src"${sym}_done")
-          emit(src"""$prntdn := ${sym}_done""")
+          emit(src"""${swap(parentOf(sym).get, Done)} := ${swap(sym, Done)}""")
           val streamAddition = getStreamEnablers(sym)
-          emit(src"""${swap(sym, En)} := ${parentOf(sym).get}_en ${streamAddition}""")  
-          emit(src"""${swap(sym, Resetter)} := ${parentOf(sym).get}_resetter""")
+          emit(src"""${swap(sym, En)} := ${swap(parentOf(sym).get, En)} ${streamAddition}""")  
+          emit(src"""${swap(sym, Resetter)} := ${swap(parentOf(sym).get, Resetter)}""")
 
         case _ =>
           // no sniffing to be done
@@ -880,7 +878,10 @@ trait ChiselGenController extends ChiselGenCounter{
           if (levelOf(lhs) == InnerControl) {
             emit(src"""${swap(lhs, Done)} := ${swap(parent_kernel, Done)}""")
           } else {
-            val anyCaseDone = cases.map{c => src"${swap(c, Done)}"}.mkString(" | ")
+            val anyCaseDone = cases.map{c => 
+              emitGlobalWireMap(src"${c}_done", "Wire(Bool())") // Lazy
+              src"${swap(c, Done)}"
+            }.mkString(" | ")
             emit(src"""${swap(lhs, Done)} := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
           }
 
@@ -890,7 +891,10 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${swap(lhs, Done)} := ${swap(parent_kernel, Done)}""")
             cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
           } else {
-            val anyCaseDone = cases.map{c => src"${swap(c, Done)}"}.mkString(" | ")
+            val anyCaseDone = cases.map{c => 
+              emitGlobalWireMap(src"${c}_done", "Wire(Bool())") // Lazy
+              src"${swap(c, Done)}"
+            }.mkString(" | ")
             emit(src"""${swap(lhs, Done)} := $anyCaseDone // Safe to assume Switch is done when ANY child is done?""")
             cases.collect{case s: Sym[_] => stmOf(s)}.foreach(visitStm)
           }
@@ -924,10 +928,8 @@ trait ChiselGenController extends ChiselGenCounter{
         if (childrenOf(lhs).count(isControlNode) > 1) {// More than one control node is children
           throw new Exception(s"Seems like something is messed up with switch cases ($lhs).  Please put a pipe around your multiple controllers inside the if statement, maybe?")
         } else if (levelOf(lhs) == OuterControl & childrenOf(lhs).count(isControlNode) == 1) { // This is an outer pipe
-          emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
         } else if (levelOf(lhs) == OuterControl & childrenOf(lhs).count(isControlNode) == 0) {
-          emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
           emit(src"""${swap(lhs, Done)} := ${swap(lhs,En)} // Route through""")
         } else if (levelOf(lhs) == InnerControl) { // Body contains only primitives
