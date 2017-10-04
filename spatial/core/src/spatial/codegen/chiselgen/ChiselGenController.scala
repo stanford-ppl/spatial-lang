@@ -806,8 +806,8 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
-      emit(src"""${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B""")
       emitController(lhs, None, None)
+      emit(src"""${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B""")
       emitGlobalWire(src"""${swap(lhs, IIDone)} := true.B""")
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
@@ -816,7 +816,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitChildrenCxns(lhs, None, None)
       emitCopiedCChain(lhs)
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
-      emit(src"${lhs}_mask := $en")
+      emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
 
     case op@Switch(body,selects,cases) =>
