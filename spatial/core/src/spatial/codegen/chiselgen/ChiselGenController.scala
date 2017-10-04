@@ -929,10 +929,10 @@ trait ChiselGenController extends ChiselGenCounter{
         } else if (levelOf(lhs) == OuterControl & childrenOf(lhs).count(isControlNode) == 0) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitBlock(body)
-          emit(src"""${lhs}_done := ${swap(lhs,En)} // Route through""")
+          emit(src"""${swap(lhs, Done)} := ${swap(lhs,En)} // Route through""")
         } else if (levelOf(lhs) == InnerControl) { // Body contains only primitives
           emitBlock(body)
-          emit(src"""${lhs}_done := ${parent_kernel}_done // Route through""")
+          emit(src"""${swap(lhs, Done)} := ${swap(parent_kernel, Done)} // Route through""")
         }
         val returns_const = lhs match {
           case Const(_) => false

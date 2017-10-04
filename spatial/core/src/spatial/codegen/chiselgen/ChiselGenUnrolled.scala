@@ -66,7 +66,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
-        createValidsPassMap(lhs, cchain, iters, valids)
+        if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
@@ -124,7 +124,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
-      createValidsPassMap(lhs, cchain, iters, valids)
+      if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {

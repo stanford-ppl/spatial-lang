@@ -134,9 +134,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val enabler = src"${swap(reader, DatapathEn)} & ~${reader}_inhibitor & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       if (SpatialConfig.useCheapFifos) {
-        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${reader}_en & ($enabler).D(${bug202delay}) & $en).apply(0)""")  
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en).apply(0)""")  
       } else {
-        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${reader}_en & ($enabler).D(${bug202delay}) & $en))).apply(0)""")
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en))).apply(0)""")
       }
       
     case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")

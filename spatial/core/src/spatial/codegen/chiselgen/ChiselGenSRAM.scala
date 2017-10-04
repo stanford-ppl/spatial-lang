@@ -382,7 +382,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimR vector""")
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+        val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
         emit(src"""${lhs}_rVec(0).en := ShiftRegister($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
@@ -397,11 +397,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case SRAMStore(sram, dims, is, ofs, v, en) =>
       val width = bitWidth(sram.tp.typeArguments.head)
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${parent}_datapath_en & ~${parent}_inhibitor"""
+      val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
       emit(src"""${lhs}_wVec(0).data := $v.raw""")
-      emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${parent}_II_done).D(${symDelay(lhs)}, rr)""")
+      emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
