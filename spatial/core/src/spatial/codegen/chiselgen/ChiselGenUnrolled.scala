@@ -186,6 +186,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val width = bitWidth(sram.tp.typeArguments.head)
       val rPar = inds.length
       val dims = stagedDimsOf(sram)
+      disableSplit = true
       emit(s"""// Assemble multidimR vector""")
       emitGlobalWire(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
       if (dispatch.toList.length == 1) {
@@ -227,8 +228,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
             // case _ => emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
           // }
         }
-        
       }
+      disableSplit = false
 
     case ParSRAMStore(sram,inds,data,ens) =>
       val dims = stagedDimsOf(sram)

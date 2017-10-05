@@ -17,7 +17,7 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
   }
 
   override protected def quote(e: Exp[_]): String = e match {
-    case Def(DelayLine(_, _)) if !spatialConfig.enableNaming => super.quote(e) + alphaconv.getOrElse(super.quote(e), "")
+    case Def(DelayLine(_, data)) if !spatialConfig.enableNaming => data match {case Const(_) => quote(data); case _ => super.quote(e) + alphaconv.getOrElse(super.quote(e), "")}
     case _ => super.quote(e) // All others
   }
 
