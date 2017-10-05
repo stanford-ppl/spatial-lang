@@ -56,7 +56,8 @@ object ops {
 
   implicit class BoolOps(val b:Bool) {
     def D(delay: Int, retime_released: Bool = true.B) = {
-      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
+//      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
+      Mux(retime_released, Utils.getRetimed(b, delay), false.B)
     }
 
   }
@@ -794,6 +795,17 @@ object Utils {
     ff.io.in := in
     ff.io.enable := en
     ff.io.out
+  }
+
+  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int) = {
+    if (delay == 0) {
+      sig
+    }
+    else {
+      val sr = Module(new RetimeWrapper(sig.getWidth, delay))
+      sr.io.in := sig.asUInt
+      sig.cloneType.fromBits(sr.io.out)
+    }
   }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {
   //   a match {
