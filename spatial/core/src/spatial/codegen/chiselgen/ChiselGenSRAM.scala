@@ -202,7 +202,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       if (fsm.isDefined) {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${fsm.get}_doneCondition)")  
-          emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_done.D(1, rr)")
+          emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(1, rr)")
           /* or'ed _doneCondition back in because of BasicCondFSM!! */
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${fsm.get}_doneCondition // Really want inhibit to turn on at last enabled cycle")        
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
@@ -213,19 +213,19 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
-          emit(src"${lhs}_inhibit.io.input.reset := ${lhs}_done.D(0, rr)")
+          emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(0, rr)")
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         } else {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${lhs}_done /*${lhs}_sm.io.output.ctr_inc*/)")
-          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${lhs}_done).D(1 + ${lhs}_retime, rr) // Ugly hack, do not try at home"} else src"${lhs}_done.D(1, rr)"
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
+          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${lhs}_retime, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
           emit(src"${lhs}_inhibit.io.input.reset := $rster")
           emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         }        
       }
     } else {
-      emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${lhs}_done?  ")      
+      emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${swap(lhs, Done)}?  ")      
     }
   }
 

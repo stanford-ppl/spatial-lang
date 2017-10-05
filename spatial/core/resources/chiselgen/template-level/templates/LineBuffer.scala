@@ -106,7 +106,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   
   // Inner counter over row width -- keep track of write address in current row
   val WRITE_countRowPx = (0 until rstride).map{ i =>
-    val cnt = Module(new SingleCounter(col_wPar))
+    val cnt = Module(new SingleCounter(col_wPar, Some(0), Some(line_size), Some(1), Some(0)))
     cnt.io.input.enable := io.w_en(i)
     cnt.io.input.reset := io.reset | swap
     cnt.io.input.saturate := false.B
@@ -117,7 +117,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     cnt
   }  
   // Inner counter over row width -- keep track of write address in current row for transient writer
-  val WRITE_countRowPx_transient = Module(new SingleCounter(transientPar))
+  val WRITE_countRowPx_transient = Module(new SingleCounter(transientPar, Some(0), Some(line_size), Some(1), Some(0)))
   WRITE_countRowPx_transient.io.input.enable := io.w_en.last
   WRITE_countRowPx_transient.io.input.reset := io.reset | swap
   WRITE_countRowPx_transient.io.input.saturate := false.B

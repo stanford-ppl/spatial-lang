@@ -96,7 +96,7 @@ object Arguments {
     (6,3,48,1,1)
   )
   val SingleCounter = List(
-    (1,8),(3,9)
+    (1,None, None, None, None, 8),(3,None, None, None, None, 9)
   )
   val CompactingCounter = List(
     (1,8,16),(3,12,16),(8, 25,16)
@@ -106,9 +106,9 @@ object Arguments {
     // (true, 8, 8)
   )
   val Counter = List(
-    (List(1,1,1), List(10,9,8)),
-    (List(2,2,2), List(10,9,8)),
-    (List(4,1,1), List(10,9,8))
+    (List(1,1,1), List(None, None, None),List(None, None, None),List(None, None, None),List(None, None, None), List(10,9,8)),
+    (List(2,2,2), List(None, None, None),List(None, None, None),List(None, None, None),List(None, None, None), List(10,9,8)),
+    (List(4,1,1), List(None, None, None),List(None, None, None),List(None, None, None),List(None, None, None), List(10,9,8))
   )
   val Seqpipe = List(
     1,

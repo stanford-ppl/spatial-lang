@@ -9,6 +9,8 @@ import spatial.targets.DE1._
 
 
 trait ChiselGenController extends ChiselGenCounter{
+  var hwblock_sym: List[Exp[Any]] = List()
+
   /* Set of control nodes which already have their enable signal emitted */
   var enDeclaredSet = Set.empty[Exp[Any]]
 
@@ -57,11 +59,11 @@ trait ChiselGenController extends ChiselGenCounter{
       emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
       emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
       emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${lhs}_done)")
+      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := RootController_done""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := ${swap(hwblock_sym.head, Done)}""")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).valid := RootController_done""")
+      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).valid := ${swap(hwblock_sym.head, Done)}""")
       instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
     }
   }
@@ -343,8 +345,6 @@ trait ChiselGenController extends ChiselGenCounter{
 
   def emitController(sym:Sym[Any], cchain:Option[Exp[CounterChain]], iters:Option[Seq[Bound[Index]]], isFSM: Boolean = false) {
 
-    createInstrumentation(sym)
-
     val hasStreamIns = listensTo(sym).distinct.map{_.memory}.exists{
       case Def(StreamInNew(SliderSwitch)) => false
       case Def(StreamInNew(_))            => true
@@ -446,6 +446,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val lat = bodyLatency.sum(sym)
     emitStandardSignals(sym)
+    createInstrumentation(sym)
 
     // Pass done signal upward and grab your own en signals if this is a switchcase child
     if (parentOf(sym).isDefined) {
@@ -678,11 +679,11 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(UnrolledForeach(_,cchain,_,_,_)) => 
             val Def(CounterChainNew(ctrs)) = cchain
             emitCounterChain(cchain, src"_copy${self}")
-            connectCtrTrivial(cchain, src"_copy${self}")
+            // connectCtrTrivial(cchain, src"_copy${self}")
           case Def(UnrolledReduce(_,cchain,_,_,_,_)) => 
             val Def(CounterChainNew(ctrs)) = cchain
             emitCounterChain(cchain, src"_copy${self}")
-            connectCtrTrivial(cchain, src"_copy${self}")
+            // connectCtrTrivial(cchain, src"_copy${self}")
           case _ => // Emit nothing
         }
       }
@@ -702,6 +703,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
+      hwblock_sym = hwblock_sym :+ lhs.asInstanceOf[Exp[_]]
       controllerStack.push(lhs)
       toggleEn() // turn on
       val streamAddition = getStreamEnablers(lhs)
@@ -720,8 +722,8 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
-      emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
-      emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
+      emit(src"""val retime_counter = Module(new SingleCounter(1, Some(0), Some(max_retime), Some(1), Some(0))) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
+      // emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset.toBool; retime_counter.io.input.enable := true.B;""")
       emitGlobalWire(src"""val retime_released = RegInit(false.B)""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")
@@ -783,8 +785,8 @@ trait ChiselGenController extends ChiselGenCounter{
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      createInstrumentation(lhs)
       emitStandardSignals(lhs)
+      createInstrumentation(lhs)
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       // emit(src"""//${swap(lhs, BaseEn)} := ${swap(parent_kernel, BaseEn)} // Set by parent""")
@@ -869,8 +871,8 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      createInstrumentation(lhs)
       emitStandardSignals(lhs)
+      createInstrumentation(lhs)
       emit(src"""${swap(lhs,En)} := ${swap(parent_kernel,En)} & ${lhs}_switch_select""")
       // emit(src"""${swap(lhs, BaseEn)} := ${swap(parent_kernel, BaseEn)} & ${lhs}_switch_select""")
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
