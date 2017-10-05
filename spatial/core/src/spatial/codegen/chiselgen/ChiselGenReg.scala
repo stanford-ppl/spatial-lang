@@ -203,7 +203,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
             case _ => 
               emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
             }
-          emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
+          emit(src"""${reg}_en_options(${lhs}_wId) := $en & Utils.getRetimed(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
