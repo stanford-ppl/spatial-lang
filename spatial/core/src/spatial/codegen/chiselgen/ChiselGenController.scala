@@ -6,7 +6,6 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.targets.DE1._
-import spatial.SpatialConfig
 
 
 trait ChiselGenController extends ChiselGenCounter{
@@ -54,13 +53,13 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   def createInstrumentation(lhs: Sym[Any]): Unit = {
-    if (SpatialConfig.enableInstrumentation) {
+    if (spatialConfig.enableInstrumentation) {
       val ctx = s"${lhs.ctx}"
       emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
       emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
       emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
       emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${lhs}_done)")
+      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := ${swap(hwblock_sym.head, Done)}""")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
@@ -86,7 +85,7 @@ trait ChiselGenController extends ChiselGenCounter{
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         // emitGlobalWire(s"//${validPassMap}")
-        emitGlobalWire(src"val ${v}${suffix} = Wire(Bool())")
+        emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
         emit(src"${v}${suffix} := Mux(${counter_data(i)._3} >= 0.S, ${c}${suffix} < ${counter_data(i)._2}, ${c}${suffix} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
           emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
@@ -132,8 +131,8 @@ trait ChiselGenController extends ChiselGenCounter{
     inds.zipWithIndex.foreach { case (idx,index) =>
       val this_counter = ctrMapping.filter(_ <= index).length - 1
       val this_width = cchainWidth(counters(this_counter))
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
-      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      // emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
+      // stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
           emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
@@ -143,6 +142,20 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       // Associate bound sym with both ctrl node and that ctrl node's cchain
+    }
+  }
+
+  def allocateRegChains(controller: Sym[Any], inds:Seq[Bound[Index]], cchain:Exp[CounterChain]) = {
+    val stages = childrenOf(controller)
+    val Def(CounterChainNew(counters)) = cchain
+    var maxw = 32 min counters.map(cchainWidth(_)).reduce{_*_}
+    val par = counters.map{case Def(CounterNew(_,_,_,Exact(p))) => p}
+    val ctrMapping = par.indices.map{i => par.dropRight(par.length - i).sum}
+    inds.zipWithIndex.foreach { case (idx,index) =>
+      val this_counter = ctrMapping.filter(_ <= index).length - 1
+      val this_width = cchainWidth(counters(this_counter))
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
+      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
     }
   }
 
@@ -216,45 +229,22 @@ trait ChiselGenController extends ChiselGenCounter{
       result = false
     }
     result
-
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: Hwblock) =>
-              s"RootController"
-            case Def(e: UnitPipe) =>
-              s"x${lhs.id}_UnitPipe"
-            case Def(e: OpForeach) =>
-              s"x${lhs.id}_ForEach"
-            case Def(e: OpReduce[_]) =>
-              s"x${lhs.id}_Reduce"
-            case Def(e: OpMemReduce[_,_]) =>
-              s"x${lhs.id}_MemReduce"
-            case Def(e: Switch[_]) =>
-              s"x${lhs.id}_switch"
-            case Def(e: SwitchCase[_]) =>
-              s"x${lhs.id}_switchcase"
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      // Always need to remap root controller
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: Hwblock) => s"RootController"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    }
+  override protected def quote(e: Exp[_]): String = e match {
+    case Def(_: Hwblock) => "RootController"
+    case _ => super.quote(e) // All others
+  }
+
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: Hwblock)          => s"RootController"
+    case Def(_: UnitPipe)         => s"${s}_UnitPipe"
+    case Def(_: OpForeach)        => s"${s}_ForEach"
+    case Def(_: OpReduce[_])      => s"${s}_Reduce"
+    case Def(_: OpMemReduce[_,_]) => s"${s}_MemReduce"
+    case Def(_: Switch[_])        => s"${s}_switch"
+    case Def(_: SwitchCase[_])    => s"${s}_switchcase"
+    case _ => super.name(s)
   } 
 
   private def beneathForever(lhs: Sym[Any]):Boolean = { // TODO: Make a counterOf() method that will just grab me Some(counter) that I can check
@@ -288,20 +278,6 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
-  def ctrIsForever(cchain: Exp[_]):Boolean = {
-    var isForever = false
-    cchain match {
-      case Def(CounterChainNew(ctrs)) => 
-        ctrs.foreach{c => c match {
-          case Def(Forever()) => 
-            isForever = true
-          case _ => 
-        }}
-      }
-    isForever
-
-  }
-
   // Method for looking ahead to see if any streamEnablers need to be remapped fifo signals
   def remappedEns(node: Exp[Any], ens: List[Exp[Any]]): String = {
     var previousLevel: Exp[_] = node
@@ -311,8 +287,8 @@ trait ChiselGenController extends ChiselGenCounter{
       if (styleOf(nextLevel.get) == StreamPipe) {
         nextLevel.get match {
           case Def(UnrolledForeach(_,_,_,_,e)) => 
-            ens.map{ my_en => 
-              e.map{ their_en => 
+            ens.foreach{ my_en =>
+              e.foreach{ their_en =>
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   // Hacky way to avoid double-suffixing
                   if (!src"$my_en".contains(src"_copy${previousLevel}")) {  
@@ -556,7 +532,7 @@ trait ChiselGenController extends ChiselGenCounter{
     /* Counter Signals for controller (used for determining done) */
     if (smStr != "Parallel" & smStr != "Streampipe") {
       if (cchain.isDefined) {
-        if (!ctrIsForever(cchain.get)) {
+        if (!isForever(cchain.get)) {
           emitGlobalWire(src"""val ${cchain.get}_en = Wire(Bool())""") 
           sym match { 
             case Def(n: UnrolledReduce[_,_]) => // These have II
@@ -582,7 +558,7 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${swap(ctr, Resetter)} := ${swap(sym, RstEn)}.D(0,rr) // changed on 9/19""")
           }
           if (isInner) { 
-            // val dlay = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
+            // val dlay = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
             emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${ctr}_done, 1)""")
           }
 
@@ -823,8 +799,8 @@ trait ChiselGenController extends ChiselGenCounter{
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      createInstrumentation(lhs)
       emitStandardSignals(lhs)
+      createInstrumentation(lhs)
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       // emit(src"""//${swap(lhs, BaseEn)} := ${swap(parent_kernel, BaseEn)} // Set by parent""")
@@ -909,8 +885,8 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      createInstrumentation(lhs)
       emitStandardSignals(lhs)
+      createInstrumentation(lhs)
       emit(src"""${swap(lhs,En)} := ${swap(parent_kernel,En)} & ${lhs}_switch_select""")
       // emit(src"""${swap(lhs, BaseEn)} := ${swap(parent_kernel, BaseEn)} & ${lhs}_switch_select""")
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")

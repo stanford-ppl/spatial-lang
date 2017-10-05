@@ -1,7 +1,7 @@
 package spatial.models
 package altera
 
-import argon.util.Report._
+import argon.core._
 import forge._
 
 class StratixVAreaModel extends AlteraAreaModel {
@@ -45,7 +45,7 @@ class StratixVAreaModel extends AlteraAreaModel {
   def calculateRoutingRegs(design: Area): Double = regModel.evaluate(design.seq(keys:_*))
   def calculateUnavailALMs(design: Area): Double = almModel.evaluate(design.seq(keys:_*))
 
-  override def init(): Unit = {
+  @stateful override def init(): Unit = {
     super.init()
     lutModel.init()
     regModel.init()

@@ -3,7 +3,6 @@ package spatial.analysis
 import argon.core._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
-import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models._
@@ -40,7 +39,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val dupB = b.duplicates
 
     val memC = if (memA.nDims != memB.nDims) {
-      if (SpatialConfig.useAffine) {
+      if (spatialConfig.useAffine) {
         mergeMismatchedChannels(mem, a, b)
       }
       else {
@@ -439,7 +438,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       }
     }
 
-    val coalescedGroups = if (SpatialConfig.enableBufferCoalescing) coalesceMemories(mem, instanceGroups) else instanceGroups
+    val coalescedGroups = if (spatialConfig.enableBufferCoalescing) coalesceMemories(mem, instanceGroups) else instanceGroups
 
     dbg("")
     dbg("")
@@ -520,14 +519,14 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       case tp => throw new spatial.UndefinedBankingException(tp)(mem.ctx, state)
     }}
 
-    if (Config.verbosity > 0) {
+    if (config.verbosity > 0) {
       import scala.language.existentials
-      val target = SpatialConfig.target
+      val target = spatialConfig.target
       val areaModel = target.areaModel
 
-      withLog(Config.logDir, "Memories.report") {
+      withLog(config.logDir, "Memories.report") {
         localMems.map{case mem @ Def(d) =>
-          val area = areaModel.areaOf(mem,d,inHwScope = true, inReduce = false)
+          val area = areaModel.areaOf(mem,d, inHwScope = true, inReduce = false)
           mem -> area
         }.sortWith((a,b) => a._2 < b._2).foreach{case (mem,area) =>
           dbg(u"${mem.ctx}: ${mem.tp}: ${mem}")
@@ -569,7 +568,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     }
     def isOuter(i: Exp[Index]): Boolean = ctrlOf(i).exists(isOuterControl)
 
-    val banking = if (patterns.exists(_.isGeneral) && SpatialConfig.useAffine) {
+    val banking = if (patterns.exists(_.isGeneral) && spatialConfig.useAffine) {
 
       import argon.analysis._
 

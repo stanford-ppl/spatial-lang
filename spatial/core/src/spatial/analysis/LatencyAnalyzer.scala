@@ -34,7 +34,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
     // Eventually want to be able to support multiple accel scopes
     totalCycles = cycleScope.sum + startup
 
-    if (Config.verbosity > 0) {
+    if (config.verbosity > 0) {
       latencyModel.reportMissing()
     }
 

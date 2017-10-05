@@ -4,20 +4,18 @@ import argon.core._
 import argon.nodes._
 import spatial.aliases._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 
 trait ChiselGenStructs extends ChiselGenSRAM {
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
   }
-
 
   protected def tupCoordinates(tp: Type[_],field: String): (Int,Int) = tp match {
     case x: Tuple2Type[_,_] => field match {
@@ -45,24 +43,10 @@ trait ChiselGenStructs extends ChiselGenSRAM {
   }
 
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: SimpleStruct[_]) => 
-              s"x${lhs.id}_tuple"
-            case Def(e: FieldApply[_,_])=>
-              s"x${lhs.id}_apply"
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: SimpleStruct[_]) => s"${s}_tuple"
+    case Def(_: FieldApply[_,_]) => s"${s}_apply"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {

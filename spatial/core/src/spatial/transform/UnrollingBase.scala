@@ -6,7 +6,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 import org.virtualized.SourceContext
 
 trait UnrollingBase extends ForwardTransformer {
@@ -129,7 +128,9 @@ trait UnrollingBase extends ForwardTransformer {
 
   case class PartialUnroller(cchain: Exp[CounterChain], inds: Seq[Bound[Index]], isInnerLoop: Boolean) extends Unroller {
     // HACK: Don't unroll inner loops for CGRA generation
-    val Ps: Seq[Int] = if (isInnerLoop && SpatialConfig.enablePIR) inds.map{_ => 1} else parFactorsOf(cchain).map{case Exact(c) => c.toInt }
+    val Ps: Seq[Int] = if (isInnerLoop && spatialConfig.enablePIR) inds.map{_ => 1}
+                       else parFactorsOf(cchain).map{case Exact(c) => c.toInt }
+
     val fs: Seq[Boolean] = countersOf(cchain).map(isForever)
 
     val indices: Seq[Seq[Bound[Index]]]   = Ps.map{p => List.fill(p){ fresh[Index] }}

@@ -6,7 +6,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
+
 
 trait ChiselGenReg extends ChiselGenSRAM {
   var argIns: List[Sym[Reg[_]]] = List()
@@ -16,32 +16,23 @@ trait ChiselGenReg extends ChiselGenSRAM {
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
-            case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${lhs.name.getOrElse("reg").replace("$","")}"""
-            case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
-            case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(ArgInNew(_))  => s"${s}_argin"
+    case Def(ArgOutNew(_)) => s"${s}_argout"
+    case Def(HostIONew(_)) => s"${s}_hostio"
+    case Def(RegNew(_))    => s"""${s}_${s.name.getOrElse("reg").replace("$","")}"""
+
+    case Def(RegRead(reg:Sym[_]))      => s"${s}_readx${reg.id}"
+    case Def(RegWrite(reg:Sym[_],_,_)) => s"${s}_writex${reg.id}"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {

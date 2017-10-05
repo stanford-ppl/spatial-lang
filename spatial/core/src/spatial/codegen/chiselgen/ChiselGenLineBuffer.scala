@@ -5,28 +5,14 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 
 trait ChiselGenLineBuffer extends ChiselGenController {
   private var linebufs: List[(Sym[LineBufferNew[_]], Int)]  = List()
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: LineBufferNew[_]) =>
-              s"""x${lhs.id}_${lhs.name.getOrElse("linebuf")}"""
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: LineBufferNew[_]) => s"""${s}_${s.name.getOrElse("linebuf")}"""
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {

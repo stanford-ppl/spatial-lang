@@ -5,29 +5,14 @@ import argon.codegen.cppgen.CppCodegen
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 trait CppGenCounter extends CppCodegen with FileDependencies {
   // dependencies ::= AlwaysDep("cppgen", "Counter.cpp")
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(CounterNew(s,e,st,p)) =>
-              s"x${lhs.id}_ctr"
-            case Def(CounterChainNew(ctrs)) =>
-              s"x${lhs.id}_ctrchain"
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_:CounterNew)      => s"${s}_ctr"
+    case Def(_:CounterChainNew) => s"${s}_ctrchain"
+    case _ => super.name(s)
   }
 
   override protected def remap(tp: Type[_]): String = tp match {

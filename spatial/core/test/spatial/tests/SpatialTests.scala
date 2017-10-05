@@ -2,17 +2,18 @@ package spatial.tests
 
 import org.virtualized._
 import org.scalatest.{FlatSpec, Matchers}
-import argon.core.Config
+import argon.core._
 import argon.ArgonAppRunner
 import argon.TestBenchFailed
-import spatial.{SpatialApp, SpatialConfig}
+import spatial.SpatialApp
+import spatial.aliases.spatialConfig
 
 // Create a testbench which runs Scala tests
 trait SpatialTest extends SpatialApp with ArgonAppRunner {
   override val testbench = true
   override def settings() {
-    Config.verbosity = 1
-    SpatialConfig.enableSim = true
+    config.verbosity = 1
+    spatialConfig.enableSim = true
   }
   def runTest(): Unit = this.main(Array.empty)
 }

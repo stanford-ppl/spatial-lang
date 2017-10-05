@@ -1,10 +1,9 @@
 package spatial.codegen.cppgen
 
-import argon.codegen.cppgen.CppCodegen
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
-import spatial.SpatialConfig
+
 
 trait CppGenUnrolled extends CppGenController {
 
@@ -23,24 +22,14 @@ trait CppGenUnrolled extends CppGenController {
     iters.indices.foreach{_ => close("}") }
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: UnrolledForeach) => s"x${lhs.id}_unrForeach"
-            case Def(e: UnrolledReduce[_,_]) => s"x${lhs.id}_unrRed"
-            case Def(e: ParSRAMLoad[_]) => s"x${lhs.id}_parLd"
-            case Def(e: ParSRAMStore[_]) => s"x${lhs.id}_parSt"
-            case Def(e: ParFIFODeq[_]) => s"x${lhs.id}_parDeq"
-            case Def(e: ParFIFOEnq[_]) => s"x${lhs.id}_parEnq"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: UnrolledForeach) => s"${s}_unrForeach"
+    case Def(_: UnrolledReduce[_,_]) => s"${s}_unrRed"
+    case Def(_: ParSRAMLoad[_]) => s"${s}_parLd"
+    case Def(_: ParSRAMStore[_]) => s"${s}_parSt"
+    case Def(_: ParFIFODeq[_]) => s"${s}_parDeq"
+    case Def(_: ParFIFOEnq[_]) => s"${s}_parEnq"
+    case _ => super.name(s)
   } 
 
   private def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]]): String = {

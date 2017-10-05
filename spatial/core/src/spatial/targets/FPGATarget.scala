@@ -37,8 +37,20 @@ abstract class FPGATarget {
   lazy implicit val MODEL_CONFIG: AreaConfig[NodeModel] = AreaConfig[NodeModel](FIELDS, Right(0.0))
   lazy implicit val LINEAR_CONFIG: AreaConfig[LinearModel] = AreaConfig[LinearModel](FIELDS, LinearModel(Nil,Set.empty))
 
-  def areaModel: AreaModel        // Area model for this target
-  def latencyModel: LatencyModel  // Latency model for this target
+  private var __areaModel: Option[AreaModel] = None
+  private var __latencyModel: Option[LatencyModel] = None
+
+  protected def makeAreaModel: AreaModel        // Area model for this target
+  protected def makeLatencyModel: LatencyModel  // Latency model for this target
+
+  final def areaModel: AreaModel = {
+    if (__areaModel.isEmpty) __areaModel = Some(makeAreaModel)
+    __areaModel.get
+  }
+  final def latencyModel: LatencyModel = {
+    if (__latencyModel.isEmpty) __latencyModel = Some(makeLatencyModel)
+    __latencyModel.get
+  }
   def capacity: Area              // Device resource maximum, in terms of FIELDS
 
   final def areaAnalyzer(state: State): AreaAnalyzer = AreaAnalyzer(state, areaModel, latencyModel)

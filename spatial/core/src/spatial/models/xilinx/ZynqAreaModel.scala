@@ -1,7 +1,7 @@
 package spatial.models
 package xilinx
 
-import argon.util.Report._
+import argon.core._
 import forge._
 
 class ZynqAreaModel extends XilinxAreaModel {

@@ -214,20 +214,20 @@ class SingleCounter(val par: Int, val start: Option[Int], val stop: Option[Int],
 
   if (par > 0) {
     val base = Module(new FF((width)))
-    val init = if (start.isDefined) start.get.asSInt else io.input.start
+    val init = if (start.isDefined) start.get.S(width.W) else io.input.start
     base.io.input(0).init := init.asUInt
     base.io.input(0).reset := io.input.reset
-    base.io.input(0).enable := io.input.reset | io.input.enable
+    base.io.input(0).enable := io.input.enable
 
     val count = base.io.output.data.asSInt
     val delta = if (stride.isDefined & gap.isDefined) { (stride.get*par+gap.get).S((width.W)) }
                 else if (stride.isDefined) { (stride.get*par).S((width.W)) + io.input.gap}
-                else if (gap.isDefined) { io.input.stride * par.S((width.W)) + gap.get.asSInt}
+                else if (gap.isDefined) { io.input.stride * par.S((width.W)) + gap.get.S(width.W)}
                 else { io.input.stride * par.S((width.W)) + io.input.gap}
     val newval = count + delta
     val isMax = Mux(io.input.stride >= 0.S((width).W), 
-      newval >= {if (stop.isDefined) stop.get.asSInt else io.input.stop}, 
-      newval <= {if (stop.isDefined) stop.get.asSInt else io.input.stop}
+      newval >= {if (stop.isDefined) stop.get.S(width.W) else io.input.stop}, 
+      newval <= {if (stop.isDefined) stop.get.S(width.W) else io.input.stop}
     )
     // io.output.debug1 := newval
     // io.output.debug2 := io.input.stride >= 0.S((width).W)
@@ -241,12 +241,12 @@ class SingleCounter(val par: Int, val start: Option[Int], val stop: Option[Int],
     if(stride.isDefined) {
       (0 until par).foreach { i => 
         io.output.count(i) := count + (i*stride.get).S((width).W)
-        io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), if(stop.isDefined) stop.get.asSInt else io.input.stop, count) + (i*stride.get).S((width).W)
+        io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), if(stop.isDefined) stop.get.S(width.W) else io.input.stop, count) + (i*stride.get).S((width).W)
       }
     } else {
       (0 until par).foreach { i => 
         io.output.count(i) := count + i.S((width).W)*-*io.input.stride
-        io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), if(stop.isDefined) stop.get.asSInt else io.input.stop, count) + i.S((width).W)*-*io.input.stride
+        io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), if(stop.isDefined) stop.get.S(width.W) else io.input.stop, count) + i.S((width).W)*-*io.input.stride
       }      
     }
     
@@ -368,16 +368,16 @@ class SingleSCounterCheap(val par: Int, val start: Int, val stop: Int, val strid
     val wasMin = RegNext(isMin, false.B)
     val wasEnabled = RegNext(io.input.enable, false.B)
     // TODO: stop + strideDown in line below.. correct?
-    val next = Mux(isMax, Mux(io.input.saturate, count, init), Mux(isMin, (stop + strideDown).asSInt, Mux(io.input.dir, newval_up, newval_down)))
+    val next = Mux(isMax & io.input.dir, Mux(io.input.saturate, count, init), Mux(isMin & ~io.input.dir , (stop + strideDown).asSInt, Mux(io.input.dir, newval_up, newval_down)))
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
     (0 until par).foreach { i => io.output.count(i) := Mux(io.input.dir, count + (i*strideUp).S((width).W), count + (i*strideDown).S((width).W)) }
     (0 until par).foreach { i => 
       io.output.countWithoutWrap(i) := Mux(count === 0.S((width).W), stop.asSInt, count) + Mux(io.input.dir, (i*strideUp).S((width).W), (i*strideDown).S((width).W))
     }
-    io.output.done := io.input.enable & (isMax | isMin)
-    io.output.saturated := io.input.saturate & ( isMax | isMin )
-    io.output.extendedDone := (io.input.enable | wasEnabled) & ((isMax | wasMax) | (isMin | wasMin))
+    io.output.done := io.input.enable & ((isMax & io.input.dir) | (isMin & ~io.input.dir))
+    io.output.saturated := io.input.saturate & ( (isMax & io.input.dir) | (isMin & ~io.input.dir) )
+    io.output.extendedDone := (io.input.enable | wasEnabled) & (((isMax & io.input.dir) | (wasMax & io.input.dir)) | ((isMin & ~io.input.dir) | (wasMin & ~io.input.dir)))
   } else { // Forever21 counter
     io.output.saturated := false.B
     io.output.extendedDone := false.B

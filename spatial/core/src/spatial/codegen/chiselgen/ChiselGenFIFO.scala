@@ -6,60 +6,37 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 trait ChiselGenFIFO extends ChiselGenSRAM {
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
   }
 
-  override protected def bitWidth(tp: Type[_]): Int = {
-    tp match { 
-      case Bits(bitEv) => bitEv.length
-      // case x: StructType[_] => x.fields.head._2 match {
-      //   case _: IssuedCmd => 96
-      //   case _ => super.bitWidth(tp)
-      // }
-      case _ => super.bitWidth(tp)
-    }
+  override protected def bitWidth(tp: Type[_]): Int = tp match {
+    case Bits(bitEv) => bitEv.length
+    // case x: StructType[_] => x.fields.head._2 match {
+    //   case _: IssuedCmd => 96
+    //   case _ => super.bitWidth(tp)
+    // }
+    case _ => super.bitWidth(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: FIFONew[_]) =>
-              s"""x${lhs.id}_${lhs.name.getOrElse("fifo").replace("$","")}"""
-            case Def(FIFOEnq(fifo:Sym[_],_,_)) =>
-              s"x${lhs.id}_enqTo${fifo.id}"
-            case Def(FIFODeq(fifo:Sym[_],_)) =>
-              s"x${lhs.id}_deqFrom${fifo.id}"
-            case Def(FIFOEmpty(fifo:Sym[_])) =>
-              s"x${lhs.id}_isEmpty${fifo.id}"
-            case Def(FIFOFull(fifo:Sym[_])) =>
-              s"x${lhs.id}_isFull${fifo.id}"
-            case Def(FIFOAlmostEmpty(fifo:Sym[_])) =>
-              s"x${lhs.id}_isAlmostEmpty${fifo.id}"
-            case Def(FIFOAlmostFull(fifo:Sym[_])) =>
-              s"x${lhs.id}_isAlmostFull${fifo.id}"
-            case Def(FIFONumel(fifo:Sym[_])) =>
-              s"x${lhs.id}_numel${fifo.id}"
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: FIFONew[_])                => s"""${s}_${s.name.getOrElse("fifo").replace("$","")}"""
+    case Def(FIFOEnq(fifo:Sym[_],_,_))     => s"${s}_enqTo${fifo.id}"
+    case Def(FIFODeq(fifo:Sym[_],_))       => s"${s}_deqFrom${fifo.id}"
+    case Def(FIFOEmpty(fifo:Sym[_]))       => s"${s}_isEmpty${fifo.id}"
+    case Def(FIFOFull(fifo:Sym[_]))        => s"${s}_isFull${fifo.id}"
+    case Def(FIFOAlmostEmpty(fifo:Sym[_])) => s"${s}_isAlmostEmpty${fifo.id}"
+    case Def(FIFOAlmostFull(fifo:Sym[_]))  => s"${s}_isAlmostFull${fifo.id}"
+    case Def(FIFONumel(fifo:Sym[_]))       => s"${s}_numel${fifo.id}"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -74,7 +51,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FIFONew(_)   =>
-      if (SpatialConfig.useCheapFifos) {
+      if (spatialConfig.useCheapFifos) {
         val size = constSizeOf(lhs)
         // ASSERT that all pars are the same!
         // Console.println(s"Working on $lhs, readers ${readersOf(lhs)}")
@@ -116,8 +93,8 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${swap(writer, DatapathEn)}" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${swap(writer, DatapathEn)}"
-      if (SpatialConfig.useCheapFifos) {
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+      if (spatialConfig.useCheapFifos) {
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
       } else {
         emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), Vec(List(($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)))""")
       }
@@ -133,8 +110,8 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       }
       val enabler = src"${swap(reader, DatapathEn)} & ~${reader}_inhibitor & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      if (SpatialConfig.useCheapFifos) {
-        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en).apply(0)""")  
+      if (spatialConfig.useCheapFifos) {
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en).apply(0)""")
       } else {
         emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en))).apply(0)""")
       }

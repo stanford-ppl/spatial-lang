@@ -5,13 +5,18 @@ import argon.nodes._
 import argon.codegen.cppgen.CppCodegen
 import spatial.aliases._
 import spatial.nodes._
-import spatial.SpatialConfig
+
 
 trait CppGenSRAM extends CppCodegen {
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: SRAMType[_] => src"Array[${tp.child}]"
     case _ => super.remap(tp)
+  }
+
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(SRAMNew(_)) => s"${s}_sram"
+    case _ => super.name(s)
   }
 
   protected def remapIntType(tp: Type[_]): String = tp match {
@@ -31,22 +36,6 @@ trait CppGenSRAM extends CppCodegen {
       else "faulty_float"
     case _ => "notype"
   }
-
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(SRAMNew(dims)) => s"x${lhs.id}_sram"
-            case _ => super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
-  } 
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }

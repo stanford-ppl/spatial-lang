@@ -9,13 +9,12 @@ import spatial.metadata._
 import spatial.models._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 import scala.collection.immutable.SortedSet
 
 case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends ForwardTransformer with ModelingTraversal {
   override val name = "Pipeline Retimer"
-  override def shouldRun = !SpatialConfig.enablePIR
+  override def shouldRun = !spatialConfig.enablePIR
 
   var retimeBlocks: List[Boolean] = Nil
   var ctx: Option[SrcCtx] = None

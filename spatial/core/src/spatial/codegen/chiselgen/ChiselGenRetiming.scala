@@ -5,40 +5,30 @@ import argon.nodes._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 trait ChiselGenRetiming extends ChiselGenSRAM {
 
-  override def quote(s: Exp[_]): String = {
-    s match {
-      case lhs: Sym[_] =>
-        lhs match {
-          case Def(DelayLine(size, data)) =>
-            data match {
-              case Const(_) => src"$data"
-              case _ => if (SpatialConfig.enableNaming) {s"${quote(data)}_D${size}" + alphaconv.getOrElse(s"${quote(data)}_D${size}", "")} 
-                        else {super.quote(s) + alphaconv.getOrElse(super.quote(s), "")}
-            }
-            
-          /*case Def(ShiftRegNew(size, init)) =>
-            if (size == 1) s"x${lhs.id}_latch"
-            else s"x${lhs.id}_rt$size"
-          case Def(ShiftRegRead(sr)) => s"x${lhs.id}_rt"*/
-          case _ => super.quote(s)
-        }
-      case _ => super.quote(s)
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(DelayLine(size, data)) => data match {
+      case Const(_) => src"$data"
+      case _ => s"${quote(data)}_D$size" + alphaconv.getOrElse(s"${quote(data)}_D$size", "")
     }
-  } 
+    case _ => super.name(s)
+  }
+
+  override protected def quote(e: Exp[_]): String = e match {
+    case Def(DelayLine(_, _)) if !spatialConfig.enableNaming => super.quote(e) + alphaconv.getOrElse(super.quote(e), "")
+    case _ => super.quote(e) // All others
+  }
 
   def quoteOperand2(s: Exp[_]): String = s match { // TODO: Unify this with the one in math
     case ss:Sym[_] => s"x${ss.id}"
-    case Const(xx:Exp[_]) => s"${boundOf(xx).toInt}"
+    case Const(xx:Exp[_]) => s"${boundOf(xx).toInt}" // FIXME: This will never match
     case _ => "unk"
   }
 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-
     case DelayLine(size, data) =>
       // emit(src"""val $lhs = Utils.delay($data, $size)""")
       data match {
@@ -85,10 +75,8 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
   }
 
   override protected def emitFileFooter() {
-
     emitGlobalWire(s"val max_retime = $maxretime")
     super.emitFileFooter()
   }
-
 
 }

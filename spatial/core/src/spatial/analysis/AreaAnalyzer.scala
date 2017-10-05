@@ -13,7 +13,7 @@ import scala.collection.mutable
 
 case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: LatencyModel) extends ModelingTraversal {
   override val name = "Area Analyzer"
-  private val NoArea: Area = areaModel.NoArea
+  private def NoArea: Area = areaModel.NoArea
 
   var totalArea: Area = _
   var scopeArea: Seq[Area] = Nil
@@ -48,14 +48,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
     val area = areaModel.summarize(total)
     totalArea = area
 
-    /*if (totalArea.toFile.exists(_ < 0)) {
-      val prevVerbosity = Config.verbosity
-      Config.verbosity = 1
-      println("Negative area reported!")
-      report(areaReport)
-      Config.verbosity = prevVerbosity
-    }*/
-    if (Config.verbosity > 0) { areaModel.reportMissing() }
+    if (config.verbosity > 0) { areaModel.reportMissing() }
 
     super.postprocess(block)
   }

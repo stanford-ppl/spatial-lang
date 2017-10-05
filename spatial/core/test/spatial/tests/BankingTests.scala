@@ -2,7 +2,7 @@ package spatial.tests
 import argon.TestBenchFailed
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
-import spatial.SpatialConfig
+
 
 object TwoDuplicatesSimple extends SpatialTest {
   import spatial.dsl._
@@ -163,7 +163,6 @@ object LinearWriteRandomRead extends SpatialTest {
 }
 
 class BankingTests extends FlatSpec with Matchers {
-  SpatialConfig.enableSim = true
   "TwoDuplicatesSimple" should "have two duplicates of sram" in { TwoDuplicatesSimple.main(Array.empty) }
   "TwoDuplicatesPachinko" should "have two duplicates of sram" in { TwoDuplicatesPachinko.main(Array.empty) }
 

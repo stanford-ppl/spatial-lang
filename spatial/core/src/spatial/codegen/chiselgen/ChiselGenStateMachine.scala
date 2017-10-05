@@ -5,27 +5,14 @@ import argon.codegen.chiselgen.ChiselCodegen
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: StateMachine[_]) =>
-              s"x${lhs.id}_FSM"
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
-  } 
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: StateMachine[_]) => s"${s}_FSM"
+    case _ => super.name(s)
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StateMachine(ens,start,notDone,action,nextState,state) =>
       val parent_kernel = controllerStack.head 

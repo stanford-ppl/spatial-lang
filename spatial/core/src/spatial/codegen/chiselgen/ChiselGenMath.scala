@@ -2,32 +2,20 @@ package spatial.codegen.chiselgen
 
 import argon.core._
 import argon.nodes._
-import argon.codegen.chiselgen.ChiselCodegen
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 trait ChiselGenMath extends ChiselGenSRAM {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
-            case Def(FixNeg(x:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse(s"neg${quoteOperand(x)}")}"""
-            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sum")}"""
-            case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sub")}"""
-            case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("div")}"""
-            case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("mul")}"""
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(FixRandom(x)) => s"${s}_fixrnd"
+    case Def(FixNeg(x:Exp[_]))  => s"""${s}_${s.name.getOrElse(s"neg${quoteOperand(x)}")}"""
+    case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("sum")}"""
+    case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("sub")}"""
+    case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("div")}"""
+    case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("mul")}"""
+    case _ => super.name(s)
   } 
 
   def quoteOperand(s: Exp[_]): String = s match {
