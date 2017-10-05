@@ -1,11 +1,9 @@
 package spatial.metadata
 
 import argon.core._
-import argon.transform.Transformer
 import forge._
 import spatial.aliases._
 import spatial.utils._
-import spatial.SpatialConfig
 
 /** User-facing metadata **/
 /**************************/
@@ -447,7 +445,7 @@ case class MBodyLatency(latency: Seq[Long]) extends Metadata[MBodyLatency] { def
   def update(e: Exp[_], latency: Seq[Long]): Unit = metadata.add(e, MBodyLatency(latency))
   def update(e: Exp[_], latency: Long): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
 
-  def sum(e: Exp[_]): Long = if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) bodyLatency(e).sum else 0L
+  def sum(e: Exp[_]): Long = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) bodyLatency(e).sum else 0L
 }
 
 /**

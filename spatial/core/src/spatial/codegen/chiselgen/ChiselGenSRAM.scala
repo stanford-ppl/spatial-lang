@@ -8,7 +8,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 sealed trait StandardSignal
 object En extends StandardSignal
@@ -22,6 +21,7 @@ object CtrTrivial extends StandardSignal
 object IIDone extends StandardSignal
 object RstEn extends StandardSignal
 object CtrEn extends StandardSignal
+
 
 trait ChiselGenSRAM extends ChiselCodegen {
   private var nbufs: List[(Sym[SRAM[_]], Int)] = Nil
@@ -103,35 +103,32 @@ trait ChiselGenSRAM extends ChiselCodegen {
     //}
   //}
 
-  def cchainWidth(ctr: Exp[Counter]): Int = {
-    ctr match {
-      case Def(CounterNew(Exact(s), Exact(e), _, _)) => 
-        val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
-        val ebits = if (e > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt} 
-                    else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
-        ({ebits max sbits} + 2).toInt
-      case Def(CounterNew(start, stop, _, _)) => 
-        val sbits = bitWidth(start.tp)
-        val ebits = bitWidth(stop.tp)
-        ({ebits max sbits} + 0).toInt
-      case _ => 32
-    }
+  def cchainWidth(ctr: Exp[Counter]): Int = ctr match {
+    case Def(CounterNew(Exact(s), Exact(e), _, _)) =>
+      val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt}
+                  else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (s.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+      val ebits = if (e > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max e).toDouble)/scala.math.log(2)).toInt}
+                  else {BigInt(2) + ceil(scala.math.log((BigInt(1) max (e.abs+BigInt(1))).toDouble)/scala.math.log(2)).toInt}
+      ({ebits max sbits} + 2).toInt
+    case Def(CounterNew(start, stop, _, _)) =>
+      val sbits = bitWidth(start.tp)
+      val ebits = bitWidth(stop.tp)
+      ({ebits max sbits} + 0).toInt
+    case _ => 32
   }
 
   def getWriteAddition(c: Exp[Any]): String = {
-      // If we are inside a stream pipe, the following may be set
-      // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
-      val lat = bodyLatency.sum(c)
-      val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
-        case _ => ""
-      }.filter(_ != "").mkString(" & ")
+    // If we are inside a stream pipe, the following may be set
+    // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
+    val lat = bodyLatency.sum(c)
+    val readiers = listensTo(c).distinct.map{_.memory}.map {
+      case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
+      case _ => ""
+    }.filter(_ != "").mkString(" & ")
 
-      val hasReadiers = if (readiers != "") "&" else ""
+    val hasReadiers = if (readiers != "") "&" else ""
 
-      src" ${hasReadiers} ${readiers}"
-
+    src" ${hasReadiers} ${readiers}"
   }
 
   def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
@@ -141,7 +138,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         case _ => ""
       }.mkString(" & ")
       val hasReadiers = if (readiers != "") "&" else ""
-      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
+      if (spatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
   }
   def getReadyLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
@@ -150,7 +147,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         case _ => ""
       }.mkString(" & ")
       val hasReadiers = if (readiers != "") "&" else ""
-      if (SpatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
+      if (spatialConfig.enableRetiming) src"${hasReadiers} ${readiers}" else " "
   }
 
 
@@ -200,7 +197,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   //  rather than spinning even when there is retiming and the surrounding loop has a delayed
   //  view of the counter done signal
   protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]], fsm: Option[Exp[_]] = None, switch: Option[Exp[_]]): Unit = {
-    if (SpatialConfig.enableRetiming || SpatialConfig.enablePIRSim) {
+    if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
@@ -267,27 +264,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.needsFPType(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    s match {
-      case b: Bound[_] => computeSuffix(b)
-      case _ =>
-        if (SpatialConfig.enableNaming) {
-          s match {
-            case lhs: Sym[_] =>
-              val Op(rhs) = lhs
-              rhs match {
-                case SRAMNew(dims)=> 
-                  s"""x${lhs.id}_${lhs.name.getOrElse("sram").replace("$","")}"""
-                case _ =>
-                  super.quote(s)
-              }
-            case _ =>
-              super.quote(s)
-          }
-        } else {
-          super.quote(s)
-        }
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(SRAMNew(_)) => s"""${s}_${s.name.getOrElse("sram").replace("$","")}"""
+    case _ => super.name(s)
+  }
+
+  override protected def quote(e: Exp[_]): String = e match {
+    // FIXME: Unclear precedence with the quote rule for Bound in ChiselGenCounter
+    case b: Bound[_] => computeSuffix(b)
+    case _ => super.quote(e)
   } 
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
@@ -346,7 +331,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), BankedMemory, ${SpatialConfig.enableSyncMem}
+    List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -354,14 +339,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${dims.map(_.banks)}), $strides,
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${SpatialConfig.enableSyncMem}
+    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
   ))""")
             }
           case DiagonalMemory(strides, banks, depth, isAccum) =>
             if (depth == 1) {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
+    List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
   ))""")
             } else {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
@@ -369,7 +354,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
     List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
     List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${SpatialConfig.enableSyncMem}
+    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
   ))""")
             }
           }
@@ -416,11 +401,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
   override protected def emitFileFooter() {
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
-      val trgt = s"${SpatialConfig.target.name}".replace("DE1", "de1soc")
+      val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
       emit(src"""${boolMap.map{x => src"// ${x._1} = ${x._2}"}.mkString("\n")}""")
       emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
       emit(s"""Utils.target = ${trgt}""")
-      emit(s"""Utils.retime = ${SpatialConfig.enableRetiming}""")
+      emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
     }
     withStream(getStream("BufferControlCxns")) {
       nbufs.foreach{ case (mem, i) => 

@@ -2,7 +2,6 @@ package spatial.codegen.dotgen
 
 import argon.codegen.FileDependencies
 import argon.codegen.dotgen.DotCodegen
-import argon.core.Config
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
@@ -19,7 +18,7 @@ trait DotGenCounter extends DotCodegen with FileDependencies {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) => 
-    case CounterChainNew(ctrs) => if (Config.dotDetail > 0) emitVert(lhs)
+    case CounterChainNew(ctrs) => if (config.dotDetail > 0) emitVert(lhs)
     case Forever() => 
     case _ => super.emitNode(lhs, rhs)
   }

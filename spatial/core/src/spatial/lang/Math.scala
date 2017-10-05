@@ -104,6 +104,10 @@ object Math {
   }
 
   /** Constructors **/
+  @internal def fix_mac[S:BOOL,I:INT,F:INT](m1: Exp[FixPt[S,I,F]], m2: Exp[FixPt[S,I,F]], add: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = {
+    stage(FixMAC(m1,m2,add))(ctx)
+  }
+
   @internal def fix_abs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]): Exp[FixPt[S,I,F]] = x match {
     case Literal(c) => FixPt.const[S,I,F](c.abs)
     case _ => stage(FixAbs(x))(ctx)

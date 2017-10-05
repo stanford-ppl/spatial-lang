@@ -2,7 +2,6 @@ package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
 import argon.codegen.dotgen._
-import argon.core.Config
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
@@ -28,14 +27,14 @@ trait DotGenController extends DotCodegen {
     case Hwblock(func, isFrvr) =>
       toggleEn()
       emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
-        if (Config.dotDetail == 0) emitVert(lhs);
+        if (config.dotDetail == 0) emitVert(lhs);
         rhs.blocks.foreach(emitBlock) 
       }
       toggleEn()
 
     case _ if isControlNode(lhs) =>
       emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){ 
-        if (Config.dotDetail == 0) emitVert(lhs);
+        if (config.dotDetail == 0) emitVert(lhs);
         rhs.blocks.foreach(emitBlock) 
       }
 

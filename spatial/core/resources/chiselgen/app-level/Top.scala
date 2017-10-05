@@ -159,7 +159,7 @@ class Top(
 
   val numChannels = target match {
     case "zynq"             => 4
-    case "aws" | "aws-sim"  => 4
+    case "aws" | "aws-sim"  => 1
     case _                  => 1
   }
 

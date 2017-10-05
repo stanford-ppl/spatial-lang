@@ -31,7 +31,7 @@ object DE1 extends AlteraDevice {
   case object GPOutput2 extends Bus { def length = 32 }
 
   // FIXME: No models for DE1 yet
-  def areaModel: AreaModel       = new StratixVAreaModel
-  def latencyModel: LatencyModel = new StratixVLatencyModel
+  protected def makeAreaModel: AreaModel       = new StratixVAreaModel
+  protected def makeLatencyModel: LatencyModel = new StratixVLatencyModel
   def capacity: Area = AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
 }

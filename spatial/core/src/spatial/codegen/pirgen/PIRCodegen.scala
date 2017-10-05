@@ -4,11 +4,10 @@ import java.io.PrintWriter
 import java.nio.file.{Files, Paths}
 
 import argon.codegen.{Codegen, FileDependencies}
-import argon.core.Config
 import argon.core._
+import spatial.aliases._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 import scala.collection.mutable
 import scala.language.postfixOps
@@ -86,7 +85,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
 
     areaModel.run(block)
 
-    if (SpatialConfig.enableSplitting) {
+    if (spatialConfig.enableSplitting) {
       printout.run(block)
       splitter.run(block)
     }
@@ -95,7 +94,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     //HACK remove unused copy from parent after splitting
     cus.foreach { case (sym, cus) => cus.foreach { cu => optimizer.removeUnusedCChainCopy(cu) } }
 
-    if (SpatialConfig.enableArchDSE) {
+    if (spatialConfig.enableArchDSE) {
       dse.run(block)
     } else {
       tallyCUs(cus.values.toList.flatten)
@@ -137,7 +136,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRTraversal {
     val pwd = sys.env("SPATIAL_HOME")
     val dir = s"$pwd/csvs"
     Files.createDirectories(Paths.get(dir))
-    val file = new PrintWriter(s"$dir/${Config.name}_unsplit.csv")
+    val file = new PrintWriter(s"$dir/${config.name}_unsplit.csv")
     cus.filter{cu => cu.allStages.nonEmpty || cu.isPMU}.foreach{cu =>
       val isPCU = if (cu.isPCU) 1 else 0
       val util = getUtil(cu, cus)

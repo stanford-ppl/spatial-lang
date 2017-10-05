@@ -3,9 +3,14 @@ package spatial.lang.static
 import argon.core._
 import argon.lang.direct.{ArgonExp, ArgonApi}
 import forge._
+import spatial.SpatialConfig
 import spatial.lang.cake.SpatialLangAliases
 
-trait SpatialExp extends ArgonExp with SpatialLangAliases
+trait SpatialExp extends ArgonExp with SpatialLangAliases {
+
+  def spatialConfig(implicit state: State): SpatialConfig = state.config.asInstanceOf[SpatialConfig]
+
+}
 
 trait SpatialImplicits { this: SpatialApi =>
    // Hacks required to allow .to[T] syntax on various primitive types

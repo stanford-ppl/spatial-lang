@@ -6,16 +6,12 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 import scala.math._
 
 trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
   var streamCtrCopy = List[Bound[_]]()
 
   // dependencies ::= AlwaysDep("chiselgen", "resources/Counter.chisel")
-
-
-
   def emitCounterChain(lhs: Exp[_], suffix: String = ""): Unit = {
     val Def(CounterChainNew(ctrs)) = lhs
     var isForever = false
@@ -124,35 +120,29 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     }
   }
 
-  override def quote(s: Exp[_]): String = {
-    s match {
-      case lhs: Sym[_] => 
-        val Def(rhs) = lhs
-        rhs match {
-          case CounterNew(_,e,st,p)=> 
-            if (SpatialConfig.enableNaming) {s"x${lhs.id}_ctr"} else super.quote(s)
-          case CounterChainNew(ctrs) =>
-            if (SpatialConfig.enableNaming) {s"x${lhs.id}_ctrchain"} else super.quote(s)
-          case _ =>
-            super.quote(s)
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: CounterNew)      => s"${s}_ctr"
+    case Def(_: CounterChainNew) => s"${s}_ctrchain"
+    case _ => super.name(s)
+  }
+
+  override protected def quote(e: Exp[_]): String = e match {
+    // FIXME: Unclear precedence with the quote rule for Bound in ChiselGenSRAM
+    case b: Bound[_] =>
+      if (streamCtrCopy.contains(b)) {
+        if (validPassMap.contains((e, getCtrSuffix(controllerStack.head)) )) {
+          super.quote(e) + getCtrSuffix(controllerStack.head) +  getValidSuffix(controllerStack.head, validPassMap(e, getCtrSuffix(controllerStack.head)))
+        } else {
+          super.quote(e) + getCtrSuffix(controllerStack.head)
         }
-      case b: Bound[_] =>
-          if (streamCtrCopy.contains(b)) {
-            if (validPassMap.contains((s, getCtrSuffix(controllerStack.head)) )) {
-              super.quote(s) + getCtrSuffix(controllerStack.head) +  getValidSuffix(controllerStack.head, validPassMap(s, getCtrSuffix(controllerStack.head)))
-            } else {
-              super.quote(s) + getCtrSuffix(controllerStack.head)  
-            }
-          } else {
-            if (validPassMap.contains((s, "") )) {
-              super.quote(s) + getValidSuffix(controllerStack.head, validPassMap(s, ""))
-            } else {
-              super.quote(s)
-            }
-          }
-      case _ =>
-        super.quote(s)
-    }
+      } else {
+        if (validPassMap.contains((e, "") )) {
+          super.quote(e) + getValidSuffix(controllerStack.head, validPassMap(e, ""))
+        } else {
+          super.quote(e)
+        }
+      }
+    case _ => super.quote(e)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {

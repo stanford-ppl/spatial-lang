@@ -3,7 +3,6 @@ package altera
 
 import java.io.File
 
-import argon.core.Config
 import argon.util.Report._
 import org.encog.engine.network.activation.ActivationSigmoid
 import org.encog.ml.data.basic.{BasicMLData, BasicMLDataSet}
@@ -37,7 +36,7 @@ abstract class AreaNeuralModel(
   val verbose = false
   val MAX_EPOCH = 600
 
-  private val pwd = System.getenv().getOrDefault("SPATIAL_HOME", Config.cwd)
+  private val pwd = System.getenv().getOrDefault("SPATIAL_HOME", new java.io.File(".").getAbsolutePath)
 
   private lazy val dataFile: Array[Array[Double]] = {
     try {

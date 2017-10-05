@@ -8,7 +8,6 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import org.virtualized.SourceContext
-import spatial.SpatialConfig
 
 package object pirgen {
   type Expr = Exp[_]
@@ -347,7 +346,7 @@ package object pirgen {
     val pattern = accessPatternOf(access)
     val strides = constDimsToStrides(dimsOf(mem).map{case Exact(d) => d.toInt})
 
-    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) SpatialConfig.lanes else 1
+    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) spatialConfig.lanes else 1
 
     if (pattern.forall(_ == InvariantAccess)) NoBanks
     else {

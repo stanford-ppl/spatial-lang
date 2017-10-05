@@ -5,7 +5,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 //import scala.collection.mutable.HashMap
 
@@ -18,15 +17,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
   // var loadParMapping = HashMap[Int, (Int,Int)]() 
   // var storeParMapping = HashMap[Int, (Int,Int)]() 
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs @ Def(e: DRAMNew[_,_]) => s"${lhs}_dram"
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: DRAMNew[_,_]) => s"${s}_dram"
+    case _ => super.name(s)
   }
 
   override protected def remap(tp: Type[_]): String = tp match {

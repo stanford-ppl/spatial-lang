@@ -6,29 +6,15 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
+
 
 trait ChiselGenRegFile extends ChiselGenSRAM {
   private var nbufs: List[(Sym[SRAM[_]], Int)]  = List()
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: RegFileNew[_,_]) =>
-              s"""x${lhs.id}_${lhs.name.getOrElse("regfile")}"""
-            case Def(e: LUTNew[_,_]) =>
-              s"""x${lhs.id}_${lhs.name.getOrElse("lut")}"""
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: RegFileNew[_,_]) => s"""${s}_${s.name.getOrElse("regfile")}"""
+    case Def(_: LUTNew[_,_])     => s"""${s}_${s.name.getOrElse("lut")}"""
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
