@@ -54,6 +54,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
+      if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+
       // Console.println(src"""II of $lhs is ${iiOf(lhs)}""")
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
@@ -124,6 +126,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
+      if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")

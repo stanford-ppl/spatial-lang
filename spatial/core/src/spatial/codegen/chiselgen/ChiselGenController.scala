@@ -86,7 +86,7 @@ trait ChiselGenController extends ChiselGenCounter{
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         // emitGlobalWire(s"//${validPassMap}")
-        emitGlobalWire(src"val ${v}${suffix} = Wire(Bool())")
+        emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
         emit(src"${v}${suffix} := Mux(${counter_data(i)._3} >= 0.S, ${c}${suffix} < ${counter_data(i)._2}, ${c}${suffix} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
           emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
@@ -132,8 +132,8 @@ trait ChiselGenController extends ChiselGenCounter{
     inds.zipWithIndex.foreach { case (idx,index) =>
       val this_counter = ctrMapping.filter(_ <= index).length - 1
       val this_width = cchainWidth(counters(this_counter))
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
-      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      // emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
+      // stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
       withStream(getStream("BufferControlCxns")) {
         stages.zipWithIndex.foreach{ case (s, i) =>
           emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
@@ -143,6 +143,20 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       // Associate bound sym with both ctrl node and that ctrl node's cchain
+    }
+  }
+
+  def allocateRegChains(controller: Sym[Any], inds:Seq[Bound[Index]], cchain:Exp[CounterChain]) = {
+    val stages = childrenOf(controller)
+    val Def(CounterChainNew(counters)) = cchain
+    var maxw = 32 min counters.map(cchainWidth(_)).reduce{_*_}
+    val par = counters.map{case Def(CounterNew(_,_,_,Exact(p))) => p}
+    val ctrMapping = par.indices.map{i => par.dropRight(par.length - i).sum}
+    inds.zipWithIndex.foreach { case (idx,index) =>
+      val this_counter = ctrMapping.filter(_ <= index).length - 1
+      val this_width = cchainWidth(counters(this_counter))
+      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
+      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
     }
   }
 
