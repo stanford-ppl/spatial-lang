@@ -760,8 +760,8 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
-      emit(src"""val retime_counter = Module(new SingleCounter(1)) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
-      emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
+      emit(src"""val retime_counter = Module(new SingleCounter(1, Some(0), Some(max_retime), Some(1), Some(0))) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
+      // emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset.toBool; retime_counter.io.input.enable := true.B;""")
       emitGlobalWire(src"""val retime_released = RegInit(false.B)""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")

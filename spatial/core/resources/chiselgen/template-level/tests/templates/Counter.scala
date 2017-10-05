@@ -310,20 +310,20 @@ class CounterTests(c: Counter) extends PeekPokeTester(c) {
 }
 
 
-class SingleCounterTester extends ChiselFlatSpec {
-  behavior of "SingleCounter"
-  backends foreach {backend =>
-    it should s"correctly add randomly generated numbers $backend" in {
-      Driver(() => new SingleCounter(3))(c => new SingleCounterTests(c)) should be (true)
-    }
-  }
-}
+// class SingleCounterTester extends ChiselFlatSpec {
+//   behavior of "SingleCounter"
+//   backends foreach {backend =>
+//     it should s"correctly add randomly generated numbers $backend" in {
+//       Driver(() => new SingleCounter(3))(c => new SingleCounterTests(c)) should be (true)
+//     }
+//   }
+// }
 
-class CounterTester extends ChiselFlatSpec {
-  behavior of "Counter"
-  backends foreach {backend =>
-    it should s"correctly add randomly generated numbers $backend" in {
-      Driver(() => new Counter(List(2,2,2)))(c => new CounterTests(c)) should be (true)
-    }
-  }
-}
+// class CounterTester extends ChiselFlatSpec {
+//   behavior of "Counter"
+//   backends foreach {backend =>
+//     it should s"correctly add randomly generated numbers $backend" in {
+//       Driver(() => new Counter(List(2,2,2)))(c => new CounterTests(c)) should be (true)
+//     }
+//   }
+// }
