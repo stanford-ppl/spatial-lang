@@ -60,7 +60,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
       emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
       emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${lhs}_done)")
+      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := ${swap(hwblock_sym.head, Done)}""")
       emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
@@ -823,8 +823,8 @@ trait ChiselGenController extends ChiselGenCounter{
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      createInstrumentation(lhs)
       emitStandardSignals(lhs)
+      createInstrumentation(lhs)
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       // emit(src"""//${swap(lhs, BaseEn)} := ${swap(parent_kernel, BaseEn)} // Set by parent""")
@@ -909,8 +909,8 @@ trait ChiselGenController extends ChiselGenCounter{
       // open(src"val $lhs = {")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
-      createInstrumentation(lhs)
       emitStandardSignals(lhs)
+      createInstrumentation(lhs)
       emit(src"""${swap(lhs,En)} := ${swap(parent_kernel,En)} & ${lhs}_switch_select""")
       // emit(src"""${swap(lhs, BaseEn)} := ${swap(parent_kernel, BaseEn)} & ${lhs}_switch_select""")
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
