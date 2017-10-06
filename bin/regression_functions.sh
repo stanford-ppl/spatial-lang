@@ -309,6 +309,10 @@ echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**
 * Flags: $flags
+
+Results
+-------
+
 " > $wiki_file
 
 # Write combined travis button
@@ -316,13 +320,37 @@ combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${ty
 logger "Writing combined travis button..."
 init_travis_ci Combined $branch $type_todo
 
+
 results_file=`ls | grep "regression.*log"`
 sort $results_file > sorted_results.log
 sed -i "s/Pass/**Pass**/g" sorted_results.log
 sed -i "s/\[newline\]/\n/g" sorted_results.log
 sed -i "s/$/  /g" sorted_results.log
 
+# Send results to wiki
+echo -e "
+## Unit
+" >> $wiki_file
+sed -n "/\.Unit\./p" sorted_results.log >> $wiki_file
 cat sorted_results.log >> $wiki_file
+echo -e "
+## Dense
+" >> $wiki_file
+sed -n "/\.Dense\./p" sorted_results.log >> $wiki_file
+cat sorted_results.log >> $wiki_file
+echo -e "
+## Sparse
+" >> $wiki_file
+sed -n "/\.Sparse\./p" sorted_results.log >> $wiki_file
+cat sorted_results.log >> $wiki_file
+echo -e "
+## Fixme
+" >> $wiki_file
+sed -n "/\.Fixme\./p" sorted_results.log >> $wiki_file
+cat sorted_results.log >> $wiki_file
+
+# Send results to travis button
+sed "/\.Fixme\./d" sorted_results.log >> $combined_tracker_real  
 
 push_travis_ci Combined $branch $type_todo
 
