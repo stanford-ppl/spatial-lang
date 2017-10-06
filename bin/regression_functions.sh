@@ -304,10 +304,12 @@ rm $wiki_file > /dev/null 2>&1
 touch $wiki_file
 logger "Putting timestamp in wiki"
 duration=$SECONDS
+get_flags
 echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**
-* Flags: $flags" > $wiki_file
+* Flags: $flags
+" > $wiki_file
 
 # Write combined travis button
 combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
@@ -318,6 +320,7 @@ results_file=`ls | grep "regression.*log"`
 sort $results_file > sorted_results.log
 sed -i "s/Pass/*Pass*/g" sorted_results.log
 sed -i "s/\[newline\]/\n/g" sorted_results.log
+sed -i "s/$/\n/g" sorted_results.log
 
 cat sorted_results.log >> $wiki_file
 
