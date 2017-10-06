@@ -318,7 +318,7 @@ init_travis_ci Combined $branch $type_todo
 
 results_file=`ls | grep "regression.*log"`
 sort $results_file > sorted_results.log
-sed -i "s/Pass/*Pass*/g" sorted_results.log
+sed -i "s/Pass/**Pass**/g" sorted_results.log
 sed -i "s/\[newline\]/\n/g" sorted_results.log
 sed -i "s/$/\n/g" sorted_results.log
 
