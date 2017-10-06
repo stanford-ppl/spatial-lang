@@ -264,7 +264,8 @@ packet=$lockfile
 
 # Launch tests
 phase="VULTURE"
-launch_tests
+# launch_tests
+launch_tests_sbt
 
 # # Delay while tests run
 # phase="NAPPING"
@@ -276,7 +277,8 @@ launch_tests
 
 # Update result file
 phase="RESULTS"
-collect_results
+# collect_results
+collect_results_sbt
 
 # Update history
 phase="HISTORY"

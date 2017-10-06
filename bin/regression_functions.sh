@@ -232,7 +232,66 @@ exit 1
 }
 
 ## Function for collecting results and reporting in the markdown
-collect_results() {
+# collect_results() {
+# logger "Removing old wiki directory..."
+# rm -rf $WIKI_HOME
+# cd $SPATIAL_HOME
+# logger "Cloning wiki to avoid conflicts..."
+# git clone git@github.com:stanford-ppl/spatial-lang.wiki.git  > /dev/null 2>&1
+# git checkout -f HEAD  > /dev/null 2>&1
+# logger "Cloning done!"
+# logger "Cleaning old markdown file..."
+# rm $wiki_file > /dev/null 2>&1
+# touch $wiki_file
+# logger "Putting timestamp in wiki"
+# duration=$SECONDS
+# echo -e "
+# Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
+# * <---- indicates relative amount of work needed before app will **pass**
+# * Flags: $flags" > $wiki_file
+
+# # Write combined travis button
+# combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
+# logger "Writing combined travis button..."
+# init_travis_ci Combined $branch $type_todo
+
+# for ac in ${types_list[@]}; do
+#   if [[ "$ac" != *"Fixme"* ]]; then 
+#     combined_tracker=${combined_tracker_real}
+#   else
+#     combined_tracker="/dev/null"
+#   fi
+#   logger "Collecting results for ${ac} apps, putting in ${wiki_file}"
+#   cd ${SPATIAL_HOME}/regression_tests/${ac}/results
+#   echo "
+
+# # ${ac}:
+# " | awk '{print toupper($0)}' >> $wiki_file
+#   init_travis_ci $ac $branch $type_todo
+#   update_log $wiki_file
+#   push_travis_ci $ac $branch $type_todo
+# done
+
+# push_travis_ci Combined $branch $type_todo
+
+# # Update regtest timestamp
+# if [[ ${type_todo} = *"chisel"* ]]; then
+#   update_regression_timestamp
+# fi
+
+# echo -e "\n\n***\n\n" >> $wiki_file
+
+# # Link to logs
+# pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
+# # echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
+# echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
+# # echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
+
+# stamp_app_comments
+# stamp_commit_msgs
+# }
+
+collect_results_sbt() {
 logger "Removing old wiki directory..."
 rm -rf $WIKI_HOME
 cd $SPATIAL_HOME
@@ -255,22 +314,12 @@ combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${ty
 logger "Writing combined travis button..."
 init_travis_ci Combined $branch $type_todo
 
-for ac in ${types_list[@]}; do
-  if [[ "$ac" != *"Fixme"* ]]; then 
-    combined_tracker=${combined_tracker_real}
-  else
-    combined_tracker="/dev/null"
-  fi
-  logger "Collecting results for ${ac} apps, putting in ${wiki_file}"
-  cd ${SPATIAL_HOME}/regression_tests/${ac}/results
-  echo "
+results_file=`ls | grep "regression.*log"`
+sort $results_file > sorted_results.log
+sed -i "s/Pass/*Pass*/g" sorted_results.log
+sed -i "s/\[newline\]/\n/g" sorted_results.log
 
-# ${ac}:
-" | awk '{print toupper($0)}' >> $wiki_file
-  init_travis_ci $ac $branch $type_todo
-  update_log $wiki_file
-  push_travis_ci $ac $branch $type_todo
-done
+cat sorted_results.log >> $wiki_file
 
 push_travis_ci Combined $branch $type_todo
 
@@ -846,100 +895,108 @@ fi" >> $1
 
 
 # Helper function for launching regression tests
-launch_tests() {
-  # # Use magic to free unused semaphores
-  # logger "Killing semaphores"
-  # cmd="for semid in `ipcs -s | cut -d\" \" -f 2` ; do pid=`ipcs -s -i $semid | tail -n 2 | head -n 1 | awk '{print $5}'`; running=`ps --no-headers -p $pid | wc -l` ; if [ $running -eq 0 ] ; then ipcrm -s $semid; fi ; done"
-  # $cmd 2> /dev/null
-  # Free old screens
-  logger "Killing old screen sessions"
-  screen -ls | grep "${branch}_${type_todo}" | cut -d. -f1 | awk '{print $1}' | xargs kill
-  screen -wipe
-  # logger "Killing maxeleros (?) jobs"
-  # ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
+# launch_tests() {
+#   # # Use magic to free unused semaphores
+#   # logger "Killing semaphores"
+#   # cmd="for semid in `ipcs -s | cut -d\" \" -f 2` ; do pid=`ipcs -s -i $semid | tail -n 2 | head -n 1 | awk '{print $5}'`; running=`ps --no-headers -p $pid | wc -l` ; if [ $running -eq 0 ] ; then ipcrm -s $semid; fi ; done"
+#   # $cmd 2> /dev/null
+#   # Free old screens
+#   logger "Killing old screen sessions"
+#   screen -ls | grep "${branch}_${type_todo}" | cut -d. -f1 | awk '{print $1}' | xargs kill
+#   screen -wipe
+#   # logger "Killing maxeleros (?) jobs"
+#   # ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | awk '{system("kill -9 " $2)}'
 
-  IFS=$'\n'
-  # Collect the regression tests by searching for "// Regression (<type>)" tags
-  annotated_list=(`grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src`)
-  test_list=()
-  for a in ${annotated_list[@]}; do
-    if [[ $a = *"object"*"extends SpatialApp"* ]]; then
-      test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /_/g'`)
-    else
-      logger "Error setting up test for $a !!!"
-    fi
-  done
+#   IFS=$'\n'
+#   # Collect the regression tests by searching for "// Regression (<type>)" tags
+#   annotated_list=(`grep -r --color=never "// Regression" ${SPATIAL_HOME}/apps/src`)
+#   test_list=()
+#   for a in ${annotated_list[@]}; do
+#     if [[ $a = *"object"*"extends SpatialApp"* ]]; then
+#       test_list+=(`echo $a | sed 's/^.*object //g' | sed 's/ extends .*\/\/ Regression (/|/g' | sed 's/) \/\/ Args: /|/g' | sed 's/ /_/g'`)
+#     else
+#       logger "Error setting up test for $a !!!"
+#     fi
+#   done
 
-  # Assemble regression types
-  for t in ${test_list[@]}; do
-    # logger "Processing app: $t"
-    tp=(`echo $t | awk -F'|' '{print $2}'`)
-    if [[ ! ${types_list[*]} =~ "$tp" ]]; then
-      types_list=("${types_list[@]}" $tp)
-    fi
-  done
+#   # Assemble regression types
+#   for t in ${test_list[@]}; do
+#     # logger "Processing app: $t"
+#     tp=(`echo $t | awk -F'|' '{print $2}'`)
+#     if [[ ! ${types_list[*]} =~ "$tp" ]]; then
+#       types_list=("${types_list[@]}" $tp)
+#     fi
+#   done
 
-  # Stick unit tests up first
-  t=()
-  if [[ ${types_list[@]} = *"Unit"* ]]; then
-    t=("Unit")
-    for ac in ${types_list[@]}; do
-      if [[ $ac != *"Unit"* ]]; then
-        t=("${t[@]}" $ac)
-      fi
-    done
-  fi
-  type_list=${t[@]}
+#   # Stick unit tests up first
+#   t=()
+#   if [[ ${types_list[@]} = *"Unit"* ]]; then
+#     t=("Unit")
+#     for ac in ${types_list[@]}; do
+#       if [[ $ac != *"Unit"* ]]; then
+#         t=("${t[@]}" $ac)
+#       fi
+#     done
+#   fi
+#   type_list=${t[@]}
 
-  # Make reg test dir
-  rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
+#   # Make reg test dir
+#   rm -rf ${SPATIAL_HOME}/regression_tests;mkdir ${SPATIAL_HOME}/regression_tests
 
-  logger "Found these app classes: ${types_list[@]}"
-  for ac in ${types_list[@]}; do 
-    check_packet
-    logger "Preparing vulture directory for $ac..."
-    # Create vulture dir
-    rm -rf ${SPATIAL_HOME}/regression_tests/${ac};mkdir ${SPATIAL_HOME}/regression_tests/${ac}
-    mkdir ${SPATIAL_HOME}/regression_tests/${ac}/results
-    cd ${SPATIAL_HOME}/regression_tests/${ac}
+#   logger "Found these app classes: ${types_list[@]}"
+#   for ac in ${types_list[@]}; do 
+#     check_packet
+#     logger "Preparing vulture directory for $ac..."
+#     # Create vulture dir
+#     rm -rf ${SPATIAL_HOME}/regression_tests/${ac};mkdir ${SPATIAL_HOME}/regression_tests/${ac}
+#     mkdir ${SPATIAL_HOME}/regression_tests/${ac}/results
+#     cd ${SPATIAL_HOME}/regression_tests/${ac}
 
-    # Create the package for each app
-    i=0
-    for t in ${test_list[@]}; do
-      check_packet
-      if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
-        appname=(`echo $t | sed 's/|.*$//g'`)
-        appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/_/ /g'`)
-        # Initialize results
-        touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
+#     # Create the package for each app
+#     i=0
+#     for t in ${test_list[@]}; do
+#       check_packet
+#       if [[ $t == *"|${ac}|"* && (${tests_todo} == "all" || $t == *"|${tests_todo}|"*) ]]; then
+#         appname=(`echo $t | sed 's/|.*$//g'`)
+#         appargs=(`echo $t | sed 's/.*|.*|//g' | sed 's/_/ /g'`)
+#         # Initialize results
+#         touch ${SPATIAL_HOME}/regression_tests/${ac}/results/failed_app_initialized.${i}_${appname}
 
-        # Make dir for this vulture job
-        vulture_dir="${SPATIAL_HOME}/regression_tests/${ac}/${i}_${appname}"
-        rm -rf $vulture_dir;mkdir $vulture_dir
-        cmd_file="${vulture_dir}/cmd"
+#         # Make dir for this vulture job
+#         vulture_dir="${SPATIAL_HOME}/regression_tests/${ac}/${i}_${appname}"
+#         rm -rf $vulture_dir;mkdir $vulture_dir
+#         cmd_file="${vulture_dir}/cmd"
 
-        # Create script
-        # logger "Writing script for ${i}_${appname}"
-        create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
+#         # Create script
+#         # logger "Writing script for ${i}_${appname}"
+#         create_script $cmd_file ${ac} $i ${appname} ${vulture_dir} "$appargs"
 
-        # Run script
-        start=$SECONDS
-        logger "Running test: ${i}_${appname}"
-        bash ${cmd_file}
-        duration=$(($SECONDS-$start))
-        logger "Completed test in $duration seconds"
-        cd ${SPATIAL_HOME}/regression_tests/${ac}
+#         # Run script
+#         start=$SECONDS
+#         logger "Running test: ${i}_${appname}"
+#         bash ${cmd_file}
+#         duration=$(($SECONDS-$start))
+#         logger "Completed test in $duration seconds"
+#         cd ${SPATIAL_HOME}/regression_tests/${ac}
         
-        ((i++))
-      fi
-    done
-    # # Run vulture
-    # cd ${SPATIAL_HOME}/regression_tests/${ac}/
-    # logger "Executing vulture script in ${ac} directory..."
-    # bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
-    # logger "Script executed!"
+#         ((i++))
+#       fi
+#     done
+#     # # Run vulture
+#     # cd ${SPATIAL_HOME}/regression_tests/${ac}/
+#     # logger "Executing vulture script in ${ac} directory..."
+#     # bash ${SPATIAL_HOME}/bin/vulture.sh ${ac}_${branch}_${type_todo}
+#     # logger "Script executed!"
 
-  done
+#   done
+# }
 
-
+launch_tests_sbt() {
+  cd ${SPATIAL_HOME}
+  if [[ $type_todo = "chisel" ]]; then
+    captype="Chisel"
+  else
+    captype="Scala"
+  fi
+  bash bin/regression 8 $branch $captype
 }
