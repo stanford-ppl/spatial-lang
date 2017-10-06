@@ -50,6 +50,17 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
       }
       selectMod(f(x), y.toDouble)(op.mS,op.mI,op.mF).asInstanceOf[Exp[T]]
 
+    // Create nodes for fused multiply-add when the multiply output is only used by the add
+    // Don't want this to be a true rewrite rule (for now)
+    case add @ FixAdd(Mirrored(a), Mirrored(b)) =>
+      (a,b) match {
+        case (Def(FixMul(Mirrored(x),Mirrored(y))), _) if a.asInstanceOf[Sym[_]].dependents.length == 1 =>
+          Math.fix_fma(x, y, b)(add.mS,add.mI,add.mF,ctx,state)
+        case (_, Def(FixMul(Mirrored(x),Mirrored(y)))) if b.asInstanceOf[Sym[_]].dependents.length == 1 =>
+          Math.fix_fma(x, y, a)(add.mS,add.mI,add.mF,ctx,state)
+        case _ => super.transform(lhs,rhs)
+      }
+
 
     case _ => super.transform(lhs, rhs)
   }

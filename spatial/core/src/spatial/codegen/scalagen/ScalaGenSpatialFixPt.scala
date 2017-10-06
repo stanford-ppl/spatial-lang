@@ -3,6 +3,7 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import spatial.nodes.FixFusedMulAdd
 
 
 trait ScalaGenSpatialFixPt extends ScalaGenBits {
@@ -30,6 +31,7 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case FixAdd(x,y) => emit(src"val $lhs = $x + $y")
     case FixSub(x,y) => emit(src"val $lhs = $x - $y")
     case FixMul(x,y) => emit(src"val $lhs = $x * $y")
+    case FixFusedMulAdd(m1,m2,a) => emit(src"val $lhs = $m1 * $m2 + $a")
     case FixDiv(x,y) => emit(src"val $lhs = $x / $y")
     case FixMod(x,y) => emit(src"val $lhs = $x % $y")
     case FixAnd(x,y) => emit(src"val $lhs = $x & $y")
