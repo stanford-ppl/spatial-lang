@@ -51,9 +51,9 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     }}
     if (cchainPassMap.contains(lhs)) {controllerStack.pop()}
     disableSplit = true
-    emitGlobalWire(src"""val ${lhs}${suffix}_done = Wire(Bool())""")
-    // emitGlobalWire(src"""val ${lhs}${suffix}_en = Wire(Bool())""")
-    emitGlobalWire(src"""val ${lhs}${suffix}_resetter = Wire(Bool())""")
+    emitGlobalWireMap(src"""${lhs}${suffix}_done""", """Wire(Bool())""")
+    emitGlobalWireMap(src"""${lhs}${suffix}_en""", """Wire(Bool())""") // Dangerous but whatever
+    emitGlobalWireMap(src"""${lhs}${suffix}_resetter""", """Wire(Bool())""")
     emitGlobalModule(src"""val ${lhs}${suffix}_strides = List(${counter_data.map(_._3)}) // TODO: Safe to get rid of this and connect directly?""")
     emitGlobalModule(src"""val ${lhs}${suffix}_stops = List(${counter_data.map(_._2)}) // TODO: Safe to get rid of this and connect directly?""")
     emitGlobalModule(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
@@ -72,9 +72,9 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.gaps.foreach { gap => gap := 0.S }""")
     emit(src"""${lhs}${suffix}.io.input.saturate := false.B""")
-    emit(src"""${lhs}${suffix}.io.input.enable := ${lhs}${suffix}_en""")
-    emit(src"""${lhs}${suffix}_done := ${lhs}${suffix}.io.output.done""")
-    emit(src"""${lhs}${suffix}.io.input.reset := ${lhs}${suffix}_resetter""")
+    emit(src"""${lhs}${suffix}.io.input.enable := ${swap(src"${lhs}${suffix}", En)}""")
+    emit(src"""${swap(src"${lhs}${suffix}", Done)} := ${lhs}${suffix}.io.output.done""")
+    emit(src"""${lhs}${suffix}.io.input.reset := ${swap(src"${lhs}${suffix}", Resetter)}""")
     if (suffix != "") {
       emit(src"""${lhs}${suffix}.io.input.isStream := true.B""")
     } else {

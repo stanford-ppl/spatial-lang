@@ -21,6 +21,8 @@ object CtrTrivial extends StandardSignal
 object IIDone extends StandardSignal
 object RstEn extends StandardSignal
 object CtrEn extends StandardSignal
+object Ready extends StandardSignal
+object Valid extends StandardSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -64,6 +66,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case IIDone => wireMap(src"${lhs}_II_done")
       case RstEn => wireMap(src"${lhs}_rst_en")
       case CtrEn => wireMap(src"${lhs}_ctr_en")
+      case Ready => wireMap(src"${lhs}_ready")
+      case Valid => wireMap(src"${lhs}_valid")
     }
   }
 
@@ -79,6 +83,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case IIDone => wireMap(src"${lhs}_II_done")
       case RstEn => wireMap(src"${lhs}_rst_en")
       case CtrEn => wireMap(src"${lhs}_ctr_en")
+      case Ready => wireMap(src"${lhs}_ready")
+      case Valid => wireMap(src"${lhs}_valid")
     }
   }
 
@@ -122,7 +128,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
     val lat = bodyLatency.sum(c)
     val readiers = listensTo(c).distinct.map{_.memory}.map {
-      case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
+      case fifo @ Def(StreamInNew(bus)) => src"${swap(fifo, Valid)}"
       case _ => ""
     }.filter(_ != "").mkString(" & ")
 
@@ -143,7 +149,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def getReadyLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
       val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_ready"
+        case fifo @ Def(StreamInNew(bus)) => src"${swap(fifo, Ready)}"
         case _ => ""
       }.mkString(" & ")
       val hasReadiers = if (readiers != "") "&" else ""

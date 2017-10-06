@@ -20,9 +20,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
       emitGlobalWire(src"val ${lhs}_ready_options = Wire(Vec(${readersOf(lhs).length}, Bool()))", forceful = true)
-      emitGlobalWire(src"val ${lhs}_ready = ${lhs}_ready_options.reduce{_|_}", forceful = true)
+      emitGlobalWireMap(src"${lhs}_ready", "Wire(Bool())", forceful = true)
+      emitGlobalWire(src"${swap(lhs, Ready)} := ${lhs}_ready_options.reduce{_|_}", forceful = true)
       emitGlobalWire(src"""val ${lhs}_now_valid = Wire(Bool())""", forceful = true)
-      emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
+      emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})", forceful = true)
       bus match {
         case BurstDataBus() =>
@@ -45,8 +46,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
           // emit(src"} ", forceful=true) 
 
           // emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
-          emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
-          emit(src"""${lhs}_valid := io.stream_in_valid // .. Or is io.stream_in_valid not connected?!""", forceful=true)
+          emit(src"io.stream_in_ready := ${swap(lhs, Ready)}", forceful=true)
+          emit(src"""${swap(lhs, Valid)} := io.stream_in_valid // .. Or is io.stream_in_valid not connected?!""", forceful=true)
           // emit(src"io.led_stream_out_data := true.B | (${lhs}_valid << 1) | (${lhs}_ready << 2)", forceful=true)
 
 
@@ -97,7 +98,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emitGlobalWire(src"val ${lhs} = Mux1H(${lhs}_valid_options, ${lhs}_data_options)", forceful = true)
       }
 
-      emitGlobalWire(src"val ${lhs}_ready = Wire(Bool())", forceful = true)
+      emitGlobalWireMap(src"${lhs}_ready", "Wire(Bool())", forceful = true)
       // emitGlobalWire(src"val ${lhs} = Wire(${wireType})")
       bus match {
         case BurstFullDataBus() =>
@@ -124,21 +125,21 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
           emit(src"io.stream_out_valid := ${lhs}_valid", forceful=true)
-          emit(src"${lhs}_ready := io.stream_out_ready", forceful=true)
+          emit(src"${swap(lhs, Ready)} := io.stream_out_ready", forceful=true)
         case LEDR =>
           emit(src"// LEDR, node = $lhs", forceful=true)
-          emit(src"${lhs}_ready := 1.U", forceful=true)
-          emit(src"${lhs}_valid := 1.U", forceful=true)
+          emit(src"${swap(lhs, Ready)} := 1.U", forceful=true)
+          emit(src"${swap(lhs, Valid)} := 1.U", forceful=true)
           emit(src"""io.led_stream_out_data := ${lhs}""")
 
         case GPOutput1 => 
           emit(src"// GPOutput1, node = $lhs", forceful=true)
-          emit(src"${lhs}_ready := 1.U", forceful=true)
-          emit(src"${lhs}_valid := 1.U", forceful=true)
+          emit(src"${swap(lhs, Ready)} := 1.U", forceful=true)
+          emit(src"${swap(lhs, Valid)} := 1.U", forceful=true)
         case GPOutput2 => 
           emit(src"// GPOutput2, node = $lhs", forceful=true)
-          emit(src"${lhs}_ready := 1.U", forceful=true)
-          emit(src"${lhs}_valid := 1.U", forceful=true)
+          emit(src"${swap(lhs, Ready)} := 1.U", forceful=true)
+          emit(src"${swap(lhs, Valid)} := 1.U", forceful=true)
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
