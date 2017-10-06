@@ -172,6 +172,7 @@ git_things() {
   export WIKI_HOME=${WIKI_HOME}
   export wiki_file=${wiki_file}
   export spatial_hash=${spatial_hash}
+  export SBT_OPTS="-Xmx64G -Xss1G"
   export LM_LICENSE_FILE=7193@cadlic0.stanford.edu:/opt/Xilinx/awsF1.lic:27000@cadlic0.stanford.edu
   export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
   export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH

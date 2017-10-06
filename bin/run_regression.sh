@@ -66,7 +66,7 @@ dsts=(
 	  # "ottawa;/home/regression"
 	  # "tflop2;/home/regression/" 
 	  # "tflop1;/home/regression/"
-	  # "tucson;/home/mattfel/regression" 
+	  "tucson;/home/mattfel/regression" 
 	  "london;/home/mattfel/regression"
 	  # "manchester;/home/regression"
 	 )

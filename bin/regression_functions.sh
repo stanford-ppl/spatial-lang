@@ -308,7 +308,7 @@ get_flags
 echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**
-* Flags: $flags
+* Flags: $flags **Fixme, should get directly from scala test since this may be incorrect!**
 
 Results
 -------
@@ -398,97 +398,97 @@ stamp_app_comments() {
   find . -maxdepth 3 -type f -exec grep PASS {} \; | grep "^PASS: \(.*\).*\*" | sed "s/PASS:.*(/> (/g" | sed "s/$/\n/g" >> $wiki_file
 }
 
-update_log() {
-  #failure points
-  # failed_execution_validation  
-  # failed_execution_nonexistent_validation  
-  # failed_execution_backend_crash  
-  # failed_compile_backend_crash  
-  # failed_app_spatial_compile 
-  # failed_app_not_written 
-  # failed_app_initialized
+# update_log() {
+#   #failure points
+#   # failed_execution_validation  
+#   # failed_execution_nonexistent_validation  
+#   # failed_execution_backend_crash  
+#   # failed_compile_backend_crash  
+#   # failed_app_spatial_compile 
+#   # failed_app_not_written 
+#   # failed_app_initialized
 
-  perf_hist=72
-  echo "" >> $1
-  echo "" >> $1
-  progress=(`find . -maxdepth 1 -type f | sort -r`)
-  for p in ${progress[@]}; do
-    pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
-    cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
-    if [[ $p == *"pass"* ]]; then
-      echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=(`sed -n '1p' $p`)
-    elif [[ $p == *"failed_execution_validation"* ]]; then
-      echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    elif [[ $p == *"failed_execution_nonexistent_validation"* ]]; then
-      echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    elif [[ $p == *"failed_execution_backend_crash"* || $p == *"failed_execution_hanging"* ]]; then
-      echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
-      echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    elif [[ $p == *"failed_app_spatial_compile"* ]]; then
-      echo "<--------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    elif [[ $p == *"failed_app_not_written"* ]]; then
-      echo "<------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    elif [[ $p == *"failed_app_initialized"* ]]; then
-      echo "<----------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    else
-      echo "Unknown result: $p  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
-      t=0
-    fi
+#   perf_hist=72
+#   echo "" >> $1
+#   echo "" >> $1
+#   progress=(`find . -maxdepth 1 -type f | sort -r`)
+#   for p in ${progress[@]}; do
+#     pname=(`echo $p | sed "s/.*[0-9]\+_//g"`)
+#     cute_plot="[🗠](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/comptimes_${branch}_${type_todo}_${pname}.csv)"
+#     if [[ $p == *"pass"* ]]; then
+#       echo "**$p**${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=(`sed -n '1p' $p`)
+#     elif [[ $p == *"failed_execution_validation"* ]]; then
+#       echo "<----${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     elif [[ $p == *"failed_execution_nonexistent_validation"* ]]; then
+#       echo "<--------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     elif [[ $p == *"failed_execution_backend_crash"* || $p == *"failed_execution_hanging"* ]]; then
+#       echo "<------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     elif [[ $p == *"failed_compile_backend_crash"* || $p == *"failed_compile_cpp_crash"* ]]; then
+#       echo "<----------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     elif [[ $p == *"failed_app_spatial_compile"* ]]; then
+#       echo "<--------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     elif [[ $p == *"failed_app_not_written"* ]]; then
+#       echo "<------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     elif [[ $p == *"failed_app_initialized"* ]]; then
+#       echo "<----------------------------${p}${cute_plot}  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     else
+#       echo "Unknown result: $p  " | sed "s/\.\///g" | tee -a $1 $tracker ${combined_tracker} > /dev/null
+#       t=0
+#     fi
 
-    # Update performance file
-    perf_file="${SPATIAL_HOME}/spatial-lang.wiki/comptimes_${branch}_${type_todo}_${pname}.csv"
-    if [ ! -f ${perf_file} ]; then
-      echo "Compile times (in seconds) by commit (0 = failure)" > $perf_file
-      echo "times, 0" >> $perf_file
-    fi
-    line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5} | Spatial-apps ${apps_hash:0:5}"
-    sed -i "2s/$/, $t/" ${perf_file}
-    echo "$line" >> ${perf_file}
+#     # Update performance file
+#     perf_file="${SPATIAL_HOME}/spatial-lang.wiki/comptimes_${branch}_${type_todo}_${pname}.csv"
+#     if [ ! -f ${perf_file} ]; then
+#       echo "Compile times (in seconds) by commit (0 = failure)" > $perf_file
+#       echo "times, 0" >> $perf_file
+#     fi
+#     line="Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5} | Spatial-apps ${apps_hash:0:5}"
+#     sed -i "2s/$/, $t/" ${perf_file}
+#     echo "$line" >> ${perf_file}
 
-    # lines=(`cat $perf_file | wc -l`)
-    # dline=$(($lines-$(($perf_hist-1))))
-    # last=(`tail -n1 < $perf_file`)
-    # last_color=(`echo ${last[@]} | sed "s/;.*//g"`)
-    # if [[ "${last[@]}" = *"$2 $3"* ]]; then
-    #   color=$last_color
-    #   echo "[SPATIAL NOTICE] Using old color $color for app $p and hash $2 $3"
-    # else
-    #   if [ "$last_color" = "r" ]; then
-    #     color="b"
-    #     echo "[SPATIAL NOTICE] Using new color $color for app $p and hash $2 $3 from line ${last[@]}"
-    #   else
-    #     color="r"
-    #     echo "[SPATIAL NOTICE] Using new color $color for app $p and hash $2 $3 from line ${last[@]}"
-    #   fi
-    # fi
+#     # lines=(`cat $perf_file | wc -l`)
+#     # dline=$(($lines-$(($perf_hist-1))))
+#     # last=(`tail -n1 < $perf_file`)
+#     # last_color=(`echo ${last[@]} | sed "s/;.*//g"`)
+#     # if [[ "${last[@]}" = *"$2 $3"* ]]; then
+#     #   color=$last_color
+#     #   echo "[SPATIAL NOTICE] Using old color $color for app $p and hash $2 $3"
+#     # else
+#     #   if [ "$last_color" = "r" ]; then
+#     #     color="b"
+#     #     echo "[SPATIAL NOTICE] Using new color $color for app $p and hash $2 $3 from line ${last[@]}"
+#     #   else
+#     #     color="r"
+#     #     echo "[SPATIAL NOTICE] Using new color $color for app $p and hash $2 $3 from line ${last[@]}"
+#     #   fi
+#     # fi
 
-    # echo -ne "\n${color};$t;$2 $3" >> $perf_file
+#     # echo -ne "\n${color};$t;$2 $3" >> $perf_file
 
-    # # Hack to get rid of empty first line for new files
-    # first=(`head -n1 < $perf_file`)
-    # if [ "$first" = "" ]; then 
-    #   sed -i -e "1d" $perf_file
-    # fi
+#     # # Hack to get rid of empty first line for new files
+#     # first=(`head -n1 < $perf_file`)
+#     # if [ "$first" = "" ]; then 
+#     #   sed -i -e "1d" $perf_file
+#     # fi
 
-    # if [ $dline -gt $perf_hist ]; then
-    #   sed -i -e "1d" $perf_file
-    # fi
+#     # if [ $dline -gt $perf_hist ]; then
+#     #   sed -i -e "1d" $perf_file
+#     # fi
 
-    # cmd="/usr/local/bin/python2.7 ${SPATIAL_HOME}/static/plotter.py ${branch}_${pname} ${SPATIAL_HOME}/spatial.wiki/"
-    # eval "$cmd"
+#     # cmd="/usr/local/bin/python2.7 ${SPATIAL_HOME}/static/plotter.py ${branch}_${pname} ${SPATIAL_HOME}/spatial.wiki/"
+#     # eval "$cmd"
 
 
-  done
-}
+#   done
+# }
 
 # update_histories() {
 
