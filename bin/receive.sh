@@ -172,6 +172,8 @@ git_things() {
   export WIKI_HOME=${WIKI_HOME}
   export wiki_file=${wiki_file}
   export spatial_hash=${spatial_hash}
+  export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
+  export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH
   # export JAVA_HOME=/usr/
   logger "Cloning spatial... Are your ssh keys set up in git?"
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
@@ -280,9 +282,9 @@ phase="RESULTS"
 # collect_results
 collect_results_sbt
 
-# Update history
-phase="HISTORY"
-update_histories
+# # Update history
+# phase="HISTORY"
+# update_histories
 
 # Clean up regression files and push to git
 phase="CLEANUP"

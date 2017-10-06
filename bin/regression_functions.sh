@@ -147,14 +147,14 @@ build_spatial() {
   cd $SPATIAL_HOME
   # sbt compile > /tmp/log 2>&1
   # make lang > /tmp/log 2>&1
-  make apps > /tmp/log 2>&1
-  logger "Spatial done!"
-  logger "Checking if spatial made correctly..."
-  errs=(`cat /tmp/log | grep "\[.*error.*\]" | wc -l`)
-  if [[ $errs -gt 0 ]]; then
-  	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
-  fi
-  logger "Spatial probably made correctly but not sure how to check in argon spatial"
+  # make apps > /tmp/log 2>&1
+  # logger "Spatial done!"
+  # logger "Checking if spatial made correctly..."
+  # errs=(`cat /tmp/log | grep "\[.*error.*\]" | wc -l`)
+  # if [[ $errs -gt 0 ]]; then
+  # 	clean_exit 8 "Detected errors in spatial build (/tmp/log)"
+  # fi
+  # logger "Spatial probably made correctly but not sure how to check in argon spatial"
 
   # # Patch bin/spatial
   # logger "Patching bin/spatial..."
@@ -320,7 +320,7 @@ results_file=`ls | grep "regression.*log"`
 sort $results_file > sorted_results.log
 sed -i "s/Pass/**Pass**/g" sorted_results.log
 sed -i "s/\[newline\]/\n/g" sorted_results.log
-sed -i "s/$/\n/g" sorted_results.log
+sed -i "s/$/  /g" sorted_results.log
 
 cat sorted_results.log >> $wiki_file
 
@@ -462,119 +462,119 @@ update_log() {
   done
 }
 
-update_histories() {
+# update_histories() {
 
-# Update history 
-# history_file=${SPATIAL_HOME}/spatial.wiki/${branch}_Regression_Test_History.csv
+# # Update history 
+# # history_file=${SPATIAL_HOME}/spatial.wiki/${branch}_Regression_Test_History.csv
 
-# Get list of apps that have data
-IFS=$'\n'
-all_apps=(`cat ${wiki_file} | grep "^\*\*pass\|^<-\+failed" | sed "s/<-\+//g" | sed "s/^.*[0-9]\+\_//g" | sed "s/\*//g" | sed "s/\[🗠.*//g" | sort`)
+# # Get list of apps that have data
+# IFS=$'\n'
+# all_apps=(`cat ${wiki_file} | grep "^\*\*pass\|^<-\+failed" | sed "s/<-\+//g" | sed "s/^.*[0-9]\+\_//g" | sed "s/\*//g" | sed "s/\[🗠.*//g" | sort`)
 
-# Determine type for each app to build headers list
-for aa in ${all_apps[@]}; do
-  if [[ ! "$last_aa" = "$aa" ]]; then
-    a=(`echo $aa | sed "s/ //g" | sed "s/\[.*//g"`)
-    for bb in ${test_list[@]}; do
-      if [[ $bb == "$a|"* ]]; then
-        type=(`echo $bb | awk -F'|' '{print $2}'`)
-        headers=("${headers[@]}" "${type}|${a}")
-      fi
-    done
-  fi
-  last_aa=$aa
-done
+# # Determine type for each app to build headers list
+# for aa in ${all_apps[@]}; do
+#   if [[ ! "$last_aa" = "$aa" ]]; then
+#     a=(`echo $aa | sed "s/ //g" | sed "s/\[.*//g"`)
+#     for bb in ${test_list[@]}; do
+#       if [[ $bb == "$a|"* ]]; then
+#         type=(`echo $bb | awk -F'|' '{print $2}'`)
+#         headers=("${headers[@]}" "${type}|${a}")
+#       fi
+#     done
+#   fi
+#   last_aa=$aa
+# done
 
-  # List of failure points
-  # failed_app_initialized
-  # failed_app_not_written
-  # failed_app_spatial_compile
-  # failed_compile_backend_crash
-  # failed_execution_backend_crash
-  # failed_execution_nonexistent_validation
-  # failed_execution_validation
+#   # List of failure points
+#   # failed_app_initialized
+#   # failed_app_not_written
+#   # failed_app_spatial_compile
+#   # failed_compile_backend_crash
+#   # failed_execution_backend_crash
+#   # failed_execution_nonexistent_validation
+#   # failed_execution_validation
 
-pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
-pretty_file=${SPATIAL_HOME}/spatial-lang.wiki/${pretty_name}
+# pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
+# pretty_file=${SPATIAL_HOME}/spatial-lang.wiki/${pretty_name}
 
-# Inject the new data to the history
-key=(`cat ${pretty_file} | grep KEY | wc -l`)
-if [[ $key = 0 ]]; then
-    echo "00  KEY:
-000 █ = Success
-000 ▇ = failed_execution_validation  
-000 ▆ = failed_execution_nonexistent_validation  
-000 ▅ = failed_execution_backend_crash  
-000 ▄ = failed_compile_backend_crash or failed_compile_cpp_crash  
-000 ▃ = failed_app_spatial_compile 
-000 ▂ = failed_app_not_written 
-000 ▁ = failed_app_initialized
-000 □ = unknown
-1 
-1
-1
-1" >> ${pretty_file}
-fi
-for aa in ${headers[@]}; do
-  a=(`echo $aa | sed "s/^.*|//g" | sed "s/\[.*//g"`)
-  dashes=(`cat ${wiki_file} | grep "[0-9]\+\_$a\(\ \|\*\|\[\)" | sed "s/\[🗠.*//g" | grep -oh "\-" | wc -l`)
-  num=$(($dashes/4))
-  if [ $num = 0 ]; then bar=█; elif [ $num = 1 ]; then bar=▇; elif [ $num = 2 ]; then bar=▆; elif [ $num = 3 ]; then bar=▅; elif [ $num = 4 ]; then bar=▄; elif [ $num = 5 ]; then bar=▃; elif [ $num = 6 ]; then bar=▂; elif [ $num = 7 ]; then bar=▁; else bar=□; fi
+# # Inject the new data to the history
+# key=(`cat ${pretty_file} | grep KEY | wc -l`)
+# if [[ $key = 0 ]]; then
+#     echo "00  KEY:
+# 000 █ = Success
+# 000 ▇ = failed_execution_validation  
+# 000 ▆ = failed_execution_nonexistent_validation  
+# 000 ▅ = failed_execution_backend_crash  
+# 000 ▄ = failed_compile_backend_crash or failed_compile_cpp_crash  
+# 000 ▃ = failed_app_spatial_compile 
+# 000 ▂ = failed_app_not_written 
+# 000 ▁ = failed_app_initialized
+# 000 □ = unknown
+# 1 
+# 1
+# 1
+# 1" >> ${pretty_file}
+# fi
+# for aa in ${headers[@]}; do
+#   a=(`echo $aa | sed "s/^.*|//g" | sed "s/\[.*//g"`)
+#   dashes=(`cat ${wiki_file} | grep "[0-9]\+\_$a\(\ \|\*\|\[\)" | sed "s/\[🗠.*//g" | grep -oh "\-" | wc -l`)
+#   num=$(($dashes/4))
+#   if [ $num = 0 ]; then bar=█; elif [ $num = 1 ]; then bar=▇; elif [ $num = 2 ]; then bar=▆; elif [ $num = 3 ]; then bar=▅; elif [ $num = 4 ]; then bar=▄; elif [ $num = 5 ]; then bar=▃; elif [ $num = 6 ]; then bar=▂; elif [ $num = 7 ]; then bar=▁; else bar=□; fi
 
-  infile=(`cat ${pretty_file} | grep $aa | wc -l`)
-  if [[ $infile -gt 0 ]]; then # This test exists in history
-    # Get last known datapoint and vector
-    last=$(cat ${pretty_file} | grep "${aa}\ " | grep -o ".$")
-    if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
-    if [[ $old_num = 0 && $num = 0 ]]; then vec=" "; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
-    # Edit file
-    logger "app $aa from $last to $bar, numbers $old_num to $num"
-    cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
-    eval "$cmd"
-    cmd="sed -i 's/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/' ${pretty_file}" # Inject change vector
-    eval "$cmd"
-    # Shave first if too long
-    numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
-    chars_before_bars=(`cat ${pretty_file} | grep "^$aa\ " | sed "s/,,.*/,,/g" | grep -oh "." | wc -l`)
-    if [ $numel -gt $(($hist+$chars_before_bars)) ]; then 
-      cmd="sed -i \"s/^${a}\([[:blank:]]*\),,./${a}\1,,/g\" ${pretty_file}"
-      eval "$cmd" 
-      logger "Shaving $aa in pretty history because its history exceeds $hist"
-    fi
-  else 
-    logger "Detected $aa as a new app!  Adding to pretty history log"
-    add=(`printf '%-50s' "$aa"`)
-    echo "${add},,${bar}" >> ${pretty_file}
-  fi
-done
+#   infile=(`cat ${pretty_file} | grep $aa | wc -l`)
+#   if [[ $infile -gt 0 ]]; then # This test exists in history
+#     # Get last known datapoint and vector
+#     last=$(cat ${pretty_file} | grep "${aa}\ " | grep -o ".$")
+#     if [ $last = █ ]; then old_num=0; elif [ $last = ▇ ]; then old_num=1; elif [ $last = ▆ ]; then old_num=2; elif [ $last = ▅ ]; then old_num=3; elif [ $last = ▄ ]; then old_num=4; elif [ $last = ▃ ]; then old_num=5; elif [ $last = ▂ ]; then old_num=6; elif [ $last = ▁ ]; then old_num=7; else oldnum=8; fi
+#     if [[ $old_num = 0 && $num = 0 ]]; then vec=" "; elif [[ $old_num > $num ]]; then vec=↗; elif [[ $old_num < $num ]]; then vec=↘; else vec=→; fi
+#     # Edit file
+#     logger "app $aa from $last to $bar, numbers $old_num to $num"
+#     cmd="sed -i 's/\\(^${aa}\\ \\+.\\),,\\(.*\\)/\\1,,\\2${bar}/' ${pretty_file}" # Append bar
+#     eval "$cmd"
+#     cmd="sed -i 's/\\(^${aa}\ \+\\).,,\\(.*\\)/\\1${vec},,\\2/' ${pretty_file}" # Inject change vector
+#     eval "$cmd"
+#     # Shave first if too long
+#     numel=(`cat ${pretty_file} | grep "^$aa\ " | grep -oh "." | wc -l`)
+#     chars_before_bars=(`cat ${pretty_file} | grep "^$aa\ " | sed "s/,,.*/,,/g" | grep -oh "." | wc -l`)
+#     if [ $numel -gt $(($hist+$chars_before_bars)) ]; then 
+#       cmd="sed -i \"s/^${a}\([[:blank:]]*\),,./${a}\1,,/g\" ${pretty_file}"
+#       eval "$cmd" 
+#       logger "Shaving $aa in pretty history because its history exceeds $hist"
+#     fi
+#   else 
+#     logger "Detected $aa as a new app!  Adding to pretty history log"
+#     add=(`printf '%-50s' "$aa"`)
+#     echo "${add},,${bar}" >> ${pretty_file}
+#   fi
+# done
 
-# Add category if this is a new one
-for ac in ${types_list[@]}; do
-  infile=(`cat ${pretty_file} | grep "${ac}:" | wc -l`)
-  if [[ $infile -eq 0 ]]; then # add this category
-    echo "${ac}:" >> ${pretty_file}
-  fi
-done
+# # Add category if this is a new one
+# for ac in ${types_list[@]}; do
+#   infile=(`cat ${pretty_file} | grep "${ac}:" | wc -l`)
+#   if [[ $infile -eq 0 ]]; then # add this category
+#     echo "${ac}:" >> ${pretty_file}
+#   fi
+# done
 
-# Add commit hashes
-infile=(`cat ${pretty_file} | grep "Z Latest Update" | wc -l`)
-if [[ $infile -gt 0 ]]; then # add stamp
-  cmd="sed -i \"s/Z Latest Update: .*/Z Latest Update: ${tim}/g\" ${pretty_file}"
-  eval "$cmd"
-else
-  echo "Z Latest Update: ${tim}" >> ${pretty_file}
-fi
+# # Add commit hashes
+# infile=(`cat ${pretty_file} | grep "Z Latest Update" | wc -l`)
+# if [[ $infile -gt 0 ]]; then # add stamp
+#   cmd="sed -i \"s/Z Latest Update: .*/Z Latest Update: ${tim}/g\" ${pretty_file}"
+#   eval "$cmd"
+# else
+#   echo "Z Latest Update: ${tim}" >> ${pretty_file}
+# fi
 
-# Append which combo this update is:
-at=`date +"%Y-%m-%d_%H-%M-%S"`
-line="ZZ ${at} - Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5} | Spatial-apps ${apps_hash:0:5}"
-echo "$line" >> ${pretty_file}
+# # Append which combo this update is:
+# at=`date +"%Y-%m-%d_%H-%M-%S"`
+# line="ZZ ${at} - Spatial ${spatial_hash:0:5} | Argon ${argon_hash:0:5} | Virtualized ${virtualized_hash:0:5} | Spatial-apps ${apps_hash:0:5}"
+# echo "$line" >> ${pretty_file}
 
-# Sort file
-sort $pretty_file > ${pretty_file}.tmp
-mv ${pretty_file}.tmp ${pretty_file}
+# # Sort file
+# sort $pretty_file > ${pretty_file}.tmp
+# mv ${pretty_file}.tmp ${pretty_file}
 
-}
+# }
 
 ## $1 - test class (unit, dense, etc)
 ## $2 - branch
@@ -672,230 +672,7 @@ push_travis_ci() {
 ## 4 - name of this app
 ## 5 - directory for this script
 ## 6 - args
-create_script() {
-
-
-  # List of failure points
-  # failed_app_initialized
-  # failed_app_not_written
-  # failed_app_spatial_compile
-  # failed_compile_backend_crash failed_compile_cpp_crash
-  # failed_execution_backend_crash
-  # failed_execution_nonexistent_validation
-  # failed_execution_validation
-
-  if [[ $6 = "none" ]]; then
-  	args=""
-  else
-  	args=$6
-  fi
-
-  if [[ ${type_todo} = "scala" || ${type_todo} = "maxj" || ${type_todo} = "chisel" ]]; then
-    echo "ok!" > /tmp/log
-  else
-    stamp_commit_msgs
-    clean_exit 1 "Error! ${type_todo} type of regression test not yet supported."
-  fi
-
-  echo "
-#!/bin/bash
-
-# 1 - file string
-# 2 - error message
-# 3 - pass (1) or fail (0)
-function report {
-  date >> ${5}/log
-  cd ${5}
-  # mv build.sbt build.hideme # hide build.sbt so future compiles ignore this one
-  rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
-  if [ \${3} = 1 ]; then
-    echo \"[APP_RESULT] `date` - SUCCESS for ${3}_${4}\" >> ${log}
-    cat ${5}/log | grep \"Design ran for\" >> ${log} 
-    touch ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
-    echo \${comp_time} >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
-    cat ${5}/log | grep \"Kernel done, cycles\" | sed \"s/Kernel done, cycles = //g\" >> ${SPATIAL_HOME}/regression_tests/${2}/results/pass.${3}_${4}
-    exit 0
-  else
-    echo \"[APP_RESULT] `date` - \${1} for ${3}_${4} (\${2} - ${5}/)\" >> ${log}
-    touch ${SPATIAL_HOME}/regression_tests/${2}/results/\${1}.${3}_${4}
-    memerr=\`cat ${5}/log | grep \"No space left on device\" | wc -l\`
-    if [[ \${memerr} != 0 ]]; then
-      echo \"[FATAL_ERROR] `date` - NO SPACE LEFT ON THIS DEVICE!!!\" >> ${log}
-    fi
-    exit 1
-  fi
-}
-
-
-# Override env vars to point to a separate directory for this regression test
-export SPATIAL_HOME=${SPATIAL_HOME}
-if [[ ${this_machine} = *\"tflop\"* ]]; then # ugly hack to get tflops working
-  export PATH=/usr/local/sbin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:/usr/games:/usr/local/games
-else
-  export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
-fi
-export ARGON_HOME=${ARGON_HOME}
-export VIRTUALIZED_HOME=${VIRTUALIZED_HOME}
-export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
-export PATH=\$VCS_HOME/amd64/bin:\$PATH
-export LM_LICENSE_FILE=27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
-export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
-if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
-  export JAVA_HOME=\${JAVA_HOME}/..
-fi
-export _JAVA_OPTIONS=\"-Xmx24g\"
-date >> ${5}/log" >> $1
-
-  if [[ ${type_todo} = "scala" ]]; then
-    echo "#export JAVA_HOME=/usr/
-    " >> $1
-  fi
-
-  echo "# sleep \$((${3}*${spacing})) # Backoff time to prevent those weird file IO errors
-cd ${SPATIAL_HOME}
-  " >> $1
-
-  get_flags
-
-  # Compile command
-  echo "# Compile app
-${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
-    " >> $1
-
-  # Check for compile errors
-  echo "
-cd ${5}
-# Ensure app class exists
-wc=\$(cat ${5}/log | grep \"Could not find or load main class\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_app_not_written\" \"[STATUS] Declaring failure app_not_written\" 0
-fi
-
-# Check for compile errors
-sed -i \"s/^ERROR.*ignored\./Ignoring silly LD_PRELOAD  e r r o r/g\" ${5}/log
-sed -i \"s/error retrieving current directory/Ignoring getcwd e r r o r/g\" ${5}/log
-sed -i \"s/error: illegal sharing of mutable object/Ignoring scattergather mutable sharing e r r o r/g\" ${5}/log
-wc=\$(cat ${5}/log | grep \"error\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_app_spatial_compile\" \"[STATUS] Declaring failure build_in_spatial\" 0
-fi
-
-# Extract compile time
-comp_time=(\`cat log | grep \"Total time:\" | sed 's/.*time: //g' | sed 's/ seconds//g'\`)
-
-# Compile backend
-cd ${5}/out
-
-// Turn off vcd and dram prints
-sed -i 's/#define EPRINTF(...) fprintf/#define EPRINTF(...) \\/\\/fprintf/g' cpp/fringeVCS/commonDefs.h
-sed -i 's/\\\$dumpfile/\\/\\/\\\$dumpfile/g' chisel/template-level/fringeVCS/Top-harness.sv
-sed -i 's/\\\$dumpvars/\\/\\/\\\$dumpvars/g' chisel/template-level/fringeVCS/Top-harness.sv
-sed -i 's/\\\$vcdplusfile/\\/\\/\\\$vcdplusfile/g' chisel/template-level/fringeVCS/Top-harness.sv
-sed -i 's/\\\$vcdpluson/\\/\\/\\\$vcdpluson/g' chisel/template-level/fringeVCS/Top-harness.sv
-// New way of disabling vcd
-sed -i 's/vcdon = .*;/vcdon = 0;/g' chisel/template-level/fringeVCS/Top-harness.sv
-
-make vcs 2>&1 | tee -a ${5}/log" >> $1
-  if [[ ${type_todo} = "chisel" ]]; then
-    echo "make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
-  fi
-
-get_flags
-
-echo "
-# Check for annoying sbt compile not working
-wc=\$(cat ${5}/log | grep \"No rule to make target\" | wc -l)
-if [ \"\$wc\" -gt 0 ]; then
-  echo \"[APP_RESULT] Annoying SBT crashing on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  cd ${5}" >> $1
-  # Compile command
-  echo "  # Compile app
-  cd ${SPATIAL_HOME}
-  ${SPATIAL_HOME}/bin/spatial ${flags} --out=regression_tests/${2}/${3}_${4}/out ${4} 2>&1 | tee -a ${5}/log
-    " >> $1
-  echo "  cd ${5}/out
-  make vcs 2>&1 | tee -a ${5}/log" >> $1
-  if [[ ${type_todo} = "chisel" ]]; then
-    echo "  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part..." >> $1
-  fi
-
-
-  echo "fi
-
-
-# Check for crashes in backend compilation
-wc=\$(cat ${5}/log | grep \"\\[bitstream-sim\\] Error\\|recipe for target 'bitstream-sim' failed\\|Compilation failed\\|java.lang.IndexOutOfBoundsException\\|BindingException\\|ChiselException\\|\\[vcs-hw\\] Error\" | wc -l)
-if [[ \"\$wc\" -ne 0 ]]; then
-  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
-fi" >> $1
-  if [[ ${type_todo} = "chisel" ]]; then
-    echo "# Check for missing Top
-if [[ ! -f ${5}/out/Top ]]; then
-  report \"failed_compile_backend_crash\" \"[STATUS] Declaring failure compile_chisel chisel side\" 0
-fi" >> $1
-  fi
-
-echo "wc=\$(cat ${5}/log | grep \"\\[Top_sim\\] Error\\|recipe for target 'Top_sim' failed\\|fatal error\\|\\[vcs-sw\\] Error\" | wc -l)
-if [ \"\$wc\" -ne 0 ]; then
-  report \"failed_compile_cpp_crash\" \"[STATUS] Declaring failure compile_chisel c++ side\" 0
-fi
-
-# Move on to runtime
-rm ${SPATIAL_HOME}/regression_tests/${2}/results/*.${3}_${4}
-touch ${SPATIAL_HOME}/regression_tests/${2}/results/failed_execution_hanging.${3}_${4}
-chmod +x ${5}/out/run.sh
-timeout 400 ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
-
-# Check for annoying vcs assertion and rerun if needed
-wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
-if [ \"\$wc\" -gt 0 ]; then
-  echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-  echo -e \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  make vcs 2>&1 | tee -a ${5}/log
-  make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-  timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
-
-  # Check second time for annoying assert
-  wc=\$(cat ${5}/log | grep \"void FringeContextVCS::connect(): Assertion \\\`0' failed\" | wc -l)
-  if [ \"\$wc\" -gt 1 ]; then
-    echo \"[APP_RESULT] Annoying VCS assertion thrown on ${3}_${4}.  Rerunning...\" >> ${log}
-    echo -e \"\n\n=========\nThird Chance!\n==========\n\n\" >> ${5}/log
-    make vcs 2>&1 | tee -a ${5}/log
-    make vcs-sw 2>&1 | tee -a ${5}/log # Because sometimes it refuses to do this part...
-    timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
-  fi
-fi
-# Check for annoying refusal to run that happens in scala sometimes
-wc=\$(cat ${5}/log | grep \"PASS\" | wc -l)
-if [ \"\$wc\" -eq 0 ]; then
-  echo \"[APP_RESULT] Annoying refusal to run ${3}_${4}.  Rerunning...\" >> ${log}
-  echo -i \"\n\n=========\nSecond Chance!\n==========\n\n\" >> ${5}/log
-  timeout 400 bash ${5}/out/run.sh \"${args}\" 2>&1 | tee -a ${5}/log
-fi
-
-# Check for runtime errors
-wc=\$(cat ${5}/log | grep \"Error: App\\|Segmentation fault\" | wc -l)
-
-# Check if app validated or not
-if grep -q \"PASS: 1\" ${5}/log; then
-  report \"pass\" \"Test ${3}_${4} passed!\" 1
-elif grep -q \"PASS: true\" ${5}/log; then
-  report \"pass\" \"Test ${3}_${4} passed!\" 1
-elif grep -q \"PASS: 0\" ${5}/log; then
-  report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
-elif grep -q \"PASS: false\" ${5}/log; then
-  report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
-elif grep -q \"PASS: X\" ${5}/log; then
-  report \"failed_execution_validation\" \"[STATUS] Declaring failure validation\" 0
-elif [ \"\$wc\" -ne 0 ]; then
-  report \"failed_execution_backend_crash\" \"[STATUS] Declaring failure backend_crash\" 0
-else 
-  report \"failed_execution_nonexistent_validation\" \"[STATUS] Declaring failure no_validation_check\" 0
-fi" >> $1
-
-}
-
+?
 
 # Helper function for launching regression tests
 # launch_tests() {
