@@ -22,7 +22,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emitGlobalWire(src"val ${lhs}_ready_options = Wire(Vec(${readersOf(lhs).length}, Bool()))", forceful = true)
       emitGlobalWireMap(src"${lhs}_ready", "Wire(Bool())", forceful = true)
       emitGlobalWire(src"${swap(lhs, Ready)} := ${lhs}_ready_options.reduce{_|_}", forceful = true)
-      emitGlobalWire(src"""val ${lhs}_now_valid = Wire(Bool())""", forceful = true)
+      emitGlobalWireMap(src"""${lhs}_now_valid""","""Wire(Bool())""", forceful = true)
       emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})", forceful = true)
       bus match {
@@ -84,8 +84,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
     case StreamOutNew(bus) =>
       emitGlobalWire(src"val ${lhs}_valid_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
-      emitGlobalWire(src"val ${lhs}_valid = Wire(Bool())", forceful = true)
-      emitGlobalWire(src"${lhs}_valid := ${lhs}_valid_options.reduce{_|_}", forceful = true)
+      emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
+      emitGlobalWire(src"${swap(lhs, Valid)} := ${lhs}_valid_options.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
         case Def(e@ParStreamWrite(_, data, ens)) => 
           emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${ens.length}*${writersOf(lhs).length}, ${newWire(data.head.tp)}))")
@@ -124,7 +124,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"} ", forceful=true) 
 
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
-          emit(src"io.stream_out_valid := ${lhs}_valid", forceful=true)
+          emit(src"io.stream_out_valid := ${swap(lhs, Valid)}", forceful=true)
           emit(src"${swap(lhs, Ready)} := io.stream_out_ready", forceful=true)
         case LEDR =>
           emit(src"// LEDR, node = $lhs", forceful=true)
@@ -270,11 +270,11 @@ trait ChiselGenStream extends ChiselGenSRAM {
               // emit(src"""${stream} := $data""")
               emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${swap(stream, Valid)} := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${swap(stream, Valid)} := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case _ => 
@@ -282,7 +282,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
               emit(src"""io.genericStreams.outs($id).bits.data := ${quote(data)}.number """)  // Ignores enable for now
-              emit(src"""io.genericStreams.outs($id).valid := ${stream}_valid""")
+              emit(src"""io.genericStreams.outs($id).valid := ${swap(stream, Valid)}""")
         }
       }
     case _ => super.emitNode(lhs, rhs)

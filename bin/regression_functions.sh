@@ -324,33 +324,46 @@ init_travis_ci Combined $branch $type_todo
 results_file=`ls | grep "regression.*log"`
 sort $results_file > sorted_results.log
 sed -i "s/Pass/**Pass**/g" sorted_results.log
-sed -i "s/\[newline\]/\n/g" sorted_results.log
-sed -i "s/$/  /g" sorted_results.log
 
 # Send results to wiki
 echo -e "
 ## Unit
 " >> $wiki_file
-sed -n "/\.Unit\./p" sorted_results.log >> $wiki_file
-cat sorted_results.log >> $wiki_file
+sed -n "/\.Unit\./p" sorted_results.log > tmp
+sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/$/  /g" tmp
+cat tmp >> $wiki_file
+
 echo -e "
 ## Dense
 " >> $wiki_file
-sed -n "/\.Dense\./p" sorted_results.log >> $wiki_file
-cat sorted_results.log >> $wiki_file
+sed -n "/\.Dense\./p" sorted_results.log > tmp
+sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/$/  /g" tmp
+cat tmp >> $wiki_file
+
 echo -e "
 ## Sparse
 " >> $wiki_file
-sed -n "/\.Sparse\./p" sorted_results.log >> $wiki_file
-cat sorted_results.log >> $wiki_file
+sed -n "/\.Sparse\./p" sorted_results.log > tmp
+sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/$/  /g" tmp
+cat tmp >> $wiki_file
+
 echo -e "
 ## Fixme
 " >> $wiki_file
-sed -n "/\.Fixme\./p" sorted_results.log >> $wiki_file
-cat sorted_results.log >> $wiki_file
+sed -n "/\.Fixme\./p" sorted_results.log > tmp
+sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/$/  /g" tmp
+cat tmp >> $wiki_file
+
 
 # Send results to travis button
-sed "/\.Fixme\./d" sorted_results.log >> $combined_tracker_real  
+sed "/\.Fixme\./d" sorted_results.log > log
+sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/$/  /g" tmp
+cat tmp >> $combined_tracker_real
 
 push_travis_ci Combined $branch $type_todo
 
