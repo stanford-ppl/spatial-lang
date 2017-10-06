@@ -368,7 +368,7 @@ class SingleSCounterCheap(val par: Int, val start: Int, val stop: Int, val strid
     val wasMin = RegNext(isMin, false.B)
     val wasEnabled = RegNext(io.input.enable, false.B)
     // TODO: stop + strideDown in line below.. correct?
-    val next = Mux(isMax & io.input.dir, Mux(io.input.saturate, count, init), Mux(isMin & ~io.input.dir , (stop + strideDown).asSInt, Mux(io.input.dir, newval_up, newval_down)))
+    val next = Mux(isMax & io.input.dir, Mux(io.input.saturate, count, init), Mux(isMin & ~io.input.dir & ~io.input.reset , (stop + strideDown).asSInt, Mux(io.input.dir, newval_up, newval_down)))
     base.io.input(0).data := Mux(io.input.reset, init.asUInt, next.asUInt)
 
     (0 until par).foreach { i => io.output.count(i) := Mux(io.input.dir, count + (i*strideUp).S((width).W), count + (i*strideDown).S((width).W)) }

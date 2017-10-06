@@ -95,7 +95,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(${row}) := $en & ShiftRegister(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(${row}) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})")
 
 
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
@@ -169,7 +169,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(0) := $en & ShiftRegister(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(0) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }

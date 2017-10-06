@@ -233,12 +233,12 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
       emitGlobalWire(src"val $lhs = Wire(${wire})")
-      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ShiftRegister(${data}(i).r, $delay)}")        
+      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := Utils.getRetimed(${data}(i).r, $delay)}")
     } else {
       if (isBool) {
         emitGlobalWire(src"""val $lhs = Wire(Bool())""");emit(src"""$lhs := ${data}.D($delay, rr)""")
       } else {
-        emitGlobalWire(src"""val $lhs = Wire(${wire})""");emit(src"""$lhs := ShiftRegister($data, $delay)""")
+        emitGlobalWire(src"""val $lhs = Wire(${wire})""");emit(src"""$lhs := Utils.getRetimed($data, $delay)""")
       }
     }
   }
@@ -369,7 +369,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-        emit(src"""${lhs}_rVec(0).en := ShiftRegister($enable, ${symDelay(lhs)}) & $en""")
+        emit(src"""${lhs}_rVec(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
         }

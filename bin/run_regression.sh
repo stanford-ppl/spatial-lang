@@ -68,7 +68,7 @@ dsts=(
 	  "tflop1;/home/regression/"
 	  "tucson;/home/mattfel/regression" 
 	  "london;/home/mattfel/regression"
-	  # "manchester;TBD" 
+	  "manchester;/home/regression"
 	 )
 
 tests=all
