@@ -43,6 +43,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
       if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
 
       // Console.println(src"""II of $lhs is ${iiOf(lhs)}""")
       if (iiOf(lhs) <= 1) {
@@ -99,7 +100,6 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
         }
       }
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       emitChildrenCxns(lhs, Some(cchain), Some(iters.flatten))
       emitCopiedCChain(lhs)
       if (!(styleOf(lhs) == StreamPipe && childrenOf(lhs).length > 0)) {
@@ -114,6 +114,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
+      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
       if (iiOf(lhs) <= 1) {
@@ -135,8 +136,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
         }
         emitGlobalWireMap(s"${quote(accum)}_wren", "Wire(Bool())")
-        val wren = wireMap(src"${accum}_wren")
-        emit(s"$wren := (${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${quote(lhs)}_inhibitor).D(0,rr)")
+        emit(s"${swap(quote(accum), Wren)} := (${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${swap(lhs, Inhibitor)}).D(0,rr)")
         emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
         val rstr = wireMap(src"${accum}_resetter")
         emit(src"$rstr := ${swap(lhs, RstEn)}")
@@ -147,25 +147,23 @@ trait ChiselGenUnrolled extends ChiselGenController {
           emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
         }
         emitGlobalWireMap(src"${accum}_wren", "Wire(Bool())")
-        val wren = wireMap(src"${accum}_wren")
         accum match { 
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"$wren := (${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct")
+            emit(src"${swap(accum, Wren)} := (${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct")
           case Def(_:SRAMNew[_,_]) =>
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"$wren := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
           case Def(_:RegFileNew[_,_]) =>
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"$wren := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
         }
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${swap(parentOf(lhs).get, Done)}, 2)")
         emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
         val rstr = wireMap(src"${accum}_resetter")
         emit(src"$rstr := ${swap(lhs, RstEn)}.D(0)")
       }
-      if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
@@ -243,7 +241,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${lhs}_wVec($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ($enable & ~${parent}_inhibitor & ${swap(parent, IIDone)}).D(${symDelay(lhs)})")
+        emit(src"${lhs}_wVec($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)})")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${lhs}_wVec($i).addr($j) := ${a}.r """)
         }
@@ -258,9 +256,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       if (spatialConfig.useCheapFifos){
         val en = ens.map(quote).mkString("&")
-        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${swap(reader, DatapathEn)} & ~${reader}_inhibitor & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
       } else {
-        val en = ens.map{i => src"$i & (${swap(reader, DatapathEn)} & ~${reader}_inhibitor & ${swap(reader, IIDone)}).D(${symDelay(lhs)})"}
+        val en = ens.map{i => src"$i & (${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)})"}
         emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
       }
       
@@ -282,9 +280,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       if (spatialConfig.useCheapFifos) {
         val en = ens.map(quote).mkString("&")
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
       } else {
-        val en = ens.map{i => src"$i & ($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)})"}
+        val en = ens.map{i => src"$i & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)})"}
         emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), Vec(List($en)))""")
       }
       
@@ -294,7 +292,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${swap(reader, DatapathEn)} & ~${reader}_inhibitor & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en).reverse""")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en).reverse""")
       emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case ParFILOPush(filo, data, ens) =>
@@ -303,7 +301,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${swap(writer, DatapathEn)}"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${writer}_inhibitor & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
 
     case e@ParStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get
@@ -324,7 +322,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
               }
               case _ => false
             }
-            emit(src"""${strm}_ready_options(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
             // if (!isAck) {
             //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
@@ -344,7 +342,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val en = ens.map(quote).mkString("&")
 
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*-*${ens.length}""")
-      emit(src"""${stream}_valid_options(${lhs}_wId) := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
+      emit(src"""${stream}_valid_options(${lhs}_wId) := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
       (0 until ens.length).map{ i => emit(src"""${stream}_data_options(${lhs}_wId + ${i}) := ${data(i)}""")}
       // emit(src"""${stream} := Vec(List(${datacsv}))""")
 
@@ -361,7 +359,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emit(src"""// emiiting data for stream ${stream}""")
             // emit(src"""${stream} := ${data.head}""")
             // emit(src"""converted_data := ${stream}""")
-            // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})""")
+            // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})""")
           case LEDR =>
             // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
       //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
@@ -371,7 +369,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
             // val datacsv = data.map{d => src"${d}"}.mkString(",")
             // val en = ens.map(quote).mkString("&")
             // emit(src"${stream} := Vec(List(${datacsv}))")
-            // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
+            // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
         }
       }
 
@@ -399,7 +397,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
       } else {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
@@ -409,7 +407,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in(${lb}_${ii}_transient_base + $i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
         emit(src"""${lb}_$ii.io.transientDone := ${parent}_done""")
         emit(src"""${lb}_$ii.io.transientSwap := ${parentOf(parent).get}_done""")
       }
@@ -429,7 +427,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
       val width = bitWidth(rf.tp.typeArguments.head)
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor && ${swap(parent, IIDone)}"""
+      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)} && ${swap(parent, IIDone)}"""
       emit(s"""// Assemble multidimW vector""")
       emitGlobalWire(src"""val ${lhs}_wVec = Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${constDimsOf(rf)}), ${width}))) """)
       (0 until ens.length).foreach{ k => 

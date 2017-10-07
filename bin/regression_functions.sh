@@ -309,7 +309,6 @@ flags_file=`ls | grep "flags.*log"`
 
 echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
-* <---- indicates relative amount of work needed before app will **pass**
 " > $wiki_file
 
 cat $flags_file >> $wiki_file
@@ -365,7 +364,7 @@ cat tmp >> $wiki_file
 
 
 # Send results to travis button
-sed "/\.Fixme\./d" sorted_results.log > log
+sed "/\.Fixme\./d" sorted_results.log > tmp
 sed -i "s/\[newline\]/\n/g" tmp
 sed -i "s/$/  /g" tmp
 cat tmp >> $combined_tracker_real

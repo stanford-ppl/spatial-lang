@@ -20,6 +20,9 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       alphaconv_register(src"$state")
 
       emitController(lhs, None, None, true)
+      emitGlobalWireMap(src"${notDone.result}", "Wire(Bool())") // Hack but so what
+      emitInhibitor(lhs, None, Some(notDone.result), None)
+
       emit(src"${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B")
       if (iiOf(lhs) <= 1 | levelOf(lhs) == OuterControl) {
         emitGlobalWire(src"""val ${swap(lhs, IIDone)} = true.B""")
@@ -40,7 +43,6 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting action")
       // emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
       // emit(src"${notDone.result}_doneCondition := ~${notDone.result} // Seems unused")
-      emitInhibitor(lhs, None, Some(notDone.result), None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         visitBlock(action)

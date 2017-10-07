@@ -39,7 +39,7 @@ trait ChiselGenVector extends ChiselGenSRAM {
 
     case BitsAsData(v,mT) => mT match {
       case FltPtType(_,_)   => throw new Exception("Bit-wise operations not supported on floating point values yet")
-      case FixPtType(s,i,f) => emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
+      case FixPtType(s,i,f) => emitGlobalWireMap(src"$lhs",src"Wire(${newWire(lhs.tp)})"); emit(src"${lhs}.r := ${v}.r")
       case BooleanType()    => emit(src"val $lhs = $v // TODO: Need to do something fancy here?")
     }
 
