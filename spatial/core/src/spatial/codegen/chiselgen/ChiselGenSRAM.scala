@@ -211,10 +211,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
       if (fsm.isDefined) {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${fsm.get}_doneCondition)")  
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${fsm.get})")  
           emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(1, rr)")
-          /* or'ed _doneCondition back in because of BasicCondFSM!! */
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${fsm.get}_doneCondition // Really want inhibit to turn on at last enabled cycle")        
+          /* or'ed  back in because of BasicCondFSM!! */
+          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${fsm.get} // Really want inhibit to turn on at last enabled cycle")        
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
       } else if (switch.isDefined) {
         emit(src"${lhs}_inhibitor := ${switch.get}_inhibitor")
