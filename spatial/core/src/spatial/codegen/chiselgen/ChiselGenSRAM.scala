@@ -404,9 +404,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        val basequote = src"${lhs}_base" // get string before we create the map
+        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
         emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
-        emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${lhs}_base)""")
+        emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
