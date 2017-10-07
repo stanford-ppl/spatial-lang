@@ -25,7 +25,7 @@ trait ChiselGenMath extends ChiselGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case FixAbs(x)  => emit(src"val $lhs = Mux(${x} < 0.U, -$x, $x)")
+    case FixAbs(x)  => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(${x} < 0.U, -$x, $x).r")
 
     case FltAbs(x)  => 
       val (e,g) = x.tp match {case FltPtType(g,e) => (e,g)}
@@ -58,7 +58,7 @@ trait ChiselGenMath extends ChiselGenSRAM {
     case FltAtan(x) => throw new spatial.TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => 
-      emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})")
       // lhs.tp match { 
       //   case FixPtType(s,d,f) => 
       //     emitGlobalWire(s"""val ${quote(lhs)} = Wire(new FixedPoint($s,$d,$f))""")
@@ -68,8 +68,8 @@ trait ChiselGenMath extends ChiselGenSRAM {
       emit(src"${lhs}.r := Mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
-    case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")
-    case Max(a, b) => emit(src"val $lhs = Mux(($a > $b), $a, $b)")
+    case Min(a, b) => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(($a < $b), $a, $b).r")
+    case Max(a, b) => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(($a > $b), $a, $b).r")
 
     case _ => super.emitNode(lhs, rhs)
   }
