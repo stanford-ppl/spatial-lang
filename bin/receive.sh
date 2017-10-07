@@ -172,6 +172,10 @@ git_things() {
   export WIKI_HOME=${WIKI_HOME}
   export wiki_file=${wiki_file}
   export spatial_hash=${spatial_hash}
+  export SBT_OPTS="-Xmx64G -Xss1G"
+  export LM_LICENSE_FILE=7193@cadlic0.stanford.edu:/opt/Xilinx/awsF1.lic:27000@cadlic0.stanford.edu
+  export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
+  export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH
   # export JAVA_HOME=/usr/
   logger "Cloning spatial... Are your ssh keys set up in git?"
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
@@ -264,7 +268,8 @@ packet=$lockfile
 
 # Launch tests
 phase="VULTURE"
-launch_tests
+# launch_tests
+launch_tests_sbt
 
 # # Delay while tests run
 # phase="NAPPING"
@@ -276,11 +281,12 @@ launch_tests
 
 # Update result file
 phase="RESULTS"
-collect_results
+# collect_results
+collect_results_sbt
 
-# Update history
-phase="HISTORY"
-update_histories
+# # Update history
+# phase="HISTORY"
+# update_histories
 
 # Clean up regression files and push to git
 phase="CLEANUP"

@@ -38,8 +38,8 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting notDone")
       emitBlock(notDone)
       emit("// Emitting action")
-      emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
-      emit(src"${notDone.result}_doneCondition := ~${notDone.result} // Seems unused")
+      // emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
+      // emit(src"${notDone.result}_doneCondition := ~${notDone.result} // Seems unused")
       emitInhibitor(lhs, None, Some(notDone.result), None)
       withSubStream(src"${lhs}", src"${parent_kernel}", styleOf(lhs) == InnerPipe) {
         emit(s"// Controller Stack: ${controllerStack.tail}")

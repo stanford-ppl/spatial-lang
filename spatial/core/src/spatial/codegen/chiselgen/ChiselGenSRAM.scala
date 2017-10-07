@@ -9,18 +9,22 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-sealed trait StandardSignal
-object En extends StandardSignal
-object Done extends StandardSignal
-object BaseEn extends StandardSignal
-object Mask extends StandardSignal
-object Resetter extends StandardSignal
-object DatapathEn extends StandardSignal
-object CtrTrivial extends StandardSignal
+sealed trait BooleanSignal
+// "Standard" Signals
+object En extends BooleanSignal
+object Done extends BooleanSignal
+object BaseEn extends BooleanSignal
+object Mask extends BooleanSignal
+object Resetter extends BooleanSignal
+object DatapathEn extends BooleanSignal
+object CtrTrivial extends BooleanSignal
 // A few non-canonical signals
-object IIDone extends StandardSignal
-object RstEn extends StandardSignal
-object CtrEn extends StandardSignal
+object IIDone extends BooleanSignal
+object RstEn extends BooleanSignal
+object CtrEn extends BooleanSignal
+object Ready extends BooleanSignal
+object Valid extends BooleanSignal
+object NowValid extends BooleanSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -52,7 +56,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     result
   }
 
-  def swap(lhs: Exp[_], s: StandardSignal): String = {
+  def swap(lhs: Exp[_], s: BooleanSignal): String = {
     s match {
       case En => wireMap(src"${lhs}_en")
       case Done => wireMap(src"${lhs}_done")
@@ -64,10 +68,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case IIDone => wireMap(src"${lhs}_II_done")
       case RstEn => wireMap(src"${lhs}_rst_en")
       case CtrEn => wireMap(src"${lhs}_ctr_en")
+      case Ready => wireMap(src"${lhs}_ready")
+      case Valid => wireMap(src"${lhs}_valid")
+      case NowValid => wireMap(src"${lhs}_now_valid")
     }
   }
 
-  def swap(lhs: => String, s: StandardSignal): String = {
+  def swap(lhs: => String, s: BooleanSignal): String = {
     s match {
       case En => wireMap(src"${lhs}_en")
       case Done => wireMap(src"${lhs}_done")
@@ -79,6 +86,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case IIDone => wireMap(src"${lhs}_II_done")
       case RstEn => wireMap(src"${lhs}_rst_en")
       case CtrEn => wireMap(src"${lhs}_ctr_en")
+      case Ready => wireMap(src"${lhs}_ready")
+      case Valid => wireMap(src"${lhs}_valid")
+      case NowValid => wireMap(src"${lhs}_now_valid")
     }
   }
 
@@ -122,7 +132,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
     val lat = bodyLatency.sum(c)
     val readiers = listensTo(c).distinct.map{_.memory}.map {
-      case fifo @ Def(StreamInNew(bus)) => src"${fifo}_valid"
+      case fifo @ Def(StreamInNew(bus)) => src"${swap(fifo, Valid)}"
       case _ => ""
     }.filter(_ != "").mkString(" & ")
 
@@ -134,7 +144,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def getNowValidLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
       val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_now_valid" //& ${fifo}_ready"
+        case fifo @ Def(StreamInNew(bus)) => src"${swap(fifo, NowValid)}" //& ${fifo}_ready"
         case _ => ""
       }.mkString(" & ")
       val hasReadiers = if (readiers != "") "&" else ""
@@ -143,7 +153,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def getReadyLogic(c: Exp[Any]): String = { // Because of retiming, the _ready for streamins and _valid for streamins needs to get factored into datapath_en
       // If we are inside a stream pipe, the following may be set
       val readiers = listensTo(c).distinct.map{_.memory}.map {
-        case fifo @ Def(StreamInNew(bus)) => src"${fifo}_ready"
+        case fifo @ Def(StreamInNew(bus)) => src"${swap(fifo, Ready)}"
         case _ => ""
       }.mkString(" & ")
       val hasReadiers = if (readiers != "") "&" else ""

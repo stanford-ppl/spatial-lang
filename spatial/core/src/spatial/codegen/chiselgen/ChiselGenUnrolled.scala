@@ -312,7 +312,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${strm}_ready_options(${lhs}_rId) := ${parent}_done & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${parent}_retime, rr) """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${parent}_retime, rr) """)
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
@@ -354,10 +354,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
             emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
             // emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
             // emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
-            emitGlobalWireMap(src"""val stream_out_startofpacket""", """Wire(Bool())""")
-            emitGlobalWireMap(src"""val stream_out_endofpacket""", """Wire(Bool())""")
+            emitGlobalWireMap(src"""stream_out_startofpacket""", """Wire(Bool())""")
+            emitGlobalWireMap(src"""stream_out_endofpacket""", """Wire(Bool())""")
             emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
-            emit(src"""stream_out_endofpacket := ${parent}_done""")
+            emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
             emit(src"""// emiiting data for stream ${stream}""")
             // emit(src"""${stream} := ${data.head}""")
             // emit(src"""converted_data := ${stream}""")
