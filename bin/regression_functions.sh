@@ -824,5 +824,5 @@ launch_tests_sbt() {
   else
     captype="Scala"
   fi
-  bash bin/regression 8 $branch $captype
+  bash bin/regression $thredz $branch $captype
 }
