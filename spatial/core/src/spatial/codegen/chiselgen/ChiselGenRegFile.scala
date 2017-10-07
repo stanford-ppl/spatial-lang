@@ -148,10 +148,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       
     case op@LUTLoad(lut,inds,en) =>
       val dispatch = dispatchOf(lhs, lut).toList.head
+      val idquote = src"${lhs}_id"
       emitGlobalWireMap(src"""${lhs}""",src"""Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
-      emit(src"""val ${lhs}_id = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}}), $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}))""")
-      emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out(${lhs}_id).raw""")
+      emit(src"""val ${idquote} = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}}), $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}))""")
+      emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out(${idquote}).raw""")
 
     case op@VarRegNew(init)    => 
     case VarRegRead(reg)       => 
