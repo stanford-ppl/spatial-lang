@@ -409,11 +409,32 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
 
   override protected def emitFileFooter() {
+    withStream(getStream("Mapping")) {
+      emit("// ##############")
+      emit("// # BOOL WIRES #")
+      emit("// ##############")
+      emit(src"""${boolMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ##############")
+      emit("// # UINT WIRES #")
+      emit("// ##############")
+      emit(src"""${uintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ##############")
+      emit("// # SINT WIRES #")
+      emit("// ##############")
+      emit(src"""${sintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ##############")
+      emit("// # FIX32 WIRES #")
+      emit("// ##############")
+      emit(src"""${fix32Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+
+    }
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
       val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
-      emit(src"""${boolMap.map{x => src"// ${x._1} = ${x._2}"}.mkString("\n")}""")
       emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
+      emit(src"val u = List.fill(${uintMap.size}){Wire(UInt(32.W))}")
+      emit(src"val s = List.fill(${sintMap.size}){Wire(SInt(32.W))}")
+      emit(src"val f32 = List.fill(${fix32Map.size}){Wire(new FixedPoint(true, 32, 0))}")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
     }

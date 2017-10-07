@@ -11,12 +11,6 @@ trait ChiselGenStream extends ChiselGenSRAM {
   var streamIns: List[Sym[Reg[_]]] = List()
   var streamOuts: List[Sym[Reg[_]]] = List()
 
-  override protected def quote(e: Exp[_]): String = e match {
-    // FIXME: Unclear precedence with ChiselGenSRAM and ChiselGenCounter - probably does nothing
-    case b: Bound[_] => super.quote(e)
-    case _ => super.quote(e)
-  }
-
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
       emitGlobalWire(src"val ${lhs}_ready_options = Wire(Vec(${readersOf(lhs).length}, Bool()))", forceful = true)

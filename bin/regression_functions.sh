@@ -305,15 +305,20 @@ touch $wiki_file
 logger "Putting timestamp in wiki"
 duration=$SECONDS
 get_flags
+flags_file=`ls | grep "flags.*log"`
+
 echo -e "
 Time elapsed: $(($duration / 60)) minutes, $(($duration % 60)) seconds
 * <---- indicates relative amount of work needed before app will **pass**
-* Flags: $flags **Fixme, should get directly from scala test since this may be incorrect!**
+" > $wiki_file
 
+cat $flags_file >> $wiki_file
+
+echo -e "
 Results
 -------
 
-" > $wiki_file
+" >> $wiki_file
 
 # Write combined travis button
 combined_tracker_real="${SPATIAL_HOME}/ClassCombined-Branch${branch}-Backend${type_todo}-Tracker/results"
@@ -327,7 +332,7 @@ sed -i "s/Pass/**Pass**/g" sorted_results.log
 
 # Send results to wiki
 echo -e "
-## Unit
+### Unit
 " >> $wiki_file
 sed -n "/\.Unit\./p" sorted_results.log > tmp
 sed -i "s/\[newline\]/\n↳/g" tmp
@@ -335,7 +340,7 @@ sed -i "s/$/  /g" tmp
 cat tmp >> $wiki_file
 
 echo -e "
-## Dense
+### Dense
 " >> $wiki_file
 sed -n "/\.Dense\./p" sorted_results.log > tmp
 sed -i "s/\[newline\]/\n/g" tmp
@@ -343,7 +348,7 @@ sed -i "s/$/  /g" tmp
 cat tmp >> $wiki_file
 
 echo -e "
-## Sparse
+### Sparse
 " >> $wiki_file
 sed -n "/\.Sparse\./p" sorted_results.log > tmp
 sed -i "s/\[newline\]/\n/g" tmp
@@ -351,7 +356,7 @@ sed -i "s/$/  /g" tmp
 cat tmp >> $wiki_file
 
 echo -e "
-## Fixme
+### Fixme
 " >> $wiki_file
 sed -n "/\.Fixme\./p" sorted_results.log > tmp
 sed -i "s/\[newline\]/\n/g" tmp
