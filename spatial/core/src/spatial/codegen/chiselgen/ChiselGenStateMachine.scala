@@ -20,7 +20,11 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       alphaconv_register(src"$state")
 
       emitController(lhs, None, None, true)
-      emitGlobalWireMap(src"${notDone.result}", "Wire(Bool())") // Hack but so what
+      notDone.result match {
+        case b: Bound[_] => 
+        case s: Sym[_] => emitGlobalWireMap(src"${notDone.result}", "Wire(Bool())") // Hack but so what
+        case c: Const[_] =>
+      }
       emitInhibitor(lhs, None, Some(notDone.result), None)
 
       emit(src"${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B")
