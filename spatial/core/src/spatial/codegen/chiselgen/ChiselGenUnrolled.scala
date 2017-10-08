@@ -41,6 +41,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
+      emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
       if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
