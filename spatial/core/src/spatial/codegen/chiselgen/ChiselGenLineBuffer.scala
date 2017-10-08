@@ -95,7 +95,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(${row}) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(${row}) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})")
 
 
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
@@ -109,7 +109,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
           data.zipWithIndex.foreach { case (d, i) =>
             emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
           }
-          emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
+          emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
         }        
       } else {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
@@ -120,7 +120,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in(${lb}_${ii}_transient_base + $i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
         emit(src"""${lb}_$ii.io.transientDone := ${swap(parent, Done)}""")
         emit(src"""${lb}_$ii.io.transientSwap := ${swap(parentOf(parent).get, Done)}""")
       }
@@ -169,7 +169,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(0) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(0) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }
