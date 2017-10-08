@@ -241,7 +241,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }        
       }
     } else {
-      emitGlobalModule(src"val ${swap(lhs, Inhibitor)} = false.B // Maybe connect to ${swap(lhs, Done)}?  ")      
+      emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())");emit(src"${swap(lhs, Inhibitor)} := false.B // Maybe connect to ${swap(lhs, Done)}?  ")
     }
   }
 
