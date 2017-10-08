@@ -764,6 +764,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())") // hack
       emitController(lhs, None, None)
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B""")
       emitGlobalWire(src"""${swap(lhs, IIDone)} := true.B""")
