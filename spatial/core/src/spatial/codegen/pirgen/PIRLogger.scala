@@ -59,19 +59,21 @@ trait PIRLogger extends SpatialTraversal {
             dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
             dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
             dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
-            dbgs(s"""start     = ${mem.writeStart.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""end       = ${mem.writeEnd.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""producer = ${mem.producer.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""consumer  = ${mem.consumer.map(_.toString).getOrElse("N/A")}""")
+            producerOf.get(mem).foreach { _.foreach { case (writer, producer) =>
+              dbgs(s"writer=$writer, producer=$producer")
+            } }
+            consumerOf.get(mem).foreach { _.foreach { case (reader, consumer) =>
+              dbgs(s"reader=$reader, consumer=$consumer")
+            } }
           }
         }
       }
     }
     dbgl("Generated PseudoStage: ") {
-      cu.pseudoStages.foreach { stage => dbgs(s"$stage") }
+      cu.pseudoStages.foreach { stage => dbgs(quote(stage)) }
     }
     dbgl("Generated compute stages: ") {
-      cu.computeStages.foreach(stage => dbgs(s"$stage"))
+      cu.computeStages.foreach(stage => dbgs(quote(stage)))
     }
     dbgl(s"CU global inputs:") {
       globalInputs(cu).foreach{in => dbgs(s"$in") }
@@ -81,25 +83,6 @@ trait PIRLogger extends SpatialTraversal {
         dbgs(s"$exp -> $comp")
       }
     }
-  }
-
-  def qdef(lhs:Any):String = {
-    val rhs = lhs match {
-      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
-      case Def(e:UnrolledForeach) => 
-        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case Def(e:UnrolledReduce[_,_]) => 
-        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
-      case Op(rhs) => s"$rhs"
-      case Def(rhs) => s"$rhs"
-      case lhs => s"$lhs"
-    }
-    val name = lhs match {
-      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
-      case _ => ""
-    }
-    s"$lhs = $rhs$name"
   }
 
 }

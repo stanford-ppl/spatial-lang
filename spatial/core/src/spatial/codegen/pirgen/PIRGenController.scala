@@ -147,16 +147,12 @@ trait PIRGenController extends PIRCodegen {
         case _ =>
       }
 
-      readControllerOf(mem).foreach {
-        case (reader, Some(consumer)) => 
-          attrs += s""".consumer("${reader.name}", "${consumer.name}")"""
-        case _ =>
+      consumerOf(mem).foreach { case (reader, consumer) => 
+        attrs += s""".consumer("${reader.name}", "${consumer.name}")"""
       }
 
-      writeControllerOf(mem).foreach {
-        case (writer, Some(producer)) => 
-          attrs += s""".producer("${writer.name}", "${producer.name}")"""
-        case _ =>
+      producerOf(mem).foreach { case (writer, producer) => 
+        attrs += s""".producer("${writer.name}", "${producer.name}")"""
       }
 
       emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$attrs""")
@@ -179,9 +175,7 @@ trait PIRGenController extends PIRCodegen {
   def emitFringeVectors(cu:ComputeUnit) = {
     if (isFringe(mappingOf(cu))) {
       cu.fringeGlobals.foreach { 
-        case (field, bus:ScalarBus) => emit(s"""CU.newSout("$field", ${quote(bus)})""")
-        case (field, bus:VectorBus) => emit(s"""CU.newVout("$field", ${quote(bus)})""")
-        case (field, bus:BitBus) => emit(s"""CU.newBout("$field", ${quote(bus)})""")
+        case (field, bus) => emit(s"""CU.newOut("$field", ${quote(bus)})""")
       }
     }
   }

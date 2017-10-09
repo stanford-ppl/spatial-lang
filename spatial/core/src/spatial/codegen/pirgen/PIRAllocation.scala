@@ -69,13 +69,13 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def getCUStyle(exp:Expr):CUStyle = exp match {
     case Def(FringeDenseLoad(dram, _, _))  => 
-      FringeCU(allocateDRAM(dram), MemLoad)
+      FringeCU(allocateDRAM(dram), TileLoad)
     case Def(FringeDenseStore(dram, _, _, _))  => 
-      FringeCU(allocateDRAM(dram), MemStore)
+      FringeCU(allocateDRAM(dram), TileStore)
     case Def(FringeSparseLoad(dram, _, _))  => 
-      FringeCU(allocateDRAM(dram), MemGather)
+      FringeCU(allocateDRAM(dram), Gather)
     case Def(FringeSparseStore(dram, _, _))  => 
-      FringeCU(allocateDRAM(dram), MemScatter)
+      FringeCU(allocateDRAM(dram), Scatter)
     case Def(_:Hwblock) => TopCU
     case _ if isAccess(exp) => getCUStyle(parentOf(exp).get)
     case _ if isControlNode(exp) => styleOf(exp) match {
@@ -471,10 +471,11 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           } else {
             val lmem = readerCU.memMap(dmem)
             readerCU.addReg(dreader, MemLoad(lmem))
-            val consumer = getTopController(mem, reader, instOf(lmem))
-            readControllerOf(lmem) = (readerCU, consumer)
-            dbgs(s"readerCU=$readerCU")
-            dbgs(s"consumer=$consumer")
+            getTopController(mem, reader, instOf(lmem)).foreach { consumer =>
+              consumerOf(lmem) = (readerCU, consumer)
+              dbgs(s"readerCU=$readerCU")
+              dbgs(s"consumer=$consumer")
+            }
           }
         }
       }
@@ -516,10 +517,11 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
               if (!locallyWritten) {
                 dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
                 lmem.writePort += bus
-                val producer = getTopController(mem, writer, instOf(lmem))
-                writeControllerOf(lmem) = (writerCU, producer)
-                dbgs(s"writerCU=$writerCU")
-                dbgs(s"producer=$producer")
+                getTopController(mem, writer, instOf(lmem)).foreach { producer =>
+                  producerOf(lmem) = (writerCU, producer)
+                  dbgs(s"writerCU=$writerCU")
+                  dbgs(s"producer=$producer")
+                }
               }
             }
           }
@@ -598,11 +600,12 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           sram.readAddr += MemLoad(addrFifo)
           // Wire up readPort
           sram.readPort = Some(dataBus)
-          val consumer = getTopController(mem, reader, instOf(sramCU.srams.head))
-          readControllerOf(sram) = (addrCU, consumer)
           dbgs(s"sram=$sram readPort=$dataBus readAddr=$addrBus")
-          dbgs(s"addrCU=${addrCU}")
-          dbgs(s"consumer=$consumer")
+          getTopController(mem, reader, instOf(sramCU.srams.head)).foreach { consumer =>
+            consumerOf(sram) = (addrCU, consumer)
+            dbgs(s"addrCU=${addrCU}")
+            dbgs(s"consumer=$consumer")
+          }
 
           // Setup readerCUs connections
           readerCUs.foreach { readerCU =>
@@ -646,11 +649,12 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           // Wire up writePort
           dataFifo.writePort += dataBus
           sram.writePort += MemLoad(dataFifo)
-          val producer = getTopController(mem, writer, instOf(sramCU.srams.head))
-          writeControllerOf(sram) = (writerCU, producer)
           dbgs(s"sram=$sram writePort=$dataFifo dataBus=$dataBus writeAddr=$addrBus")
-          dbgs(s"writerCU=$writerCU")
-          dbgs(s"producer=$producer")
+          getTopController(mem, writer, instOf(sramCU.srams.head)).foreach { producer =>
+            producerOf(sram) = (writerCU, producer)
+            dbgs(s"writerCU=$writerCU")
+            dbgs(s"producer=$producer")
+          }
         }
       }
     }

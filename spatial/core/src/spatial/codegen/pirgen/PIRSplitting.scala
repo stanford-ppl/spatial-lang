@@ -47,7 +47,7 @@ trait PIRSplitting extends PIRTraversal {
 
     val current = new MUPartition(mutable.ArrayBuffer.empty, mutable.ArrayBuffer.empty, ctrl, false) //TODO
 
-    val cost = getMUCost(current, partitions, allStages, others)
+    val cost = getMUCost(current, partitions, allStages, others, cu)
 
     if (cost > archMU) {
       var errReport = s"Failed splitting in PMU $cu"
@@ -70,13 +70,12 @@ trait PIRSplitting extends PIRTraversal {
     }
     val allStages = cu.allStages.toList
     val ctrl = cu.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}
-    val isUnit = cu.lanes == 1
 
     val partitions = mutable.ArrayBuffer[CUPartition]()
     var current: CUPartition = Partition.emptyCU(ctrl, true)
     val remote: CUPartition = new CUPartition(cu.computeStages, ctrl, false)
 
-    def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, isUnit){p => p.cstages}
+    def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, cu){p => p.cstages}
 
     while (remote.nonEmpty) {
       dbgs(s"Computing partition ${partitions.length}")
@@ -113,8 +112,7 @@ trait PIRSplitting extends PIRTraversal {
         errReport += s"Arch: \n$arch"
         errReport += s"Cost: \n$cost"
         throw new SplitException(errReport) with NoStackTrace
-      }
-      else {
+      } else {
         dbgs(s"Partition ${partitions.length}")
         dbgs(getCost(current))
         dbgs(s"  Compute stages: ")

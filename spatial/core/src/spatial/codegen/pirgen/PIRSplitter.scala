@@ -45,16 +45,14 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
   override def process[S:Type](b: Block[S]) = {
     try {
       visitBlock(b)
-
-      val cuMapping = mappingIn.keys.flatMap{k =>
+      val splitMapping = mappingIn.keys.flatMap{k =>
         mappingIn(k).zip(mappingOut(k)).map { case (cuIn, cuOuts) =>
           if (cuOuts.isEmpty)
             throw new Exception(c"$k was split into 0 CUs?")
-
-          cuIn.asInstanceOf[CU] -> cuOuts.head.asInstanceOf[CU]
+          cuIn -> cuOuts
         }
       }.toMap
-      swapCUs(cuMapping)
+      mappingOut.values.foreach { _.foreach { _.foreach { cu => swapRef(splitMapping, cu) } } }
     }
     catch {case e: SplitException =>
       error("Failed splitting")
@@ -93,6 +91,72 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
       cus
     }
     else List(cu)
+  }
+
+  def getParent(cus:List[CU]):CU = {
+    if (cus.size==1) return cus.head
+    val parents = cus.filter { _.style == StreamCU }
+    assert(parents.size==1)
+    parents.head
+  }
+
+  def swapToParent(mapping: Map[CU, List[CU]], cu:CU) = mapping.get(cu).map(getParent).getOrElse(cu)
+
+  def swapRef(mapping: Map[CU, List[CU]], cu:CU): Unit = dbgblk(s"swapRef($cu)") {
+    cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
+    cu.parent = cu.parent.map{parent => swapToParent(mapping, parent) }
+    cu.mems.foreach{mem => swapCU_mem(mem) }
+    cu.allStages.foreach{stage => swapCU_stage(stage) }
+
+    def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
+      case cc: CChainCopy => cc.owner = swapToParent(mapping, cc.owner)
+      case _ => // No action
+    }
+
+    def swapCU_stage(stage:Stage) = {
+      stage match {
+        case stage:ReduceStage => stage.accParent = swapToParent(mapping, stage.accParent)
+        case stage =>
+      }
+      stage.inputMems.foreach(swapCU_reg)
+    }
+
+    def swapCU_reg(reg: LocalComponent): Unit = reg match {
+      case CounterReg(cc,i,iter) => swapCU_cchain(cc)
+      case ValidReg(cc,i,valid) => swapCU_cchain(cc)
+      case _ =>
+    }
+
+    def swapCU_mem(mem: CUMemory) {
+      mem.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
+      mem.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
+      consumerOf(mem) =  consumerOf(mem).flatMap { case (reader, consumer) => 
+        val newReaders = mem.mode match {
+          case SRAMMode =>
+            val addrInputs = globalInputs(mem)
+            dbgs(s"addrInputs($mem) = $addrInputs")
+            mapping(reader).filter { reader =>
+              val addrOutputs = globalOutputs(reader)
+              dbgs(s"addrOutputs($reader) = $addrOutputs")
+              (addrInputs intersect addrOutputs).nonEmpty
+            }
+          case _ => List(cu) // LocalMem
+        }
+        val newConsumer = swapToParent(mapping, consumer)
+        newReaders.map { reader => (reader, newConsumer) }
+      }
+      producerOf(mem) =  producerOf(mem).flatMap { case (writer, producer) => 
+        val dataInputs = globalInputs(mem.writeAddr)
+        dbgs(s"dataInputs($mem) = $dataInputs")
+        val newWriters = mapping(writer).filter { writer =>
+          val dataOutputs = globalOutputs(writer)
+          dbgs(s"dataOutputs($writer) = $dataOutputs")
+          (dataOutputs intersect dataInputs).nonEmpty
+        }
+        val newProducer = swapToParent(mapping, producer)
+        newWriters.map { writer => (writer, newProducer) }
+      }
+    }
   }
 
 }

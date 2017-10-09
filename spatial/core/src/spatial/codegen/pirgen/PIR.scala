@@ -6,42 +6,6 @@ import forge._
 import scala.collection.mutable
 import spatial.metadata._
 
-
-// --- Memory controller modes
-sealed abstract class OffchipMemoryMode
-case object MemLoad extends OffchipMemoryMode { override def toString = "TileLoad" }
-case object MemStore extends OffchipMemoryMode { override def toString = "TileStore" }
-case object MemGather extends OffchipMemoryMode { override def toString = "Gather" }
-case object MemScatter extends OffchipMemoryMode { override def toString = "Scatter" }
-
-
-// --- Local memory banking
-sealed abstract class SRAMBanking
-case class Strided(stride: Int, banks:Int) extends SRAMBanking
-case class Diagonal(stride1: Int, stride2: Int) extends SRAMBanking
-case object NoBanks extends SRAMBanking { override def toString = "NoBanking()" }
-case object Duplicated extends SRAMBanking { override def toString = "Duplicated()" }
-//case object Fanout extends SRAMBanking { override def toString = "Fanout()" }
-
-
-// --- Compute types
-sealed abstract class CUStyle
-case object TopCU extends CUStyle
-case object PipeCU extends CUStyle
-case object SequentialCU extends CUStyle
-case object MetaPipeCU extends CUStyle
-case object StreamCU extends CUStyle
-case object MemoryCU extends CUStyle
-case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
-
-// --- Local memory modes
-sealed abstract class LocalMemoryMode
-case object SRAMMode extends LocalMemoryMode
-case object BitFIFOMode extends LocalMemoryMode
-case object ScalarFIFOMode extends LocalMemoryMode
-case object VectorFIFOMode extends LocalMemoryMode
-case object ScalarBufferMode extends LocalMemoryMode
-
 trait Component
 // --- Global buses
 sealed abstract class GlobalComponent(val name: String) extends Component
@@ -210,9 +174,6 @@ case class CUMemory(name: String, mem: Expr, cu:CU) {
   var writeStart: Option[LocalComponent] = None
   var writeEnd: Option[LocalComponent] = None
 
-  var producer:Option[CU] = None
-  var consumer:Option[CU] = None
-
   override def toString = name
 
   def copyMem(name: String) = {
@@ -231,12 +192,18 @@ case class CUMemory(name: String, mem: Expr, cu:CU) {
     copy.writeAddr.clear
     copy.writeAddr ++= this.writeAddr
     copy.writeStart = this.writeStart
-    copy.producer = this.producer
-    copy.consumer = this.consumer
     copy
   }
 
   def isSRAM = mode == SRAMMode
+  def isLocalMem = mode match {
+    case SRAMMode => false
+    case _ => true
+  }
+  def isRemoteMem = mode match {
+    case SRAMMode => true
+    case _ => false
+  }
 }
 
 
@@ -292,6 +259,8 @@ case class ComputeUnit(name: String, var style: CUStyle) {
   def mems:Set[CUMemory] = memMap.values.toSet
   def srams:Set[CUMemory] = mems.filter {_.mode==SRAMMode}
   def fifos:Set[CUMemory] = mems.filter { mem => mem.mode==VectorFIFOMode || mem.mode==ScalarFIFOMode}
+  def remoteMems:Set[CUMemory] = mems.filter { _.isRemoteMem }
+  def localMems:Set[CUMemory] = mems.filter { _.isLocalMem }
 
   val fringeGlobals = mutable.Map[String, GlobalBus]()
 
@@ -344,39 +313,122 @@ case class ComputeUnit(name: String, var style: CUStyle) {
 
 }
 
-sealed abstract class PIROp
-case object PIRALUMux  extends PIROp { override def toString = "MuxOp"    }
-case object PIRBypass  extends PIROp { override def toString = "Bypass" }
-case object PIRFixAdd  extends PIROp { override def toString = "FixAdd" }
-case object PIRFixSub  extends PIROp { override def toString = "FixSub" }
-case object PIRFixMul  extends PIROp { override def toString = "FixMul" }
-case object PIRFixDiv  extends PIROp { override def toString = "FixDiv" }
-case object PIRFixMod  extends PIROp { override def toString = "FixMod" }
-case object PIRFixLt   extends PIROp { override def toString = "FixLt"  }
-case object PIRFixLeq  extends PIROp { override def toString = "FixLeq" }
-case object PIRFixEql  extends PIROp { override def toString = "FixEql" }
-case object PIRFixNeq  extends PIROp { override def toString = "FixNeq" }
-case object PIRFixSla  extends PIROp { override def toString = "FixSla" }
-case object PIRFixSra  extends PIROp { override def toString = "FixSra" }
-case object PIRFixMin  extends PIROp { override def toString = "FixMin" }
-case object PIRFixMax  extends PIROp { override def toString = "FixMax" }
-case object PIRFixNeg  extends PIROp { override def toString = "FixNeg" }
+// --- Context for creating/modifying CUs
+abstract class CUContext(val cu: ComputeUnit) {
+  private val refs = mutable.HashMap[Expr,LocalRef]()
+  private var readAccums: Set[AccumReg] = Set.empty
 
-case object PIRFltAdd  extends PIROp { override def toString = "FltAdd" }
-case object PIRFltSub  extends PIROp { override def toString = "FltSub" }
-case object PIRFltMul  extends PIROp { override def toString = "FltMul" }
-case object PIRFltDiv  extends PIROp { override def toString = "FltDiv" }
-case object PIRFltLt   extends PIROp { override def toString = "FltLt"  }
-case object PIRFltLeq  extends PIROp { override def toString = "FltLeq" }
-case object PIRFltEql  extends PIROp { override def toString = "FltEql" }
-case object PIRFltNeq  extends PIROp { override def toString = "FltNeq" }
-case object PIRFltExp  extends PIROp { override def toString = "FltExp" }
-case object PIRFltLog  extends PIROp { override def toString = "FltLog" }
-case object PIRFltSqrt extends PIROp { override def toString = "FltSqr" }
-case object PIRFltAbs  extends PIROp { override def toString = "FltAbs" }
-case object PIRFltMin  extends PIROp { override def toString = "FltMin" }
-case object PIRFltMax  extends PIROp { override def toString = "FltMax" }
-case object PIRFltNeg  extends PIROp { override def toString = "FltNeg" }
+  def stages: mutable.ArrayBuffer[Stage]
+  def addStage(stage: Stage): Unit
+  def isWriteContext: Boolean
+  def init(): Unit
 
-case object PIRBitAnd  extends PIROp { override def toString = "BitAnd" }
-case object PIRBitOr   extends PIROp { override def toString = "BitOr"  }
+  def stageNum: Int = stages.count{case stage:MapStage => true; case _ => false} + 1
+  def controlStageNum: Int = controlStages.length
+  def prevStage: Option[Stage] = stages.lastOption
+  def mapStages: Iterator[MapStage] = stages.iterator.collect{case stage:MapStage => stage}
+
+  def controlStages: mutable.ArrayBuffer[Stage] = cu.controlStages
+  def addControlStage(stage: Stage): Unit = cu.controlStages += stage
+
+  def addReg(x: Expr, reg: LocalComponent) {
+    //debug(s"  $x -> $reg")
+    cu.addReg(x, reg)
+  }
+  def addRef(x: Expr, ref: LocalRef) { refs += x -> ref }
+  @stateful def getReg(x: Expr): Option[LocalComponent] = cu.get(x)
+  @stateful def reg(x: Expr): LocalComponent = {
+    cu.get(x).getOrElse(throw new Exception(s"No register defined for $x in $cu"))
+  }
+
+  // Add a stage which bypasses x to y
+  def bypass(x: LocalComponent, y: LocalComponent) {
+    val stage = MapStage(PIRBypass, List(refIn(x)), List(refOut(y)))
+    addStage(stage)
+  }
+
+  def ref(reg: LocalComponent, out: Boolean, stage: Int = stageNum): LocalRef = reg match {
+    // If the previous stage computed the read address for this load, use the registered output
+    // of the memory directly. Otherwise, use the previous stage
+    case MemLoad(sram) => //TODO: rework out the logic here
+      /*debug(s"Referencing SRAM $sram in stage $stage")
+      debug(s"  Previous stage: $prevStage")
+      debug(s"  SRAM read addr: ${sram.readAddr}")*/
+      if (prevStage.isEmpty || sram.mode == VectorFIFOMode || sram.mode == ScalarFIFOMode )
+        LocalRef(-1, reg)
+      else {
+        if (sram.mode != VectorFIFOMode && sram.mode!= ScalarFIFOMode) {
+          LocalRef(stage-1,reg)
+        }
+        else
+          throw new Exception(s"No address defined for SRAM $sram")
+      }
+
+    case reg: CounterReg if isWriteContext && prevStage.isEmpty =>
+      //debug(s"Referencing counter $reg in first write stage")
+      LocalRef(-1, reg)
+
+    case reg: AccumReg if isUnreadAccum(reg) =>
+      //debug(s"First reference to accumulator $reg in stage $stage")
+      readAccums += reg
+      LocalRef(stage, reg)
+    case _ if out =>
+      //debug(s"Referencing output register $reg in stage $stage")
+      LocalRef(stage, reg)
+    case _ =>
+      //debug(s"Referencing input register $reg in stage $stage")
+      LocalRef(stage-1, reg)
+  }
+  def refIn(reg: LocalComponent, stage: Int = stageNum) = ref(reg, out = false, stage)
+  def refOut(reg: LocalComponent, stage: Int = stageNum) = ref(reg, out = true, stage)
+
+  def addOutputFor(e: Expr)(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, Some(e))
+  def addOutput(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, None)
+  def addOutput(prev: LocalComponent, out: LocalComponent, e: Option[Expr]): Unit = {
+    mapStages.find{stage => stage.outputMems.contains(prev) } match {
+      case Some(stage) =>
+        stage.outs :+= refOut(out, mapStages.indexOf(stage) + 1)
+      case None =>
+        bypass(prev, out)
+    }
+    if (e.isDefined) addReg(e.get, out)
+    else cu.regs += out // No mapping, only list
+  }
+
+  // Get memory in this CU associated with the given reader
+  def mem(mem: Expr): CUMemory = {
+    val cuMems = cu.mems.filter{ _.mem == mem }
+    assert(cuMems.size==1, s"More than 1 cuMem=${cuMems} allocated for $mem in $cu")
+    cuMems.head
+  }
+
+  // A CU can have multiple SRAMs for a given mem symbol, one for each local read
+  def memories(mem: Expr) = cu.mems.filter(_.mem == mem)
+
+
+  // HACK: Keep track of first read of accum reg (otherwise can use the wrong stage)
+  private def isUnreadAccum(reg: LocalComponent) = reg match {
+    case reg: AccumReg => !readAccums.contains(reg)
+    case _ => false
+  }
+}
+
+
+case class ComputeContext(override val cu: ComputeUnit) extends CUContext(cu) {
+  def stages = cu.computeStages
+  def addStage(stage: Stage) { cu.computeStages += stage }
+  def isWriteContext = false
+  def init() = {}
+}
+//case class WriteContext(override val cu: ComputeUnit) extends CUContext(cu) {
+  //def init() { cu.writeStages.clear }
+  //def stages = cu.writeStages
+  //def addStage(stage: Stage) { cu.writeStages += stage }
+  //def isWriteContext = true
+//}
+//case class ReadContext(override val cu: ComputeUnit) extends CUContext(cu) {
+  //def init() { cu.readStages.clear }
+  //def stages = cu.readStages
+  //def addStage(stage: Stage) { cu.readStages += stage }
+  //def isWriteContext = false 
+//}

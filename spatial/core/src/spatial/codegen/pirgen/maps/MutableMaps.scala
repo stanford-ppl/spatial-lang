@@ -43,12 +43,18 @@ trait MOneToManyMap extends OneToManyMap with MMap {
     if (!map.contains(k)) v.foreach { v => update(k,v) }
     map(k)
   }
+  def update(n:K, vv:VV):Unit = map += n -> vv
 }
 
 trait MBiOneToManyMap extends MOneToManyMap with BiOneToManyMap with MBiMap {
   override type IM = Map[V, KK]
   val imap:IM = Map.empty
   override def update(n:K, v:V):Unit = { check((n,v)); super.update(n,v); imap += (v -> n) } 
+  override def update(n:K, vv:VV):Unit = {
+    map(n).foreach { v => imap.remove(v) }
+    super.update(n, vv)
+    vv.foreach { v => imap += v -> n }
+  }
 }
 
 trait MBiManyToOne extends MOneToOneMap with BiManyToOneMap with MMap {

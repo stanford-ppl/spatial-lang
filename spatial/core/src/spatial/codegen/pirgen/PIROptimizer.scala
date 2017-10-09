@@ -209,7 +209,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     dbgs(s"$cu globalOutputs=${globalOutputs(cu)} ${cu.mems.map{m => m.readPort.map(globalOutputs)}}")
 
     if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
-        && !isCopied && noOutput && cu.switchTable.nonEmpty) {
+        && !isCopied && noOutput && cu.switchTable.isEmpty) {
       dbgs(s"Removing empty CU $cu")
       mappingOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }

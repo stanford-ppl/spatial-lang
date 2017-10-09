@@ -22,7 +22,32 @@ package object pirgen {
   val globals    = mutable.Set[GlobalComponent]()
   val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
 
-  @stateful def quote(x: Expr):String = s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
+  @stateful def quote(x: Any):String = x match {
+    case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
+    case DefStage(exp, isReduce) => s"DefStage(${qdef(exp)}, isReduce=$isReduce)"
+    case x:Iterable[_] => x.map(quote).toString
+    case x => x.toString
+  }
+
+  @stateful def qdef(lhs:Any):String = {
+    val rhs = lhs match {
+      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
+      case Def(e:UnrolledForeach) => 
+        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(e:UnrolledReduce[_,_]) => 
+        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case Op(rhs) => s"$rhs"
+      case Def(rhs) => s"$rhs"
+      case lhs => s"$lhs"
+    }
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
+    }
+    s"$lhs = $rhs$name"
+  }
+
 
   @stateful def isConstant(x: Expr):Boolean = x match {
     case Const(c) => true
@@ -82,9 +107,10 @@ package object pirgen {
     case glob: GlobalBus => Set(glob)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort)
+    case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readAddr ++ mem.writeAddr)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
+    case MemLoad(mem) => globalInputs(mem)
     case _ => collectX[GlobalBus](a)(globalInputs)
   }
   def globalOutputs(a: Any): Set[GlobalBus] = a match {
@@ -323,7 +349,7 @@ package object pirgen {
   }
 
   // HACK Not used
-  @stateful def bank(mem: Expr, access: Expr)(implicit codegen:PIRCodegen) = {
+  @stateful def bank(mem: Expr, access: Expr) = {
     val pattern = accessPatternOf(access).last
     val stride  = 1
 
@@ -392,7 +418,7 @@ package object pirgen {
     case (bank1, NoBanks) => bank1
   }
 
-  @stateful def getInnerPar(n:Expr)(implicit codegen:PIRCodegen):Int = n match {
+  @stateful def getInnerPar(n:Expr):Int = n match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
@@ -428,7 +454,7 @@ package object pirgen {
     case Def(_:RegWrite[_]) => 1 
     case Def(_:RegRead[_]) => 1 
     case n if isArgIn(n) | isArgOut(n) | isGetDRAMAddress(n) => 1
-    case n => throw new Exception(s"Undefined getInnerPar for ${codegen.qdef(n)}")
+    case n => throw new Exception(s"Undefined getInnerPar for ${qdef(n)}")
   }
 
   def getOuterDims[T](dmem:Expr, list:Seq[T]):Seq[T] = {

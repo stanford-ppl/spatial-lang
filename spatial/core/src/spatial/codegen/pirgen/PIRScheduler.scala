@@ -30,8 +30,6 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
   def schedulePCU(exp: Expr, cus: List[CU]):Unit = {
     cus.foreach { cu =>
       mappingOf(exp) = dbgblk(s"Scheduling $exp CU: $cu") {
-        dbgcu(cu)
-
         val ctx = ComputeContext(cu)
         cu.pseudoStages.foreach{stage => scheduleStage(stage, ctx) }
         cu
@@ -40,7 +38,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"Scheduling stage:$stage") {
+  def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"scheduleStage(${quote(stage)})") {
     stage match {
       case DefStage(lhs@Def(rhs), isReduce) =>
         //dbgs(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
@@ -154,7 +152,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def opStageToStage(op: PIROp, ins: Seq[Expr], out: Expr, ctx: CUContext, isReduce: Boolean) {
     if (isReduce) {
-      // By convention, the inputs to the reduction tree is the first argument to the node
+      // By convention, the inputs to tLANEShe reduction tree is the first argument to the node
       // This input must be in the previous stage's reduction register
       // Ensure this either by adding a bypass register for raw inputs or changing the output
       // of the previous stage from a temporary register to the reduction register
@@ -181,7 +179,9 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val accParent = accParents.head
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)
       ctx.addReg(out, acc)
+      dbgs(s"addReg: ctx=${ctx.cu.name}, reg=$out -> $acc")
       ctx.addStage(stage)
+      dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$stage")
     }
     else if (op == PIRBypass) {
       assert(ins.length == 1)
@@ -218,6 +218,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
         val output = allocateLocal(ctx.cu, out)
         val stage = MapStage(op, inputs, List(ctx.refOut(output)))
         ctx.addStage(stage)
+        dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$stage")
       }
     }
   }

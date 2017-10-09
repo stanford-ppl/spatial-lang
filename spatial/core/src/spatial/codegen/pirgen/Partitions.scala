@@ -125,9 +125,21 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     regsMax: Int = 0, // Maximum live values at any given time
     regsUse: Int = 0  // Estimated number of registers used
   ) extends PartitionCost {
-    def >(that: CUCost) = {
-      this.sIn > that.sIn || this.sOut > that.sOut || this.vIn > that.vIn ||
-      this.vOut > that.vOut || this.comp > that.comp || this.regsMax > that.regsMax
+    def > (that: CUCost) = {
+      var msg = ""
+      def info(left:Int, right:Int, label:String) = {
+        val res = left > right
+        if (res) dbgs(s"CUCost: $label ($left > $right)")
+        res
+      }
+      var res = false
+      res ||= info(this.sIn     , that.sIn     , "sIn    ")
+      res ||= info(this.sOut    , that.sOut    , "sOut   ")
+      res ||= info(this.vIn     , that.vIn     , "vIn    ")
+      res ||= info(this.vOut    , that.vOut    , "vOut   ")
+      res ||= info(this.comp    , that.comp    , "comp   ")
+      res ||= info(this.regsMax , that.regsMax , "regsMax")
+      res
     }
 
     //def toUtil = Utilization(alus = comp, sclIn = sIn, sclOut = sOut, vecIn = vIn, vecOut = vOut)
@@ -139,19 +151,24 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   /**
     * Calculate the total cost for a given partition
     */
-  def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean) = p match {
-    case pmu: MUPartition => getMUCost(pmu, prev, all, others)
-    case pcu: CUPartition => getCUCost(pcu, prev, all, others, isUnit){p => p.cstages}
+  def getCost(p: Partition, prev: Seq[Partition], all: List[Stage], others: Seq[CU], cu:CU) = p match {
+    case pmu: MUPartition => getMUCost(pmu, prev, all, others, cu)
+    case pcu: CUPartition => getCUCost(pcu, prev, all, others, cu){p => p.cstages}
   }
 
-  def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Seq[CU]) = {
-    val readCost = getCUCost(p, prev, all, others, isUnit=false){_ => p.rstages}.toMUCost
-    val writeCost = getCUCost(p, prev, all, others, isUnit=false){_ => p.wstages}.toMUCost
+  def getMUCost(p: MUPartition, prev: Seq[Partition], all: List[Stage], others: Seq[CU], cu:CU) = {
+    val readCost = getCUCost(p, prev, all, others, cu){_ => p.rstages}.toMUCost
+    val writeCost = getCUCost(p, prev, all, others, cu){_ => p.wstages}.toMUCost
     readCost + writeCost
   }
 
-  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], isUnit: Boolean)(getStages: P => Seq[Stage]) = dbgblk(s"getCUCost: $p"){
+  def getReduceCost(cu:CU) = {
+    (Math.log(cu.innerPar)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
+  }
+
+  def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], cu:CU)(getStages: P => Seq[Stage]) = dbgblk(s"getCUCost: $p"){
     val local = getStages(p)
+    val isUnit = cu.lanes == 1
 
     dbgs(s"\n\n")
     dbgl(s"Stages: ") {
@@ -212,7 +229,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     // --- Compute
     val rawCompute = local.map{
       case MapStage(op,_,_) => if (op == PIRBypass) 0 else 1
-      case _:ReduceStage    => REDUCE_STAGES
+      case _:ReduceStage    => getReduceCost(cu) 
     }.sum
 
     // Live values throughout CU
@@ -347,7 +364,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   def nUsedStages(cu: CU): Int = {
     cu.allStages.map {
       case MapStage(op, _, _) if op != PIRBypass => 1
-      case _: ReduceStage => REDUCE_STAGES
+      case _: ReduceStage => getReduceCost(cu) 
       case _ => 0
     }.sum
   }
@@ -366,7 +383,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
       val reduceRegs = if (local(i-1).isInstanceOf[ReduceStage]) 1 else 0
       dbgs(s"    $i: " + lives.mkString(", "))
       local(i - 1) match {
-        case _:ReduceStage => Seq.tabulate(REDUCE_STAGES){j => (lives.size * cu.lanes) + (reduceRegs * cu.lanes / math.pow(2,j).toInt) }
+        case _:ReduceStage => Seq.tabulate(getReduceCost(cu)){j => (lives.size * cu.lanes) + (reduceRegs * cu.lanes / math.pow(2,j).toInt) }
         case _ => Seq(lives.size * cu.lanes)
       }
     } :+ cuOutputs.map{
