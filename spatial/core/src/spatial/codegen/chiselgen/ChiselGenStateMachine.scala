@@ -20,11 +20,13 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       alphaconv_register(src"$state")
 
       emitController(lhs, None, None, true)
-      notDone.result match {
-        case b: Bound[_] => 
-        case s: Sym[_] => emitGlobalWireMap(src"${notDone.result}", "Wire(Bool())") // Hack but so what
-        case c: Const[_] =>
-      }
+      emit("// Emitting notDone")
+      emitBlock(notDone)
+      // notDone.result match {
+      //   case b: Bound[_] => 
+      //   case s: Sym[_] => emitGlobalWireMap(src"${notDone.result}", "Wire(Bool())") // Hack but so what
+      //   case c: Const[_] =>
+      // }
       emitInhibitor(lhs, None, Some(notDone.result), None)
 
       emit(src"${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B")
@@ -42,8 +44,6 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       }
       // emitGlobalWire(src"""val ${swap(lhs, IIDone)} = true.B // Maybe this should handled differently""")
 
-      emit("// Emitting notDone")
-      emitBlock(notDone)
       emit("// Emitting action")
       // emitGlobalWire(src"val ${notDone.result}_doneCondition = Wire(Bool())")
       // emit(src"${notDone.result}_doneCondition := ~${notDone.result} // Seems unused")

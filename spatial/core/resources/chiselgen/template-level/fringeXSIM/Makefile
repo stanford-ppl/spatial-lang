@@ -21,11 +21,13 @@ SV_TEST_LIST = test_dram_dma
 C_TEST_LIST  = test_peek_poke.c
 
 
-all: dram compile
+all: dram sim
 
 sim:
-	export LM_LICENSE_FILE=27000@cadlic0.stanford.edu
-	xsim ${XSIM_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin SRAMVerilogSim.v ${TOP}.v ${TOP}-harness.sv sim.cpp
+	xelab work.Top -prj accel.prj -dll -s accel -debug wave
+	g++ -I/opt/Xilinx/Vivado/2017.1/bin/../data/xsim/include -O3 -c -o xsi_loader.o xsi_loader.cpp
+	# export LM_LICENSE_FILE=27000@cadlic0.stanford.edu
+	# xsim ${XSIM_OPTS} -cpp ${CC} ${CC_OPTS} -o accel.bit.bin SRAMVerilogSim.v ${TOP}.v ${TOP}-harness.sv sim.cpp
 
 dram:
 	make -j8 -C DRAMSim2 libdramsim.so
@@ -34,17 +36,3 @@ dram:
 #	ln -sf dramShim/dram .
 clean:
 	rm -rf *.o *.csrc *.daidir ${TOP} simv ucli.key *.cmd *.in *.out *.vcd *.vpd Sim
-
-
-compile:
-	mkdir -p $(SIM_DIR)
-	cd $(SIM_DIR) && xsc $(C_TEST_NAME) --additional_option "-I$(C_INC_DIR)" --additional_option "-DVIVADO_SIM"
-#	cd $(SIM_DIR) && xvlog --sv -m64 --initfile $(SCRIPTS_DIR)/xsim.ini --work xil_defaultlib --relax -f $(SCRIPTS_DIR)/top.vivado.f
-	cd $(SIM_DIR) && xvlog --sv -m64 --initfile $(XILINX_VIVADO)/data/xsim/ip/xsim_ip.ini --work xil_defaultlib --relax -f $(SCRIPTS_DIR)/top.vivado.f
-# #	cd $(SIM_DIR) && xelab -m64 --initfile $(SCRIPTS_DIR)/xsim.ini --timescale 1ps/1ps --debug typical --relax --mt 8 -L axi_clock_converter_v2_1_11 -L generic_baseblocks_v2_1_0 -L axi_infrastructure_v1_1_0 -L axi_register_slice_v2_1_12 -L fifo_generator_v13_1_4 -L axi_data_fifo_v2_1_11 -L axi_crossbar_v2_1_13 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip -L xpm -sv_lib dpi --snapshot tb xil_defaultlib.tb xil_defaultlib.glbl xil_defaultlib.$(TEST) 
-# 	cd $(SIM_DIR) && xelab -m64 --initfile $(XILINX_VIVADO)/data/xsim/ip/xsim_ip.ini --timescale 1ps/1ps --debug typical --relax --mt 8 -L axi_clock_converter_v2_1_11 -L generic_baseblocks_v2_1_0 -L axi_infrastructure_v1_1_0 -L axi_register_slice_v2_1_12 -L fifo_generator_v13_1_4 -L axi_data_fifo_v2_1_11 -L axi_crossbar_v2_1_13 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip -L xpm -sv_lib dpi --snapshot tb xil_defaultlib.tb xil_defaultlib.glbl xil_defaultlib.$(TEST) 
-
-
-run:
-	cd $(SIM_DIR) && xsim -R -log test.log -tclbatch $(SCRIPTS_DIR)/waves.tcl tb
-
