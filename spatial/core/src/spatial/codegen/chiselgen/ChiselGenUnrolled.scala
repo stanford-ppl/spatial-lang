@@ -143,7 +143,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"$rstr := ${swap(lhs, RstEn)}")
       } else {
         if (spatialConfig.enableRetiming) {
-          emitGlobalWire(src"val ${accum}_II_dlay = ${iiOf(lhs)} + 1 // Hack to fix Arbitrary Lambda")
+          emitGlobalWire(src"val ${accum}_II_dlay = /*${iiOf(lhs)} +*/ 1 // un-hack to fix Arbitrary Lambda")
         } else {
           emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
         }
