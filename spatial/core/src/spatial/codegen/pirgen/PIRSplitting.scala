@@ -186,11 +186,11 @@ trait PIRSplitting extends PIRTraversal {
         case ScalarOut(bus) => bus
         case VectorOut(bus) => bus
         case MemLoad(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
-          val bus = CUVector(mem.name+"_sdata")
+          val bus = CUVector(mem.name+"_vdata", cu.innerPar)
           globals += bus
           bus
         case MemLoad(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
-          val bus = CUScalar(mem.name+"_vdata")
+          val bus = CUScalar(mem.name+"_sdata")
           globals += bus
           bus
         case WriteAddrWire(mem) =>
@@ -202,7 +202,7 @@ trait PIRSplitting extends PIRTraversal {
           globals += bus
           bus
         case _                    =>
-          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    else CUVector("bus_" + reg.id)
+          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    else CUVector("bus_" + reg.id, cu.innerPar)
           globals += bus
           bus
       }

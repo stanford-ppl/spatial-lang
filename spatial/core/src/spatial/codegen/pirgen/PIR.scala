@@ -18,7 +18,7 @@ sealed abstract class VectorBus(override val name: String) extends GlobalBus(nam
 sealed abstract class ScalarBus(override val name: String) extends GlobalBus(name)
 sealed abstract class BitBus(override val name: String) extends GlobalBus(name)
 
-case class CUVector(override val name: String) extends VectorBus(name) {
+case class CUVector(override val name: String, par:Int) extends VectorBus(name) {
   override def toString = s"v$name"
 }
 case class CUScalar(override val name: String) extends ScalarBus(name) {

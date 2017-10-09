@@ -484,6 +484,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def prescheduleLocalMemWrite(mem: Expr, writer:Expr) = {
     dbgblk(s"prescheduleLocalMemWrite(writer=$writer, mem=${quote(mem)})") {
+      val writerPar = getInnerPar(writer)
       val remoteReaders = getRemoteReaders(mem, writer)
       dbgs(s"remoteReaders:${remoteReaders.mkString(",")}")
       if (remoteReaders.nonEmpty || isArgOut(mem)) {
@@ -491,15 +492,15 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         decompose(mem).zip(decompose(writer)).foreach { case (dmem, dwriter) =>
           dbgs(s"dmem:$dmem, dwriter:$dwriter")
           dbgs(s"isArgOut=${isArgOut(mem)} isStreamOut=${isStreamOut(mem)} isReg=${isReg(mem)}")
-          dbgs(s"isFIFO=${isFIFO(mem)} isStream=${isStream(mem)} getInnerPar=${getInnerPar(writer)}")
+          dbgs(s"isFIFO=${isFIFO(mem)} isStream=${isStream(mem)} writerPar=${writerPar}")
           val bus = mem match {
             case mem if isArgIn(mem) => InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem)
             case mem@Def(GetDRAMAddress(dram)) => DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem)
             case mem if isArgOut(mem) => OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
             case mem if isReg(mem) => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-            case mem if isFIFO(mem) & getInnerPar(writer)==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-            case mem if isStream(mem) & getInnerPar(writer)==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-            case mem => CUVector(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem if isFIFO(mem) & writerPar==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem if isStream(mem) & writerPar==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem => CUVector(s"${quote(dmem)}_${quote(dwriter)}", writerPar)
           }
           val writerCU = getWriterCU(dwriter) 
           val output = bus match {
@@ -531,7 +532,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def allocateRemoteMemAddrCalc(mem:Expr, access:Expr, addrCU:CU) = {
-    val parBy1 = getInnerPar(access)==1
+    val par = getInnerPar(access)
     val pipe = parentOf(access).get
     val stms = getStms(pipe)
     val addr = access match {
@@ -562,12 +563,12 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case _ if isReader(access) => "ra" 
       case _ if isWriter(access) => "wa"
     }
-    val bus = if (parBy1) {
+    val bus = if (par==1) {
       val bus = CUScalar(s"${quote(mem)}_${quote(access)}_$postfix")
       addrCU.addReg(flatAddr, ScalarOut(bus))
       bus
     } else {
-      val bus = CUVector(s"${quote(mem)}_${quote(access)}_$postfix")
+      val bus = CUVector(s"${quote(mem)}_${quote(access)}_$postfix", par)
       addrCU.addReg(flatAddr, VectorOut(bus))
       bus
     }
@@ -581,7 +582,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def prescheduleRemoteMemRead(mem: Expr, reader:Expr) = {
     dbgblk(s"Allocating remote memory read: ${qdef(reader)}") {
-      val parBy1 = getInnerPar(reader)==1
+      val readerPar = getInnerPar(reader)
+      val parBy1 = readerPar==1
       val readerCUs = getReaderCUs(reader)
       val addrCU = allocateCU(reader)
       val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, reader, addrCU)
@@ -590,7 +592,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         val sramCUs = getMCUforAccess(dmem, dreader)
         sramCUs.foreach { sramCU =>
           val dataBus = if (parBy1) CUScalar(s"${quote(dmem)}_${sramCU.name}_data") 
-                        else        CUVector(s"${quote(dmem)}_${sramCU.name}_data")
+                        else        CUVector(s"${quote(dmem)}_${sramCU.name}_data", readerPar)
 
           // Set up PMUs connections
           val sram = sramCU.memMap(mem)
@@ -630,7 +632,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
         // Setup writerCU connections
         val dataBus = if (parBy1) CUScalar(s"${quote(dmem)}_${quote(dwriter)}_data")
-                      else        CUVector(s"${quote(dmem)}_${quote(dwriter)}_data")
+                      else        CUVector(s"${quote(dmem)}_${quote(dwriter)}_data", getInnerPar(writer))
         dataBus match {
           case bus:CUScalar => writerCU.addReg(dwriter, ScalarOut(bus))
           case bus:CUVector => writerCU.addReg(dwriter, VectorOut(bus))
@@ -676,7 +678,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           val readerPar = getInnerPar(readers.head.node)
           dbgs(s"fringe:$fringe $field reader:${readers.head} par=${readerPar}")
           val bus = if (readerPar==1) CUScalar(s"${quote(dmem)}_${quote(fringe)}_$field")
-                    else CUVector(s"${quote(dmem)}_${quote(fringe)}_$field")
+                    else CUVector(s"${quote(dmem)}_${quote(fringe)}_$field", readerPar)
           cu.fringeGlobals += field -> bus
           readerCUs.foreach { _.memMap(dmem).writePort += bus }
       }
