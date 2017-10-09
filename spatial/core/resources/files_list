@@ -878,6 +878,7 @@
 ./chiselgen/template-level/fringeVCS/dramShim/dram.cpp
 ./chiselgen/template-level/fringeVCS/dramShim/Makefile
 ./chiselgen/template-level/fringeVCS/dramShim/DRAMRequest.h
+./chiselgen/template-level/fringeVCS/AddrRemapper.h
 ./chiselgen/template-level/fringeVCS/DRAM.h
 ./chiselgen/template-level/fringeVCS/svImports.h
 ./chiselgen/template-level/fringeVCS/SRAMVerilogSim.v
