@@ -550,8 +550,11 @@
 ./chiselgen/template-level/fringeDE1SoC/Edge_Detection_Subsystem.qsys
 ./chiselgen/template-level/fringeDE1SoC/Computer_System.qsys
 ./chiselgen/template-level/fringeDE1SoC/rbf_option
+./chiselgen/template-level/fringeXSIM/xsi_loader.h
 ./chiselgen/template-level/fringeXSIM/Makefile
+./chiselgen/template-level/fringeXSIM/accel.prj
 ./chiselgen/template-level/fringeXSIM/vc_hdrs.h
+./chiselgen/template-level/fringeXSIM/xsi_loader.cpp
 ./chiselgen/template-level/fringeXSIM/DRAMSim2/SimulatorObject.h
 ./chiselgen/template-level/fringeXSIM/DRAMSim2/spatial.dram.ini.old
 ./chiselgen/template-level/fringeXSIM/DRAMSim2/CommandQueue.h
@@ -621,8 +624,10 @@
 ./chiselgen/template-level/fringeXSIM/DRAM.h
 ./chiselgen/template-level/fringeXSIM/svImports.h
 ./chiselgen/template-level/fringeXSIM/SRAMVerilogSim.v
+./chiselgen/template-level/fringeXSIM/RetimeShiftRegister.sv
 ./chiselgen/template-level/fringeXSIM/sim.cpp
 ./chiselgen/template-level/fringeXSIM/Streams.h
+./chiselgen/template-level/fringeXSIM/xsi_shared_lib.h
 ./chiselgen/template-level/fringeXSIM/Top-harness.sv
 ./chiselgen/template-level/fringeXSIM/CoalescingCache.h
 ./chiselgen/template-level/project/target/resolution-cache/reports/default-template-level-build-provided.xml

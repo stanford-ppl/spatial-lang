@@ -152,7 +152,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"${swap(accum, Wren)} := (${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct")
+            emit(src"${swap(accum, Wren)} := ${childrenOf(lhs).last}_sm.io.output.done //(${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct ???")
           case Def(_:SRAMNew[_,_]) =>
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
             emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
