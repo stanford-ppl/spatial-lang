@@ -25,6 +25,7 @@
 ./chiselgen/altera-goodies/altera_up_avalon_video_dma_ctrl_addr_trans/altera_up_avalon_video_dma_ctrl_addr_trans_hw.tcl
 ./chiselgen/altera-goodies/altera_up_avalon_video_dma_ctrl_addr_trans/altera_up_avalon_video_dma_ctrl_addr_trans.v
 ./chiselgen/altera-goodies/interfaces.v
+./chiselgen/fringeZynq
 ./chiselgen/app-level/de1soc.mk
 ./chiselgen/app-level/run.sh
 ./chiselgen/app-level/findDiff.sh
@@ -621,6 +622,7 @@
 ./chiselgen/template-level/fringeXSIM/dramShim/dram.cpp
 ./chiselgen/template-level/fringeXSIM/dramShim/Makefile
 ./chiselgen/template-level/fringeXSIM/dramShim/DRAMRequest.h
+./chiselgen/template-level/fringeXSIM/RetimeShiftRegister.v
 ./chiselgen/template-level/fringeXSIM/DRAM.h
 ./chiselgen/template-level/fringeXSIM/svImports.h
 ./chiselgen/template-level/fringeXSIM/SRAMVerilogSim.v
@@ -789,9 +791,11 @@
 ./chiselgen/template-level/fringeZynq/build/fsbl.elf._
 ./chiselgen/template-level/fringeZynq/build/settings.tcl
 ./chiselgen/template-level/fringeZynq/build/devicetree.dtb
+./chiselgen/template-level/fringeZynq/build/RetimeShiftRegister.v
 ./chiselgen/template-level/fringeZynq/build/u-boot.elf._
 ./chiselgen/template-level/fringeZynq/build/AXI4LiteToRFBridgeVerilog.v
 ./chiselgen/template-level/fringeZynq/build/convert_bitstream
+./chiselgen/template-level/fringeZynq/build/RetimeShiftRegister.sv
 ./chiselgen/template-level/fringeZynq/build/vivado.tcl
 ./chiselgen/template-level/fringeZynq/bigIP/BigIPZynq.scala
 ./chiselgen/template-level/fringeZynq/bigIP/ZynqBlackBoxes.scala

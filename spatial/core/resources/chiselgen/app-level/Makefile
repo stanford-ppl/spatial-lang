@@ -222,6 +222,7 @@ zynq-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
 	mv ${BIGIP_SCRIPT} ${ZYNQ_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
+	cat chisel/template-level/fringeZynq/build/RetimeShiftRegister.v >> ${ZYNQ_V_DIR}/Top.v
 	cp chisel/template-level/fringeZynq/build/* ${ZYNQ_V_DIR}
 	mv ${ZYNQ_V_DIR}/fsbl.elf._ ${ZYNQ_V_DIR}/fsbl.elf
 	mv ${ZYNQ_V_DIR}/u-boot.elf._ ${ZYNQ_V_DIR}/u-boot.elf

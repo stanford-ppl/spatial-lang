@@ -31,8 +31,8 @@ class MAGCore(
   // and decouple Plasticine's data bus width from the DRAM bus width,
   // this is currently left out as a wishful todo.
   // Check and error out if the data bus width does not match DRAM burst size
-  Predef.assert(w/8*v == 64,
-  s"Unsupported combination of w=$w and v=$v; data bus width must equal DRAM burst size ($burstSizeBytes bytes)")
+  // Predef.assert(w/8*v == 64,
+  // s"Unsupported combination of w=$w and v=$v; data bus width must equal DRAM burst size ($burstSizeBytes bytes)")
 
   // Enabling hardware asserts on aws-sim is causing a segfault in xsim
   // We can safely disable them for aws-sim, as we should be able to catch violations with vcs simulation
@@ -112,7 +112,7 @@ class MAGCore(
   if (enableHwAsserts) {
     for (i <- 0 until numStreams) {
       val str3 = s"ERROR: addrFifo $i enqVld is high when not enabled!"
-      if (FringeGlobals.target != "verilator") assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
+      // if (FringeGlobals.target != "verilator") assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
     }
   }
 
@@ -404,7 +404,7 @@ class MAGCore(
 
   // Some assertions
   if (enableHwAsserts & FringeGlobals.target != "verilator") {
-    assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
+    // assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
   }
 
   // All debug counters

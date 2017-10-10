@@ -342,7 +342,7 @@ echo -e "
 ### Dense
 " >> $wiki_file
 sed -n "/\.Dense\./p" sorted_results.log > tmp
-sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/\[newline\]/\n↳/g" tmp
 sed -i "s/$/  /g" tmp
 cat tmp >> $wiki_file
 
@@ -350,7 +350,7 @@ echo -e "
 ### Sparse
 " >> $wiki_file
 sed -n "/\.Sparse\./p" sorted_results.log > tmp
-sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/\[newline\]/\n↳/g" tmp
 sed -i "s/$/  /g" tmp
 cat tmp >> $wiki_file
 
@@ -358,14 +358,14 @@ echo -e "
 ### Fixme
 " >> $wiki_file
 sed -n "/\.Fixme\./p" sorted_results.log > tmp
-sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/\[newline\]/\n↳/g" tmp
 sed -i "s/$/  /g" tmp
 cat tmp >> $wiki_file
 
 
 # Send results to travis button
 sed "/\.Fixme\./d" sorted_results.log > tmp
-sed -i "s/\[newline\]/\n/g" tmp
+sed -i "s/\[newline\]/\n↳/g" tmp
 sed -i "s/$/  /g" tmp
 cat tmp >> $combined_tracker_real
 
