@@ -12,7 +12,7 @@ object Convolution {
 	val tileSizeN = 16
 	val tileSizeK = 16
 
-	@virtualize
+	@virtualize // To be deprecated in favor of ConvolutionSlideFast
 	def ConvolutionSlide[T:Type:Num](output: DRAM2[T], 
 	                    input: DRAM2[T],
 	                    filter: LUT2[T],
@@ -63,9 +63,44 @@ object Convolution {
 	  }
 	}
 
-
+	// Multifilter
 	@virtualize
-	def MultichannelConvolutionSlide[T:Type:Num](output: DRAM2[T], 
+	def MFConvolutionSlideFast[T:Type:Num](output: DRAM3[T], 
+	                    input: DRAM2[T],
+	                    filter: List[LUT2[T]],
+	                    colstride: scala.Int, rowstride: scala.Int,
+	                	load_par: Index, store_par: Index )(implicit state: State): Unit = {
+
+	  val lb = LineBuffer.strided[T](filter.head.rows, coltile, rowstride)
+	  val sr = RegFile[T](filter.head.rows, filter.head.cols)
+	  val lineout = List.tabulate(filter.length){_ => SRAM[T](coltile/colstride)}
+	  Foreach(input.rows by rowstride){row =>
+	    lb load input(row::row+rowstride, 0::input.cols par load_par)
+	    Foreach(input.cols by colstride){j => 
+	      Foreach(filter.head.rows by 1 par filter.head.rows){i => sr(i,*) <<= lb(i,j::j+colstride)}
+	      val sr_elements = List.tabulate(3){ii => List.tabulate(3){jj => 
+	      	if ((row.to[Int]+rowstride-1) - (filter.head.rows - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.head.cols - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.head.cols - 1 - jj)
+	      }}.flatten
+	      lineout.zipWithIndex.foreach{case (lo, page) => 
+	        val filter_elements = List.tabulate(3){ii => List.tabulate(3){jj => 
+	        	filter(page).apply(ii,jj)
+	        }}.flatten
+	        lo(j/colstride) = sr_elements.zip(filter_elements).map{case (s, f) => s * f}.reduce{_+_}
+	  	  }
+	      // lineout(j/colstride) = mux(row + (rowstride-1) < filter.head.rows.to[Int]-1 || j + (colstride-1) < filter.head.cols.to[Int]-1, 0.to[T], Reduce(Reg[T](0.to[T]))(filter.head.rows by 1, filter.head.cols by 1){(ii,jj) => sr(ii,jj) * filter(ii,jj)}{_+_}.value)
+	    }
+	    Parallel{
+		  lineout.zipWithIndex.foreach{case (lo, page) => 
+		    output(page, row/rowstride, 0::output.dim2 par store_par) store lo
+ 		  }
+		}
+	  }
+	}
+
+
+	// Multichannel
+	@virtualize
+	def MCConvolutionSlide[T:Type:Num](output: DRAM2[T], 
 	                    input: DRAM3[T],
 	                    filter: LUT3[T],
 	                    colstride: scala.Int, rowstride: scala.Int,
@@ -73,60 +108,67 @@ object Convolution {
 
 		  Foreach(input.dim1 by rowstride){row =>
 		  	val lineout = SRAM[T](coltile/colstride)
-			val lineout_temps = List.tabulate(3){_ => SRAM[T](coltile/colstride)}
-			val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.dim1, coltile, rowstride)}
-			val srs = List.tabulate(3){_ => RegFile[T](filter.dim1, filter.dim2)}
-			lbs.zip(srs.zip(lineout_temps)).zipWithIndex.foreach{case ((lb, (sr,lo)), i) =>
-			  lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
-			  Parallel {
-				Foreach(input.dim2 by colstride){j =>
-				  Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
-				  lo(j) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
+			val lineout_temps = List.tabulate(3){_ => SRAM[T](coltile/colstride)} // TODO: Fix hardcoded 3
+			val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
+			val srs = List.tabulate(3){_ => RegFile[T](filter.dim1, filter.dim2)} // TODO: Fix hardcoded 3
+		    lbs.zip(srs.zip(lineout_temps)).zipWithIndex.foreach{case ((lb, (sr,lo)), i) =>
+		      lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
+			  Parallel {  // why is this here?
+			    Foreach(input.dim2 by colstride){j =>
+			      Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
+			      lo(j) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
 			        val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
 			        img * filter(i,ii,jj)
-				  }{_+_}
-				}
+			      }{_+_}
+			    }
 			  }
 			}
 			Foreach(input.dim2 by 1){ j => lineout(j) = lineout_temps.map{t => t(j)}.reduce{_+_} }
 			output(row/rowstride, 0::output.cols par store_par) store lineout
 		  }
-			// // MemReduce(lineout par 1/*red_par*/)(input.dim0 by 1 par layer_par) { plane =>  // Can't do this because it messes up lb control signals
-			//   val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.dim1, coltile, rowstride)}
-			//   val srs = List.tabulate(3){_ => RegFile[T](filter.dim1, filter.dim2)}
-			//   // val lineout_local = List.tabulate(3){_ => SRAM[T](coltile/colstride)}
-			//   for (plane <- 0 until 3) {
-			//   	lbs(plane) load input(plane, row, 0::input.dim2 par load_par)
-			//     Foreach(filter.dim1 by 1 par filter.dim1){i => srs(plane)(i,*) <<= lbs(plane)(i,j::j+colstride)}
-			//   }
-		 //      lineout(j/colstride) = (0 until 3).map{plane => 
-		 //      	Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
-		 //          val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else srs(plane)(ii,filter.dim2 - 1 - jj)
-		 //          img * filter(plane,ii,jj)
-		 //        }{_+_}
-		 //      }.reduce{_+_}
-
-		 //      output(row/rowstride, 0::output.cols par store_par) store lineout
-		 //    }
-		 //  Foreach(input.dim1 by rowstride){row =>
-		 //    val lineout = SRAM[T](coltile/colstride)
-			// MemReduce(lineout par 1/*red_par*/)(input.dim0 by 1 par layer_par) { plane =>  // Can't do this because it messes up lb control signals
-			//   lb load input(plane, row, 0::input.dim2 par load_par) // TODO: load with correct rowstride
-			//   Foreach(input.dim2 by colstride){j => 
-			//     Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)}
-			//     lineout_local(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
-			//       val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
-			//       img * filter(plane,ii,jj)
-			//     }{_+_}
-			//     // lineout(j/colstride) = mux(row + (rowstride-1) < filter.rows.to[Int]-1 || j + (colstride-1) < filter.cols.to[Int]-1, 0.to[T], Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1){(ii,jj) => sr(ii,jj) * filter(ii,jj)}{_+_}.value)
-			//   }
-			//   lineout_local
-			// }{_+_}
-		 //    output(row/rowstride, 0::output.cols par store_par) store lineout
-		 //  }
-
 	}
 
+
+	// Multichannel, multifilter
+	@virtualize
+	def MCMFConvolutionSlide[T:Type:Num](output: DRAM3[T], 
+	                    input: DRAM3[T],
+	                    filter: List[LUT3[T]],
+	                    colstride: scala.Int, rowstride: scala.Int,
+	                	load_par: Index, store_par: Index, layer_par: Index)(implicit state: State): Unit = {
+
+		  Foreach(input.dim1 by rowstride){row =>
+		  	val lineout = List.tabulate(filter.length) {_ => SRAM[T](coltile/colstride)}
+			val lineout_temps = List.tabulate(filter.length){_ => List.tabulate(3) {_ => SRAM[T](coltile/colstride)}} // TODO: Fix hardcoded 3
+			val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.head.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
+			val srs = List.tabulate(3){_ => RegFile[T](filter.head.dim1, filter.head.dim2)} // TODO: Fix hardcoded 3
+			lbs.zip(srs).zipWithIndex.foreach{case ((lb, sr), i) =>
+			  lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
+			  Parallel { // why is this here?
+				Foreach(input.dim2 by colstride){j =>
+				  Foreach(filter.head.dim1 by 1 par filter.head.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
+				  lineout_temps.zipWithIndex.foreach{case (lot, p) => 
+				    lot(i)(j) = Reduce(Reg[T](0.to[T]))(filter.head.dim1 by 1, filter.head.dim2 by 1){(ii,jj) => 
+			          val img = if ((row.to[Int]+rowstride-1) - (filter.head.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.head.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.head.dim2 - 1 - jj)
+			          val f = filter(p).apply(i,ii,jj)
+			          img * f
+				    }{_+_}
+				  }
+				}
+			  }
+			}
+			Foreach(input.dim2 by 1){ j => 
+			  lineout.zip(lineout_temps).zipWithIndex.foreach{case ((lo, lot), i) => 
+			    lo(j) = lot.map{t => t(j)}.reduce{_+_}
+			  }
+			}
+			Parallel{
+			  lineout.zipWithIndex.foreach{case (lo, p) => 
+			  	output(p, row/rowstride, 0::output.dim2 par store_par) store lo
+			  }
+			}
+		  }
+	}
 
 	@virtualize
 	def ConvolutionGEMM[T:Type:Num](output: DRAM1[T], 

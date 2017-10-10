@@ -444,13 +444,17 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit("// ##############")
       emit(src"""${sintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
       emit("// ################")
-      emit("// # FIXS32 WIRES #")
+      emit("// # FIXS32_0 WIRES #")
       emit("// ################")
-      emit(src"""${fixs32Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit(src"""${fixs32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
       emit("// ################")
-      emit("// # FIXU32 WIRES #")
+      emit("// # FIXU32_0 WIRES #")
       emit("// ################")
-      emit(src"""${fixu32Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit(src"""${fixu32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ###################")
+      emit("// # FIXS10_22 WIRES #")
+      emit("// ###################")
+      emit(src"""${fixs10_22Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
 
     }
     withStream(getStream("IOModule")) {
@@ -459,8 +463,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
       emit(src"val u = List.fill(${uintMap.size}){Wire(UInt(32.W))}")
       emit(src"val s = List.fill(${sintMap.size}){Wire(SInt(32.W))}")
-      emit(src"val fs32 = List.fill(${fixs32Map.size}){Wire(new FixedPoint(true, 32, 0))}")
-      emit(src"val fu32 = List.fill(${fixu32Map.size}){Wire(new FixedPoint(false, 32, 0))}")
+      emit(src"val fs32_0 = List.fill(${fixs32_0Map.size}){Wire(new FixedPoint(true, 32, 0))}")
+      emit(src"val fu32_0 = List.fill(${fixu32_0Map.size}){Wire(new FixedPoint(false, 32, 0))}")
+      emit(src"val fs10_22 = List.fill(${fixs10_22Map.size}){Wire(new FixedPoint(true, 10, 22))}")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
     }

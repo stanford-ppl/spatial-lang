@@ -18,6 +18,7 @@ set_property board_part $BOARD [current_project]
 
 ## Import Verilog generated from Chisel and static Verilog files
 add_files -norecurse [glob *.v]
+add_files -norecurse [glob *.sv]
 
 ## Import PS, reset, AXI protocol conversion and word width conversion IP
 #import_ip -files [glob *.xci]

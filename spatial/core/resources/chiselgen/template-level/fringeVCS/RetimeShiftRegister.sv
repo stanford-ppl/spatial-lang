@@ -1,6 +1,6 @@
 module RetimeShiftRegister
 #(
-    parameter WIDTH = 1,
+    parameter WIDTH = 2,
     parameter STAGES = 1)
 (
     input clock,
