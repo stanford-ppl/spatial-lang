@@ -32,6 +32,14 @@ trait MBiOneToOneMap extends MOneToOneMap with BiOneToOneMap with MBiMap {
   override type IM = Map[V, KK]
   val imap:IM = Map.empty
   override def update(n:K, v:V):Unit = { check((n,v)); super.update(n, v); imap += (v -> n) }
+  override def transform(f: (K, VV) ⇒ VV): M = {
+    map.foreach { case (k, vv) =>
+      imap -= vv
+      val newVV = f(k, vv)
+      imap += vv -> k
+    }
+    super.transform(f)
+  } 
 }
 
 trait MOneToManyMap extends OneToManyMap with MMap {
@@ -55,6 +63,14 @@ trait MBiOneToManyMap extends MOneToManyMap with BiOneToManyMap with MBiMap {
     super.update(n, vv)
     vv.foreach { v => imap += v -> n }
   }
+  override def transform(f: (K, VV) ⇒ VV): M = {
+    map.foreach { case (k, vv) =>
+      vv.foreach { v => imap -= v }
+      val newVV = f(k, vv)
+      newVV.foreach { v => imap += v -> k }
+    }
+    super.transform(f)
+  } 
 }
 
 trait MBiManyToOne extends MOneToOneMap with BiManyToOneMap with MMap {

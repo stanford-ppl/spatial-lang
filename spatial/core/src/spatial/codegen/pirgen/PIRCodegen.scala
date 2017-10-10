@@ -74,7 +74,9 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
     dbgblk(s"Emitting $lhs = $rhs") {
       rhs match {
         case Hwblock(_, _) => 
-        case _ => if (mappingOf.contains(lhs)) emitCUs(lhs)
+        case _ if mappingOf.contains(lhs) && (isSRAM(lhs) || isAccess(lhs) || isFringe(lhs) || isControlNode(lhs)) => 
+          emitCUs(lhs)
+        case _ =>
       }
     }
     rhs.blocks.foreach(emitBlock)
