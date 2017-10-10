@@ -92,6 +92,7 @@ aws-sim-hw:
 	# First use chisel to create the verilog
 	sbt "run-main top.Instantiator --verilog --testArgs aws-sim"
 	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_SIM_DIR}/Top.v
+	cat chisel/template-level/fringeVCS/RetimeShiftRegister.sv >> ${AWS_V_SIM_DIR}/Top.v
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
 	cp -r $(AWS_HOME)/hdk/cl/examples/cl_dram_dma $(AWS_HOME)/hdk/cl/examples/${app_name}
@@ -117,7 +118,7 @@ aws-sim-hw:
 aws-F1 : aws-F1-afi    aws-F1-sw
 
 # Build the hardware
-# This is identical to step 1 of aws-sim-hw, can refactor to merge the two
+# This is very similar to step 1 of aws-sim-hw, can refactor to merge the two
 aws-F1-hw:
 	$(eval app_name=$(notdir $(shell pwd)))
 	# ----------------------------------------------------------------------------
@@ -127,6 +128,7 @@ aws-F1-hw:
 	# First use chisel to create the verilog
 	sbt "run-main top.Instantiator --verilog --testArgs aws"
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${AWS_V_DIR}/Top.v
+	cat chisel/template-level/fringeAWS/RetimeShiftRegister.sv >> ${AWS_V_DIR}/Top.v
 	mv ${BIGIP_SCRIPT} ${AWS_V_DIR}/
 	# Make a copy of the template directory
 	rm -rf $(AWS_HOME)/hdk/cl/examples/${app_name}
@@ -151,42 +153,38 @@ aws-F1-afi:   aws-F1-hw
 	# NOTE: The DEFAULT strategy will be used, see others here:
 	#       https://github.com/aws/aws-fpga/blob/master/hdk/common/shell_v04151701/new_cl_template/build/README.md
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
-	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 
+	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 -uram_option 4
 	# Use the following line instead for faster builds:
 	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2 
 	# ----------------------------------------------------------------------------
 	# Step 2: Upload bitstream to S3 and create AFI (currently done manually, TODO: script this)
 	# This will eventually be a new Makefile target, which runs only when the final DCP is created (after synthesis/place/route)
 	# ----------------------------------------------------------------------------
-	echo "# Instructions to upload bitstream to S3 and create AFI"                                                                                                        > create_spatial_AFI_instructions.txt
-	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket"  --region us-east-1                                                                                            >> create_spatial_AFI_instructions.txt
-	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket/dcp"                                                                                                            >> create_spatial_AFI_instructions.txt
-	echo "aws s3 cp build/checkpoints/to_aws/*.Developer_CL.tar s3://${app_name}_$(timestamp)_bucket/dcp/"                                                               >> create_spatial_AFI_instructions.txt
-	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket/logs"                                                                                                           >> create_spatial_AFI_instructions.txt
-	echo "touch LOGS_FILES_GO_HERE.txt"                                                                                                                                  >> create_spatial_AFI_instructions.txt
-	echo "aws s3 cp LOGS_FILES_GO_HERE.txt s3://${app_name}_$(timestamp)_bucket/logs/"                                                                                   >> create_spatial_AFI_instructions.txt
-	echo "Set the right policy for this bucket in S3, see example here: (TODO: script this step)"                                                                        >> create_spatial_AFI_instructions.txt
-	echo "  https://github.com/aws/aws-fpga/tree/master/hdk/cl/examples#3-submit-the-design-checkpoint-to-aws-to-register-the-afi"                                       >> create_spatial_AFI_instructions.txt
-	echo ""                                                                                                                                                              >> create_spatial_AFI_instructions.txt
-	echo "# Verify the script below passes. If it fails, it is likely because of the policy above. In particular, you may need to set up IAM"                            >> create_spatial_AFI_instructions.txt
-	echo "# credentials in the EC2 console. Alternatively you can work around the IAM errors by following the steps in the script's error messages."                     >> create_spatial_AFI_instructions.txt
-	echo "check_s3_bucket_policy.py \\"                                                                                                                                  >> create_spatial_AFI_instructions.txt
-	echo "--dcp-bucket ${app_name}_$(timestamp)_bucket \\"                                                                                                               >> create_spatial_AFI_instructions.txt
-	echo "--dcp-key dcp/<tarball-name> \\"                                                                                                                               >> create_spatial_AFI_instructions.txt
-	echo "--logs-bucket ${app_name}_$(timestamp)_bucket \\"                                                                                                              >> create_spatial_AFI_instructions.txt
-	echo "--logs-key logs"                                                                                                                                               >> create_spatial_AFI_instructions.txt
-	echo ""                                                                                                                                                              >> create_spatial_AFI_instructions.txt
-	echo "aws ec2 create-fpga-image \\"                                                                                                                                  >> create_spatial_AFI_instructions.txt
-	echo "--name ${app_name} \\"                                                                                                                                         >> create_spatial_AFI_instructions.txt
-	echo "--input-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=dcp/<tarball-name> \\"                                                                     >> create_spatial_AFI_instructions.txt
-	echo "--logs-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=logs/"                                                                                      >> create_spatial_AFI_instructions.txt
-	echo ""                                                                                                                                                              >> create_spatial_AFI_instructions.txt
-	echo "# Keep a record of the afi and agfi IDs returned above."                                                                                                       >> create_spatial_AFI_instructions.txt
-	echo "# Now wait for the logs to be created in S3, and the State file indicating that the AFI is available (or failed, if there were errors)"                        >> create_spatial_AFI_instructions.txt
-	echo "# Once that is done, see the online Spatial AWS documentation for how to open and run on an F1 instance."                                                      >> create_spatial_AFI_instructions.txt
-	echo ""                                                                                                                                                              >> create_spatial_AFI_instructions.txt
+	echo "# Instructions to upload bitstream to S3 and create AFI"                                                   > create_spatial_AFI_instructions.txt
+	echo "cd $(AWS_HOME)/hdk/cl/examples/${app_name}"                                                               >> create_spatial_AFI_instructions.txt
+	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket"  --region us-east-1                                       >> create_spatial_AFI_instructions.txt
+	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket/dcp"                                                       >> create_spatial_AFI_instructions.txt
+	echo "aws s3 cp build/checkpoints/to_aws/*.Developer_CL.tar s3://${app_name}_$(timestamp)_bucket/dcp/"          >> create_spatial_AFI_instructions.txt
+	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket/logs"                                                      >> create_spatial_AFI_instructions.txt
+	echo "touch LOGS_FILES_GO_HERE.txt"                                                                             >> create_spatial_AFI_instructions.txt
+	echo "aws s3 cp LOGS_FILES_GO_HERE.txt s3://${app_name}_$(timestamp)_bucket/logs/"                              >> create_spatial_AFI_instructions.txt
+	echo ""                                                                                                         >> create_spatial_AFI_instructions.txt
+	echo "# Create the FPGA Image."                                                                                 >> create_spatial_AFI_instructions.txt
+	echo "# If this command fails, you may need a different awscli version. We tested with version 1.11.78."        >> create_spatial_AFI_instructions.txt
+	echo "# Important: Replace <tarball-name> below with the name of the tarball file copied to S3 above,"          >> create_spatial_AFI_instructions.txt
+	echo "#            e.g. replace <tarball-name> with 17_10_06-######.Developer_CL.tar."                          >> create_spatial_AFI_instructions.txt
+	echo "aws ec2 create-fpga-image \\"                                                                             >> create_spatial_AFI_instructions.txt
+	echo "--name ${app_name} \\"                                                                                    >> create_spatial_AFI_instructions.txt
+	echo "--input-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=dcp/<tarball-name> \\"                >> create_spatial_AFI_instructions.txt
+	echo "--logs-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=logs/"                                 >> create_spatial_AFI_instructions.txt
+	echo ""                                                                                                         >> create_spatial_AFI_instructions.txt
+	echo "# Keep a record of the afi and agfi IDs returned above."                                                  >> create_spatial_AFI_instructions.txt
+	echo "# Now wait for the logs to be created in S3. The State file should indicate that the AFI is available"    >> create_spatial_AFI_instructions.txt
+	echo "# Once that is done, see the online Spatial AWS documentation for how to open and run on an F1 instance." >> create_spatial_AFI_instructions.txt
+	echo ""                                                                                                         >> create_spatial_AFI_instructions.txt
 	#
-	# *** Place and Route is now running. When it completes, follow instructions in create_spatial_AFI_instructions.txt ***
+	# *** Place and Route is now running in the background.                             ***
+	# *** When it completes, follow instructions in create_spatial_AFI_instructions.txt ***
 	#
 
 aws-F1-sw:
