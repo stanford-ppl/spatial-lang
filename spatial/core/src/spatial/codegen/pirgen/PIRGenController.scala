@@ -135,6 +135,8 @@ trait PIRGenController extends PIRCodegen {
       }
 
       var attrs = ""
+      
+      mem.bufferDepth.foreach { depth => attrs += s".buffering($depth)" }
 
       mem.writePort.foreach { vec => attrs += s""".wtPort(${quote(vec)})""" }
       mem.readPort.foreach { vec => attrs += s""".rdPort(${quote(vec)})""" }

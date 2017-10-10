@@ -243,7 +243,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case DiagonalMemory(strides, banks, depth, isAccum) =>
         throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
     }
-    cuMem.bufferDepth = inst.depth
+    cuMem.bufferDepth = Some(inst.depth)
     dbgs(s"Add sram=$cuMem to cu=$cu")
     cuMem
   })
@@ -270,11 +270,11 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         case mem if isReg(mem) => //TODO: Consider initValue of Reg?
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
-          cuMem.bufferDepth = getDuplicates(dmem, dreader).head.depth
+          cuMem.bufferDepth = Some(getDuplicates(dmem, dreader).head.depth)
         case mem if isGetDRAMAddress(mem) =>
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
-          cuMem.bufferDepth = 1
+          cuMem.bufferDepth = Some(1)
         case mem if isFIFO(mem) =>
           cuMem.size = stagedSizeOf(mem.asInstanceOf[Exp[FIFO[Any]]]) match { case Exact(d) => d.toInt }
           cuMem.mode = if (getInnerPar(reader)==1) ScalarFIFOMode else VectorFIFOMode

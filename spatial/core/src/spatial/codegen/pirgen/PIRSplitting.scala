@@ -124,8 +124,9 @@ trait PIRSplitting extends PIRTraversal {
     } // end while
 
     val parent = if (partitions.length > 1) {
+      val exp = mappingOf(cu)
       val parent = ComputeUnit(cu.name, StreamCU)
-      mappingOf(mappingOf(cu)) = parent
+      mappingOf(exp) = parent
       parent.parent = cu.parent
       parent.cchains ++= cu.cchains
       val mems = usedMem(cu.cchains)
@@ -163,7 +164,6 @@ trait PIRSplitting extends PIRTraversal {
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
     cu.fringeGlobals ++= orig.fringeGlobals
-    if (parent.isEmpty) cu.cchains ++= orig.cchains
 
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
@@ -341,32 +341,15 @@ trait PIRSplitting extends PIRTraversal {
 
     // --- TODO: Control logic
 
-
     // --- Copy counters
-    if (parent.isDefined) {
-      val ctrl = parent.get
-      val f = copyIterators(cu, ctrl)
-
-      // Copy all, but only retain those in the partition
-      cu.cchains = cu.cchains.filter{cc => part.cchains.exists{_.name == cc.name}}
+    parent.fold { // No split
+      cu.cchains ++= orig.cchains
+    } { parent =>  // split
+      val unitCtr = CUCounter(ConstReg(0), ConstReg(1), ConstReg(cu.innerPar), par=cu.innerPar)
+      cu.cchains += CChainInstance(s"${cu.name}_unit", Seq(unitCtr))
+      val f = copyIterators(cu, parent)
 
       def tx(cc: CUCChain): CUCChain = f.getOrElse(cc, cc)
-        /*val ins = localInputs(cc)
-        val ins2 = ins.map(x => portIn(x,true))
-        val swap = ins.zip(ins2).toMap*/
-
-        /*cc2 match {
-          case cc: CUChainInstance =>
-          case _ => cc2
-        }*/
-
-        /*if (f.contains(cc)) f(cc)
-        else if (f.values.toList.contains(cc)) cc  // HACK: DSE
-        else {
-          val mapping = f.map{case (k,v) => s"$k -> $v"}.mkString("\n")
-          throw new Exception(s"Attempted to copy counter $cc in CU $ctrl, but no such counter exists.\nMapping:\n$mapping")
-        }*/
-      //}
       def swap_cchain_Reg(x: LocalComponent) = x match {
         case CounterReg(cc,cIdx,iter) => CounterReg(tx(cc), cIdx, iter)
         case ValidReg(cc,cIdx, valid) => ValidReg(tx(cc), cIdx, valid)
@@ -381,7 +364,7 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)} //TODO refactor this
+        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
       }
     }

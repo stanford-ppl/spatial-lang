@@ -162,7 +162,7 @@ case class UnitCChain(override val name: String) extends CUCChain(name) {
 // --- Compute unit memories
 case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
   var mode: LocalMemoryMode = _ 
-  var bufferDepth: Int = 1
+  var bufferDepth: Option[Int] = None
   var banking: Option[SRAMBanking] = None
   var size = 1
 
