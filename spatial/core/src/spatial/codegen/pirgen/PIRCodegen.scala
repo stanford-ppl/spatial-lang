@@ -67,16 +67,14 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
   override protected def quoteConst(c: Const[_]): String = s"Const($c)"
   override protected def quote(x: Exp[_]): String = spatial.codegen.pirgen.quote(x) 
 
-  final def emitCUs(lhs: Exp[_]): Unit = mappingOf(lhs).foreach{cu => emitCU(lhs, cu) }
   def emitCU(lhs: Exp[_], cu: CU): Unit
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     dbgblk(s"Emitting $lhs = $rhs") {
       rhs match {
         case Hwblock(_, _) => 
-        case _ if mappingOf.contains(lhs) && (isSRAM(lhs) || isAccess(lhs) || isFringe(lhs) || isControlNode(lhs)) => 
-          emitCUs(lhs)
         case _ =>
+          mappingOf.getT[CU](lhs).foreach { _.foreach( cu => emitCU(lhs, cu) ) }
       }
     }
     rhs.blocks.foreach(emitBlock)

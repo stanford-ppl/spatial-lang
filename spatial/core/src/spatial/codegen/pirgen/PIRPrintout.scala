@@ -9,7 +9,7 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val recurse = Always
   var IR = codegen.IR
 
-  def cus = mappingOf.values.toList.flatten
+  def cus = mappingOf.values.flatten.collect{ case cu:CU => cu }.toList
 
   def printCU(cu: CU): Unit = {
 
@@ -62,9 +62,7 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mappingOf.contains(lhs)) {
-      mappingOf(lhs).foreach{cu => printCU(cu) }
-    }
+    cus.foreach(printCU)
   }
 
 }

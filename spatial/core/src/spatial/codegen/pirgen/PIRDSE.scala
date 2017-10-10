@@ -18,16 +18,15 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
   override val recurse = Always
   var IR = codegen.IR
 
-  val cus = ArrayBuffer[CU]()
+  lazy val cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
 
-  override def process[S:Type](b: Block[S]) = {
-    visitBlock(b)
-    dse()
-    b
+  override def preprocess[S:Type](b: Block[S]): Block[S] = {
+    super.preprocess(b)
   }
 
-  override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mappingOf.contains(lhs)) cus ++= mappingOf(lhs)
+  override def process[S:Type](b: Block[S]) = {
+    dse()
+    b
   }
 
   def dse() {

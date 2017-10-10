@@ -19,6 +19,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   val allocated = mutable.ListBuffer[Expr]()
   lazy val topCU = ComputeUnit("top", TopCU)
 
+  def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
+
   def addIterators(cu: CU, cchain: CChainInstance, inds: Seq[Seq[Exp[Index]]], valids: Seq[Seq[Exp[Bit]]]) {
     inds.zipWithIndex.foreach{case (is, ci) =>
       is.zipWithIndex.foreach{ case (index, ii) => cu.getOrElseUpdate(index)(CounterReg(cchain, ci, ii)) }
@@ -156,7 +158,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case b:Bound[_] => 
         if (cu.get(b).isEmpty) {
           val fromPipe = parentOf(b).getOrElse(throw new Exception(s"$b doesn't have parent"))
-          val fromCUs = mappingOf(fromPipe)
+          val fromCUs = mappingOf.to[CU](fromPipe)
           assert(fromCUs.size==1) // parent of bounds must be a controller in spatial
           val fromCU = fromCUs.head 
           val (cchain, iters, valids) = cchainOf(fromPipe).getOrElse {
@@ -781,9 +783,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       composed.keys.foreach { k => dbgs(s"${qdef(compose(k))}")}
     }
     dbgs(s"// ----- CU Allocation ----- //")
-    mappingOf.foreach { case (exp, cus) =>
-      cus.foreach { cu => dbgcu(cu) }
-    }
+    cus.foreach(dbgcu)
 
     super.postprocess(b)
   }

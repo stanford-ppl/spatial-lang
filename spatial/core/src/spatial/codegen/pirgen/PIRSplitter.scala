@@ -36,7 +36,10 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
     splittingMap.values.foreach { _.foreach { cu => swapRef(cu) } }
     mappingOf.transform { case (lhs, cus) =>
-      cus.flatMap { cu => splittingMap.getOrElse(cu, mutable.Set(cu)) }
+      cus.flatMap { 
+        case cu:CU => splittingMap.getOrElse(cu, mutable.Set(cu))
+        case x => mutable.Set(x)
+      }
     }
     super.postprocess(b)
   }
@@ -58,9 +61,8 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    mappingOf.get(lhs).foreach { _.foreach {
-        case cu:CU => splittingMap += cu -> split(cu)
-        case _ =>
+    mappingOf.getT[CU](lhs).foreach { _.foreach { cu =>
+        splittingMap += cu -> split(cu)
       }
     }
   }

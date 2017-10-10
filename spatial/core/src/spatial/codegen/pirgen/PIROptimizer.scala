@@ -8,7 +8,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Optimization"
   var IR = codegen.IR
 
-  def cus = mappingOf.values.flatMap{cus => cus}.toList
+  lazy val cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
@@ -28,7 +28,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     mappingOf.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
-    for (cu <- mappingOf.values.flatten) {
+    for (cu <- cus) {
       dbgcu(cu)
     }
     super.postprocess(b)

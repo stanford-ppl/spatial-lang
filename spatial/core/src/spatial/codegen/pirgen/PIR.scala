@@ -6,7 +6,9 @@ import forge._
 import scala.collection.mutable
 import spatial.metadata._
 
-trait Component
+trait PIR
+
+trait Component extends PIR
 // --- Global buses
 sealed abstract class GlobalComponent(val name: String) extends Component
 case class OffChip(override val name: String) extends GlobalComponent(name)
@@ -133,7 +135,7 @@ case class VectorOut(bus: VectorBus) extends LocalPort[VectorOut] {
 }
 
 // --- Counter chains
-case class CUCounter(var start: LocalComponent, var end: LocalComponent, var stride: LocalComponent, var par:Int) {
+case class CUCounter(var start: LocalComponent, var end: LocalComponent, var stride: LocalComponent, var par:Int) extends PIR {
   val name = s"ctr${CUCounter.nextId()}"
 }
 object CUCounter {
@@ -141,7 +143,7 @@ object CUCounter {
   def nextId(): Int = {id += 1; id}
 }
 
-sealed abstract class CUCChain(val name: String) { def longString: String }
+sealed abstract class CUCChain(val name: String) extends PIR { def longString: String } 
 case class CChainInstance(override val name: String, sym:Expr, counters: Seq[CUCounter]) extends CUCChain(name) {
   override def toString = name
   def longString: String = s"$name (" + counters.mkString(", ") + ")"
@@ -158,7 +160,7 @@ case class UnitCChain(override val name: String) extends CUCChain(name) {
 
 
 // --- Compute unit memories
-case class CUMemory(name: String, mem: Expr, cu:CU) {
+case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
   var mode: LocalMemoryMode = _ 
   var bufferDepth: Int = 1
   var banking: Option[SRAMBanking] = None
@@ -242,7 +244,7 @@ case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: 
 }
 
 // --- Compute units
-case class ComputeUnit(name: String, var style: CUStyle) {
+case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
   var parent: Option[CU] = None
 
   var cchains: Set[CUCChain] = Set.empty

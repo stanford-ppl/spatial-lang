@@ -14,20 +14,24 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val recurse = Always
   var IR = codegen.IR
 
+  def cus = mappingOf.values.flatten.collect{ case cu:CU => cu }.toList
+
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     // Swap dependencies, parents, cchain owners from pcu to cu
     dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
-    for (cu <- mappingOf.values.flatten) {
+    for (cu <- cus) {
       dbgcu(cu)
     }
     block
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if (mappingOf.contains(lhs)) schedulePCU(lhs, mappingOf(lhs).toList)
+    mappingOf.getT[CU](lhs).foreach { cus => 
+      schedulePCU(lhs, cus)
+    }
   }
 
-  def schedulePCU(exp: Expr, cus: List[CU]):Unit = {
+  def schedulePCU(exp: Expr, cus: Iterable[CU]):Unit = {
     cus.foreach { cu =>
       mappingOf(exp) = dbgblk(s"Scheduling $exp CU: $cu") {
         val ctx = ComputeContext(cu)
@@ -174,7 +178,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val Def(RegRead(accumReg)) = accum
       val zero = extractConstant(resetValue(accumReg))
       val acc = ReduceReg()
-      val accParents = mappingOf(parentOf(accumReg).get)
+      val accParents = mappingOf.to[CU](parentOf(accumReg).get)
       assert(accParents.size==1)
       val accParent = accParents.head
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)

@@ -2,6 +2,7 @@ package spatial.codegen.pirgen
 
 import scala.collection.mutable
 import scala.util.{Try, Success, Failure}
+import scala.reflect.ClassTag
 
 trait MetadataMaps extends MMap { 
   metadatas += this
@@ -23,9 +24,14 @@ object composed extends MOneToOneMap with MetadataMaps {
 
 object mappingOf extends MBiOneToManyMap with MetadataMaps {
   type K = Expr
-  type V = CU
+  type V = PIR
 
   def apply(v:V) = imap(v)
+  def to[T](k:K):mutable.Set[T] = map(k).map{ _.asInstanceOf[T] }
+  def getOrElseUpdate[T<:V](k:K)(v: => VV):mutable.Set[T] = {
+    super.getOrElseUpdate(k)(v).map{_.asInstanceOf[T]}
+  }
+  def getT[T](k:K)(implicit ev:ClassTag[T]) = get(k).map { _.collect {case x:T => x} }
 }
 
 object readerCUsOf extends MOneToOneMap with MetadataMaps {
