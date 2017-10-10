@@ -102,10 +102,11 @@ trait PIRGenController extends PIRCodegen {
       val iterIndices = cp.iterIndices.map { case (ctrIdx, iterIdx) => s"iterIdx($ctrIdx, $iterIdx)" }.toList
       emit(s"""${(dec :: iterIndices).mkString(".")}""")
 
-    case CChainInstance(name, sym, ctrs) =>
+    case x@CChainInstance(name, ctrs) =>
       for (ctr <- ctrs) emitComponent(ctr)
       val ctrList = ctrs.map(_.name).mkString(", ")
-      val iter = nIters(sym)
+      val exp = mappingOf(x)
+      val iter = nIters(exp)
       emit(s"""val $name = CounterChain(name = "$name", $ctrList).iter(${iter})""")
 
     case UnitCChain(name) =>

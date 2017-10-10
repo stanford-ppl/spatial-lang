@@ -223,7 +223,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     if (destCU != srcCU) {
       val cchainCopies = srcCU.cchains.toList.map {
         case cc@CChainCopy(name, inst, owner)   => cc -> CChainCopy(name, inst, owner)
-        case cc@CChainInstance(name, sym, ctrs) => 
+        case cc@CChainInstance(name, ctrs) => 
           val cp = CChainCopy(name, cc, srcCU)
           iterIdx.foreach { ii => cp.iterIndices += ii }
           cc -> cp

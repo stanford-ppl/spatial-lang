@@ -62,7 +62,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           val par = getConstant(parFactorsOf(ctr).head).get.asInstanceOf[Int]
           allocateCounter(start, end, stride, par)
         }
-        val cc = CChainInstance(quote(cchain), cchain, counters)
+        val cc = CChainInstance(quote(cchain), counters)
+        mappingOf(cchain) = cc
         cu.cchains += cc
         addIterators(cu, cc, iters, valids)
       }

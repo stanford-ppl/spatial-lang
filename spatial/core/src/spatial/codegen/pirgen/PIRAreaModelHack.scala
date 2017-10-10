@@ -128,7 +128,7 @@ class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def cchainArea(cc: CUCChain): Double = cc match {
-    case CChainInstance(_,_,ctrs) => counterArea * ctrs.length
+    case CChainInstance(_,ctrs) => counterArea * ctrs.length
     case CChainCopy(_,inst,_) => cchainArea(inst)
     case UnitCChain(_) => counterArea
   }
