@@ -137,7 +137,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
         }
       } else {
         if (validPassMap.contains((e, "") )) {
-          super.quote(e) + getValidSuffix(controllerStack.head, validPassMap(e, ""))
+          swap(super.quote(e) + getValidSuffix(controllerStack.head, validPassMap(e, "")), Blank)
         } else {
           super.quote(e)
         }

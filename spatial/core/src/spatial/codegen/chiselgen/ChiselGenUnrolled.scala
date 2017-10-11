@@ -42,6 +42,16 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())")
+      // Preallocate valid bound syms
+      if (styleOf(lhs) != StreamPipe) {
+        allocateValids(lhs, cchain, iters, valids)
+      } else if (childrenOf(lhs).length > 0) {
+        childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+          allocateValids(lhs, cchain, iters, valids, src"_copy$c") // Must have visited func before we can properly run this method
+        }          
+      } else {
+        emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
+      }
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
       if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
@@ -95,10 +105,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
         }
         if (childrenOf(lhs).length > 0) {
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
-            emitValids(lhs, cchain, iters, valids, src"_copy$c")
+            emitValids(lhs, cchain, iters, valids, src"_copy$c") // Must have visited func before we can properly run this method
           }          
-        } else {
-          emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
         }
       }
       emitChildrenCxns(lhs, Some(cchain), Some(iters.flatten))
@@ -115,6 +123,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
+      allocateValids(lhs, cchain, iters, valids)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)

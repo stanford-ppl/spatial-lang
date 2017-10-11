@@ -94,20 +94,45 @@ trait ChiselGenController extends ChiselGenCounter{
 
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        // emitGlobalWire(s"//${validPassMap}")
-        emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
+        // // Handled by allocatevalids
+        // if (suffix == "") {
+        //   emitGlobalModuleMap(src"${v}","Wire(Bool())")  
+        // } else {
+        //   emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
+        // }
         emit(src"${v}${suffix} := Mux(${counter_data(i)._3} >= 0.S, ${c}${suffix} < ${counter_data(i)._2}, ${c}${suffix} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
-          emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
-          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
+          emitGlobalModuleMap(src"""${swap(src"${v}${suffix}", Chain)}""",src"""Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
+          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""${swap(src"${v}${suffix}_chain_read_$i", Blank)} := ${swap(src"${v}${suffix}", Chain)}.read(${i}) === 1.U(1.W)""")}
           withStream(getStream("BufferControlCxns")) {
             childrenOf(lhs).zipWithIndex.foreach{ case (s, i) =>
               emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
               emitGlobalWireMap(src"${s}_en", "Wire(Bool())")
-              emit(src"""${v}${suffix}_chain.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s,En)}, List($i))""")
+              emit(src"""${swap(src"${v}${suffix}", Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s,En)}, List($i))""")
             }
           }
-          emit(src"""${v}${suffix}_chain.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
+          emit(src"""${swap(src"${v}${suffix}", Chain)}.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
+        }
+      }
+    }
+    // Console.println(s"map is $validPassMap")
+  }
+
+  def allocateValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
+    // Need to recompute ctr data because of multifile 5
+    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
+      layer.zip(count).foreach{ case (v, c) =>
+        // emitGlobalWire(s"//${validPassMap}")
+        if (suffix == "") {
+          emitGlobalModuleMap(src"${v}","Wire(Bool())")  
+          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
+            childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModuleMap(src"""${v}${suffix}_chain_read_$i""", "Wire(Bool())")}
+          }
+        } else {
+          emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
+          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
+            childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = Wire(Bool())""")}
+          }
         }
       }
     }

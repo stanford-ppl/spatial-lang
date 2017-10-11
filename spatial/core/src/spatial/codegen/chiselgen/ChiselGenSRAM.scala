@@ -27,6 +27,7 @@ object Valid extends BooleanSignal
 object NowValid extends BooleanSignal
 object Inhibitor extends BooleanSignal
 object Wren extends BooleanSignal
+object Chain extends BooleanSignal
 object Blank extends BooleanSignal
 
 
@@ -76,6 +77,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case NowValid => wireMap(src"${lhs}_now_valid")
       case Inhibitor => wireMap(src"${lhs}_inhibitor")
       case Wren => wireMap(src"${lhs}_wren")
+      case Chain => wireMap(src"${lhs}_chain")
       case Blank => wireMap(src"${lhs}")
     }
   }
@@ -97,6 +99,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case NowValid => wireMap(src"${lhs}_now_valid")
       case Inhibitor => wireMap(src"${lhs}_inhibitor")
       case Wren => wireMap(src"${lhs}_wren")
+      case Chain => wireMap(src"${lhs}_chain")
       case Blank => wireMap(src"${lhs}")
     }
   }
@@ -304,7 +307,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   override protected def quote(e: Exp[_]): String = e match {
     // FIXME: Unclear precedence with the quote rule for Bound in ChiselGenCounter
-    case b: Bound[_] => computeSuffix(b)
+    case b: Bound[_] => swap(computeSuffix(b), Blank)
     case _ => super.quote(e)
   } 
 
@@ -435,15 +438,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
   override protected def emitFileFooter() {
     if (config.multifile == 5 || config.multifile == 6) {
       withStream(getStream("Mapping")) {
-        emit("// Found the following wires")
+        emit("// Found the following wires:")
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
-          emit(s"    // $wire")
+          emit(s"    // $wire (${listHandle(wire)})")
         }
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
+          val handle = listHandle(wire)
           emit(s"// ${wire}")
           emit("// ##################")
           compressorMap.filter(_._2._1 == wire).foreach{entry => 
-            emit(s"      // ${entry._2._2} = ${entry._1}")
+            emit(s"      // ${handle}(${entry._2._2}) = ${entry._1}")
           }
         }
         // emit("// ##############")
