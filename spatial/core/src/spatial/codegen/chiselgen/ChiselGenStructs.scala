@@ -94,7 +94,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
       if (spatialNeedsFPType(lhs.tp)) {
         lhs.tp match {
           case FixPtType(s,d,f) => 
-            emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
+            emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""")
             emit(src"""${lhs}.r := ${struct}($msb, $lsb)""")
           case _ => emit(src"val $lhs = ${struct}($msb, $lsb)")
         }
