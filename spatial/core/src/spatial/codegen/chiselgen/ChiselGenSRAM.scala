@@ -27,6 +27,7 @@ object Valid extends BooleanSignal
 object NowValid extends BooleanSignal
 object Inhibitor extends BooleanSignal
 object Wren extends BooleanSignal
+object Blank extends BooleanSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -75,6 +76,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case NowValid => wireMap(src"${lhs}_now_valid")
       case Inhibitor => wireMap(src"${lhs}_inhibitor")
       case Wren => wireMap(src"${lhs}_wren")
+      case Blank => wireMap(src"${lhs}")
     }
   }
 
@@ -95,6 +97,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case NowValid => wireMap(src"${lhs}_now_valid")
       case Inhibitor => wireMap(src"${lhs}_inhibitor")
       case Wren => wireMap(src"${lhs}_wren")
+      case Blank => wireMap(src"${lhs}")
     }
   }
 
