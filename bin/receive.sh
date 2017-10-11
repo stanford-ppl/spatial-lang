@@ -3,9 +3,9 @@
 # NOTE: This script belongs on a remote where all machines can see and use it
 
 export LANG=en_US.UTF-8
-export JAVA_HOME=\$(readlink -f \$(dirname \$(readlink -f \$(which java)))/..)
-if [[ \${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
-  export JAVA_HOME=\${JAVA_HOME}/..
+export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/..)
+if [[ ${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
+  export JAVA_HOME=${JAVA_HOME}/..
 fi
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then

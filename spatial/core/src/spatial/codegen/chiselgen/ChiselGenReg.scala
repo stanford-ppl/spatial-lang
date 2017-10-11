@@ -218,10 +218,10 @@ trait ChiselGenReg extends ChiselGenSRAM {
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
-                    emit(src"""${swap(src"${lhs}_${ii}", Blank)}.io.input.next := ${v}.number""")
-                    emit(src"""${swap(src"${lhs}_${ii}", Blank)}.io.input.enable := ${swap(reg, Wren)}.D(${symDelay(lhs)})""")
-                    emit(src"""${swap(src"${lhs}_${ii}", Blank)}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${swap(src"${lhs}_${ii}", Blank)}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}, rr)""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.next := ${v}.number""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.enable := ${swap(reg, Wren)}.D(${symDelay(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.init := ${reg}_initval.number""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}, rr)""")
                     emit(src"""${lhs} := ${swap(src"${reg}_${ii}", Blank)}.io.output""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
