@@ -433,46 +433,55 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
 
   override protected def emitFileFooter() {
-    withStream(getStream("Mapping")) {
-      compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
-        emit(s"// ${wire}")
-        emit("// ##################")
-        compressorMap.filter(_._2._1 == wire).foreach{entry => 
-          emit(s"      // ${entry._2._2} = ${entry._1}")
+    if (config.multifile == 5 || config.multifile == 6) {
+      withStream(getStream("Mapping")) {
+        emit("// Found the following wires")
+        compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
+          emit(s"    // $wire")
         }
+        compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
+          emit(s"// ${wire}")
+          emit("// ##################")
+          compressorMap.filter(_._2._1 == wire).foreach{entry => 
+            emit(s"      // ${entry._2._2} = ${entry._1}")
+          }
+        }
+        // emit("// ##############")
+        // emit("// # BOOL WIRES #")
+        // emit("// ##############")
+        // emit(src"""${boolMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+        // emit("// ##############")
+        // emit("// # UINT WIRES #")
+        // emit("// ##############")
+        // emit(src"""${uintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+        // emit("// ##############")
+        // emit("// # SINT WIRES #")
+        // emit("// ##############")
+        // emit(src"""${sintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+        // emit("// ################")
+        // emit("// # FIXS32_0 WIRES #")
+        // emit("// ################")
+        // emit(src"""${fixs32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+        // emit("// ################")
+        // emit("// # FIXU32_0 WIRES #")
+        // emit("// ################")
+        // emit(src"""${fixu32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+        // emit("// ###################")
+        // emit("// # FIXS10_22 WIRES #")
+        // emit("// ###################")
+        // emit(src"""${fixs10_22Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+
       }
-      // emit("// ##############")
-      // emit("// # BOOL WIRES #")
-      // emit("// ##############")
-      // emit(src"""${boolMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-      // emit("// ##############")
-      // emit("// # UINT WIRES #")
-      // emit("// ##############")
-      // emit(src"""${uintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-      // emit("// ##############")
-      // emit("// # SINT WIRES #")
-      // emit("// ##############")
-      // emit(src"""${sintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-      // emit("// ################")
-      // emit("// # FIXS32_0 WIRES #")
-      // emit("// ################")
-      // emit(src"""${fixs32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-      // emit("// ################")
-      // emit("// # FIXU32_0 WIRES #")
-      // emit("// ################")
-      // emit(src"""${fixu32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-      // emit("// ###################")
-      // emit("// # FIXS10_22 WIRES #")
-      // emit("// ###################")
-      // emit(src"""${fixs10_22Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
 
     }
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
       val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
-      compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
-        val numel = compressorMap.filter(_._2._1 == wire).size
-        emit(src"val ${listHandle(wire)} = List.fill(${numel}){$wire}")
+      if (config.multifile == 5 || config.multifile == 6) {
+        compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
+          val numel = compressorMap.filter(_._2._1 == wire).size
+          emit(src"val ${listHandle(wire)} = List.fill(${numel}){$wire}")
+        }
       }
       // emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
       // emit(src"val u = List.fill(${uintMap.size}){Wire(UInt(32.W))}")
