@@ -12,35 +12,13 @@ class RetimeWrapper(val width: Int, val delay: Int) extends Module {
     val out = Output(UInt(width.W))
   })
 
-    if (width == 1) {
-      val sr = Module(new RetimeShiftRegisterBool(width, delay))
-      sr.io.clock := clock
-      sr.io.reset := reset.toBool
-      sr.io.in := io.in
-      io.out := sr.io.out
-    } else {
-      val sr = Module(new RetimeShiftRegister(width, delay))
-      sr.io.clock := clock
-      sr.io.reset := reset.toBool
-      sr.io.in := io.in
-      io.out := sr.io.out
-    }
+    val sr = Module(new RetimeShiftRegister(width, delay))
+    sr.io.clock := clock
+    sr.io.reset := reset.toBool
+    sr.io.in := io.in
+    io.out := sr.io.out
 }
 class RetimeShiftRegister(val width: Int, val delay: Int) extends BlackBox(
-  Map(
-    "WIDTH" -> IntParam(width),
-    "STAGES" -> IntParam(delay)
-    )
-) {
-  val io = IO(new Bundle {
-    val clock = Input(Clock())
-    val reset = Input(Bool())
-    val in = Input(UInt(width.W))
-    val out = Output(UInt(width.W))
-  })
-}
-
-class RetimeShiftRegisterBool(val width: Int, val delay: Int) extends BlackBox(
   Map(
     "WIDTH" -> IntParam(width),
     "STAGES" -> IntParam(delay)

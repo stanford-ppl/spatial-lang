@@ -22,7 +22,7 @@ trait ChiselGenVector extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ListVector(elems)      => emit(src"val $lhs = Array($elems)")
-    case VectorApply(vector, i) => emitGlobalWire(src"""val $lhs = Wire(${newWire(lhs.tp)})"""); emit(src"$lhs := $vector.apply($i)")
+    case VectorApply(vector, i) => emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})"""); emit(src"$lhs := $vector.apply($i)")
     case VectorSlice(vector, start, end) => emit(src"val $lhs = $vector($start, $end)")
 
     // TODO: Use memcpy for these data <-> bits operations

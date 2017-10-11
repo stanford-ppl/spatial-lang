@@ -104,13 +104,13 @@ object Convolution {
 	                    input: DRAM3[T],
 	                    filter: LUT3[T],
 	                    colstride: scala.Int, rowstride: scala.Int,
-	                	load_par: Index, store_par: Index, layer_par: Index)(implicit state: State): Unit = {
+	                	load_par: Index, store_par: Index, channels: scala.Int)(implicit state: State): Unit = {
 
 		  Foreach(input.dim1 by rowstride){row =>
 		  	val lineout = SRAM[T](coltile/colstride)
-			val lineout_temps = List.tabulate(3){_ => SRAM[T](coltile/colstride)} // TODO: Fix hardcoded 3
-			val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
-			val srs = List.tabulate(3){_ => RegFile[T](filter.dim1, filter.dim2)} // TODO: Fix hardcoded 3
+			val lineout_temps = List.tabulate(channels){_ => SRAM[T](coltile/colstride)} // TODO: Fix hardcoded 3
+			val lbs = List.tabulate(channels){_ => LineBuffer.strided[T](filter.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
+			val srs = List.tabulate(channels){_ => RegFile[T](filter.dim1, filter.dim2)} // TODO: Fix hardcoded 3
 		    lbs.zip(srs.zip(lineout_temps)).zipWithIndex.foreach{case ((lb, (sr,lo)), i) =>
 		      lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
 			  Parallel {  // why is this here?
@@ -135,13 +135,13 @@ object Convolution {
 	                    input: DRAM3[T],
 	                    filter: List[LUT3[T]],
 	                    colstride: scala.Int, rowstride: scala.Int,
-	                	load_par: Index, store_par: Index, layer_par: Index)(implicit state: State): Unit = {
+	                	load_par: Index, store_par: Index, channels: scala.Int)(implicit state: State): Unit = {
 
 		  Foreach(input.dim1 by rowstride){row =>
 		  	val lineout = List.tabulate(filter.length) {_ => SRAM[T](coltile/colstride)}
-			val lineout_temps = List.tabulate(filter.length){_ => List.tabulate(3) {_ => SRAM[T](coltile/colstride)}} // TODO: Fix hardcoded 3
-			val lbs = List.tabulate(3){_ => LineBuffer.strided[T](filter.head.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
-			val srs = List.tabulate(3){_ => RegFile[T](filter.head.dim1, filter.head.dim2)} // TODO: Fix hardcoded 3
+			val lineout_temps = List.tabulate(filter.length){_ => List.tabulate(channels) {_ => SRAM[T](coltile/colstride)}} // TODO: Fix hardcoded 3
+			val lbs = List.tabulate(channels){_ => LineBuffer.strided[T](filter.head.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
+			val srs = List.tabulate(channels){_ => RegFile[T](filter.head.dim1, filter.head.dim2)} // TODO: Fix hardcoded 3
 			lbs.zip(srs).zipWithIndex.foreach{case ((lb, sr), i) =>
 			  lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
 			  Parallel { // why is this here?
