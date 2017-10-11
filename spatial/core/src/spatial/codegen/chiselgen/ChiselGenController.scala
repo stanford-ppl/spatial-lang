@@ -56,14 +56,24 @@ trait ChiselGenController extends ChiselGenCounter{
     if (spatialConfig.enableInstrumentation) {
       val ctx = s"${lhs.ctx}"
       emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
-      emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
-      emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := ${swap(hwblock_sym.head, Done)}""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).valid := ${swap(hwblock_sym.head, Done)}""")
+      if (config.multifile == 5 || config.multifile == 6) {
+        val id = instrumentCounters.length
+        emitInstrumentation(src"ic(${id*2}).io.enable := ${swap(lhs,En)}")
+        emitInstrumentation(src"ic(${id*2+1}).io.enable := Utils.risingEdge(${swap(lhs, Done)})")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).bits := ic(${id*2}).io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).valid := ${swap(hwblock_sym.head, Done)}""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).bits := ic(${id*2+1}).io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).valid := ${swap(hwblock_sym.head, Done)}""")        
+      } else {
+        emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
+        emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
+        emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
+        emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).bits := ${lhs}_cycles.io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).valid := ${swap(hwblock_sym.head, Done)}""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).bits := ${lhs}_iters.io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).valid := ${swap(hwblock_sym.head, Done)}""")        
+      }
       instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
     }
   }
@@ -939,6 +949,12 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   override protected def emitFileFooter() {
+    if (config.multifile == 5 | config.multifile == 6) {
+      withStream(getStream("GlobalModules")) {
+        emit(src"val ic = List.fill(${instrumentCounters.length*2}){Module(new InstrumentationCounter())}")
+      }
+    }
+
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Instrumentation")
