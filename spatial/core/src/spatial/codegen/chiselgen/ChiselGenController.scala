@@ -39,14 +39,14 @@ trait ChiselGenController extends ChiselGenCounter{
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
         val w = cchainWidth(counters(i))
-        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
+        if (suffix == "") emitGlobalWireMap(src"${is(0)}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
+        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
           val w = cchainWidth(counters(i))
-          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
+          if (suffix == "") emitGlobalWireMap(src"${iter}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
+          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
         }
       }
     }
@@ -172,10 +172,10 @@ trait ChiselGenController extends ChiselGenCounter{
         stages.zipWithIndex.foreach{ case (s, i) =>
           emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
           emitGlobalWireMap(src"${s}_en", "Wire(Bool())")
-          emit(src"""${idx}_chain.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s, En)}, List($i))""")
+          emit(src"""${swap(idx, Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s, En)}, List($i))""")
         }
       }
-      emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
+      emit(src"""${swap(idx, Chain)}.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
       // Associate bound sym with both ctrl node and that ctrl node's cchain
     }
   }
@@ -189,8 +189,8 @@ trait ChiselGenController extends ChiselGenCounter{
     inds.zipWithIndex.foreach { case (idx,index) =>
       val this_counter = ctrMapping.filter(_ <= index).length - 1
       val this_width = cchainWidth(counters(this_counter))
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
-      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      emitGlobalModuleMap(src"""${idx}_chain""", src"""Module(new NBufFF(${stages.size}, ${this_width}))""")
+      stages.indices.foreach{i => emitGlobalModuleMap(src"""${idx}_chain_read_$i""", src"Wire(UInt(${this_width}.W))"); emitGlobalModule(src"""${swap(src"${idx}_chain_read_$i", Blank)} := ${swap(idx, Chain)}.read(${i})""")}
     }
   }
 

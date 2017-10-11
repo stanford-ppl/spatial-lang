@@ -43,17 +43,17 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())")
       // Preallocate valid bound syms
-      if (styleOf(lhs) != StreamPipe) {
-        allocateValids(lhs, cchain, iters, valids)
-      } else if (childrenOf(lhs).length > 0) {
-        childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
-          allocateValids(lhs, cchain, iters, valids, src"_copy$c") // Must have visited func before we can properly run this method
-        }          
-      } else {
-        emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
-      }
+      // if (styleOf(lhs) != StreamPipe) {
+      //   allocateValids(lhs, cchain, iters, valids)
+      // } else if (childrenOf(lhs).length > 0) {
+      //   childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+      //     allocateValids(lhs, cchain, iters, valids, src"_copy$c") // Must have visited func before we can properly run this method
+      //   }          
+      // } else {
+      //   emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
+      // }
       emitController(lhs, Some(cchain), Some(iters.flatten)) // If this is a stream, then each child has its own ctr copy
-      if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+      // if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
 
       // Console.println(src"""II of $lhs is ${iiOf(lhs)}""")
@@ -72,6 +72,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
         withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
           emit(s"// Controller Stack: ${controllerStack.tail}")
           emitParallelizedLoop(iters, cchain)
+          allocateValids(lhs, cchain, iters, valids)
+          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
           emitBlock(func)
         }
         emitValids(lhs, cchain, iters, valids)
@@ -100,6 +102,14 @@ trait ChiselGenUnrolled extends ChiselGenController {
           childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
             emitParallelizedLoop(iters, cchain, src"_copy$c")
           }
+          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+          if (childrenOf(lhs).length > 0) {
+            childrenOf(lhs).zipWithIndex.foreach { case (c, idx) =>
+              allocateValids(lhs, cchain, iters, valids, src"_copy$c") // Must have visited func before we can properly run this method
+            }          
+          } else {
+            emitValidsDummy(iters, valids, src"_copy$lhs") // FIXME: Weird situation with nested stream ctrlrs, hacked quickly for tian so needs to be fixed
+          }
           // Register the remapping for bound syms in children
           emitBlock(func)
         }
@@ -123,10 +133,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       controllerStack.push(lhs)
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
-      allocateValids(lhs, cchain, iters, valids)
+      // allocateValids(lhs, cchain, iters, valids)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
-      if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
-      if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
+      // if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+      // if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {
@@ -179,6 +189,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
       withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
         emit(s"// Controller Stack: ${controllerStack.tail}")
         emitParallelizedLoop(iters, cchain)
+        allocateValids(lhs, cchain, iters, valids)
+        if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+        if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
         emitBlock(func)
       }
       emitValids(lhs, cchain, iters, valids)
