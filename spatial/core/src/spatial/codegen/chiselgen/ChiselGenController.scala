@@ -56,8 +56,8 @@ trait ChiselGenController extends ChiselGenCounter{
     if (spatialConfig.enableInstrumentation) {
       val ctx = s"${lhs.ctx}"
       emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
+      val id = instrumentCounters.length
       if (config.multifile == 5 || config.multifile == 6) {
-        val id = instrumentCounters.length
         emitInstrumentation(src"ic(${id*2}).io.enable := ${swap(lhs,En)}")
         emitInstrumentation(src"ic(${id*2+1}).io.enable := Utils.risingEdge(${swap(lhs, Done)})")
         emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).bits := ic(${id*2}).io.count""")
