@@ -2,13 +2,9 @@ package spatial.models
 package xilinx
 
 import argon.core._
-import argon.nodes._
 import forge._
-import spatial.SpatialConfig
 import spatial.aliases._
-import spatial.metadata._
-import spatial.nodes._
-import spatial.utils._
+
 
 abstract class XilinxAreaModel extends AreaModel {
   import spatial.targets.XilinxDevice._
@@ -47,13 +43,13 @@ abstract class XilinxAreaModel extends AreaModel {
     val totalBRAM = design(RAM18)/2 + design(RAM36) + routingBRAM
     val totalURAM = design(URAM)
 
-    val capacity = SpatialConfig.target.capacity
+    val capacity = spatialConfig.target.capacity
 
     val totalSLICEM = memorySlices + design(SLICEM)
     val totalSLICEL = logicSlices + design(SLICEL) + regSlices
     val totalSlices = totalSLICEM + totalSLICEL
 
-    if (Config.verbosity > 0) {
+    if (config.verbosity > 0) {
       val areaReport = s"""
                           |Resource Estimate Breakdown:
                           |----------------------------

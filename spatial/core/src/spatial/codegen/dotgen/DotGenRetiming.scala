@@ -1,10 +1,7 @@
 package spatial.codegen.dotgen
 
-import argon.core.Config
 import argon.core._
 import spatial.nodes._
-import spatial.nodes._
-
 
 trait DotGenRetiming extends DotGenReg {
 
@@ -17,7 +14,7 @@ trait DotGenRetiming extends DotGenReg {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case DelayLine(size, data) => if (Config.dotDetail > 0) {emitVert(lhs); emitRetime(data, lhs)}
+    case DelayLine(size, data) => if (config.dotDetail > 0) {emitVert(lhs); emitRetime(data, lhs)}
     case _ => super.emitNode(lhs, rhs)
   }
 

@@ -121,7 +121,7 @@ object LUT {
     stageMutable(LUTNew[T,C](dims, elems))(ctx)
   }
 
-  @internal def load[T:Type:Bits](lut: Exp[LUT[T]], inds: Seq[Exp[Index]], en: Exp[Bit]) = {
+  @internal def load[T:Type:Bits](lut: Exp[LUT[T]], inds: Seq[Exp[Index]], en: Exp[Bit]): Exp[T] = {
     def node = stage(LUTLoad(lut, inds, en))(ctx)
 
     if (inds.forall(_.isConst)) lut match {
@@ -129,11 +129,9 @@ object LUT {
         val is = inds.map{case Literal(c) => c.toInt }
         val index = flatIndexConst(is, dims)
         if (index < 0 || index >= elems.length) {
-          if (Globals.staging) {
-            warn(ctx, s"Load from LUT at index " + is.mkString(", ") + " is out of bounds.")
-            warn(ctx)
-          }
-          node
+          warn(ctx, s"Load from LUT at index " + is.mkString(", ") + " is out of bounds.")
+          warn(ctx)
+          zero[T].s
         }
         else elems(index)
 

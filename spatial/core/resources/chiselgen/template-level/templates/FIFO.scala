@@ -48,39 +48,23 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Create head and reader sub counters
   val sw_width = 2 + Utils.log2Up(p/pW)
   val sr_width = 2 + Utils.log2Up(p/pR)
-  val subWriter = Module(new SingleCounter(1, sw_width))
-  val subReader = Module(new SingleCounter(1, sr_width))
-  subWriter.io.input.stop := (p/pW).S(sw_width.W)
+  val subWriter = Module(new SingleCounter(1,Some(0),Some(p/pW),Some(1), Some(0),sw_width))
+  val subReader = Module(new SingleCounter(1,Some(0),Some(p/pR),Some(1), Some(0),sr_width))
   subWriter.io.input.enable := enq_options.reduce{_|_}
-  subWriter.io.input.stride := 1.S(sw_width.W)
-  subWriter.io.input.gap := 0.S(sw_width.W)
-  subWriter.io.input.start := 0.S(sw_width.W)
   subWriter.io.input.reset := reset
   subWriter.io.input.saturate := false.B
-  subReader.io.input.stop := (p/pR).S(sr_width.W)
   subReader.io.input.enable := deq_options.reduce{_|_}
-  subReader.io.input.stride := 1.S(sr_width.W)
-  subReader.io.input.gap := 0.S(sr_width.W)
-  subReader.io.input.start := 0.S(sr_width.W)
   subReader.io.input.reset := reset
   subReader.io.input.saturate := false.B
 
   // Create head and reader counters
   val a_width = 2 + Utils.log2Up(depth/p)
-  val writer = Module(new SingleCounter(1, a_width))
-  val reader = Module(new SingleCounter(1, a_width))
-  writer.io.input.stop := (depth/p).S(a_width.W)
+  val writer = Module(new SingleCounter(1,Some(0), Some(depth/p), Some(1), Some(0), a_width))
+  val reader = Module(new SingleCounter(1,Some(0), Some(depth/p), Some(1), Some(0), a_width))
   writer.io.input.enable := enq_options.reduce{_|_} & subWriter.io.output.done
-  writer.io.input.stride := 1.S(a_width.W)
-  writer.io.input.gap := 0.S(a_width.W)
-  writer.io.input.start := 0.S(a_width.W)
   writer.io.input.reset := reset
   writer.io.input.saturate := false.B
-  reader.io.input.stop := (depth/p).S(a_width.W)
   reader.io.input.enable := deq_options.reduce{_|_} & subReader.io.output.done
-  reader.io.input.stride := 1.S(a_width.W)
-  reader.io.input.gap := 0.S(a_width.W)
-  reader.io.input.start := 0.S(a_width.W)
   reader.io.input.reset := reset
   reader.io.input.saturate := false.B  
 
@@ -483,24 +467,18 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
 
   // Create head and reader sub counters
   val sa_width = 2 + Utils.log2Up(p)
-  val subAccessor = Module(new SingleSCounter(1, sa_width))
-  subAccessor.io.input.stop := (p).S
+  val subAccessor = Module(new SingleSCounterCheap(1,0,p,pW,-pR,0,sa_width))
   subAccessor.io.input.enable := push_options.reduce{_|_} | pop_options.reduce{_|_}
-  subAccessor.io.input.stride := Mux(push_options.reduce{_|_}, pW.S(sa_width.W), -pR.S(sa_width.W))
-  subAccessor.io.input.gap := 0.S(sa_width.W)
-  subAccessor.io.input.start := 0.S(sa_width.W)
+  subAccessor.io.input.dir := push_options.reduce{_|_}
   subAccessor.io.input.reset := reset
   subAccessor.io.input.saturate := false.B
   val subAccessor_prev = Mux(subAccessor.io.output.count(0) - pR.S(sa_width.W) < 0.S(sa_width.W), (p-pR).S(sa_width.W), subAccessor.io.output.count(0) - pR.S(sa_width.W))
 
   // Create head and reader counters
   val a_width = 2 + Utils.log2Up(depth/p)
-  val accessor = Module(new SingleSCounter(1, a_width))
-  accessor.io.input.stop := (depth/p).S(a_width.W)
+  val accessor = Module(new SingleSCounterCheap(1, 0, (depth/p), 1, -1, 0, a_width))
   accessor.io.input.enable := (push_options.reduce{_|_} & subAccessor.io.output.done) | (pop_options.reduce{_|_} & subAccessor_prev === 0.S(sa_width.W))
-  accessor.io.input.stride := Mux(push_options.reduce{_|_}, 1.S(a_width.W), -1.S(a_width.W))
-  accessor.io.input.gap := 0.S(a_width.W)
-  accessor.io.input.start := 0.S(a_width.W)
+  accessor.io.input.dir := push_options.reduce{_|_}
   accessor.io.input.reset := reset
   accessor.io.input.saturate := false.B
 

@@ -16,7 +16,6 @@ typedef FringeContextZynq FringeContext;
 #elif defined VCS
 #include "FringeContextVCS.h"
 typedef FringeContextVCS FringeContext;
-#endif
 
 #elif defined XSIM
 #include "FringeContextXSIM.h"

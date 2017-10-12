@@ -5,28 +5,14 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 
 trait ChiselGenLineBuffer extends ChiselGenController {
   private var linebufs: List[(Sym[LineBufferNew[_]], Int)]  = List()
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: LineBufferNew[_]) =>
-              s"""x${lhs.id}_${lhs.name.getOrElse("linebuf")}"""
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: LineBufferNew[_]) => s"""${s}_${s.name.getOrElse("linebuf")}"""
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -109,7 +95,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(${row}) := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(${row}) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})")
 
 
     case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
@@ -123,7 +109,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
           data.zipWithIndex.foreach { case (d, i) =>
             emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
           }
-          emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
+          emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
         }        
       } else {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
@@ -134,9 +120,9 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in(${lb}_${ii}_transient_base + $i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${parent}_datapath_en & ~${parent}_inhibitor).D(${symDelay(lhs)}, rr)""")
-        emit(src"""${lb}_$ii.io.transientDone := ${parent}_done""")
-        emit(src"""${lb}_$ii.io.transientSwap := ${parentOf(parent).get}_done""")
+        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${lb}_$ii.io.transientDone := ${swap(parent, Done)}""")
+        emit(src"""${lb}_$ii.io.transientSwap := ${swap(parentOf(parent).get, Done)}""")
       }
         
     case op@LineBufferRowSlice(lb,row,len,col) =>
@@ -183,7 +169,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val i = dispatch.head
       val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
       emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(0) := $en & ShiftRegister(${parent}_datapath_en & ~${parent}_inhibitor, ${symDelay(lhs)})")
+      emit(src"${lb}_$i.io.w_en(0) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})")
 
     case _ => super.emitNode(lhs, rhs)
   }
@@ -203,7 +189,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       linebufs.foreach{ case (mem,i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_$i.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_$i.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
 
 

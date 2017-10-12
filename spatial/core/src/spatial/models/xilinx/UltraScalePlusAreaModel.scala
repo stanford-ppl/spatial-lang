@@ -1,6 +1,6 @@
 package spatial.models.xilinx
 
-import argon.util.Report._
+import argon.core._
 import forge._
 import spatial.models._
 

@@ -7,7 +7,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 
 trait LatencyModel {
@@ -30,7 +29,7 @@ trait LatencyModel {
 
   @stateful def reportMissing(): Unit = {
     if (missing.nonEmpty) {
-      warn(s"The target device ${SpatialConfig.target.name} was missing one or more latency models.")
+      warn(s"The target device ${spatialConfig.target.name} was missing one or more latency models.")
       missing.foreach{str => warn(s"  $str") }
       //warn(s"Models marked (csv) can be added to $FILE_NAME.")
       warn("")
@@ -44,8 +43,8 @@ trait LatencyModel {
   @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
 
   @stateful def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
-    val prevVerbosity = Config.verbosity
-    Config.verbosity = modelVerbosity
+    val prevVerbosity = config.verbosity
+    config.verbosity = modelVerbosity
     val latency = s match {
       case Exact(_) => 0
       case Final(_) => 0
@@ -53,7 +52,7 @@ trait LatencyModel {
       case Def(d) if !inReduce => latencyOfNode(s, d)
       case _ => 0
     }
-    Config.verbosity = prevVerbosity
+    config.verbosity = prevVerbosity
     latency
   }
 
@@ -74,8 +73,8 @@ trait LatencyModel {
   }
 
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
-    case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
-    case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
+    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) false else true
+    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) false else true
     case FixMul(_,_) => false
     case d => latencyOfNodeInReduce(s,d) > 0
   }
@@ -92,8 +91,8 @@ trait LatencyModel {
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => if (SpatialConfig.enableSyncMem) false else true
-    case _:ParSRAMLoad[_]  => if (SpatialConfig.enableSyncMem) false else true
+    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) false else true
+    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) false else true
 
     // LineBuffer
     case _:LineBufferLoad[_]    => true

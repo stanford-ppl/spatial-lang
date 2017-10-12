@@ -6,61 +6,38 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 
 trait ChiselGenFILO extends ChiselGenSRAM {
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
   }
 
-  override protected def bitWidth(tp: Type[_]): Int = {
-    tp match { 
-      case Bits(bitEv) => bitEv.length
-      // case x: StructType[_] => x.fields.head._2 match {
-      //   case _: IssuedCmd => 96
-      //   case _ => super.bitWidth(tp)
-      // }
-      case _ => super.bitWidth(tp)
-    }
+  override protected def bitWidth(tp: Type[_]): Int = tp match {
+    case Bits(bitEv) => bitEv.length
+    // case x: StructType[_] => x.fields.head._2 match {
+    //   case _: IssuedCmd => 96
+    //   case _ => super.bitWidth(tp)
+    // }
+    case _ => super.bitWidth(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(e: FILONew[_]) =>
-              s"""x${lhs.id}_${lhs.name.getOrElse("filo").replace("$","")}"""
-            case Def(FILOPush(fifo:Sym[_],_,_)) =>
-              s"x${lhs.id}_pushTo${fifo.id}"
-            case Def(FILOPop(fifo:Sym[_],_)) =>
-              s"x${lhs.id}_popFrom${fifo.id}"
-            case Def(FILOEmpty(fifo:Sym[_])) =>
-              s"x${lhs.id}_isEmpty${fifo.id}"
-            case Def(FILOFull(fifo:Sym[_])) =>
-              s"x${lhs.id}_isFull${fifo.id}"
-            case Def(FILOAlmostEmpty(fifo:Sym[_])) =>
-              s"x${lhs.id}_isAlmostEmpty${fifo.id}"
-            case Def(FILOAlmostFull(fifo:Sym[_])) =>
-              s"x${lhs.id}_isAlmostFull${fifo.id}"
-            case Def(FILONumel(fifo:Sym[_])) =>
-              s"x${lhs.id}_numel${fifo.id}"              
-            case _ =>
-              super.quote(s)
-          }
-        case _ =>
-          super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(_: FILONew[_])                => s"""${s}_${s.name.getOrElse("filo").replace("$","")}"""
+    case Def(FILOPush(fifo:Sym[_],_,_))    => s"${s}_pushTo${fifo.id}"
+    case Def(FILOPop(fifo:Sym[_],_))       => s"${s}_popFrom${fifo.id}"
+    case Def(FILOEmpty(fifo:Sym[_]))       => s"${s}_isEmpty${fifo.id}"
+    case Def(FILOFull(fifo:Sym[_]))        => s"${s}_isFull${fifo.id}"
+    case Def(FILOAlmostEmpty(fifo:Sym[_])) => s"${s}_isAlmostEmpty${fifo.id}"
+    case Def(FILOAlmostFull(fifo:Sym[_]))  => s"${s}_isAlmostFull${fifo.id}"
+    case Def(FILONumel(fifo:Sym[_]))       => s"${s}_numel${fifo.id}"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -94,9 +71,9 @@ trait ChiselGenFILO extends ChiselGenSRAM {
 
     case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
-      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${writer}_datapath_en" else src"${writer}_sm.io.output.ctr_inc"
-      val enabler = src"${writer}_datapath_en"
-      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${writer}_en & ($enabler & ~${writer}_inhibitor & ${writer}_II_done).D(${symDelay(lhs)}) & $en)""")
+      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${swap(writer, DatapathEn)}" else src"${writer}_sm.io.output.ctr_inc"
+      val enabler = src"${swap(writer, DatapathEn)}"
+      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${swap(writer, En)} & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
 
 
     case FILOPop(fifo,en) =>
@@ -106,9 +83,9 @@ trait ChiselGenFILO extends ChiselGenSRAM {
           if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}" 
         case _ => src"${symDelay(lhs)}" 
       }
-      val enabler = src"${reader}_datapath_en & ~${reader}_inhibitor & ${reader}_II_done"
+      val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${reader}_en & (${enabler}).D(${bug202delay}) & $en & ~${reader}_inhibitor).apply(0)""")
+      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${swap(reader, En)} & (${enabler}).D(${bug202delay}) & $en & ~${swap(reader, Inhibitor)}).apply(0)""")
 
     case FILOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")

@@ -2,32 +2,20 @@ package spatial.codegen.chiselgen
 
 import argon.core._
 import argon.nodes._
-import argon.codegen.chiselgen.ChiselCodegen
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
-import spatial.SpatialConfig
 
 trait ChiselGenMath extends ChiselGenSRAM {
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(FixRandom(x)) => s"x${lhs.id}_fixrnd"
-            case Def(FixNeg(x:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse(s"neg${quoteOperand(x)}")}"""
-            case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sum")}"""
-            case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("sub")}"""
-            case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("div")}"""
-            case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""x${lhs.id}_${lhs.name.getOrElse("mul")}"""
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(FixRandom(x)) => s"${s}_fixrnd"
+    case Def(FixNeg(x:Exp[_]))  => s"""${s}_${s.name.getOrElse(s"neg${quoteOperand(x)}")}"""
+    case Def(FixAdd(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("sum")}"""
+    case Def(FixSub(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("sub")}"""
+    case Def(FixDiv(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("div")}"""
+    case Def(FixMul(x:Exp[_],y:Exp[_]))  => s"""${s}_${s.name.getOrElse("mul")}"""
+    case _ => super.name(s)
   } 
 
   def quoteOperand(s: Exp[_]): String = s match {
@@ -37,7 +25,7 @@ trait ChiselGenMath extends ChiselGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case FixAbs(x)  => emit(src"val $lhs = Mux(${x} < 0.U, -$x, $x)")
+    case FixAbs(x)  => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(${x} < 0.U, -$x, $x).r")
 
     case FltAbs(x)  => 
       val (e,g) = x.tp match {case FltPtType(g,e) => (e,g)}
@@ -70,7 +58,7 @@ trait ChiselGenMath extends ChiselGenSRAM {
     case FltAtan(x) => throw new spatial.TrigInAccelException(lhs)
 
     case Mux(sel, a, b) => 
-      emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})")
       // lhs.tp match { 
       //   case FixPtType(s,d,f) => 
       //     emitGlobalWire(s"""val ${quote(lhs)} = Wire(new FixedPoint($s,$d,$f))""")
@@ -80,8 +68,8 @@ trait ChiselGenMath extends ChiselGenSRAM {
       emit(src"${lhs}.r := Mux(($sel), ${a}.r, ${b}.r)")
 
     // Assumes < and > are defined on runtime type...
-    case Min(a, b) => emit(src"val $lhs = Mux(($a < $b), $a, $b)")
-    case Max(a, b) => emit(src"val $lhs = Mux(($a > $b), $a, $b)")
+    case Min(a, b) => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(($a < $b), $a, $b).r")
+    case Max(a, b) => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(($a > $b), $a, $b).r")
 
     case _ => super.emitNode(lhs, rhs)
   }

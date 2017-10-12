@@ -5,7 +5,6 @@ import argon.interpreter.{Interpreter => AInterpreter}
 import argon.nodes._
 import spatial.nodes._
 import argon.core._
-import spatial.SpatialConfig
 
 trait Interpreter
     extends AInterpreter
@@ -36,7 +35,7 @@ trait Interpreter
   var instructionNumber = 0
   override protected def interpretNode(lhs: Sym[_], rhs: Op[_]): Unit = {
 
-    if (Config.verbosity >= 2) {
+    if (config.verbosity >= 2) {
       displayInfo
       println()         
       if (Streams.streamsIn.size > 0 || Streams.streamsOut.size > 0) {
@@ -45,7 +44,7 @@ trait Interpreter
         Streams.streamsOut.foreach { case (k, s) => println(k + ": " + s.size) } 
       }
     }
-    if (Config.verbosity >= 1) {    
+    if (config.verbosity >= 1) {
       println(s"[${Console.CYAN}context${Console.RESET}]")         
       println(lhs.ctx)
       val line = lhs.ctx.lineContent.getOrElse("")
@@ -67,7 +66,7 @@ trait Interpreter
           line.take(index) + Console.CYAN_B + methodName + Console.RESET + line.drop(index + methodName.length)
       println(highlighted)
       println(s"[${Console.CYAN}node${Console.RESET}]: ${Console.CYAN}$rhs${Console.RESET} -> $lhs")
-      if (Config.verbosity == 0)
+      if (config.verbosity == 0)
     println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}\r")        
       else 
         println(s"[${Console.CYAN}instruction #${Console.RESET}]: ${Console.BLUE}$instructionNumber${Console.RESET}")

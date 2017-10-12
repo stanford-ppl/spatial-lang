@@ -1,7 +1,6 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
-import argon.core.Config
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
@@ -36,19 +35,14 @@ trait DotGenMath extends DotCodegen {
       case FloatType()  => 
     }
 
-    case Mux(sel, a, b) => if (Config.dotDetail > 0) {
+    case Mux(sel, a, b) => if (config.dotDetail > 0) {
       emitVert(lhs)
       emitEdge(a, lhs)
       emitEdge(b, lhs)
       emitSel(sel, lhs)
     }
 
-    case Min(a, b) => if (Config.dotDetail > 0) {
-      emitVert(lhs)
-      emitEdge(a, lhs)
-      emitEdge(b, lhs)
-    }
-    case Max(a, b) => if (Config.dotDetail > 0) {
+    case Min(a, b) => if (config.dotDetail > 0) {
       emitVert(lhs)
       emitEdge(a, lhs)
       emitEdge(b, lhs)

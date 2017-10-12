@@ -1,10 +1,10 @@
 package spatial.dse
 
 import argon.core._
-import spatial.SpatialConfig
+import spatial.aliases._
 import spatial.analysis._
 import spatial.metadata._
-import java.util.concurrent.{BlockingQueue, TimeUnit}
+import java.util.concurrent.BlockingQueue
 
 import spatial.models._
 
@@ -46,7 +46,7 @@ case class DSEThread(
   // --- Space Stuff
   private implicit val state: State = new State
 
-  private val target = SpatialConfig.target
+  private val target = spatialConfig.target
   private val capacity: Area = target.capacity
   val areaHeading: Seq[String] = capacity.nonZeroFields
   private val indexedSpace = space.zipWithIndex
@@ -71,7 +71,7 @@ case class DSEThread(
     memoryAnalyzer.init()
     contentionAnalyzer.init()
 
-    Config.verbosity = -1
+    config.verbosity = -1
     scalarAnalyzer.silence()
     memoryAnalyzer.silence()
     contentionAnalyzer.silence()

@@ -1,7 +1,6 @@
 package spatial.interpreter
 
 import java.util.concurrent.{ LinkedBlockingQueue => Queue }
-import spatial.SpatialConfig
 import argon.core._
 import spatial.nodes._
 import spatial.utils._

@@ -6,6 +6,14 @@ import spatial.aliases._
 import spatial.lang.Math._
 
 /** IR Nodes **/
+case class FixMAC[S:BOOL,I:INT,F:INT](
+  m1:  Exp[FixPt[S,I,F]],
+  m2:  Exp[FixPt[S,I,F]],
+  add: Exp[FixPt[S,I,F]]
+) extends FixPtOp1[S,I,F] {
+  def mirror(f:Tx) = fix_mac(f(m1),f(m2),f(add))
+}
+
 case class FixAbs[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp1[S,I,F] { def mirror(f:Tx) = fix_abs(f(x)) }
 case class FixFloor[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp1[S,I,F] { def mirror(f:Tx) = fix_floor(f(x)) }
 case class FixCeil[S:BOOL,I:INT,F:INT](x: Exp[FixPt[S,I,F]]) extends FixPtOp1[S,I,F] { def mirror(f:Tx) = fix_ceil(f(x)) }

@@ -17,6 +17,7 @@ create_project bd_project ./bd_project -part $PART
 set_property board_part $BOARD [current_project]
 
 add_files -norecurse [glob *.v]
+add_files -norecurse [glob *.sv]
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1
 

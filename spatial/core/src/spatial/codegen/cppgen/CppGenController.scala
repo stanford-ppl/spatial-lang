@@ -5,7 +5,7 @@ import argon.core._
 import spatial.aliases._
 import spatial.nodes._
 import scala.collection.mutable
-import spatial.SpatialConfig
+
 
 trait CppGenController extends CppCodegen {
 
@@ -30,7 +30,7 @@ trait CppGenController extends CppCodegen {
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
       controllerStack.pop()
 
-      if (SpatialConfig.enableInstrumentation) {
+      if (spatialConfig.enableInstrumentation) {
         emit(src"""std::ofstream instrumentation ("./instrumentation.txt");""")
 
         emit(s"// Need to instrument ${instrumentCounters}")

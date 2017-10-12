@@ -5,7 +5,7 @@ import pureconfig._
 import argon.util.Report
 import spatial.targets.FPGATarget
 
-object SpatialConfig {
+class SpatialConfig extends argon.core.Config {
 
   case class SpatialConf(
     fpga: String,
@@ -43,7 +43,6 @@ object SpatialConfig {
   )
 
   var useBasicBlocks: Boolean = false
-  var useAffine: Boolean = false
 
   var targetName: String = _
   var target: FPGATarget = targets.DefaultTarget
@@ -68,14 +67,13 @@ object SpatialConfig {
 
   var enableSplitting: Boolean = _
   var enableArchDSE: Boolean = _
-  var enableNaming: Boolean = _
+
   var enableSyncMem: Boolean = _
   var enableInstrumentation: Boolean = _
   var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
 
   def enableBufferCoalescing: Boolean = !enablePIR
-  def enablePrimitiveSwitches: Boolean = !enablePIR
   def removeParallelNodes: Boolean = enablePIR
   def rewriteLUTs: Boolean = enablePIR
 
@@ -98,7 +96,9 @@ object SpatialConfig {
 
   var threads: Int = 8
 
-  def init(): Unit = {
+  override def init(): Unit = {
+    super.init()
+
     val defaultSpatial = ConfigFactory.parseString("""
 spatial {
   fpga = "Default"

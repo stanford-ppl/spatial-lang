@@ -1,8 +1,8 @@
 package spatial.models.characterization
 
+import argon.core._
+import spatial.aliases.spatialConfig
 import spatial._
-import argon.core.Config
-import argon.util.Report._
 import java.io.{File, PrintWriter}
 import java.nio.file.{Files, Paths}
 
@@ -31,7 +31,7 @@ object Characterization extends AllBenchmarks {
 
   def area(dir: JString, synth: Boolean): (Map[JString, scala.Double], String) = {
     val nosynth = if (synth) Nil else Seq("--nomake")
-    val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${Config.cwd}/gen/$dir") ++ nosynth).!!
+    val output = (Seq("python", s"$SPATIAL_HOME/bin/scrape.py", s"${config.cwd}/gen/$dir") ++ nosynth).!!
     val pairs = output.split("\n").map(_.split(","))
     var category = ""
     val map = pairs.flatMap {
@@ -83,8 +83,8 @@ object Characterization extends AllBenchmarks {
 
         try {
           if (!name.isEmpty) {
-            if (synth) Console.println(s"#$id Synthesizing ${Config.cwd}/gen/$name...")
-            else       Console.println(s"#$id Scraping ${Config.cwd}/gen/$name...")
+            if (synth) Console.println(s"#$id Synthesizing ${config.cwd}/gen/$name...")
+            else       Console.println(s"#$id Scraping ${config.cwd}/gen/$name...")
 
             val (parsed, _) = area(name, synth)
             storeArea(name, parsed)
@@ -98,9 +98,9 @@ object Characterization extends AllBenchmarks {
           }
         }
         catch { case e: Throwable =>
-          //val file = new File(s"${Config.cwd}/gen/$name/")
+          //val file = new File(s"${config.cwd}/gen/$name/")
           //file.mkdirs()
-          //val log = new PrintWriter(s"${Config.cwd}/gen/$name/exception.log")
+          //val log = new PrintWriter(s"${config.cwd}/gen/$name/exception.log")
           //e.printStackTrace()
 
           noteFailure(name)
@@ -137,7 +137,7 @@ object Characterization extends AllBenchmarks {
     val benchmarks = gens.flatMap(_.expand)
     println("Number of benchmarks: " + benchmarks.length)
 
-    initConfig(stagingArgs)
+    init(stagingArgs)
 
     val runSpecific = getYN("Enter characterize debug mode?")
     if (runSpecific) {
@@ -145,7 +145,7 @@ object Characterization extends AllBenchmarks {
       targets.Targets.targets.foreach{t => println(s"  ${t.name}")}
       Console.println("Selection: ")
       val target = scala.io.StdIn.readLine()
-      SpatialConfig.target = targets.Targets.targets.find{t => t.name == target }.getOrElse{
+      spatialConfig.target = targets.Targets.targets.find{t => t.name == target }.getOrElse{
         println("Not found. Using Default instead")
         DefaultTarget
       }
@@ -167,11 +167,10 @@ object Characterization extends AllBenchmarks {
 
         val x = app.get
         val name = x._1
-        Config.name = name
-        Config.genDir = s"${Config.cwd}/gen/$name"
-        Config.logDir = s"${Config.cwd}/logs/$name"
-        resetState()
-        Config.verbosity = 1
+        config.name = name
+        config.genDir = s"${config.cwd}/gen/$name"
+        config.logDir = s"${config.cwd}/logs/$name"
+        config.verbosity = 1
         compileProgram(x._2)
       }
     }
@@ -196,13 +195,13 @@ object Characterization extends AllBenchmarks {
       val RUN_SYNTH = getYN("Run synthesis")
 
 
-      Console.print(s"Run directory [${Config.cwd}]: ")
+      Console.print(s"Run directory [${config.cwd}]: ")
       val cwdOpt = scala.io.StdIn.readLine()
-      if (cwdOpt != "") Config.cwd = cwdOpt
+      if (cwdOpt != "") config.cwd = cwdOpt
 
       println("Number of programs: " + programs.length)
       println("Using SPATIAL_HOME: " + SPATIAL_HOME)
-      println("Using CWD: " + Config.cwd)
+      println("Using CWD: " + config.cwd)
       val skipExisting = getYN("Skip generation for existing generated directories")
 
       println("And awaaaayyy we go!")
@@ -218,17 +217,16 @@ object Characterization extends AllBenchmarks {
         //programs.take(i).foreach { x => workQueue.put(x._1) }
         programs.zipWithIndex.foreach { case (x, i) =>
           val name = x._1
-          Config.name = name
-          Config.genDir = s"${Config.cwd}/gen/$name"
-          Config.logDir = s"${Config.cwd}/logs/$name"
-          //Config.verbosity = -2
-          //Config.showWarn = false
-          resetState()
+          config.name = name
+          config.genDir = s"${config.cwd}/gen/$name"
+          config.logDir = s"${config.cwd}/logs/$name"
+          //config.verbosity = -2
+          //config.showWarn = false
           try {
-            if (Files.exists(Paths.get(Config.genDir))) {
+            if (Files.exists(Paths.get(config.genDir))) {
               if (!skipExisting) {
                 try {
-                  FileUtils.deleteDirectory(new File(Config.genDir))
+                  FileUtils.deleteDirectory(new File(config.genDir))
                 }
                 catch {
                   case _: Throwable =>
@@ -249,8 +247,8 @@ object Characterization extends AllBenchmarks {
           catch {
             case e: Throwable =>
               noteFailure(name + " COMPILATION")
-              Config.verbosity = 4
-              withLog(Config.logDir, "exception.log") {
+              config.verbosity = 4
+              withLog(config.logDir, "exception.log") {
                 log(e.getMessage)
                 log(e.getCause)
                 e.getStackTrace.foreach { line => log("  " + line) }

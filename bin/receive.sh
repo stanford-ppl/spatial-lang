@@ -3,20 +3,40 @@
 # NOTE: This script belongs on a remote where all machines can see and use it
 
 export LANG=en_US.UTF-8
+export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/..)
+if [[ ${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
+  export JAVA_HOME=${JAVA_HOME}/..
+fi
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "tflop2" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "portland" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "max-2"* ]]; then
   REGRESSION_HOME="/kunle/users/mattfel/regression/"
 elif [[ ${this_machine} = "tucson" ]]; then
+  export thredz="32"
+  export SBT_OPTS="-Xmx64G -Xss1G"
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "london" ]]; then
+  export thredz="32"
+  export SBT_OPTS="-Xmx64G -Xss1G"
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "ottawa" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
+  REGRESSION_HOME="/home/regression/"
+elif [[ ${this_machine} = "manchester" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 else
   echo "Unrecognized machine ${this_machine}" | tee -a /tmp/log
@@ -170,6 +190,9 @@ git_things() {
   export WIKI_HOME=${WIKI_HOME}
   export wiki_file=${wiki_file}
   export spatial_hash=${spatial_hash}
+  export LM_LICENSE_FILE=7193@cadlic0.stanford.edu:/opt/Xilinx/awsF1.lic:27000@cadlic0.stanford.edu
+  export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
+  export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH
   # export JAVA_HOME=/usr/
   logger "Cloning spatial... Are your ssh keys set up in git?"
   git clone git@github.com:stanford-ppl/spatial-lang.git > /dev/null 2>&1
@@ -262,7 +285,8 @@ packet=$lockfile
 
 # Launch tests
 phase="VULTURE"
-launch_tests
+# launch_tests
+launch_tests_sbt
 
 # # Delay while tests run
 # phase="NAPPING"
@@ -274,11 +298,12 @@ launch_tests
 
 # Update result file
 phase="RESULTS"
-collect_results
+# collect_results
+collect_results_sbt
 
-# Update history
-phase="HISTORY"
-update_histories
+# # Update history
+# phase="HISTORY"
+# update_histories
 
 # Clean up regression files and push to git
 phase="CLEANUP"
