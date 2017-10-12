@@ -18,7 +18,7 @@ sed -n 1,${startLaunch}p $file > $newfile
 for t in ${tests[@]}; do
 echo "  templates = templates ++ Arguments.${t}.zipWithIndex.map{ case(arg,i) => 
     (s\"${t}\$i\" -> { (backendName: String) =>
-        Driver(() => new ${t}(arg), \"verilator\") {
+    	Driver.execute(() => new ${t}(arg), optionsManager) {
           (c) => new ${t}Tests(c)
         }
       }) 

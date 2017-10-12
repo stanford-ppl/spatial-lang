@@ -120,12 +120,6 @@ object Arguments {
     5,
     8
   )
-  val Retimer = List(
-    (10, 32),
-    (3, 32),
-    (1, 32),
-    (0, 32)
-  )
   val PRNG = List(
     1,
     77
@@ -213,11 +207,17 @@ object Arguments {
 
 object Launcher {
   var templates:Map[String,String => Boolean] = Map() 
+  val optionsManager = new chisel3.iotesters.TesterOptionsManager {
+    testerOptions = testerOptions.copy(backendName = "verilator") 
+    commonOptions = commonOptions.copy(topName = "pipe", targetDirName = "./seqpipe")
+    firrtlOptions = firrtlOptions.copy()
+  }
+  println(s"firrtl ops ${optionsManager.firrtlOptions.annotations}")
 
   // Start launcher
   templates = templates ++ Arguments.UIntAccum.zipWithIndex.map{ case(arg,i) => 
     (s"UIntAccum$i" -> { (backendName: String) =>
-        Driver(() => new UIntAccum(arg), "verilator") {
+    	Driver.execute(() => new UIntAccum(arg), optionsManager) {
           (c) => new UIntAccumTests(c)
         }
       }) 
@@ -225,7 +225,7 @@ object Launcher {
 
   templates = templates ++ Arguments.SpecialAccum.zipWithIndex.map{ case(arg,i) => 
     (s"SpecialAccum$i" -> { (backendName: String) =>
-        Driver(() => new SpecialAccum(arg), "verilator") {
+    	Driver.execute(() => new SpecialAccum(arg), optionsManager) {
           (c) => new SpecialAccumTests(c)
         }
       }) 
@@ -233,7 +233,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FF.zipWithIndex.map{ case(arg,i) => 
     (s"FF$i" -> { (backendName: String) =>
-        Driver(() => new FF(arg), "verilator") {
+    	Driver.execute(() => new FF(arg), optionsManager) {
           (c) => new FFTests(c)
         }
       }) 
@@ -241,7 +241,7 @@ object Launcher {
 
   templates = templates ++ Arguments.NBufFF.zipWithIndex.map{ case(arg,i) => 
     (s"NBufFF$i" -> { (backendName: String) =>
-        Driver(() => new NBufFF(arg), "verilator") {
+    	Driver.execute(() => new NBufFF(arg), optionsManager) {
           (c) => new NBufFFTests(c)
         }
       }) 
@@ -249,7 +249,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FFNoInit.zipWithIndex.map{ case(arg,i) => 
     (s"FFNoInit$i" -> { (backendName: String) =>
-        Driver(() => new FFNoInit(arg), "verilator") {
+    	Driver.execute(() => new FFNoInit(arg), optionsManager) {
           (c) => new FFNoInitTests(c)
         }
       }) 
@@ -257,7 +257,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FFNoInitNoReset.zipWithIndex.map{ case(arg,i) => 
     (s"FFNoInitNoReset$i" -> { (backendName: String) =>
-        Driver(() => new FFNoInitNoReset(arg), "verilator") {
+    	Driver.execute(() => new FFNoInitNoReset(arg), optionsManager) {
           (c) => new FFNoInitNoResetTests(c)
         }
       }) 
@@ -265,7 +265,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FFNoReset.zipWithIndex.map{ case(arg,i) => 
     (s"FFNoReset$i" -> { (backendName: String) =>
-        Driver(() => new FFNoReset(arg), "verilator") {
+    	Driver.execute(() => new FFNoReset(arg), optionsManager) {
           (c) => new FFNoResetTests(c)
         }
       }) 
@@ -273,7 +273,7 @@ object Launcher {
 
   templates = templates ++ Arguments.TFF.zipWithIndex.map{ case(arg,i) => 
     (s"TFF$i" -> { (backendName: String) =>
-        Driver(() => new TFF(arg), "verilator") {
+    	Driver.execute(() => new TFF(arg), optionsManager) {
           (c) => new TFFTests(c)
         }
       }) 
@@ -281,7 +281,7 @@ object Launcher {
 
   templates = templates ++ Arguments.SRFF.zipWithIndex.map{ case(arg,i) => 
     (s"SRFF$i" -> { (backendName: String) =>
-        Driver(() => new SRFF(arg), "verilator") {
+    	Driver.execute(() => new SRFF(arg), optionsManager) {
           (c) => new SRFFTests(c)
         }
       }) 
@@ -289,7 +289,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FIFO.zipWithIndex.map{ case(arg,i) => 
     (s"FIFO$i" -> { (backendName: String) =>
-        Driver(() => new FIFO(arg), "verilator") {
+    	Driver.execute(() => new FIFO(arg), optionsManager) {
           (c) => new FIFOTests(c)
         }
       }) 
@@ -297,7 +297,7 @@ object Launcher {
 
   templates = templates ++ Arguments.GeneralFIFO.zipWithIndex.map{ case(arg,i) => 
     (s"GeneralFIFO$i" -> { (backendName: String) =>
-        Driver(() => new GeneralFIFO(arg), "verilator") {
+    	Driver.execute(() => new GeneralFIFO(arg), optionsManager) {
           (c) => new GeneralFIFOTests(c)
         }
       }) 
@@ -305,7 +305,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FILO.zipWithIndex.map{ case(arg,i) => 
     (s"FILO$i" -> { (backendName: String) =>
-        Driver(() => new FILO(arg), "verilator") {
+    	Driver.execute(() => new FILO(arg), optionsManager) {
           (c) => new FILOTests(c)
         }
       }) 
@@ -313,7 +313,7 @@ object Launcher {
 
   templates = templates ++ Arguments.SingleCounter.zipWithIndex.map{ case(arg,i) => 
     (s"SingleCounter$i" -> { (backendName: String) =>
-        Driver(() => new SingleCounter(arg), "verilator") {
+    	Driver.execute(() => new SingleCounter(arg), optionsManager) {
           (c) => new SingleCounterTests(c)
         }
       }) 
@@ -321,7 +321,7 @@ object Launcher {
 
   templates = templates ++ Arguments.CompactingCounter.zipWithIndex.map{ case(arg,i) => 
     (s"CompactingCounter$i" -> { (backendName: String) =>
-        Driver(() => new CompactingCounter(arg), "verilator") {
+    	Driver.execute(() => new CompactingCounter(arg), optionsManager) {
           (c) => new CompactingCounterTests(c)
         }
       }) 
@@ -329,7 +329,7 @@ object Launcher {
 
   templates = templates ++ Arguments.FixedPointTester.zipWithIndex.map{ case(arg,i) => 
     (s"FixedPointTester$i" -> { (backendName: String) =>
-        Driver(() => new FixedPointTester(arg), "verilator") {
+    	Driver.execute(() => new FixedPointTester(arg), optionsManager) {
           (c) => new FixedPointTesterTests(c)
         }
       }) 
@@ -337,7 +337,7 @@ object Launcher {
 
   templates = templates ++ Arguments.Counter.zipWithIndex.map{ case(arg,i) => 
     (s"Counter$i" -> { (backendName: String) =>
-        Driver(() => new Counter(arg), "verilator") {
+    	Driver.execute(() => new Counter(arg), optionsManager) {
           (c) => new CounterTests(c)
         }
       }) 
@@ -345,7 +345,7 @@ object Launcher {
 
   templates = templates ++ Arguments.Seqpipe.zipWithIndex.map{ case(arg,i) => 
     (s"Seqpipe$i" -> { (backendName: String) =>
-        Driver(() => new Seqpipe(arg), "verilator") {
+    	Driver.execute(() => new Seqpipe(arg), optionsManager) {
           (c) => new SeqpipeTests(c)
         }
       }) 
@@ -353,23 +353,15 @@ object Launcher {
 
   templates = templates ++ Arguments.Metapipe.zipWithIndex.map{ case(arg,i) => 
     (s"Metapipe$i" -> { (backendName: String) =>
-        Driver(() => new Metapipe(arg), "verilator") {
+    	Driver.execute(() => new Metapipe(arg), optionsManager) {
           (c) => new MetapipeTests(c)
-        }
-      }) 
-  }.toMap
-
-  templates = templates ++ Arguments.Retimer.zipWithIndex.map{ case(arg,i) => 
-    (s"Retimer$i" -> { (backendName: String) =>
-        Driver(() => new Retimer(arg), "verilator") {
-          (c) => new RetimerTests(c)
         }
       }) 
   }.toMap
 
   templates = templates ++ Arguments.PRNG.zipWithIndex.map{ case(arg,i) => 
     (s"PRNG$i" -> { (backendName: String) =>
-        Driver(() => new PRNG(arg), "verilator") {
+    	Driver.execute(() => new PRNG(arg), optionsManager) {
           (c) => new PRNGTests(c)
         }
       }) 
@@ -377,7 +369,7 @@ object Launcher {
 
   templates = templates ++ Arguments.Mem1D.zipWithIndex.map{ case(arg,i) => 
     (s"Mem1D$i" -> { (backendName: String) =>
-        Driver(() => new Mem1D(arg), "verilator") {
+    	Driver.execute(() => new Mem1D(arg), optionsManager) {
           (c) => new Mem1DTests(c)
         }
       }) 
@@ -385,7 +377,7 @@ object Launcher {
 
   templates = templates ++ Arguments.MemND.zipWithIndex.map{ case(arg,i) => 
     (s"MemND$i" -> { (backendName: String) =>
-        Driver(() => new MemND(arg), "verilator") {
+    	Driver.execute(() => new MemND(arg), optionsManager) {
           (c) => new MemNDTests(c)
         }
       }) 
@@ -393,7 +385,7 @@ object Launcher {
 
   templates = templates ++ Arguments.SRAM.zipWithIndex.map{ case(arg,i) => 
     (s"SRAM$i" -> { (backendName: String) =>
-        Driver(() => new SRAM(arg), "verilator") {
+    	Driver.execute(() => new SRAM(arg), optionsManager) {
           (c) => new SRAMTests(c)
         }
       }) 
@@ -401,7 +393,7 @@ object Launcher {
 
   templates = templates ++ Arguments.NBufSRAM.zipWithIndex.map{ case(arg,i) => 
     (s"NBufSRAM$i" -> { (backendName: String) =>
-        Driver(() => new NBufSRAM(arg), "verilator") {
+    	Driver.execute(() => new NBufSRAM(arg), optionsManager) {
           (c) => new NBufSRAMTests(c)
         }
       }) 
@@ -409,7 +401,7 @@ object Launcher {
 
   templates = templates ++ Arguments.Innerpipe.zipWithIndex.map{ case(arg,i) => 
     (s"Innerpipe$i" -> { (backendName: String) =>
-        Driver(() => new Innerpipe(arg), "verilator") {
+    	Driver.execute(() => new Innerpipe(arg), optionsManager) {
           (c) => new InnerpipeTests(c)
         }
       }) 
@@ -417,7 +409,7 @@ object Launcher {
 
   templates = templates ++ Arguments.Parallel.zipWithIndex.map{ case(arg,i) => 
     (s"Parallel$i" -> { (backendName: String) =>
-        Driver(() => new Parallel(arg), "verilator") {
+    	Driver.execute(() => new Parallel(arg), optionsManager) {
           (c) => new ParallelTests(c)
         }
       }) 
@@ -425,7 +417,7 @@ object Launcher {
 
   templates = templates ++ Arguments.SystolicArray2D.zipWithIndex.map{ case(arg,i) => 
     (s"SystolicArray2D$i" -> { (backendName: String) =>
-        Driver(() => new SystolicArray2D(arg), "verilator") {
+    	Driver.execute(() => new SystolicArray2D(arg), optionsManager) {
           (c) => new SystolicArray2DTests(c)
         }
       }) 
@@ -433,7 +425,7 @@ object Launcher {
 
   templates = templates ++ Arguments.ShiftRegFile.zipWithIndex.map{ case(arg,i) => 
     (s"ShiftRegFile$i" -> { (backendName: String) =>
-        Driver(() => new ShiftRegFile(arg), "verilator") {
+    	Driver.execute(() => new ShiftRegFile(arg), optionsManager) {
           (c) => new ShiftRegFileTests(c)
         }
       }) 
@@ -441,7 +433,7 @@ object Launcher {
 
   templates = templates ++ Arguments.NBufShiftRegFile.zipWithIndex.map{ case(arg,i) => 
     (s"NBufShiftRegFile$i" -> { (backendName: String) =>
-        Driver(() => new NBufShiftRegFile(arg), "verilator") {
+    	Driver.execute(() => new NBufShiftRegFile(arg), optionsManager) {
           (c) => new NBufShiftRegFileTests(c)
         }
       }) 
@@ -449,7 +441,7 @@ object Launcher {
 
   templates = templates ++ Arguments.LineBuffer.zipWithIndex.map{ case(arg,i) => 
     (s"LineBuffer$i" -> { (backendName: String) =>
-        Driver(() => new LineBuffer(arg), "verilator") {
+    	Driver.execute(() => new LineBuffer(arg), optionsManager) {
           (c) => new LineBufferTests(c)
         }
       }) 
