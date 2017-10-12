@@ -44,7 +44,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   protected def getConstValue(one: Exp[_]): Any = one match {case Const(c) => c }
 
   protected def computeSuffix(s: Bound[_]): String = {
-    var result = super.quote(s)
+    var result = if (config.enableNaming) super.quote(s) else wireMap(super.quote(s)) // TODO: Playing with fire here.  Probably just make the quote and name of bound in Codegen.scala do the wireMap themselves instead of doing it here!
     if (itersMap.contains(s)) {
       val siblings = itersMap(s)
       var nextLevel: Option[Exp[_]] = Some(controllerStack.head)
