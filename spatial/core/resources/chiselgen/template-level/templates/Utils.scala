@@ -520,6 +520,8 @@ object ops {
 
 object Utils {
 
+  var regression_testing = scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0")
+
   var target: DeviceTarget = Default
 
   var fixmul_latency = 6
@@ -802,9 +804,13 @@ object Utils {
       sig
     }
     else {
-      val sr = Module(new RetimeWrapper(sig.getWidth, delay))
-      sr.io.in := sig.asUInt
-      sig.cloneType.fromBits(sr.io.out)
+      if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
+        chisel3.util.ShiftRegister(sig, delay)
+      } else {
+        val sr = Module(new RetimeWrapper(sig.getWidth, delay))
+        sr.io.in := sig.asUInt
+        sig.cloneType.fromBits(sr.io.out)
+      }
     }
   }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {

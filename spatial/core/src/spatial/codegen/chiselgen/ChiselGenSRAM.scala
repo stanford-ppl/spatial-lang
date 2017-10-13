@@ -31,6 +31,7 @@ object Chain extends BooleanSignal
 object Blank extends BooleanSignal
 object DataOptions extends BooleanSignal
 object ValidOptions extends BooleanSignal
+object ReadyOptions extends BooleanSignal
 object RVec extends BooleanSignal
 object WVec extends BooleanSignal
 object Retime extends BooleanSignal
@@ -86,6 +87,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Blank => wireMap(src"${lhs}")
       case DataOptions => wireMap(src"${lhs}_data_options")
       case ValidOptions => wireMap(src"${lhs}_valid_options")
+      case ReadyOptions => wireMap(src"${lhs}_ready_options")
       case RVec => wireMap(src"${lhs}_rVec")
       case WVec => wireMap(src"${lhs}_wVec")
       case Retime => wireMap(src"${lhs}_retime")
@@ -113,6 +115,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Blank => wireMap(src"${lhs}")
       case DataOptions => wireMap(src"${lhs}_data_options")
       case ValidOptions => wireMap(src"${lhs}_valid_options")
+      case ReadyOptions => wireMap(src"${lhs}_ready_options")
       case RVec => wireMap(src"${lhs}_rVec")
       case WVec => wireMap(src"${lhs}_wVec")
       case Retime => wireMap(src"${lhs}_retime")
