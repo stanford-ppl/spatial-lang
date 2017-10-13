@@ -504,8 +504,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val numel = compressorMap.filter(_._2._1 == wire).size
             emit(src"val ${listHandle(wire)} = List.fill(${numel}){$wire}")            
           } else {
-            val retimes = compressorMap.filter(_._2._1 == wire).map(_._2._2).map{i => retimeMap(i)}.mkString(",")
-            emit(src"val ${listHandle(wire)} = List[Int](${retimes})")            
+            // val retimes = compressorMap.filter(_._2._1 == wire).map(_._2._2).map{i => retimeMap(i)}.mkString(",")
+            emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")            
           }
         }
       }
