@@ -38,7 +38,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs, En)}""")
         val stop = if (levelOf(lhs) == InnerControl) { iiOf(lhs) + 1} else {iiOf(lhs)} // I think innerpipes need one extra delay because of logic inside sm
-        emit(src"""${lhs}_IICtr.io.input.stop := ${stop}.S // ${lhs}_retime.S""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${stop}.S // ${swap(lhs, Retime)}.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")  
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
@@ -54,7 +54,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting nextState")
       visitBlock(nextState)
       emit(src"${lhs}_sm.io.input.enable := ${swap(lhs, En)} ")
-      emit(src"${lhs}_sm.io.input.nextState := Mux(${swap(lhs, IIDone)}.D(1 max ${lhs}_retime - 1), ${nextState.result}.r.asSInt, ${lhs}_sm.io.output.state.r.asSInt) // Assume always int")
+      emit(src"${lhs}_sm.io.input.nextState := Mux(${swap(lhs, IIDone)}.D(1 max ${swap(lhs, Retime)} - 1), ${nextState.result}.r.asSInt, ${lhs}_sm.io.output.state.r.asSInt) // Assume always int")
       emit(src"${lhs}_sm.io.input.initState := ${start}.r.asSInt")
       emitGlobalWire(src"val $state = Wire(${newWire(state.tp)})")
       emit(src"${state}.r := ${lhs}_sm.io.output.state.r")

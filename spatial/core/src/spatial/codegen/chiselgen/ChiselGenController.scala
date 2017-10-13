@@ -538,15 +538,15 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     } else true
     emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emitGlobalWire(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emit(src"// This is now global: val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime, staticNiter = $static))")
-    emitGlobalModule(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime, staticNiter = $static))")
+    emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}")
+    emit(src"// This is now global: val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
+    emitGlobalModule(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
     emit(src"""${sym}_sm.io.input.enable := ${swap(sym, En)} & retime_released""")
     if (isFSM) {
       emitGlobalWireMap(src"${sym}_inhibitor", "Wire(Bool())") // hacky but oh well
-      emit(src"""${swap(sym, Done)} := (${sym}_sm.io.output.done & ~${swap(sym, Inhibitor)}.D(2,rr)).D(${sym}_retime,rr)""")      
+      emit(src"""${swap(sym, Done)} := (${sym}_sm.io.output.done & ~${swap(sym, Inhibitor)}.D(2,rr)).D(${swap(sym, Retime)},rr)""")      
     } else {
-      emit(src"""${swap(sym, Done)} := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
+      emit(src"""${swap(sym, Done)} := ${sym}_sm.io.output.done.D(${swap(sym, Retime)},rr)""")
     }
     emitGlobalWireMap(src"""${swap(sym, RstEn)}""", """Wire(Bool())""") // TODO: Is this legal?
     emit(src"""${swap(sym, RstEn)} := ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
@@ -594,7 +594,7 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${swap(ctr, Resetter)} := ${swap(sym, RstEn)}.D(0,rr) // changed on 9/19""")
           }
           if (isInner) { 
-            // val dlay = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
+            // val dlay = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {src"1 + ${swap(sym, Retime)}"} else "1"
             emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${swap(ctr, Done)}, 1)""")
           }
 
@@ -765,10 +765,10 @@ trait ChiselGenController extends ChiselGenCounter{
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${swap(lhs, Retime)})));""")
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs,En)}""")
-        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${swap(lhs, Retime)}.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }

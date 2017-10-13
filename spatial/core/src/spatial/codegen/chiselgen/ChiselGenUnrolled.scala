@@ -60,10 +60,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {
-        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${swap(lhs, Retime)})));""")
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs, DatapathEn)}""")
-        emit(src"""${lhs}_IICtr.io.input.stop := ${lhs}_retime.S //${iiOf(lhs)}.S""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${swap(lhs, Retime)}.S //${iiOf(lhs)}.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
@@ -140,10 +140,10 @@ trait ChiselGenUnrolled extends ChiselGenController {
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {
-        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emitGlobalModule(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${swap(lhs, Retime)})));""")
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${swap(lhs, DatapathEn)}""")
-        emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${quote(lhs)}_retime.S""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${swap(lhs, Retime)}.S""")
         emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
       }
@@ -234,7 +234,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
         dispatch.zipWithIndex.foreach{ case (k,id) => 
           val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-          emit(src"${swap(lhs, RVec)}($id).en := (${swap(parent, En)}).D(${parent}_retime, rr) & ${ens(id)}")
+          emit(src"${swap(lhs, RVec)}($id).en := (${swap(parent, En)}).D(${swap(parent, Retime)}, rr) & ${ens(id)}")
           inds(id).zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${swap(lhs, RVec)}($id).addr($j) := ${a}.raw """)
           }
@@ -333,7 +333,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${strm}_ready_options(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${parent}_retime, rr) """)
+            emit(src"""${strm}_ready_options(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${swap(parent, Retime)}, rr) """)
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 

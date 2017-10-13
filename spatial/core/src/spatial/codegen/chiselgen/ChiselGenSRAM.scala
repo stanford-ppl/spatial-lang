@@ -33,6 +33,7 @@ object DataOptions extends BooleanSignal
 object ValidOptions extends BooleanSignal
 object RVec extends BooleanSignal
 object WVec extends BooleanSignal
+object Retime extends BooleanSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -87,6 +88,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case ValidOptions => wireMap(src"${lhs}_valid_options")
       case RVec => wireMap(src"${lhs}_rVec")
       case WVec => wireMap(src"${lhs}_wVec")
+      case Retime => wireMap(src"${lhs}_retime")
     }
   }
 
@@ -113,6 +115,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case ValidOptions => wireMap(src"${lhs}_valid_options")
       case RVec => wireMap(src"${lhs}_rVec")
       case WVec => wireMap(src"${lhs}_wVec")
+      case Retime => wireMap(src"${lhs}_retime")
     }
   }
 
@@ -236,7 +239,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       if (fsm.isDefined) {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(~${fsm.get})")  
-          emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(1 + ${lhs}_retime, rr)")
+          emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(1 + ${swap(lhs, Retime)}, rr)")
           /* or'ed  back in because of BasicCondFSM!! */
           emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| ${fsm.get}*/ // Really want inhibit to turn on at last enabled cycle")        
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
@@ -252,7 +255,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         } else {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
-          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${lhs}_retime, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
+          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${swap(lhs, Retime)}, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
           emit(src"${lhs}_inhibit.io.input.reset := $rster")
           emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
@@ -457,6 +460,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
           val handle = listHandle(wire)
+          emit("")
           emit(s"// ${wire}")
           emit("// ##################")
           compressorMap.filter(_._2._1 == wire).foreach{entry => 
@@ -496,8 +500,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
       if (config.multifile == 5 || config.multifile == 6) {
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
-          val numel = compressorMap.filter(_._2._1 == wire).size
-          emit(src"val ${listHandle(wire)} = List.fill(${numel}){$wire}")
+          if (wire != "_retime") {
+            val numel = compressorMap.filter(_._2._1 == wire).size
+            emit(src"val ${listHandle(wire)} = List.fill(${numel}){$wire}")            
+          } else {
+            val retimes = compressorMap.filter(_._2._1 == wire).map(_._2._2).map{i => retimeMap(i)}.mkString(",")
+            emit(src"val ${listHandle(wire)} = List[Int](${retimes})")            
+          }
         }
       }
       // emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
