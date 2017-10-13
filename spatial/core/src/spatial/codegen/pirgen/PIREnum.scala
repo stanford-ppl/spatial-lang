@@ -36,7 +36,7 @@ case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 // --- Local memory modes
 sealed abstract class LocalMemoryMode
 case object SRAMMode extends LocalMemoryMode
-case object BitFIFOMode extends LocalMemoryMode
+case object ControlFIFOMode extends LocalMemoryMode
 case object ScalarFIFOMode extends LocalMemoryMode
 case object VectorFIFOMode extends LocalMemoryMode
 case object ScalarBufferMode extends LocalMemoryMode

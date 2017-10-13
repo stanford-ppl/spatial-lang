@@ -172,8 +172,8 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     val memSym = null //TODO: fix this??
     val mem = CUMemory(s"$reg", memSym, cu)
     bus match {
-      case bus:BitBus =>
-        mem.mode = BitFIFOMode
+      case bus:ControlBus =>
+        mem.mode = ControlFIFOMode
       case bus:ScalarBus =>
         mem.mode = ScalarFIFOMode
       case bus:VectorBus =>
@@ -182,6 +182,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     mem.size = 1
     mem.writePort += bus
     cu.memMap += reg -> mem
+    dbgs(s"allocateRetimingFIFO($reg, $bus, $cu) = $mem")
     mem
   }
 
@@ -386,8 +387,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
       }
       mem.readAddr = mem.readAddr.map{reg => swapBus_reg(reg)}
       mem.writeAddr = mem.writeAddr.map{reg => swapBus_reg(reg)}
-      mem.writeStart = mem.writeStart.map{reg => swapBus_reg(reg)}
-      mem.writeEnd = mem.writeEnd.map{reg => swapBus_reg(reg)}
     }
     def swapBus_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainInstance => cc.counters.foreach{ctr => swapBus_ctr(ctr)}

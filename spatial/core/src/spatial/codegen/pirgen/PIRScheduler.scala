@@ -19,9 +19,8 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
     // Swap dependencies, parents, cchain owners from pcu to cu
     dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
-    for (cu <- cus) {
-      dbgcu(cu)
-    }
+    //cus.foreach(dbgcu)
+    dbgs(s"globals:${globals}")
     block
   }
 

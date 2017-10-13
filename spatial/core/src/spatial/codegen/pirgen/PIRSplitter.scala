@@ -5,7 +5,7 @@ import spatial.SpatialConfig
 
 import scala.collection.mutable
 
-class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
+class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
   override val name = "PIR Splitting"
   override val recurse = Always
   var IR = codegen.IR
@@ -34,28 +34,30 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
   }
 
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
-    splittingMap.values.foreach { _.foreach { cu => swapRef(cu) } }
-    mappingOf.transform { case (lhs, cus) =>
-      cus.flatMap { 
-        case cu:CU => splittingMap.getOrElse(cu, mutable.Set(cu))
-        case x => mutable.Set(x)
-      }
-    }
     super.postprocess(b)
   }
 
   override def process[S:Type](b: Block[S]) = {
     try {
       visitBlock(b)
+      splittingMap.values.foreach { _.foreach { cu => swapRef(cu) } }
+      mappingOf.transform { case (lhs, cus) =>
+        cus.flatMap { 
+          case cu:CU => splittingMap.getOrElse(cu, mutable.Set(cu))
+          case x => mutable.Set(x)
+        }
+      }
+      dbgs(s"\n\n//----------- Finishing PIRSplitter ------------- //")
+      dbgs(s"Mapping:")
+      splittingMap.foreach { case (cu, cus) =>
+        dbgs(s"${cu} -> [${cus.mkString(",")}]")
+        cus.foreach(dbgcu)
+      }
+      dbgs(s"globals:${quote(globals)}")
     } catch {case e: SplitException =>
       error("Failed splitting")
       error(e.msg)
       sys.exit(-1)
-    }
-    dbgs(s"\n\n//----------- Finishing PIRSplitter ------------- //")
-    dbgs(s"Mapping:")
-    splittingMap.foreach { case (cu, cus) =>
-      dbgs(s"${cu} -> [${cus.mkString(",")}]")
     }
     b
   }
@@ -73,9 +75,9 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting with PIR
       others ++= splittingMap.values.flatten
 
       val cus = splitCU(cu, PCUMax, PMUMax, others)
-      retime(cus, others)
+      //retime(cus, others)
 
-      cus.foreach{cu =>
+      cus.foreach { cu =>
         val cost = getUtil(cu, others)
         others += cu
       }

@@ -18,7 +18,7 @@ sealed abstract class GlobalBus(override val name: String) extends GlobalCompone
 }
 sealed abstract class VectorBus(override val name: String) extends GlobalBus(name)
 sealed abstract class ScalarBus(override val name: String) extends GlobalBus(name)
-sealed abstract class BitBus(override val name: String) extends GlobalBus(name)
+sealed abstract class ControlBus(override val name: String) extends GlobalBus(name)
 
 case class CUVector(override val name: String, par:Int) extends VectorBus(name) {
   override def toString = s"v$name"
@@ -26,7 +26,7 @@ case class CUVector(override val name: String, par:Int) extends VectorBus(name) 
 case class CUScalar(override val name: String) extends ScalarBus(name) {
   override def toString = s"s$name"
 }
-case class CUBit(override val name: String) extends BitBus(name) {
+case class CUControl(override val name: String) extends ControlBus(name) {
   override def toString = s"b$name"
 }
 
@@ -117,12 +117,12 @@ case class ScalarOut(bus: ScalarBus) extends LocalPort[ScalarOut] {
   override def eql(that: ScalarOut) = this.bus == that.bus
   override def toString = bus.toString + ".sOut"
 }
-case class BitIn(bus: BitBus) extends LocalPort[BitIn] {
-  override def eql(that: BitIn) = this.bus == that.bus
+case class ControlIn(bus: ControlBus) extends LocalPort[ControlIn] {
+  override def eql(that: ControlIn) = this.bus == that.bus
   override def toString = bus.toString + ".bIn"
 }
-case class BitOut(bus: BitBus) extends LocalPort[BitOut] {
-  override def eql(that: BitOut) = this.bus == that.bus
+case class ControlOut(bus: ControlBus) extends LocalPort[ControlOut] {
+  override def eql(that: ControlOut) = this.bus == that.bus
   override def toString = bus.toString + ".bOut"
 }
 case class VectorIn(bus: VectorBus) extends LocalPort[VectorIn] {
@@ -173,29 +173,7 @@ case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
   var readAddr = mutable.ListBuffer[LocalComponent]()
   var writeAddr = mutable.ListBuffer[LocalComponent]()
 
-  var writeStart: Option[LocalComponent] = None
-  var writeEnd: Option[LocalComponent] = None
-
   override def toString = name
-
-  def copyMem(name: String) = {
-    val copy = CUMemory(name, mem, cu)
-    copy.mode = this.mode
-    copy.bufferDepth = this.bufferDepth
-    copy.banking = this.banking
-    copy.size = this.size
-    //copy.writePort.clear
-    //copy.writePort ++= this.writePort
-    copy.writePort.clear
-    copy.writePort ++= this.writePort
-    copy.readPort = this.readPort
-    copy.readAddr.clear
-    copy.readAddr ++= this.readAddr
-    copy.writeAddr.clear
-    copy.writeAddr ++= this.writeAddr
-    copy.writeStart = this.writeStart
-    copy
-  }
 
   def isSRAM = mode == SRAMMode
   def isLocalMem = mode match {
@@ -253,7 +231,7 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
 
   val regTable = mutable.HashMap[Expr, LocalComponent]()
   val expTable = mutable.HashMap[LocalComponent, List[Expr]]()
-  val switchTable = mutable.HashMap[BitBus, CU]()
+  val switchTable = mutable.HashMap[ControlBus, CU]()
 
   def iterators = regTable.iterator.collect{case (exp, reg: CounterReg) => (exp,reg) }
   def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }

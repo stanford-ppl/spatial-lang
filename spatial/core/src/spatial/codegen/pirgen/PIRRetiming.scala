@@ -155,7 +155,7 @@ trait PIRRetiming extends PIRTraversal {
     sram.mode = bus match {
       case bus:ScalarBus => ScalarFIFOMode
       case bus:VectorBus => VectorFIFOMode
-      case bus:BitBus => throw new Exception(s"Unsupport sram data scale $bus") 
+      case bus:ControlBus => throw new Exception(s"Unsupport sram data scale $bus") 
     }
     sram.size = depth
     sram.writePort += bus //TODO: readport?

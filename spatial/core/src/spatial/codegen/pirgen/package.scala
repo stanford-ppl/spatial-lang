@@ -17,9 +17,8 @@ import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 package object pirgen {
   type Expr = Exp[_]
   type CU = ComputeUnit
-  type CUControl = ControlType
 
-  val globals    = mutable.Set[GlobalComponent]()
+  val globals   = mutable.Set[GlobalComponent]()
   val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
 
   @stateful def quote(x: Any):String = x match {
@@ -91,7 +90,7 @@ package object pirgen {
 
   def localInputs(a: Any): Set[LocalComponent] = a match {
     case reg: LocalComponent => Set(reg)
-    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readPort)
+    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writePort ++ mem.readPort)
     case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
     case stage: Stage => stage.inputMems.toSet
     case _ => collectX[LocalComponent](a)(localInputs)
@@ -105,9 +104,10 @@ package object pirgen {
 
   def globalInputs(a: Any): Set[GlobalBus] = a match {
     case glob: GlobalBus => Set(glob)
+    case ControlIn(in) => Set(in)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readAddr ++ mem.writeAddr)
+    case mem: CUMemory => globalInputs(mem.writePort ++ mem.readAddr ++ mem.writeAddr)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
     case MemLoad(mem) => globalInputs(mem)
@@ -144,7 +144,7 @@ package object pirgen {
   def usedMem(x:Any):Set[CUMemory] = x match {
     case MemLoad(mem) => Set(mem)
     case x:CUMemory if x.mode == SRAMMode =>
-      usedMem(x.readAddr ++ x.writeAddr ++ x.writeStart ++ x.writeEnd ++ x.writePort) + x
+      usedMem(x.readAddr ++ x.writeAddr ++ x.writePort) + x
     case x:CUMemory => Set(x)
     case x:Stage => usedMem(x.inputMems)
     case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
@@ -155,8 +155,8 @@ package object pirgen {
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
-    case _:ScalarOut | _:VectorOut | _:BitOut => false
-    case _:ScalarIn  | _:VectorIn  | _:BitIn => true
+    case _:ScalarOut | _:VectorOut | _:ControlOut => false
+    case _:ScalarIn  | _:VectorIn  | _:ControlIn => true
     case _:MemLoad| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => false
@@ -164,8 +164,8 @@ package object pirgen {
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
   def isWritable(x: LocalComponent): Boolean = x match {
-    case _:ScalarOut | _:VectorOut | _:BitOut => true
-    case _:ScalarIn  | _:VectorIn  | _:BitIn => false
+    case _:ScalarOut | _:VectorOut | _:ControlOut => true
+    case _:ScalarIn  | _:VectorIn  | _:ControlIn => false
     case _:MemLoad| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => true

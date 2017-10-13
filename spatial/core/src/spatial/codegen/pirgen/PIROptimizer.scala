@@ -8,10 +8,11 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Optimization"
   var IR = codegen.IR
 
-  lazy val cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
+  def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
+    dbgs(s"globals:${quote(globals)}")
     for (cu <- cus) removeRouteThrus(cu) // Remove route through stages
     for (cu <- cus) removeUnusedCUComponents(cu)
     for (cu <- cus) removeDeadStages(cu)
@@ -22,15 +23,18 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     super.process(b)
   }
 
+  override def preprocess[S:Type](b: Block[S]): Block[S] = {
+    super.preprocess(b)
+  }
+
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
     dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
     dbgs(s"Mapping:")
     mappingOf.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
-    for (cu <- cus) {
-      dbgcu(cu)
-    }
+    //cus.foreach(dbgcu)
+    dbgs(s"globals:${quote(globals)}")
     super.postprocess(b)
   }
 
@@ -106,9 +110,10 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     inputs.foreach{in => dbgs(s"  $in")}
 
 
-    val unusedBuses = buses filterNot(inputs contains _)
+    val unusedBuses = buses.filterNot(inputs contains _)
 
     def isUnusedReg(reg: LocalComponent) = reg match {
+      case ControlOut(out) => unusedBuses contains out
       case ScalarOut(out) => unusedBuses contains out
       case VectorOut(out) => unusedBuses contains out
       case _ => false

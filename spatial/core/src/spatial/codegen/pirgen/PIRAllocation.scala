@@ -215,7 +215,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   def allocateSwitchControl(exp:Expr, selects:Seq[Expr], cases:Seq[Expr]) = {
     val cu = allocateCU(exp)
     selects.zip(cases).foreach { case (sel, switchCase) => 
-      cu.switchTable += CUBit(s"$sel") -> allocateCU(switchCase)
+      cu.switchTable += CUControl(s"$sel") -> allocateCU(switchCase)
     }
   }
 
@@ -507,7 +507,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           val output = bus match {
             case bus:ScalarBus => ScalarOut(bus)
             case bus:VectorBus => VectorOut(bus)
-            case bus:BitBus => BitOut(bus)
+            case bus:ControlBus => ControlOut(bus)
           }
           writerCU.addReg(dwriter, output)
           dbgs(s"Add dwriter:$dwriter to writerCU:$writerCU")
@@ -783,8 +783,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     dbgblk(s"composition") {
       composed.keys.foreach { k => dbgs(s"${qdef(compose(k))}")}
     }
-    dbgs(s"// ----- CU Allocation ----- //")
-    cus.foreach(dbgcu)
+    //cus.foreach(dbgcu)
+    dbgs(s"globals:${globals}")
 
     super.postprocess(b)
   }

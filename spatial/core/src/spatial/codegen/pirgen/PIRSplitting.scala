@@ -185,25 +185,23 @@ trait PIRSplitting extends PIRTraversal {
         case VectorIn(bus) => bus
         case ScalarOut(bus) => bus
         case VectorOut(bus) => bus
+        case ControlIn(bus) => bus
+        case ControlOut(bus) => bus
         case MemLoad(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
           val bus = CUVector(mem.name+"_vdata", cu.innerPar)
-          globals += bus
           bus
         case MemLoad(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
           val bus = CUScalar(mem.name+"_sdata")
-          globals += bus
           bus
         case WriteAddrWire(mem) =>
           val bus = CUScalar(mem.name+"_waddr")
-          globals += bus
           bus
         case ReadAddrWire(mem) =>
           val bus = CUScalar(mem.name+"_raddr")
-          globals += bus
           bus
         case _                    =>
-          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    else CUVector("bus_" + reg.id, cu.innerPar)
-          globals += bus
+          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    
+                    else CUVector("bus_" + reg.id, cu.innerPar)
           bus
       }
       dbgs(s"globalBus: reg=$reg ${scala.runtime.ScalaRunTime._toString(reg.asInstanceOf[Product])}, bus=$bus") 
@@ -211,7 +209,7 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     def portOut(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
-      case bus:BitBus => BitOut(bus)
+      case bus:ControlBus => ControlOut(bus)
       case bus:ScalarBus => ScalarOut(bus)
       case bus:VectorBus => VectorOut(bus)
     }
@@ -240,6 +238,7 @@ trait PIRSplitting extends PIRTraversal {
 
     def rerefOut(reg: LocalComponent): List[LocalRef] = {
       val outs = reg match {
+        case _:ControlOut => List(reg)
         case _:ScalarOut => List(reg)
         case _:VectorOut => List(reg)
         case _ =>

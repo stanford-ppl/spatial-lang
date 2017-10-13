@@ -4,7 +4,6 @@ import argon.codegen.{Codegen, FileDependencies}
 import argon.core.Config
 import argon.core._
 import spatial.nodes._
-import spatial.utils._
 import spatial.SpatialConfig
 
 import scala.collection.mutable
