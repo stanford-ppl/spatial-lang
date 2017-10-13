@@ -84,7 +84,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
       val totalWidth = tuples.map{ t => 
           bitWidth(t._2.tp)  
       }.reduce{_+_}
-      emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
+      emitGlobalWireMap(src"$lhs", src"Wire(UInt(${totalWidth}.W))")
       emit(src"$lhs := chisel3.util.Cat($items)")
     case VectorConcat(items) =>
       val items_string = items.map{a => src"${a}.r"}.mkString(",")

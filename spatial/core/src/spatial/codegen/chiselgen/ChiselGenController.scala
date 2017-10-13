@@ -452,7 +452,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt((${32 min 2*w}.W)))")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"val ${sym}${i}_range = Utils.getRetimed(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
@@ -461,7 +461,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt((${32 min 2*w}.W)))")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
               case _ => 
                 emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, 1)")
                 emit(src"val ${sym}${i}_jump = Utils.getRetimed(${step} *-* ${par}, 1)")
@@ -469,16 +469,16 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt((32.W)))")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
             }
-            emit(src"""${sym}_level${i}_iters := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
-            src"${sym}_level${i}_iters"
+            emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
+            src"${swap(src"${sym}_level${i}_iters", Blank)}"
           case Def(Forever()) =>
             hasForever = true
             // need to change the outer pipe counter interface!!
-            emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt(32.W))")
-            emit(src"""${sym}_level${i}_iters := 0.U // Count forever""")
-            src"${sym}_level${i}_iters"
+            emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
+            emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := 0.U // Count forever""")
+            src"${swap(src"${sym}_level${i}_iters", Blank)}"
         }
       }
     } else { 

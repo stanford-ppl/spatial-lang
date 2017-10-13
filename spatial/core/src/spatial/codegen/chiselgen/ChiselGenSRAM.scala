@@ -29,6 +29,10 @@ object Inhibitor extends BooleanSignal
 object Wren extends BooleanSignal
 object Chain extends BooleanSignal
 object Blank extends BooleanSignal
+object DataOptions extends BooleanSignal
+object ValidOptions extends BooleanSignal
+object RVec extends BooleanSignal
+object WVec extends BooleanSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -79,6 +83,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Wren => wireMap(src"${lhs}_wren")
       case Chain => wireMap(src"${lhs}_chain")
       case Blank => wireMap(src"${lhs}")
+      case DataOptions => wireMap(src"${lhs}_data_options")
+      case ValidOptions => wireMap(src"${lhs}_valid_options")
+      case RVec => wireMap(src"${lhs}_rVec")
+      case WVec => wireMap(src"${lhs}_wVec")
     }
   }
 
@@ -101,6 +109,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Wren => wireMap(src"${lhs}_wren")
       case Chain => wireMap(src"${lhs}_chain")
       case Blank => wireMap(src"${lhs}")
+      case DataOptions => wireMap(src"${lhs}_data_options")
+      case ValidOptions => wireMap(src"${lhs}_valid_options")
+      case RVec => wireMap(src"${lhs}_rVec")
+      case WVec => wireMap(src"${lhs}_wVec")
     }
   }
 
@@ -307,7 +319,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   override protected def quote(e: Exp[_]): String = e match {
     // FIXME: Unclear precedence with the quote rule for Bound in ChiselGenCounter
-    case b: Bound[_] => swap(computeSuffix(b), Blank)
+    case b: Bound[_] => 
+      swap(computeSuffix(b), Blank)
     case _ => super.quote(e)
   } 
 
@@ -404,14 +417,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-        emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-        emit(src"""${lhs}_rVec(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}) & $en""")
+        emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
+        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
-          emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
+          emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
         val basequote = src"${lhs}_base" // get string before we create the map
-        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
         emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
         emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
       }
@@ -421,14 +434,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
       emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
-      emit(src"""${lhs}_wVec(0).data := $v.raw""")
-      emit(src"""${lhs}_wVec(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}, rr)""")
+      emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
+      emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
+      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 
-        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.raw // Assume always an int""")
+        emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
       duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) =>
-        emit(src"""${sram}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, sram, i)})) """)
+        emit(src"""${sram}_$i.connectWPort(${swap(lhs, WVec)}, List(${portsOf(lhs, sram, i)})) """)
       }
 
     case _ => super.emitNode(lhs, rhs)
