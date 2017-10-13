@@ -32,6 +32,7 @@ object mappingOf extends MBiOneToManyMap with MetadataMaps {
     super.getOrElseUpdate(k)(v).map{_.asInstanceOf[T]}
   }
   def getT[T](k:K)(implicit ev:ClassTag[T]) = get(k).map { _.collect {case x:T => x} }
+  def get(v:V) = imap.get(v)
 }
 
 object readerCUsOf extends MOneToOneMap with MetadataMaps {

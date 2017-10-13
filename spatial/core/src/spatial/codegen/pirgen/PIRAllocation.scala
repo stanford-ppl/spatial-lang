@@ -500,9 +500,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
             case mem if isArgIn(mem) => InputArg(s"${mem.name.getOrElse(quote(dmem))}", dmem)
             case mem@Def(GetDRAMAddress(dram)) => DramAddress(s"${dram.name.getOrElse(quote(dmem))}", dram, mem)
             case mem if isArgOut(mem) => OutputArg(s"${quote(dmem)}_${quote(dwriter)}") 
-            case mem if isReg(mem) => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-            case mem if isFIFO(mem) & writerPar==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
-            case mem if isStream(mem) & writerPar==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
+            case mem if writerPar==1 => CUScalar(s"${quote(dmem)}_${quote(dwriter)}")
             case mem => CUVector(s"${quote(dmem)}_${quote(dwriter)}", writerPar)
           }
           val writerCU = getWriterCU(dwriter) 
@@ -625,9 +623,11 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def prescheduleRemoteMemWrite(mem: Expr, writer:Expr) = {
-    dbgblk(s"Allocating remote memory write: ${qdef(writer)}") {
-      val parBy1 = getInnerPar(writer)==1
+    dbgblk(s"prescheduleRemoteMemWrite($mem, ${qdef(writer)})") {
+      val writePar = getInnerPar(writer)
+      val parBy1 = writePar==1
       val writerCU = getWriterCU(writer)
+      dbgs(s"writePar=$writePar")
       //val addrCU = allocateCU(writer)
       val (addrBus, flatAddr) = allocateRemoteMemAddrCalc(mem, writer, /*addrCU*/writerCU)
 

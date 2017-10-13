@@ -430,18 +430,17 @@ package object pirgen {
     case Def(FringeSparseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
     case Def(FringeSparseStore(dram, cmdStream, _)) => getInnerPar(cmdStream)
     case Def(Switch(body, selects, cases)) => 1 // Outer Controller
-    case Def(SwitchCase(body)) if isOuterControl(n) => 1 
-    case Def(SwitchCase(body)) if isInnerControl(n) => getInnerPar(parentOf(parentOf(n).get).get) //TODO: fist this for nested if
+    case Def(SwitchCase(body)) => 1 
     case Def(d:StreamInNew[_]) => getInnerPar(readersOf(n).head.node)
     case Def(d:StreamOutNew[_]) => getInnerPar(writersOf(n).head.node)
-    case Def(d:ParSRAMStore[_]) => d.ens.size
-    case Def(d:ParSRAMLoad[_]) => d.ens.size
-    case Def(d:ParFIFOEnq[_]) => d.ens.size
-    case Def(d:ParFIFODeq[_]) => d.ens.size
-    case Def(d:ParStreamRead[_]) => d.ens.size
-    case Def(d:ParStreamWrite[_]) => d.ens.size
-    case Def(d:ParFILOPush[_]) => d.ens.size
-    case Def(d:ParFILOPop[_]) => d.ens.size
+    case Def(d:ParSRAMStore[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFIFOEnq[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFIFODeq[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParStreamRead[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParStreamWrite[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFILOPush[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFILOPop[_]) => getInnerPar(parentOf(n).get)
     case Def(_:SRAMLoad[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
@@ -472,16 +471,24 @@ package object pirgen {
           dbg(s"nIter: bounds: min=$min, max=$max, step=$step, p=$p")
 
           val nIters = Math.ceil((max - min)/step)
-          if (ignorePar)
-            nIters.toLong
-          else
-            Math.ceil(nIters/p).toLong
+          if (ignorePar) nIters.toLong else Math.ceil(nIters/p).toLong
 
         case Def(Forever()) => 0L
       }
       loopIters.fold(1L){_*_}
   }
 
+  def nIters(x:CUCounter, ignorePar:Boolean) = {
+    val CUCounter(ConstReg(start:Int), ConstReg(end:Int), ConstReg(stride:Int), par) = x
+    val iters = Math.ceil((end - start)/stride)
+    if (ignorePar) iters.toLong else Math.ceil(iters/par).toLong
+  }
+
+  @stateful def nIters(x:CChainInstance, ignorePar:Boolean): Long = {
+    mappingOf.get(x).fold {
+      x.counters.map(c => nIters(c, ignorePar)).product
+    } { exp => nIters(exp) }
+  }
 
   // Struct handling
   def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
