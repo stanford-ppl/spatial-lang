@@ -93,6 +93,36 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, rf, i)})) """)
       }
 
+    case ParRegFileLoad(rf, inds, ens) => //FIXME: Not correct for more than par=1
+      val dispatch = dispatchOf(lhs, rf).toList.head
+      val port = portsOf(lhs, rf, dispatch).toList.head
+      emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${ens.length}, ${newWire(lhs.tp.typeArguments.head)}))""")
+      ens.zipWithIndex.foreach { case (en, i) =>
+        val addr = inds(i).map{id => src"${id}.r"}.mkString(",") 
+        emit(src"""val ${lhs}_$i = Wire(${newWire(lhs.tp.typeArguments.head)})""")
+        emit(src"""${lhs}(${i}).r := ${rf}_${dispatch}.readValue(List(${addr}), $port)""")
+      }
+      // emit(s"""${quote(lhs)} := Vec(${(0 until ens.length).map{i => src"${lhs}_$i"}.mkString(",")})""")
+
+
+    case ParRegFileStore(rf, inds, data, ens) => //FIXME: Not correct for more than par=1
+      val width = bitWidth(rf.tp.typeArguments.head)
+      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
+      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)} && ${swap(parent, IIDone)}"""
+      emit(s"""// Assemble multidimW vector""")
+      emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${constDimsOf(rf)}), ${width})))""")
+      (0 until ens.length).foreach{ k => 
+        emit(src"""${swap(lhs, WVec)}($k).data := ${data(k)}.r""")
+        emit(src"""${swap(lhs, WVec)}($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)}, rr)""")
+        inds(k).zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${swap(lhs, WVec)}($k).addr($j) := ${ind}.r // Assume always an int""")
+        }
+        emit(src"""${swap(lhs, WVec)}($k).shiftEn := false.B""")
+      }
+      duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) => 
+        val p = portsOf(lhs, rf, i).mkString(",")
+        emit(src"""${rf}_$i.connectWPort(${swap(lhs, WVec)}, List(${p})) """)
+      }
 
     case RegFileShiftIn(rf,inds,d,data,en)    => 
       val width = bitWidth(rf.tp.typeArguments.head)

@@ -9,32 +9,34 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-sealed trait BooleanSignal
+sealed trait RemapSignal
 // "Standard" Signals
-object En extends BooleanSignal
-object Done extends BooleanSignal
-object BaseEn extends BooleanSignal
-object Mask extends BooleanSignal
-object Resetter extends BooleanSignal
-object DatapathEn extends BooleanSignal
-object CtrTrivial extends BooleanSignal
+object En extends RemapSignal
+object Done extends RemapSignal
+object BaseEn extends RemapSignal
+object Mask extends RemapSignal
+object Resetter extends RemapSignal
+object DatapathEn extends RemapSignal
+object CtrTrivial extends RemapSignal
 // A few non-canonical signals
-object IIDone extends BooleanSignal
-object RstEn extends BooleanSignal
-object CtrEn extends BooleanSignal
-object Ready extends BooleanSignal
-object Valid extends BooleanSignal
-object NowValid extends BooleanSignal
-object Inhibitor extends BooleanSignal
-object Wren extends BooleanSignal
-object Chain extends BooleanSignal
-object Blank extends BooleanSignal
-object DataOptions extends BooleanSignal
-object ValidOptions extends BooleanSignal
-object ReadyOptions extends BooleanSignal
-object RVec extends BooleanSignal
-object WVec extends BooleanSignal
-object Retime extends BooleanSignal
+object IIDone extends RemapSignal
+object RstEn extends RemapSignal
+object CtrEn extends RemapSignal
+object Ready extends RemapSignal
+object Valid extends RemapSignal
+object NowValid extends RemapSignal
+object Inhibitor extends RemapSignal
+object Wren extends RemapSignal
+object Chain extends RemapSignal
+object Blank extends RemapSignal
+object DataOptions extends RemapSignal
+object ValidOptions extends RemapSignal
+object ReadyOptions extends RemapSignal
+object EnOptions extends RemapSignal
+object RVec extends RemapSignal
+object WVec extends RemapSignal
+object Retime extends RemapSignal
+object SM extends RemapSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -66,7 +68,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     result
   }
 
-  def swap(lhs: Exp[_], s: BooleanSignal): String = {
+  def swap(lhs: Exp[_], s: RemapSignal): String = {
     s match {
       case En => wireMap(src"${lhs}_en")
       case Done => wireMap(src"${lhs}_done")
@@ -88,13 +90,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case DataOptions => wireMap(src"${lhs}_data_options")
       case ValidOptions => wireMap(src"${lhs}_valid_options")
       case ReadyOptions => wireMap(src"${lhs}_ready_options")
+      case EnOptions => wireMap(src"${lhs}_en_options")
       case RVec => wireMap(src"${lhs}_rVec")
       case WVec => wireMap(src"${lhs}_wVec")
       case Retime => wireMap(src"${lhs}_retime")
+      case SM => wireMap(src"${lhs}_sm")
     }
   }
 
-  def swap(lhs: => String, s: BooleanSignal): String = {
+  def swap(lhs: => String, s: RemapSignal): String = {
     s match {
       case En => wireMap(src"${lhs}_en")
       case Done => wireMap(src"${lhs}_done")
@@ -116,9 +120,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case DataOptions => wireMap(src"${lhs}_data_options")
       case ValidOptions => wireMap(src"${lhs}_valid_options")
       case ReadyOptions => wireMap(src"${lhs}_ready_options")
+      case EnOptions => wireMap(src"${lhs}_en_options")
       case RVec => wireMap(src"${lhs}_rVec")
       case WVec => wireMap(src"${lhs}_wVec")
       case Retime => wireMap(src"${lhs}_retime")
+      case SM => wireMap(src"${lhs}_sm")
     }
   }
 
@@ -260,7 +266,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
           val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${swap(lhs, Retime)}, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
           emit(src"${lhs}_inhibit.io.input.reset := $rster")
-          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
+          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${swap(lhs, SM)}.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         }        
       }
@@ -470,30 +476,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
             emit(s"      // ${handle}(${entry._2._2}) = ${entry._1}")
           }
         }
-        // emit("// ##############")
-        // emit("// # BOOL WIRES #")
-        // emit("// ##############")
-        // emit(src"""${boolMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-        // emit("// ##############")
-        // emit("// # UINT WIRES #")
-        // emit("// ##############")
-        // emit(src"""${uintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-        // emit("// ##############")
-        // emit("// # SINT WIRES #")
-        // emit("// ##############")
-        // emit(src"""${sintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-        // emit("// ################")
-        // emit("// # FIXS32_0 WIRES #")
-        // emit("// ################")
-        // emit(src"""${fixs32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-        // emit("// ################")
-        // emit("// # FIXU32_0 WIRES #")
-        // emit("// ################")
-        // emit(src"""${fixu32_0Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
-        // emit("// ###################")
-        // emit("// # FIXS10_22 WIRES #")
-        // emit("// ###################")
-        // emit(src"""${fixs10_22Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
 
       }
 
@@ -502,13 +484,26 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit("""// Set Build Info""")
       val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
       if (config.multifile == 5 || config.multifile == 6) {
+        pipeRtMap.groupBy(_._1._1).map{x => 
+          val listBuilder = x._2.toList.sortBy(_._1._2).map(_._2)
+          emit(src"val ${listHandle(x._1)}_rtmap = List(${listBuilder.mkString(",")})")
+        }
+        // TODO: Make the things below more efficient
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
-          if (wire != "_retime") {
+          if (wire == "_retime") {
+            emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")  
+          }
+        }
+        compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
+          if (wire == "_retime") {
+            // Pre-emitted
+            // emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")                        
+          } else if (wire.contains("pipe(") || wire.contains("inner(")) {
             val numel = compressorMap.filter(_._2._1 == wire).size
-            emit(src"val ${listHandle(wire)} = List.fill(${numel}){$wire}")            
+            emit(src"val ${listHandle(wire)} = List.tabulate(${numel}){i => ${wire.replace("))", src",retime=${listHandle(wire)}_rtmap(i)))")}}")
           } else {
-            // val retimes = compressorMap.filter(_._2._1 == wire).map(_._2._2).map{i => retimeMap(i)}.mkString(",")
-            emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")            
+            val numel = compressorMap.filter(_._2._1 == wire).size
+            emit(src"val ${listHandle(wire)} = List.fill(${numel}){${wire}}")            
           }
         }
       }

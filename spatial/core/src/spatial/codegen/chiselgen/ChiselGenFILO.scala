@@ -71,7 +71,6 @@ trait ChiselGenFILO extends ChiselGenSRAM {
 
     case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
-      // val enabler = if (loadCtrlOf(fifo).contains(writer)) src"${swap(writer, DatapathEn)}" else src"${writer}_sm.io.output.ctr_inc"
       val enabler = src"${swap(writer, DatapathEn)}"
       emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${swap(writer, En)} & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
 

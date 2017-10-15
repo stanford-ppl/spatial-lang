@@ -27,6 +27,7 @@ trait CommonMain {
     case "aws" => true
     case "aws-sim" => true
     case "zynq" => true
+    case "zcu" => true
     case "verilator" => true
     case "vcs" => true
     case "xsim" => true

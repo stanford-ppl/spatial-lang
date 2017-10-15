@@ -44,17 +44,17 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case ArgInNew(init)  => 
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
-      emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
-      emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
+      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
+      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${swap(lhs, EnOptions)}, ${swap(lhs, DataOptions)}) // ${lhs.name.getOrElse("")}""", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${swap(lhs, EnOptions)}.reduce{_|_}""", forceful=true)
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
-      emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
-      emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
+      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${swap(lhs, EnOptions)}, ${swap(lhs, DataOptions)}) // ${lhs.name.getOrElse("")}""", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${swap(lhs, EnOptions)}.reduce{_|_}""", forceful = true)
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case RegNew(init)    => 
@@ -194,17 +194,17 @@ trait ChiselGenReg extends ChiselGenSRAM {
               if (s) {
                 val pad = 64 - d - f
                 if (pad > 0) {
-                  emit(src"""${reg}_data_options(${lhs}_wId) := util.Cat(util.Fill($pad, ${v}.msb), ${v}.r)""")  
+                  emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := util.Cat(util.Fill($pad, ${v}.msb), ${v}.r)""")  
                 } else {
-                  emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+                  emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
                 }
               } else {
-                emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+                emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
               }
             case _ => 
-              emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+              emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
             }
-          emit(src"""${reg}_en_options(${lhs}_wId) := $en & Utils.getRetimed(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
+          emit(src"""${swap(reg, EnOptions)}(${lhs}_wId) := $en & Utils.getRetimed(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator

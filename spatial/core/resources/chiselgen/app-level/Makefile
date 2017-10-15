@@ -2,6 +2,7 @@ VERILATOR_SRC=cpp/verilator
 AWS_V_DIR=verilog-aws
 AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
+ZCU_V_DIR=verilog-zcu
 APPNAME=$(shell basename $(shell pwd))
 BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
@@ -21,6 +22,10 @@ help:
 	@echo "make aws-F1-sw   : Build Host for AWS F1"
 	@echo "make zynq        : Zynq SW + HW build"
 	@echo "make zynq-hw     : Build Chisel for Zynq"
+	@echo "make zynq-hw     : Build software for Zynq"
+	@echo "make zcu        : Zynq Ultrascale SW + HW build"
+	@echo "make zcu-hw     : Build Chisel for Zynq Ultrascale"
+	@echo "make zcu-hw     : Build software for Zynq Ultrascale"
 	@echo "make vcs         : VCS SW + HW build"
 	@echo "make vcs-hw      : Build Chisel for VCS"
 	@echo "make xsim         : XSIM SW + HW build"
@@ -231,6 +236,30 @@ zynq-clean:
 	make -C ${ZYNQ_V_DIR} clean
 	make -C cpp clean
 	rm -rf ${ZYNQ_V_DIR}
+	rm -f $(APPNAME).tar.gz ${BIGIP_SCRIPT}
+	rm -rf target
+
+zcu: zcu-hw zcu-sw
+
+zcu-sw:
+	cp zcu.mk cpp/Makefile
+	make -C cpp -j8
+	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
+
+zcu-hw:
+	sbt "run-main top.Instantiator --verilog --testArgs zcu"
+	mv ${BIGIP_SCRIPT} ${ZCU_V_DIR}/
+	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZCU_V_DIR}/Top.v
+	cp chisel/template-level/fringeZynq/build/* ${ZCU_V_DIR}
+	mv ${ZCU_V_DIR}/fsbl.elf._ ${ZCU_V_DIR}/fsbl.elf
+	mv ${ZCU_V_DIR}/u-boot.elf._ ${ZCU_V_DIR}/u-boot.elf
+	sed -i "s/^set TARGET .*/set TARGET ZCU102/g" ${ZCU_V_DIR}/settings.tcl
+	make -C ${ZCU_V_DIR}
+
+zcu-clean:
+	make -C ${ZCU_V_DIR} clean
+	make -C cpp clean
+	rm -rf ${ZCU_V_DIR}
 	rm -f $(APPNAME).tar.gz ${BIGIP_SCRIPT}
 	rm -rf target
 

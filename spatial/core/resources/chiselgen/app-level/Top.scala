@@ -158,7 +158,7 @@ class Top(
 	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v)) else List[StreamParInfo]())
 
   val numChannels = target match {
-    case "zynq"             => 4
+    case "zynq" | "zcu"     => 4
     case "aws" | "aws-sim"  => 1
     case _                  => 1
   }
@@ -174,6 +174,7 @@ class Top(
     case "aws"        => IO(new AWSInterface(topParams))
     case "aws-sim"    => IO(new AWSInterface(topParams))
     case "zynq"       => IO(new ZynqInterface(topParams))
+    case "zcu"        => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
@@ -302,7 +303,7 @@ class Top(
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
       accel.reset := reset.toBool
 
-    case "zynq" =>
+    case "zynq" | "zcu" =>
       // Zynq Fringe
       val topIO = io.asInstanceOf[ZynqInterface]
 
