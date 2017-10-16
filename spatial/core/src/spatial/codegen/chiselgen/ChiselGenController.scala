@@ -40,13 +40,15 @@ trait ChiselGenController extends ChiselGenCounter{
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
         val w = cchainWidth(counters(i))
-        if (suffix == "") emitGlobalWireMap(src"${is(0)}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
+        emitGlobalWireMap(src"${is(0)}${suffix}", src"Wire(new FixedPoint(true,$w,0))")
+        // if (suffix == "") emitGlobalWireMap(src"${is(0)}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
+        emit(src"${swap(src"${is(0)}${suffix}", Blank)}.raw := ${counters(i)}${suffix}(0).r")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
           val w = cchainWidth(counters(i))
-          if (suffix == "") emitGlobalWireMap(src"${iter}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
+          emitGlobalWireMap(src"${iter}${suffix}", src"Wire(new FixedPoint(true,$w,0))")
+          // if (suffix == "") emitGlobalWireMap(src"${iter}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
+          emit(src"${swap(src"${iter}${suffix}", Blank)}.raw := ${counters(i)}${suffix}($j).r")
         }
       }
     }
@@ -100,18 +102,18 @@ trait ChiselGenController extends ChiselGenCounter{
         // } else {
         //   emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
         // }
-        emit(src"${v}${suffix} := Mux(${counter_data(i)._3} >= 0.S, ${c}${suffix} < ${counter_data(i)._2}, ${c}${suffix} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
+        emit(src"${swap(src"${v}${suffix}", Blank)} := Mux(${counter_data(i)._3} >= 0.S, ${swap(src"${c}${suffix}", Blank)} < ${counter_data(i)._2}, ${swap(src"${c}${suffix}", Blank)} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
-          emitGlobalModuleMap(src"""${swap(src"${v}${suffix}", Chain)}""",src"""Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
-          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""${swap(src"${v}${suffix}_chain_read_$i", Blank)} := ${swap(src"${v}${suffix}", Chain)}.read(${i}) === 1.U(1.W)""")}
+          emitGlobalModuleMap(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}""",src"""Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
+          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}_chain_read_$i", Blank)} := ${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}.read(${i}) === 1.U(1.W)""")}
           withStream(getStream("BufferControlCxns")) {
             childrenOf(lhs).zipWithIndex.foreach{ case (s, i) =>
               emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
               emitGlobalWireMap(src"${s}_en", "Wire(Bool())")
-              emit(src"""${swap(src"${v}${suffix}", Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s,En)}, List($i))""")
+              emit(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s,En)}, List($i))""")
             }
           }
-          emit(src"""${swap(src"${v}${suffix}", Chain)}.chain_pass(${v}${suffix}, ${swap(lhs, SM)}.io.output.ctr_inc)""")
+          emit(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}.chain_pass(${swap(src"${v}${suffix}", Blank)}, ${swap(lhs, SM)}.io.output.ctr_inc)""")
         }
       }
     }
@@ -123,16 +125,9 @@ trait ChiselGenController extends ChiselGenCounter{
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
         // emitGlobalWire(s"//${validPassMap}")
-        if (suffix == "") {
-          emitGlobalModuleMap(src"${v}","Wire(Bool())")  
-          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
-            childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModuleMap(src"""${v}${suffix}_chain_read_$i""", "Wire(Bool())")}
-          }
-        } else {
-          emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
-          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
-            childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = Wire(Bool())""")}
-          }
+        emitGlobalModuleMap(src"${v}${suffix}","Wire(Bool())")  
+        if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
+          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModuleMap(src"""${v}${suffix}_chain_read_$i""", "Wire(Bool())")}
         }
       }
     }
@@ -327,7 +322,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   // Hacky way to avoid double-suffixing
                   if (!src"$my_en".contains(src"_copy${previousLevel}")) {  
-                    result = result.filter{a => !src"$a".contains(src"$my_en")} :+ src"${my_en}_copy${previousLevel}"
+                    result = result.filter{a => !src"$a".contains(src"$my_en")} :+ swap(src"${my_en}_copy${previousLevel}", Blank)
                   }
                 }
               }
@@ -810,7 +805,6 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       emitChildrenCxns(lhs, None, None)
       emitCopiedCChain(lhs)
-      // emit(s"//${validPassMap} and ${cchainPassMap} on $ens")
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()

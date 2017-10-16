@@ -132,9 +132,9 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     case b: Bound[_] =>
       if (streamCtrCopy.contains(b)) {
         if (validPassMap.contains((e, getCtrSuffix(controllerStack.head)) )) {
-          super.quote(e) + getCtrSuffix(controllerStack.head) +  getValidSuffix(controllerStack.head, validPassMap(e, getCtrSuffix(controllerStack.head)))
+          swap(super.quote(e) + getCtrSuffix(controllerStack.head) + getValidSuffix(controllerStack.head, validPassMap(e, getCtrSuffix(controllerStack.head))), Blank)
         } else {
-          super.quote(e) + getCtrSuffix(controllerStack.head)
+          swap(super.quote(e) + getCtrSuffix(controllerStack.head), Blank)
         }
       } else {
         if (validPassMap.contains((e, "") )) {

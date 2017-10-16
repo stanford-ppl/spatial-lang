@@ -37,6 +37,7 @@ object RVec extends RemapSignal
 object WVec extends RemapSignal
 object Retime extends RemapSignal
 object SM extends RemapSignal
+object Inhibit extends RemapSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -95,6 +96,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case WVec => wireMap(src"${lhs}_wVec")
       case Retime => wireMap(src"${lhs}_retime")
       case SM => wireMap(src"${lhs}_sm")
+      case Inhibit => wireMap(src"${lhs}_inhibit")
     }
   }
 
@@ -125,6 +127,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case WVec => wireMap(src"${lhs}_wVec")
       case Retime => wireMap(src"${lhs}_retime")
       case SM => wireMap(src"${lhs}_sm")
+      case Inhibit => wireMap(src"${lhs}_inhibit")
     }
   }
 
@@ -246,28 +249,28 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {
       emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())") // Used to be global module?
       if (fsm.isDefined) {
-          emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(~${fsm.get})")  
-          emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(1 + ${swap(lhs, Retime)}, rr)")
+          emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
+          emit(src"${swap(lhs, Inhibit)}.io.input.set := Utils.risingEdge(~${fsm.get})")  
+          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${swap(lhs, Done)}.D(1 + ${swap(lhs, Retime)}, rr)")
           /* or'ed  back in because of BasicCondFSM!! */
-          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| ${fsm.get}*/ // Really want inhibit to turn on at last enabled cycle")        
-          emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+          emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| ${fsm.get}*/ // Really want inhibit to turn on at last enabled cycle")        
+          emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
       } else if (switch.isDefined) {
         emit(src"${swap(lhs, Inhibitor)} := ${swap(switch.get, Inhibitor)}")
       } else {
         if (cchain.isDefined) {
-          emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
-          emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
-          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
-          emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(0, rr)")
-          emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+          emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
+          emit(src"${swap(lhs, Inhibit)}.io.input.set := ${cchain.get}.io.output.done")  
+          emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
+          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${swap(lhs, Done)}.D(0, rr)")
+          emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
         } else {
-          emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
+          emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
+          emit(src"${swap(lhs, Inhibit)}.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
           val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${swap(lhs, Retime)}, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
-          emit(src"${lhs}_inhibit.io.input.reset := $rster")
-          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${swap(lhs, SM)}.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
-          emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
+          emit(src"${swap(lhs, Inhibit)}.io.input.reset := $rster")
+          emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| Utils.delay(Utils.risingEdge(${swap(lhs, SM)}.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
+          emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
         }        
       }
     } else {
