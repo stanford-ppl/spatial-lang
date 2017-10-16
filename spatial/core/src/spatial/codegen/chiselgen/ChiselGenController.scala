@@ -321,7 +321,7 @@ trait ChiselGenController extends ChiselGenCounter{
               e.foreach{ their_en =>
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   // Hacky way to avoid double-suffixing
-                  if (!src"$my_en".contains(src"_copy${previousLevel}")) {  
+                  if (!src"$my_en".contains(src"_copy${previousLevel}") && !src"$my_en".contains("(") /* hack for remapping */) {  
                     result = result.filter{a => !src"$a".contains(src"$my_en")} :+ swap(src"${my_en}_copy${previousLevel}", Blank)
                   }
                 }
@@ -352,7 +352,6 @@ trait ChiselGenController extends ChiselGenCounter{
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
-      emit(s"//current map is ${compressorMap}")
       val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
