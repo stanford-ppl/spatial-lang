@@ -503,7 +503,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
             // emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")                        
           } else if (wire.contains("pipe(") || wire.contains("inner(")) {
             val numel = compressorMap.filter(_._2._1 == wire).size
-            emit(src"val ${listHandle(wire)} = List.tabulate(${numel}){i => ${wire.replace("))", src",retime=${listHandle(wire)}_rtmap(i)))")}}")
+            emit(src"val ${listHandle(wire)} = List.tabulate(${numel}){i => ${wire.replace("))", src",retime=${listHandle("_retime")}(${listHandle(wire)}_rtmap(i))))")}}")
           } else {
             val numel = compressorMap.filter(_._2._1 == wire).size
             emit(src"val ${listHandle(wire)} = List.fill(${numel}){${wire}}")            

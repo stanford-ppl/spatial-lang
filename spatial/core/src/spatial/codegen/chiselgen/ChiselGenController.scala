@@ -352,6 +352,7 @@ trait ChiselGenController extends ChiselGenCounter{
       // If we are inside a stream pipe, the following may be set
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
+      emit(s"//current map is ${compressorMap}")
       val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
