@@ -32,9 +32,15 @@ using namespace std;
 // See xsi.h header for more details on how Verilog values are stored as aVal/bVal pairs
 
 // constants 
+const s_xsi_vlog_logicval dummy1  = {0X00000000, 0X00000000};
 const s_xsi_vlog_logicval three_val  = {0X00000003, 0X00000000};
+const s_xsi_vlog_logicval dummy2  = {0X00000000, 0X00000000};
+const s_xsi_vlog_logicval eight_val  = {0X00000008, 0X00000000};
+const s_xsi_vlog_logicval dummy3  = {0X00000000, 0X00000000};
 const s_xsi_vlog_logicval two_val  = {0X00000002, 0X00000000};
+const s_xsi_vlog_logicval dummy4  = {0X00000000, 0X00000000};
 const s_xsi_vlog_logicval one_val  = {0X00000001, 0X00000000};
+const s_xsi_vlog_logicval dummy5  = {0X00000000, 0X00000000};
 const s_xsi_vlog_logicval zero_val = {0X00000000, 0X00000000};
 
 void append_logic_val_bit_to_string(std::string& retVal, int aVal, int bVal)
@@ -54,12 +60,6 @@ void append_logic_val_bit_to_string(std::string& retVal, int aVal, int bVal)
      }
 }
 
-// void steppy(Xsi::Loader Xsi_Instance, int clk)
-// {
-//   Xsi_Instance.put_value(clk, &one_val);
-//   Xsi_Instance.run(10);
-//   Xsi_Instance.put_value(clk, &zero_val);
-// }
 
 
 void append_logic_val_to_string(std::string& retVal, int aVal, int bVal, int max_bits)
@@ -107,6 +107,28 @@ std::string getcurrentdir()
     buf[sizeof(buf)-1] = 0;
     return buf;
 #endif
+}
+
+void step(Xsi::Loader& Xsi_Instance, int clk, int steps)
+{
+  for (int i = 0; i < steps; i++) {
+    Xsi_Instance.put_value(clk, &one_val);
+    Xsi_Instance.run(10);
+    Xsi_Instance.put_value(clk, &zero_val);
+    Xsi_Instance.run(10);
+  }
+}
+std::string get_done(Xsi::Loader& Xsi_Instance, int clk, int rdata, int raddr)
+{
+  s_xsi_vlog_logicval valraw;
+  Xsi_Instance.put_value(raddr, &one_val);
+  step(Xsi_Instance, clk, 1);
+  Xsi_Instance.get_value(rdata, &valraw);
+
+  std::string val = logic_val_to_string(&valraw, 8);
+  std::cout << val << std::endl;
+  std::string ret(1, val.back());
+  return ret;
 }
 
 int main(int argc, char **argv)
@@ -190,70 +212,65 @@ int main(int argc, char **argv)
           exit(1);
         }
 
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        Xsi_Instance.put_value(wen, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
         Xsi_Instance.put_value(reset, &one_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 5);
 
         Xsi_Instance.put_value(reset, &zero_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
         // Arg 2
         Xsi_Instance.put_value(waddr, &two_val);
-        Xsi_Instance.put_value(wdata, &one_val);
+        Xsi_Instance.put_value(wdata, &eight_val);
         Xsi_Instance.put_value(wen, &one_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
         Xsi_Instance.put_value(wen, &zero_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
         // Arg 1
         Xsi_Instance.put_value(waddr, &one_val);
         Xsi_Instance.put_value(wdata, &zero_val);
         Xsi_Instance.put_value(wen, &one_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
         Xsi_Instance.put_value(wen, &zero_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
         // Arg 0
         Xsi_Instance.put_value(waddr, &zero_val);
         Xsi_Instance.put_value(wdata, &one_val);
         Xsi_Instance.put_value(wen, &one_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
+        step(Xsi_Instance, clk, 1);
 
-        for (int i=0; i < 150; i++){
-          Xsi_Instance.put_value(wen, &zero_val);
-          Xsi_Instance.put_value(clk, &one_val);
-          Xsi_Instance.run(10);
-          Xsi_Instance.put_value(clk, &zero_val);          
+        Xsi_Instance.put_value(wen, &zero_val);
+
+
+        bool done = false;
+        int cycles = 0;
+        int TIMEOUT = 500;
+        while (!done) {
+          cycles++;
+          step(Xsi_Instance, clk, 10);
+          done = get_done(Xsi_Instance, clk, rdata, raddr) == "1";
+          std::cout << cycles << ": " << std::endl;
+          if (cycles > TIMEOUT) done = true;
         }
 
-        // Get val (ignore done)
-        Xsi_Instance.put_value(raddr, &three_val);
-        Xsi_Instance.put_value(clk, &one_val);
-        Xsi_Instance.run(10);
-        Xsi_Instance.put_value(clk, &zero_val);
-        Xsi_Instance.get_value(rdata, &count_val);
+        if (cycles > TIMEOUT) {
+          std::cout << "ERROR: Timeout (" << cycles << " cycles)" << std::endl;
+        }
+        std::cout << "Ran for " << cycles << " cycles." << std::endl;
 
-        std::string count_val_string = logic_val_to_string(&count_val, 4);
-        std::cout << count_val_string << std::endl;
+        Xsi_Instance.put_value(raddr, &three_val);
+        step(Xsi_Instance, clk, 3);
+        Xsi_Instance.get_value(rdata, &count_val);
+        step(Xsi_Instance, clk, 3);
+
+        std::string count_val_string = logic_val_to_string(&count_val, 8);
+        std::cout << rdata << "," << count_val_string << std::endl;
 
         
         // std::string count_val_string;
