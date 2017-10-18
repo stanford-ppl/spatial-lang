@@ -11,6 +11,8 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 
 !["what's running" is unavailable](https://github.com/mattfel1/Window/blob/master/window.png?raw=true "whatsrunning")
 
+[Zynq Synthesis Regression](https://docs.google.com/spreadsheets/d/1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE/edit#gid=0)
+
 ## Release Flow
 
 |            | Last Update | Templates + SBT | Scala Backend | Chisel Backend |
