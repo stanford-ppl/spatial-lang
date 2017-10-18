@@ -466,8 +466,8 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range.S(${w}.W) %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
               case _ => 
                 emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, 1)")
                 emit(src"val ${sym}${i}_jump = Utils.getRetimed(${step} *-* ${par}, 1)")
@@ -475,8 +475,8 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
             }
             // emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
             src"${swap(src"${sym}_level${i}_iters", Blank)}"
