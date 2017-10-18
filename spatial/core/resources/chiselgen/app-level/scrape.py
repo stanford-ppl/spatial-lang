@@ -27,7 +27,7 @@ sh = gc.open("Zynq Regression") # Open by name
 worksheet = sh.get_worksheet(0) # Select worksheet by index
 lol = worksheet.get_all_values()
 if (sys.argv[2] in lol[0]):
-	col=lol[0].index(sys.argv[2])
+	col=lol[0].index(sys.argv[2])+1
 else:
 	col=len(lol[0])+1
 	for x in range(0,5):

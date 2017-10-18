@@ -1,3 +1,9 @@
+ifndef XILINXD_LICENSE_FILE
+export XILINXD_LICENSE_FILE=7193@cadlic0.stanford.edu
+$(info set $$XILINXD_LICENSE_FILE to [${XILINXD_LICENSE_FILE}])
+endif
+
+
 all: accel.bit.bin
 
 pre-build-checks:
@@ -9,11 +15,9 @@ accel.bit.bin: accel.bit parClockFreq.sh
 	bash convert_bitstream accel.bit accel.bit.bin
 
 accel.bit: bd
-	export XILINXD_LICENSE_FILE=7193@cadlic0.stanford.edu
 	time vivado -mode batch -source vivado.tcl -tclargs ${CLOCK_FREQ_MHZ} 2>&1 | tee vivado_synthesis.log
 
 reports:
-	export XILINXD_LICENSE_FILE=7193@cadlic0.stanford.edu
 	time vivado -mode batch -source getReports.tcl -tclargs ${CLOCK_FREQ_MHZ} 2>&1 | tee vivado_reports.log
 
 bd: pre-build-checks design_1.v
@@ -21,7 +25,6 @@ bd: pre-build-checks design_1.v
 	sed -i 's/(\*/\/\/ (\*/' design_1.v
 
 design_1.v:
-	export XILINXD_LICENSE_FILE=7193@cadlic0.stanford.edu
 	time vivado -mode batch -source bdproject.tcl -tclargs ${CLOCK_FREQ_MHZ} 2>&1 | tee vivado_bdproject.log
 
 parClockFreq.sh:
