@@ -158,7 +158,7 @@ aws-F1-afi:   aws-F1-hw
 	# NOTE: The DEFAULT strategy will be used, see others here:
 	#       https://github.com/aws/aws-fpga/blob/master/hdk/common/shell_v04151701/new_cl_template/build/README.md
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
-	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 -uram_option 4
+	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 -uram_option 4 ${FOREGROUND}
 	# Use the following line instead for faster builds:
 	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2 
 	# ----------------------------------------------------------------------------
