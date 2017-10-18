@@ -445,7 +445,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range / ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range % ${sym}${i}_jump")
-                emit(src"val ${sym}${i}_evenfit = ${sym}${i}_leftover === 0")
+                emit(src"val ${sym}${i}_evenfit = ${sym}${i}_leftover == 0")
                 emit(src"val ${sym}${i}_adjustment = if (${sym}${i}_evenfit) 0 else 1")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := (${sym}${i}_hops + ${sym}${i}_adjustment).U(${32 min 2*w}.W)""")
