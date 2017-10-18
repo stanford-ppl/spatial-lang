@@ -813,6 +813,14 @@ object Utils {
       }
     }
   }
+
+  class PrintStackTraceException extends Exception
+  def printStackTrace = {
+    try { throw new PrintStackTraceException }
+    catch {
+      case ste: PrintStackTraceException => ste.printStackTrace
+    }
+  }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {
   //   a match {
   //     case aa: FixedPoint => Mux(aa > bb, a, b)
