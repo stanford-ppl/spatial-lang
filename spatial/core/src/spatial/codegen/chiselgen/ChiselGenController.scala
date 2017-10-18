@@ -456,8 +456,8 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump.FP(true, 32, 0)")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"val ${sym}${i}_range = ${e} - ${s}")
