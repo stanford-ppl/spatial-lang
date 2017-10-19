@@ -40,7 +40,8 @@ if (sys.argv[2] in lol[0]):
 	col=lol[0].index(sys.argv[2])+1
 else:
 	col=len(lol[0])+1
-	for x in range(0,5):
+	numsheets = len(sh.worksheets())
+	for x in range(0,numsheets):
 		worksheet = sh.get_worksheet(x)
 		worksheet.update_cell(1,col,sys.argv[2])		
 
