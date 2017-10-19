@@ -3,30 +3,36 @@
 #1 = Backend
 
 # get tid
-REGRESSION_HOME="/home/mattfel/regression/zynq"
+if [[ $1 = "Zynq" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/zynq"
+elif [[ $1 = "F1" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/f1"
+
 tid=`cat ${REGRESSION_HOME}/data/tid`
 
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
 	par_util=`pwd`/verilog-zynq/par_utilization.rpt
+	word="Slice"
 	f1=3
 	f2=6
 elif [[ $1 = "F1" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
+	word="CLB"
 	f1=4
 	f2=7
 fi
 
 if [[ -f ${par_util} ]]; then
-	lutraw=`cat $par_util | grep -m 1 "Slice LUTs" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
-	lutpcnt=`cat $par_util | grep -m 1 "Slice LUTs" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
-	regraw=`cat $par_util | grep -m 1 "Slice Registers" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
-	regpcnt=`cat $par_util | grep -m 1 "Slice Registers" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
+	lutraw=`cat $par_util | grep -m 1 "$word LUTs" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
+	lutpcnt=`cat $par_util | grep -m 1 "$word LUTs" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
+	regraw=`cat $par_util | grep -m 1 "$word Registers" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
+	regpcnt=`cat $par_util | grep -m 1 "$word Registers" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
 	ramraw=`cat $par_util | grep -m 1 "| Block RAM Tile" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
 	rampcnt=`cat $par_util | grep -m 1 "| Block RAM Tile" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
 	if [[ $1 = "F1" ]]; then		
-		uramraw=`cat $par_util | grep -m 1 "| Block RAM Tile" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
-		urampcnt=`cat $par_util | grep -m 1 "| Block RAM Tile" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
+		uramraw=`cat $par_util | grep -m 1 "URAM" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
+		urampcnt=`cat $par_util | grep -m 1 "URAM" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
 	else
 		uramraw="NA"
 		urampcnt="NA"
