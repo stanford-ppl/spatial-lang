@@ -54,7 +54,9 @@ else
 	lampcnt="NA"
 fi
 
-synthtime=0
+endtime=`cat \`pwd\`/end.log `
+starttime=`cat \`pwd\`/start.log `
+synthtime=$((endtime-starttime))
 
 python3 scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$1"
 

@@ -146,6 +146,7 @@ aws-F1-hw:
 
 # Build the bitstream
 aws-F1-afi:   aws-F1-hw
+	echo "$$(date +%s)" >> start.log
 	$(eval app_name=$(notdir $(shell pwd)))
 	# ----------------------------------------------------------------------------
 	# Step 1: Run synthesis
@@ -191,6 +192,7 @@ aws-F1-afi:   aws-F1-hw
 	# *** Place and Route is now running in the background.                             ***
 	# *** When it completes, follow instructions in create_spatial_AFI_instructions.txt ***
 	#
+	echo "$$(date +%s)" >> end.log
 
 aws-F1-sw:
 	$(eval app_name=$(notdir $(shell pwd)))
@@ -224,6 +226,7 @@ zynq-sw:
 	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
 zynq-hw:
+	echo "$$(date +%s)" > start.log
 	sbt "run-main top.Instantiator --verilog --testArgs zynq"
 	mv ${BIGIP_SCRIPT} ${ZYNQ_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
@@ -231,6 +234,7 @@ zynq-hw:
 	mv ${ZYNQ_V_DIR}/fsbl.elf._ ${ZYNQ_V_DIR}/fsbl.elf
 	mv ${ZYNQ_V_DIR}/u-boot.elf._ ${ZYNQ_V_DIR}/u-boot.elf
 	make -C ${ZYNQ_V_DIR}
+	echo "$$(date +%s)" > end.log
 
 zynq-clean:
 	make -C ${ZYNQ_V_DIR} clean
