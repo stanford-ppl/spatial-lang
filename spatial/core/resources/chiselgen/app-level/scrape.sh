@@ -7,6 +7,7 @@ if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/zynq"
 elif [[ $1 = "F1" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/f1"
+fi
 
 tid=`cat ${REGRESSION_HOME}/data/tid`
 
@@ -60,8 +61,8 @@ else
 	lampcnt="NA"
 fi
 
-endtime=`cat \`pwd\`/end.log `
-starttime=`cat \`pwd\`/start.log `
+endtime=`cat \`pwd\`/end.log`
+starttime=`cat \`pwd\`/start.log`
 synthtime=$((endtime-starttime))
 
 python3 scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$1"
