@@ -21,7 +21,7 @@ elif [[ $1 = "F1" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
 	word="CLB"
 	f1=4
-	f2=7
+	f2=8
 fi
 
 if [[ -f ${par_util} ]]; then
