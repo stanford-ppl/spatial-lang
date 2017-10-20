@@ -14,11 +14,13 @@ tid=`cat ${REGRESSION_HOME}/data/tid`
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
 	par_util=`pwd`/verilog-zynq/par_utilization.rpt
+	par_tmg=`pwd`/verilog-zynq/par_timing_usmmary.rpt
 	word="Slice"
 	f1=3
 	f2=6
 elif [[ $1 = "F1" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
+	par_tmg=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/timing_summary_route_design.rpt
 	word="CLB"
 	f1=4
 	f2=8
@@ -61,11 +63,19 @@ else
 	lampcnt="NA"
 fi
 
+if [[ -f ${par_tmg} ]]; then
+	cnt=`cat $par_tmg | grep -i violated | grep -v synth | wc -l`
+	if [ $viocnt != 0 ]; then tmg="0"; else tmg="1"; fi
+else
+	tmg="NA"
+fi
+
+
 endtime=`cat \`pwd\`/end.log`
 starttime=`cat \`pwd\`/start.log`
 synthtime=$((endtime-starttime))
 
-python3 scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$1"
+python3 scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$tmg" "$1"
 
 
 # Fake out scala Regression

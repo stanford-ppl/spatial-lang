@@ -13,7 +13,8 @@ import datetime
 #8 = lut as logic
 #9 = lut as mem
 #10 = synth time
-#11 = backend
+#11 = timing met?
+#12 = backend
 
 tid = sys.argv[1]
 
@@ -26,10 +27,10 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(json_key, scope)
 
 gc = gspread.authorize(credentials)
 
-if (sys.argv[11] == "Zynq"):
+if (sys.argv[12] == "Zynq"):
 	sh = gc.open("Zynq Regression") # Open by name
 	word="Slice"
-elif (sys.argv[11] == "F1"):
+elif (sys.argv[12] == "F1"):
 	sh = gc.open("AWS Regression") # Open by name
 	word="CLB"
 
@@ -64,7 +65,7 @@ worksheet.update_cell(tid,col,sys.argv[4])
 worksheet = sh.worksheet('BRAMs') # Select worksheet by index
 worksheet.update_cell(tid,col,sys.argv[5])
 
-if (sys.argv[11] == "F1"):
+if (sys.argv[12] == "F1"):
 	# Page 4 - URAM
 	worksheet = sh.worksheet('URAMs') # Select worksheet by index
 	worksheet.update_cell(tid,col,sys.argv[6])
@@ -84,4 +85,8 @@ worksheet.update_cell(tid,col,sys.argv[9])
 # Page 8 - Synth time
 worksheet = sh.worksheet('Synth Time') # Select worksheet by index
 worksheet.update_cell(tid,col,sys.argv[10])
+
+# Page 9 - Timing met
+worksheet = sh.worksheet('Timing Met') # Select worksheet by index
+worksheet.update_cell(tid,col,sys.argv[11])
 

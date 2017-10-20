@@ -6,6 +6,10 @@ ZCU_V_DIR=verilog-zcu
 APPNAME=$(shell basename $(shell pwd))
 BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
+ifndef CLOCK_FREQ_MHZ
+export CLOCK_FREQ_MHZ=125
+$(info set $$CLOCK_FREQ_MHZ to [${CLOCK_FREQ_MHZ}])
+endif
 
 all: help
 
@@ -146,6 +150,15 @@ aws-F1-hw:
 
 # Build the bitstream
 aws-F1-afi:   aws-F1-hw
+ifeq ($(CLOCK_FREQ_MHZ),125)
+	clk_recipe="A0"
+else ifeq ($(CLOCK_FREQ_MHZ),250)
+	clk_recipe="A1"
+else ifeq ($(CLOCK_FREQ_MHZ),5.625)
+	clk_recipe="A2"
+else
+	$(error Invalid CLOCK_FREQ_MHZ ${CLOCK_FREQ_MHZ})
+endif
 	echo "$$(date +%s)" >> start.log
 	$(eval app_name=$(notdir $(shell pwd)))
 	# ----------------------------------------------------------------------------
@@ -160,7 +173,8 @@ aws-F1-afi:   aws-F1-hw
 	#       https://github.com/aws/aws-fpga/blob/master/hdk/common/shell_v04151701/new_cl_template/build/README.md
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
 	ln -s ${AWS_HOME}/hdk/cl/examples/${app_name}/ aws_dir
-	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 -uram_option 4 ${FOREGROUND}
+	# NOTE: Clock recipes can be found here: https://github.com/aws/aws-fpga/blob/b4b9d74415a70f0470b02635604a34710cc1bb22/hdk/docs/clock_recipes.csv
+	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a ${clk_recipe} -uram_option 4 ${FOREGROUND}
 	# Use the following line instead for faster builds:
 	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2 
 	# ----------------------------------------------------------------------------
