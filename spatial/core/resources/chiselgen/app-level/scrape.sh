@@ -14,7 +14,7 @@ tid=`cat ${REGRESSION_HOME}/data/tid`
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
 	par_util=`pwd`/verilog-zynq/par_utilization.rpt
-	par_tmg=`pwd`/verilog-zynq/par_timing_usmmary.rpt
+	par_tmg=`pwd`/verilog-zynq/par_timing_summary.rpt
 	word="Slice"
 	f1=3
 	f2=6
@@ -64,8 +64,8 @@ else
 fi
 
 if [[ -f ${par_tmg} ]]; then
-	cnt=`cat $par_tmg | grep -i violated | grep -v synth | wc -l`
-	if [ $viocnt != 0 ]; then tmg="0"; else tmg="1"; fi
+	viocnt=`cat $par_tmg | grep -i violated | grep -v synth | wc -l`
+	if [[ $viocnt != "0" ]]; then tmg="0"; else tmg="1"; fi
 else
 	tmg="NA"
 fi
