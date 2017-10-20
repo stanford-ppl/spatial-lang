@@ -174,7 +174,7 @@ endif
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
 	ln -s ${AWS_HOME}/hdk/cl/examples/${app_name}/ aws_dir
 	# NOTE: Clock recipes can be found here: https://github.com/aws/aws-fpga/blob/b4b9d74415a70f0470b02635604a34710cc1bb22/hdk/docs/clock_recipes.csv
-	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a ${clk_recipe} -uram_option 4 ${FOREGROUND}
+	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a $(clk_recipe) -uram_option 4 ${FOREGROUND}
 	# Use the following line instead for faster builds:
 	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2 
 	# ----------------------------------------------------------------------------
