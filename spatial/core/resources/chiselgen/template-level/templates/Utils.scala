@@ -196,7 +196,7 @@ object ops {
       } else {
        Utils.target match {
          case AWS_F1 => b/c // Raghu's box
-         case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
+         case Zynq => FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
          case DE1 => b/c // Raghu's box
         case de1soc => b/c // Raghu's box
          case Default => b/c
@@ -525,7 +525,7 @@ object Utils {
   var target: DeviceTarget = Default
 
   var fixmul_latency = 6
-  var fixdiv_latency = 16
+  var fixdiv_latency = 20
   var fixadd_latency = 1
   var fixsub_latency = 1
   var fixmod_latency = 16

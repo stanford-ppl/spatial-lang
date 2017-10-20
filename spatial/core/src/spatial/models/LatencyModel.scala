@@ -220,7 +220,7 @@ trait LatencyModel {
     case FixAdd(_,_) => 1
     case FixSub(_,_) => 1
     case FixMul(_,_) => 6  // TODO
-    case FixDiv(_,_) => 16 // TODO
+    case FixDiv(_,_) => 20 // TODO
     case FixMod(_,_) => 16
     case FixLt(_,_)  => 1
     case FixLeq(_,_) => 1
