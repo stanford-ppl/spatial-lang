@@ -10,6 +10,7 @@ import org.virtualized.SourceContext
 
 trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
   override val name = "PIR Hacky Latency Analyzer"
+  val FILE_NAME = "HackyLatency.csv"
 
   override lazy val latencyModel = new PlasticineLatencyModel{}
 

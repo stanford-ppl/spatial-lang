@@ -11,9 +11,10 @@ import altera.TileLoadModel // TODO: Should use Zynq model
 
 class ZynqLatencyModel extends LatencyModel {
 
+  val FILE_NAME = "ZynqLatency.csv"
   lazy val memModel = new TileLoadModel
 
-  override def init(): Unit = {
+  @stateful override def init(): Unit = {
     memModel.init()
   }
 
