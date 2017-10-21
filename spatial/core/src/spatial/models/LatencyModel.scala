@@ -82,7 +82,7 @@ trait LatencyModel {
     file.map{lines =>
       val headings = lines.next().split(",").map(_.trim)
       val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
-      val indices  = headings.zipWithIndex.filter{case (head,i) => Console.println(s"head of $head");LFIELDS.contains(head) }.map(_._2)
+      val indices  = headings.zipWithIndex.filter{case (head,i) => LFIELDS.contains(head) }.map(_._2)
       val fields   = indices.map{i => headings(i) }
       val missing = LFIELDS diff fields
       if (missing.nonEmpty) {
