@@ -82,7 +82,7 @@ trait LatencyModel {
     file.map{lines =>
       val headings = lines.next().split(",").map(_.trim)
       val nParams  = headings.lastIndexWhere(_.startsWith("Param")) + 1
-      val indices  = headings.zipWithIndex.filter{case (head,i) => LFIELDS.contains(head) }.map(_._2)
+      val indices  = headings.zipWithIndex.filter{case (head,i) => Console.println(s"head of $head");LFIELDS.contains(head) }.map(_._2)
       val fields   = indices.map{i => headings(i) }
       val missing = LFIELDS diff fields
       if (missing.nonEmpty) {
@@ -146,8 +146,8 @@ trait LatencyModel {
   }
 
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
-    case _:SRAMLoad[_]     => model("SRAMLoad")("syncMem" -> {if (spatialConfig.enableSyncMem) 1 else 0})("RequiresInReduce") > 0
-    case _:ParSRAMLoad[_]  => model("ParSRAMLoad")("syncMem" -> {if (spatialConfig.enableSyncMem) 1 else 0})("RequiresInReduce") > 0
+    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("SRAMLoad")()("RequiresInReduce") > 0
+    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("ParSRAMLoad")()("RequiresInReduce") > 0
     case FixMul(_,_) => model("FixMul")()("RequiresInReduce") > 0
     case d => latencyOfNodeInReduce(s,d) > 0
   }
@@ -164,8 +164,8 @@ trait LatencyModel {
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => model("SRAMLoad")("syncMem" -> {if (spatialConfig.enableSyncMem) 1 else 0})("RequiresRegs") > 0
-    case _:ParSRAMLoad[_]  => model("ParSRAMLoad")("syncMem" -> {if (spatialConfig.enableSyncMem) 1 else 0})("RequiresRegs") > 0
+    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresRegs") > 0 else model("SRAMLoad")()("RequiresRegs") > 0
+    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresRegs") > 0 else model("ParSRAMLoad")()("RequiresRegs") > 0
 
     // LineBuffer
     case _:LineBufferLoad[_]    => model("LineBufferLoad")()("RequiresRegs") > 0
@@ -262,8 +262,8 @@ trait LatencyModel {
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => model("SRAMLoad")()("LatencyOf").toLong
-    case _:ParSRAMLoad[_]  => model("ParSRAMLoad")()("LatencyOf").toLong
+    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("LatencyOf").toLong else model("SRAMLoad")()("LatencyOf").toLong
+    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("LatencyOf").toLong else model("ParSRAMLoad")()("LatencyOf").toLong
     case _:SRAMStore[_]    => model("SRAMStore")()("LatencyOf").toLong
     case _:ParSRAMStore[_] => model("ParSRAMStore")()("LatencyOf").toLong
 
