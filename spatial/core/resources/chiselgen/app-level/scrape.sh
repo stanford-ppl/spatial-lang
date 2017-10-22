@@ -4,9 +4,9 @@
 
 # get tid
 if [[ $1 = "Zynq" ]]; then
-	REGRESSION_HOME="/home/mattfel/regression/zynq"
-elif [[ $1 = "F1" ]]; then
-	REGRESSION_HOME="/home/mattfel/regression/f1"
+	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
+elif [[ $1 = "AWS" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/aws"
 fi
 
 tid=`cat ${REGRESSION_HOME}/data/tid`
@@ -18,7 +18,7 @@ if [[ $1 = "Zynq" ]]; then
 	word="Slice"
 	f1=3
 	f2=6
-elif [[ $1 = "F1" ]]; then
+elif [[ $1 = "AWS" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
 	par_tmg=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/timing_summary_route_design.rpt
 	word="CLB"
@@ -33,7 +33,7 @@ if [[ -f ${par_util} ]]; then
 	regpcnt=`cat $par_util | grep -m 1 "$word Registers" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
 	ramraw=`cat $par_util | grep -m 1 "| Block RAM Tile" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
 	rampcnt=`cat $par_util | grep -m 1 "| Block RAM Tile" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
-	if [[ $1 = "F1" ]]; then		
+	if [[ $1 = "AWS" ]]; then		
 		uramraw=`cat $par_util | grep -m 1 "URAM" | awk -v f=$f1 -F'|' '{print $f}' | sed "s/ //g"`
 		urampcnt=`cat $par_util | grep -m 1 "URAM" | awk -v f=$f2 -F'|' '{print $f}' | sed "s/ //g"`
 	else
