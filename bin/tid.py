@@ -46,11 +46,12 @@ lasttime=lol[-1][ttcol]
 
 if (lasthash != sys.argv[1] or lastapphash != sys.argv[2]):
 	link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
+	alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 	numsheets = len(sh.worksheets())
 	for x in range(0,numsheets):
 		worksheet = sh.get_worksheet(x) # Select worksheet by index
 		worksheet.update_cell(id,1, link)
-		worksheet.update_cell(id,2, sys.argv[2])
+		worksheet.update_cell(id,2, alink)
 		worksheet.update_cell(id,3, t)
 		worksheet.update_cell(id,4, freq + ' MHz')
 	sys.stdout.write(str(id))
@@ -61,11 +62,12 @@ else:
 	# Do new test anyway if results are over 24h old
 	if (tdelta.seconds > 86400):
 		link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
+		alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 		numsheets = len(sh.worksheets())
 		for x in range(0,numsheets):
 			worksheet = sh.get_worksheet(x) # Select worksheet by index
 			worksheet.update_cell(id,1, link)
-			worksheet.update_cell(id,2, sys.argv[2])
+			worksheet.update_cell(id,2, alink)
 			worksheet.update_cell(id,3, t)
 			worksheet.update_cell(id,4, freq + ' MHz')
 		sys.stdout.write(str(id))
