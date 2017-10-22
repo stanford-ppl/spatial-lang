@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# This script sits in /home/mattfel/regression/synth
-
 #1 = backend
 
 export LANG=en_US.UTF-8
@@ -27,19 +25,23 @@ export REGRESSION_HOME="/home/mattfel/regression/synth/$1"
 export SPATIAL_HOME=${REGRESSION_HOME}/spatial/spatial-lang
 
 rm ${REGRESSION_HOME}/protocol/done
+rm -rf ${REGRESSION_HOME}/next-spatial/
 mkdir ${REGRESSION_HOME}/next-spatial
 cd ${REGRESSION_HOME}/next-spatial
 git clone git@github.com:stanford-ppl/spatial-lang
 cd spatial-lang
 git submodule update --init
+cd apps
+git checkout regression_$1
+export apphash=`git rev-parse HEAD`
+cd ../
 export hash=`git rev-parse HEAD`
 export timestamp=`git show -s --format=%ci`
 echo $hash > ${REGRESSION_HOME}/data/hash
+echo $apphash > ${REGRESSION_HOME}/data/apphash
 echo $timestamp > ${REGRESSION_HOME}/data/timestamp
 
 # Run tests
-cd ${REGRESSION_HOME}/next-spatial/spatial-lang
 bash bin/synth_regression.sh $1
 
-# Kickstart next test
 touch ${REGRESSION_HOME}/protocol/done

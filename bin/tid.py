@@ -9,6 +9,8 @@ import time
 
 # arg 1 = hash
 # arg 2 = timestamp
+# arg 3 = apphash
+# arg 4 = backend
 
 
 json_key = '/home/mattfel/regression/synth/key.json'
@@ -20,9 +22,9 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(json_key, scope)
 
 gc = gspread.authorize(credentials)
 
-if (sys.argv[3] == "Zynq"):
+if (sys.argv[4] == "Zynq"):
 	sh = gc.open("Zynq Regression") # Open by name
-elif (sys.argv[3] == "AWS"):
+elif (sys.argv[4] == "AWS"):
 	sh = gc.open("AWS Regression") # Open by name
 
 t=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -33,13 +35,16 @@ id = len(lol) + 1
 freq = os.environ['CLOCK_FREQ_MHZ']
 if ("hash" in lol[1]):
 	hcol=lol[1].index("hash")
+if ("app hash" in lol[1]):
+	acol=lol[1].index("app hash")
 if ("test timestamp" in lol[1]):
 	ttcol=lol[1].index("test timestamp")
 
 lasthash=lol[-1][hcol]
+lastapphash=lol[-1][acol]
 lasttime=lol[-1][ttcol]
 
-if (lasthash != sys.argv[1]):
+if (lasthash != sys.argv[1] or lastapphash != sys.argv[2]):
 	link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
 	numsheets = len(sh.worksheets())
 	for x in range(0,numsheets):
@@ -67,7 +72,7 @@ else:
 	else:
 		worksheet = sh.worksheet("STATUS")
 		st=(len(worksheet.get_all_values()) % 20) + 1
-		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' because hashes (' + sys.argv[1] + ') match and only ' + str(float(tdelta.seconds) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
+		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' because hashes (' + sys.argv[1] + ' and ' + sys.argv[2] + ') match and only ' + str(float(tdelta.seconds) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
 		worksheet.update_cell(st+1,1, '')
 		sys.stdout.write("-1")
 
