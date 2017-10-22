@@ -11,7 +11,9 @@ export XILINX_VIVADO=/opt/Xilinx/Vivado/2017.1
 export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:$PATH
 export FOREGROUND="-foreground"
 #cd /home/mattfel/aws-fpga/
-source /home/mattfel/aws-fpga/hdk_setup.sh
+if [[ $1 = "aws" ]]; then
+	source /home/mattfel/aws-fpga/hdk_setup.sh
+fi
 export LD_LIBRARY_PATH=${XILINX_VIVADO}/lib/lnx64.o:${LD_LIBRARY_PATH}
 export AWS_HOME=/home/mattfel/aws-fpga
 export AWS_CONFIG_FILE=/home/mattfel/aws-fpga/hdk/cl/examples/rootkey.csv
