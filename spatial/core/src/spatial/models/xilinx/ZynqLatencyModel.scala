@@ -15,6 +15,7 @@ class ZynqLatencyModel extends LatencyModel {
   lazy val memModel = new TileLoadModel
 
   @stateful override def init(): Unit = {
+    super.init()
     memModel.init()
   }
 
