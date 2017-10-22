@@ -2,8 +2,10 @@ package spatial
 
 package object models {
   type Area = AreaMap[Double]
+  type Latency = LatencyMap[Double]
   type NodeModel = Either[LinearModel,Double]
   type Model = AreaMap[NodeModel]
+  type LModel = LatencyMap[NodeModel]
 
   implicit class NodeModelOps(x: NodeModel) {
     def eval(args: (String,Double)*): Double = x match {
@@ -14,6 +16,11 @@ package object models {
   implicit class ModelOps(x: Model) {
     implicit val dbl: AreaConfig[Double] = x.config.copy(default = 0.0)
     def eval(args: (String,Double)*): Area = x.map{model => model.eval(args:_*) }
+  }
+
+  implicit class LModelOps(x: LModel) {
+    implicit val dbl: LatencyConfig[Double] = x.config.copy(default = 0.0)
+    def eval(args: (String,Double)*): Latency = x.map{model => model.eval(args:_*) }
   }
 
   implicit class SeqAreaOps[T](areas: Seq[AreaMap[T]]) {

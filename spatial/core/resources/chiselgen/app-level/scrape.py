@@ -18,7 +18,7 @@ import datetime
 
 tid = sys.argv[1]
 
-json_key = '/home/mattfel/regression/zynq/key.json'
+json_key = '/home/mattfel/regression/synth/key.json'
 scope = [
     'https://spreadsheets.google.com/feeds',
     'https://www.googleapis.com/auth/drive'
@@ -30,7 +30,7 @@ gc = gspread.authorize(credentials)
 if (sys.argv[12] == "Zynq"):
 	sh = gc.open("Zynq Regression") # Open by name
 	word="Slice"
-elif (sys.argv[12] == "F1"):
+elif (sys.argv[12] == "AWS"):
 	sh = gc.open("AWS Regression") # Open by name
 	word="CLB"
 
@@ -65,7 +65,7 @@ worksheet.update_cell(tid,col,sys.argv[4])
 worksheet = sh.worksheet('BRAMs') # Select worksheet by index
 worksheet.update_cell(tid,col,sys.argv[5])
 
-if (sys.argv[12] == "F1"):
+if (sys.argv[12] == "AWS"):
 	# Page 4 - URAM
 	worksheet = sh.worksheet('URAMs') # Select worksheet by index
 	worksheet.update_cell(tid,col,sys.argv[6])

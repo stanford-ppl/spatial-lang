@@ -522,8 +522,8 @@ object Utils {
 
   var regression_testing = scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0")
 
+  // These properties should be set inside IOModule
   var target: DeviceTarget = Default
-
   var fixmul_latency = 6
   var fixdiv_latency = 20
   var fixadd_latency = 1

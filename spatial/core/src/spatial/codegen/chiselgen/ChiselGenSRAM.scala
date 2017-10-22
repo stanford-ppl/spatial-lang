@@ -516,6 +516,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
       // emit(src"val fs32_0 = List.fill(${fixs32_0Map.size}){Wire(new FixedPoint(true, 32, 0))}")
       // emit(src"val fu32_0 = List.fill(${fixu32_0Map.size}){Wire(new FixedPoint(false, 32, 0))}")
       // emit(src"val fs10_22 = List.fill(${fixs10_22Map.size}){Wire(new FixedPoint(true, 10, 22))}")
+
+      emit(s"Utils.fixmul_latency = ${spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt}")
+      emit(s"Utils.fixdiv_latency = ${spatialConfig.target.latencyModel.model("FixDiv")()("LatencyOf").toInt}")
+      emit(s"Utils.fixadd_latency = ${spatialConfig.target.latencyModel.model("FixAdd")()("LatencyOf").toInt}")
+      emit(s"Utils.fixsub_latency = ${spatialConfig.target.latencyModel.model("FixSub")()("LatencyOf").toInt}")
+      emit(s"Utils.fixmod_latency = ${spatialConfig.target.latencyModel.model("FixMod")()("LatencyOf").toInt}")
+      emit(s"Utils.fixeql_latency = ${spatialConfig.target.latencyModel.model("FixEql")()("LatencyOf").toInt}")
+      emit(s"Utils.mux_latency = ${spatialConfig.target.latencyModel.model("Mux")()("LatencyOf").toInt}")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
     }

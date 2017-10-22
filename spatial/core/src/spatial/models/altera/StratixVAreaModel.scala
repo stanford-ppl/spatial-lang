@@ -10,6 +10,7 @@ class StratixVAreaModel extends AlteraAreaModel {
   private val areaFile = "StratixV-Routing.csv"
   private val keys = Seq("LUT3", "LUT4", "LUT5", "LUT6", "LUT7", "MEM16", "MEM32", "MEM64",	"Regs", "DSPs",	"BRAM")
 
+
   private def bramWordDepth(width: Int): Int = {
     if      (width == 1) 16384
     else if (width == 2) 8192
