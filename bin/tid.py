@@ -73,7 +73,11 @@ else:
 		sys.stdout.write(str(id))
 	else:
 		worksheet = sh.worksheet("STATUS")
-		st=(len(worksheet.get_all_values()) % 20) + 1
+		st=len(worksheet.get_all_values()) + 1
+		if (st == 20):
+			for x in range(1, 21):
+				worksheet.update_cell(x,1, '')
+			st=1
 		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' because hashes (' + sys.argv[1] + ' and ' + sys.argv[2] + ') match and only ' + str(float(tdelta.seconds) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
 		worksheet.update_cell(st+1,1, '')
 		sys.stdout.write("-1")

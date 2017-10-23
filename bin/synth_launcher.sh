@@ -11,8 +11,10 @@ export XILINX_VIVADO=/opt/Xilinx/Vivado/2017.1
 export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:$PATH
 export FOREGROUND="-foreground"
 #cd /home/mattfel/aws-fpga/
-if [[ $1 = "aws" ]]; then
-	source /home/mattfel/aws-fpga/hdk_setup.sh
+inputarg=$1
+if [[ $inputarg = "aws" ]]; then
+	set -- "${@:2}" # unset the damn args
+	source /home/mattfel/aws-fpga/hdk_setup.sh 
 fi
 export LD_LIBRARY_PATH=${XILINX_VIVADO}/lib/lnx64.o:${LD_LIBRARY_PATH}
 export AWS_HOME=/home/mattfel/aws-fpga
@@ -22,7 +24,7 @@ export RPT_HOME=/home/mattfel/aws-fpga/hdk/cl/examples
 this_machine=`hostname`
 export SBT_OPTS="-Xmx64G -Xss1G"
 export _JAVA_OPTIONS="-Xmx32g -Xss8912k -Xms16g"
-export REGRESSION_HOME="/home/mattfel/regression/synth/$1"
+export REGRESSION_HOME="/home/mattfel/regression/synth/$inputarg"
 
 export SPATIAL_HOME=${REGRESSION_HOME}/spatial/spatial-lang
 
@@ -34,7 +36,7 @@ git clone git@github.com:stanford-ppl/spatial-lang
 cd spatial-lang
 git submodule update --init
 cd apps
-git checkout regression_$1
+git checkout regression_$inputarg
 export apphash=`git rev-parse HEAD`
 cd ../
 export hash=`git rev-parse HEAD`
@@ -44,6 +46,7 @@ echo $apphash > ${REGRESSION_HOME}/data/apphash
 echo $timestamp > ${REGRESSION_HOME}/data/timestamp
 
 # Run tests
-bash bin/synth_regression.sh $1
+echo "Runnign synth_regression with $inputarg"
+bash bin/synth_regression.sh $inputarg
 
 touch ${REGRESSION_HOME}/protocol/done
