@@ -46,6 +46,7 @@ echo $apphash > ${REGRESSION_HOME}/data/apphash
 echo $timestamp > ${REGRESSION_HOME}/data/timestamp
 
 # Run tests
+echo "Runnign synth_regression with $inputarg"
 bash bin/synth_regression.sh $inputarg
 
 touch ${REGRESSION_HOME}/protocol/done

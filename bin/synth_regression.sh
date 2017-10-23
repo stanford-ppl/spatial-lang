@@ -20,6 +20,7 @@ if [[ $tid = "-1" ]]; then
 	sleep 3600 # Wait an hour
 	rm -rf ${REGRESSION_HOME}/next-spatial
 else 
+	cd ${REGRESSION_HOME}
 	rm -rf ${REGRESSION_HOME}/spatial
 	mv ${REGRESSION_HOME}/next-spatial ${REGRESSION_HOME}/spatial
 
@@ -31,4 +32,3 @@ else
 		bin/regression 4 nobranch AWS Dense Sparse
 	fi
 fi
-
