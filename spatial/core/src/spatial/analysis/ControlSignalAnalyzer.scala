@@ -324,6 +324,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
       if (isStreamLoad(lhs)) addStreamLoadMem(lhs)
+      if (isTileTransfer(lhs)) addTileTransferCtrl(lhs)
       if (isParEnq(lhs)) addParEnq(lhs)
       if (isStreamStageEnabler(lhs)) addStreamDeq(lhs, parent.node)
       if (isStreamStageHolder(lhs)) addStreamEnq(lhs, parent.node)
