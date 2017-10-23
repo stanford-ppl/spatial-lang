@@ -14,7 +14,6 @@ elif [[ $1 = "aws" ]]; then
 	echo $tid > ${REGRESSION_HOME}/data/tid
 fi
 
-cd ${REGRESSION_HOME}
 # Current hash matches previous hash, skip test
 if [[ $tid = "-1" ]]; then
 	sleep 3600 # Wait an hour
@@ -24,6 +23,7 @@ else
 	rm -rf ${REGRESSION_HOME}/spatial
 	mv ${REGRESSION_HOME}/next-spatial ${REGRESSION_HOME}/spatial
 
+	echo "Moving to ${REGRESSION_HOME}/spatial/spatial-lang"
 	cd ${REGRESSION_HOME}/spatial/spatial-lang
 
 	if [[ $1 = "zynq" ]]; then
