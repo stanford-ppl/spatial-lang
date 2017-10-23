@@ -49,6 +49,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
       // Get parallelization of datastream
+      emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = readersOf(dataStream).head.node match {
         case Def(e@ParStreamRead(strm, ens)) => ens.length
         case _ => 1
@@ -81,6 +82,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>
       // Get parallelization of datastream
+      emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = readersOf(dataStream).head.node match {
         case Def(e@ParStreamRead(strm, ens)) => ens.length
         case _ => 1
@@ -106,6 +108,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       // Get parallelization of datastream
+      emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = writersOf(dataStream).head.node match {
         case Def(e@ParStreamWrite(_, _, ens)) => ens.length
         case _ => 1
@@ -137,6 +140,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     case FringeSparseStore(dram,cmdStream,ackStream) =>
       // Get parallelization of datastream
+      emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = writersOf(cmdStream).head.node match {
         case Def(e@ParStreamWrite(_, _, ens)) => ens.length
         case _ => 1

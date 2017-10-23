@@ -45,8 +45,8 @@ lastapphash=lol[-1][acol]
 lasttime=lol[-1][ttcol]
 
 if (lasthash != sys.argv[1] or lastapphash != sys.argv[2]):
-	link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
-	alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
+	link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/tree/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
+	alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-apps/tree/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 	numsheets = len(sh.worksheets())
 	for x in range(0,numsheets):
 		worksheet = sh.get_worksheet(x) # Select worksheet by index
@@ -61,8 +61,8 @@ else:
 	tdelta = datetime.strptime(t, FMT) - datetime.strptime(lasttime, FMT)
 	# Do new test anyway if results are over 24h old
 	if (tdelta.seconds > 86400):
-		link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
-		alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/treep/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
+		link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/tree/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
+		alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-apps/tree/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 		numsheets = len(sh.worksheets())
 		for x in range(0,numsheets):
 			worksheet = sh.get_worksheet(x) # Select worksheet by index

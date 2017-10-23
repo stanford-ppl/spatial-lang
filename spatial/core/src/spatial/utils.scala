@@ -725,6 +725,14 @@ object utils {
 
   @stateful def isStreamLoad(e: Exp[_]): Boolean = getDef(e).exists(_.isInstanceOf[FringeDenseLoad[_]])
 
+  @stateful def isTileTransfer(e: Exp[_]): Boolean = e match {
+    case Def(_:FringeDenseLoad[_]) => true
+    case Def(_:FringeDenseStore[_]) => true
+    case Def(_:FringeSparseLoad[_]) => true
+    case Def(_:FringeSparseStore[_]) => true
+    case _ => false
+  }
+
   @stateful def isParEnq(e: Exp[_]): Boolean = e match {
     case Def(_:ParFIFOEnq[_]) => true
     case Def(_:ParFILOPush[_]) => true
