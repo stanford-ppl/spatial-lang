@@ -76,7 +76,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         */
         val col_banks = mem match { case BankedMemory(dims, depth, isAccum) => dims.last.banks; case _ => 1 }
         // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
-        val empty_stages_to_buffer = bufferControlInfo(lhs, i).length - 1
+        val empty_stages_to_buffer = {bufferControlInfo(lhs, i).length - 1} max 1 // TODO: min 1 in case lca is sequential
         val row_rPar = mem match { case BankedMemory(dims, depth, isAccum) => dims.head.banks; case _ => 1 } // Could be wrong
         val accessors = bufferControlInfo(lhs, 0).length
         val row_wPar = 1 // TODO: Do correct analysis here!

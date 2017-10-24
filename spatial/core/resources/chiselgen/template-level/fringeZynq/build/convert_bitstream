@@ -16,13 +16,13 @@ generate_bif_file()
   BIF_FILE=BOOT.bif
   echo "the_ROM_image:"              > ${BIF_FILE}
   echo "{"                          >> ${BIF_FILE}
-	echo "	[bootloader]${FSBL_PATH}" >> ${BIF_FILE}
-	echo "	${BITFILE_PATH}"          >> ${BIF_FILE}
-  echo "	${U_BOOT_PATH}"           >> ${BIF_FILE}
+  echo "  [bootloader]${FSBL_PATH}" >> ${BIF_FILE}
+  echo "  ${BITFILE_PATH}"          >> ${BIF_FILE}
+  echo "  ${U_BOOT_PATH}"           >> ${BIF_FILE}
   echo "}"                          >> ${BIF_FILE}
 }
 
-if [ $# -ne 2 ]; then
+if [ $# -lt 2 ]; then
   echo "Usage: $0 <in_bitfile> <out_bitfile_path>"
   exit -1
 fi
@@ -49,15 +49,24 @@ echo "Building BOOT.bif"
 generate_bif_file ${IN_BITFILE_PATH}
 
 ## 2. Lame step 1 - Build BOOT.BIN image using Xilinx's bootgen.
-echo "Building BOOT.BIN" 
-bootgen -image BOOT.bif -o i BOOT.BIN
-
+echo "Building BOOT.BIN"
+if [[ $3 == "ZCU102" ]]; then
+  bootgen -image BOOT.bif -o i BOOT.BIN -packagename xczu9eg
+else
+  bootgen -image BOOT.bif -o i BOOT.BIN
+fi
+  
 ## 3. Lame step 2 - Split the BOOT.BIN to get its constituent binaries, pick system.bit.bin
 ##    WHY? Because Xilinx adds some magic to the .bit file in bootgen. 
 ##    In order to configure the PL from Linux running on ARM using /dev/xdevcfg, we need this magic bitstream.
 ##    http://www.xilinx.com/support/answers/46913.html
 echo "Splitting BOOT.BIN" 
-bootgen -image BOOT.bif -split bin -o i BOOT.BIN
+echo "Building BOOT.BIN"
+if [[ $3 == "ZCU102" ]]; then
+  bootgen -image BOOT.bif -split bin -o i BOOT.BIN -packagename xczu9eg
+else
+  bootgen -image BOOT.bif -split bin -o i BOOT.BIN
+fi
 
 ## 4. Clean unwanted files. We only need system.bit.bin
 #mv system.bit.bin out.out
