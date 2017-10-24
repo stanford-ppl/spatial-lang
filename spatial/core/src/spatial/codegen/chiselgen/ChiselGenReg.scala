@@ -6,7 +6,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
+
 
 trait ChiselGenReg extends ChiselGenSRAM {
   var argIns: List[Sym[Reg[_]]] = List()
@@ -16,32 +16,23 @@ trait ChiselGenReg extends ChiselGenSRAM {
   private var nbufs: List[(Sym[Reg[_]], Int)]  = List()
 
   override protected def spatialNeedsFPType(tp: Type[_]): Boolean = tp match { // FIXME: Why doesn't overriding needsFPType work here?!?!
-      case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
-      case IntType()  => false
-      case LongType() => false
-      case FloatType() => true
-      case DoubleType() => true
-      case _ => super.needsFPType(tp)
+    case FixPtType(s,d,f) => if (s) true else if (f == 0) false else true
+    case IntType()  => false
+    case LongType() => false
+    case FloatType() => true
+    case DoubleType() => true
+    case _ => super.needsFPType(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-    if (SpatialConfig.enableNaming) {
-      s match {
-        case lhs: Sym[_] =>
-          lhs match {
-            case Def(ArgInNew(_))=> s"x${lhs.id}_argin"
-            case Def(ArgOutNew(_)) => s"x${lhs.id}_argout"
-            case Def(HostIONew(_)) => s"x${lhs.id}_hostio"
-            case Def(RegNew(_)) => s"""x${lhs.id}_${lhs.name.getOrElse("reg").replace("$","")}"""
-            case Def(RegRead(reg:Sym[_])) => s"x${lhs.id}_readx${reg.id}"
-            case Def(RegWrite(reg:Sym[_],_,_)) => s"x${lhs.id}_writex${reg.id}"
-            case _ => super.quote(s)
-          }
-        case _ => super.quote(s)
-      }
-    } else {
-      super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+    case Def(ArgInNew(_))  => s"${s}_argin"
+    case Def(ArgOutNew(_)) => s"${s}_argout"
+    case Def(HostIONew(_)) => s"${s}_hostio"
+    case Def(RegNew(_))    => s"""${s}_${s.name.getOrElse("reg").replace("$","")}"""
+
+    case Def(RegRead(reg:Sym[_]))      => s"${s}_readx${reg.id}"
+    case Def(RegWrite(reg:Sym[_],_,_)) => s"${s}_writex${reg.id}"
+    case _ => super.name(s)
   } 
 
   override protected def remap(tp: Type[_]): String = tp match {
@@ -53,17 +44,17 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case ArgInNew(init)  => 
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
-      emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
-      emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful=true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${lhs}_en_options.reduce{_|_}""", forceful=true)
+      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
+      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${swap(lhs, EnOptions)}, ${swap(lhs, DataOptions)}) // ${lhs.name.getOrElse("")}""", forceful=true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${swap(lhs, EnOptions)}.reduce{_|_}""", forceful=true)
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
-      emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
-      emitGlobalWire(src"val ${lhs}_en_options = Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${lhs}_en_options, ${lhs}_data_options) // ${lhs.name.getOrElse("")}""", forceful = true)
-      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${lhs}_en_options.reduce{_|_}""", forceful = true)
+      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${swap(lhs, EnOptions)}, ${swap(lhs, DataOptions)}) // ${lhs.name.getOrElse("")}""", forceful = true)
+      emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${swap(lhs, EnOptions)}.reduce{_|_}""", forceful = true)
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case RegNew(init)    => 
@@ -100,45 +91,46 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   if (d.depth > 1) {
                     nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                     if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-                    emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${lhs.name.getOrElse("")}")
+                    emitGlobalModuleMap(src"${lhs}_${i}", src"Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters}))")
                     if (numBroadcasters == 0){
-                      emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                      emit(src"${swap(src"${lhs}_${i}", Blank)}.io.broadcast.enable := false.B")
                     }
                   } else {
-                    emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${lhs.name.getOrElse("")}")
+                    emitGlobalModuleMap(src"${lhs}_${i}",src"Module(new templates.FF(${width}, ${numWriters}))")
                   }              
                 }
               case _ => 
                 if (d.depth > 1) {
                   nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
                   if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-                  emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${lhs.name.getOrElse("")}")
+                  emitGlobalModuleMap(src"${lhs}_${i}", src"Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters}))")
                   if (numBroadcasters == 0){
-                    emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                    emit(src"${swap(src"${lhs}_${i}", Blank)}.io.broadcast.enable := false.B")
                   }
                 } else {
-                  emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${lhs.name.getOrElse("")}")
+                  emitGlobalModuleMap(src"${lhs}_${i}", src"Module(new templates.FF(${width}, ${numWriters}))")
                 }
             }
           case _ =>
             if (d.depth > 1) {
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[Reg[_]]], i)
               if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-              emitGlobalModule(src"val ${lhs}_${i} = Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters})) // ${lhs.name.getOrElse("")}")
+              emitGlobalModuleMap(src"${lhs}_${i}", src"Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters}))")
               if (numBroadcasters == 0){
-                emit(src"${lhs}_${i}.io.broadcast.enable := false.B")
+                emit(src"${swap(src"${lhs}_${i}", Blank)}.io.broadcast.enable := false.B")
               }
             } else {
-              emitGlobalModule(src"val ${lhs}_${i} = Module(new FF(${width}, ${numWriters})) // ${lhs.name.getOrElse("")}")
+              emitGlobalModuleMap(src"${lhs}_${i}",src"Module(new templates.FF(${width}, ${numWriters}))")
             }
         } // TODO: Figure out which reg is really the accum
       }
     case RegRead(reg)    => 
+      val lhs_sym = quote(lhs)
       if (isArgIn(reg) | isHostIO(reg)) {
-        emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${reg.name.getOrElse("")}""")
-        emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg).argInId})""")
+        emitGlobalWireMap(src"""${lhs}""",src"Wire(${newWire(reg.tp.typeArguments.head)})")
+        emitGlobalWire(src"""${lhs}.r := io.argIns(${argMapping(reg).argInId})""")
       } else {
-        emitGlobalWire(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""") 
         if (dispatchOf(lhs, reg).isEmpty) {
           throw new spatial.EmptyDispatchException(lhs)
         }
@@ -161,25 +153,25 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 case _ =>  
                   lhs.tp match { 
                     case FixPtType(s,d,f) => 
-                      emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-                    case BooleanType() => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
-                    case _ => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
+                      emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head})""")
+                    case BooleanType() => emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head}) === 1.U(1.W)""")
+                    case _ => emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head})""")
                   }
               }
             case _ =>
               lhs.tp match { 
                 case FixPtType(s,d,f) => 
-                  emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-                case BooleanType() => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
-                case _ => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
+                  emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head})""")
+                case BooleanType() => emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head}) === 1.U(1.W)""")
+                case _ => emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head})""")
               }
           }
         } else {
           lhs.tp match { 
             case FixPtType(s,d,f) => 
-              emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
-            case BooleanType() => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head}) === 1.U(1.W)""")
-            case _ => emit(src"""${lhs}.r := ${reg}_${inst}.read(${port.head})""")
+              emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head})""")
+            case BooleanType() => emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head}) === 1.U(1.W)""")
+            case _ => emit(src"""${lhs}.r := ${swap(src"${reg}_${inst}", Blank)}.read(${port.head})""")
           }
         }
       }
@@ -188,7 +180,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(reg).map{_._1}.indexOf(lhs)
-      emit(src"${reg}_manual_reset_$id := $en & ${parent}_datapath_en.D(${symDelay(lhs)}) ")
+      emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}) ")
 
     case RegWrite(reg,v,en) => 
       val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
@@ -202,47 +194,47 @@ trait ChiselGenReg extends ChiselGenSRAM {
               if (s) {
                 val pad = 64 - d - f
                 if (pad > 0) {
-                  emit(src"""${reg}_data_options(${lhs}_wId) := util.Cat(util.Fill($pad, ${v}.msb), ${v}.r)""")  
+                  emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := util.Cat(util.Fill($pad, ${v}.msb), ${v}.r)""")  
                 } else {
-                  emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+                  emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
                 }
               } else {
-                emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+                emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
               }
             case _ => 
-              emit(src"""${reg}_data_options(${lhs}_wId) := ${v}.r""")                  
+              emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
             }
-          emit(src"""${reg}_en_options(${lhs}_wId) := $en & ShiftRegister(${parent}_datapath_en, ${symDelay(lhs)})""")
+          emit(src"""${swap(reg, EnOptions)}(${lhs}_wId) := $en & Utils.getRetimed(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
             if (fully_unrolled_accum) {
-              emit(src"""val ${reg}_wren = ${parentOf(lhs).get}_datapath_en""")
-              emit(src"""val ${reg}_resetter = ${parentOf(lhs).get}_rst_en""")
+              emitGlobalWireMap(src"""${reg}_wren""", "Wire(Bool())");emit(src"${swap(reg, Wren)} := ${swap(parentOf(lhs).get, DatapathEn)}")
+              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}""")
             }
+            emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(reg.tp.typeArguments.head)})""")
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
-                    emit(src"""${reg}_${ii}.io.input.enable := ${reg}_wren.D(${symDelay(lhs)})""")
-                    emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | (${reg}_resetter ${manualReset}).D(${symDelay(lhs)}, rr)""")
-                    emit(src"""${lhs} := ${reg}_${ii}.io.output""")
-                    emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.next := ${v}.number""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.enable := ${swap(reg, Wren)}.D(${symDelay(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.init := ${reg}_initval.number""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}, rr)""")
+                    emit(src"""${lhs} := ${swap(src"${reg}_${ii}", Blank)}.io.output""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-                    emit(src"""${reg}_${ii}.write(${data_string}, $en & (${reg}_wren & ${parent}_II_done).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write(${data_string}, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${reg}_resetter ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${swap(reg, Resetter)} ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & (${reg}_wren & ${parent}_II_done.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }
@@ -250,10 +242,11 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-              emit(src"""${reg}_${ii}.write($v, $en & (${parent}_datapath_en & ${parent}_II_done).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+              emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
             }
         }
       }
+
 
     case _ => super.emitNode(lhs, rhs)
   }
@@ -263,7 +256,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       nbufs.foreach{ case (mem, i) => 
         val info = bufferControlInfo(mem, i)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${quote(inf._1)}_done.D(1,rr), ${quote(inf._1)}_base_en, List(${port})) ${inf._2}""")
+          emit(src"""${swap(src"${mem}_${i}", Blank)}.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
       }
     }

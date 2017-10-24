@@ -3,7 +3,6 @@ package spatial.transform
 import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
-import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.nodes._
 import spatial.metadata._
@@ -13,7 +12,7 @@ trait AffineAccessTransformer extends ForwardTransformer {
   override val name = "Affine Access Transformer"
 
   override val allowUnsafeSubst: Boolean = true // Required to allow, e.g. SRAM1 -> SRAM2
-  override def shouldRun = SpatialConfig.useAffine
+  override def shouldRun = spatialConfig.useAffine
 
   def allocSRAM[T:Type:Bits](dims: Seq[Exp[Index]])(implicit ctx: SrcCtx): Exp[SRAM[T]] = dims.length match {
     case 1 => SRAM.alloc[T,SRAM1](dims:_*)

@@ -2,7 +2,6 @@ package spatial.analysis
 
 import argon.core._
 import argon.nodes._
-import spatial.SpatialConfig
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models.LatencyModel
@@ -39,7 +38,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     // This means everything will be purely combinational logic between the accumulator read and write
     //val inReductionCycle = reduceType(e).isDefined
     //if (inReductionCycle) 0L else {
-    if (SpatialConfig.enableRetiming) latencyModel(e, inReduce) else {
+    if (spatialConfig.enableRetiming) latencyModel(e, inReduce) else {
       if (latencyModel.requiresRegisters(e, inReduce)) 0L else latencyModel(e, inReduce)
     }
   }

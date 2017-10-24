@@ -3,7 +3,6 @@ package spatial.codegen.pirgen
 import spatial.SpatialConfig
 
 import argon.codegen.FileGen
-import argon.core.Config
 import argon.core._
 
 import scala.language.postfixOps
@@ -19,7 +18,7 @@ trait PIRFileGen extends FileGen {
     emit("import arch._")
     emit("import pirc.enums._")
     emit("")
-    open(s"""object ${Config.name} extends PIRApp {""")
+    open(s"""object ${config.name} extends PIRApp {""")
     //emit(s"""override val arch = SN_4x4""")
     open(s"""def main(top:Top) = {""")
 
@@ -44,8 +43,13 @@ trait PIRFileGen extends FileGen {
       info(cmd)
       cmd.!
 
+<<<<<<< HEAD
       cmd = s"cp ${Config.genDir}/pir/main.scala $dir/${Config.name}.scala"
       info(cmd)
+=======
+      cmd = s"cp ${config.genDir}/pir/main.scala $dir/${config.name}.scala"
+      println(cmd)
+>>>>>>> origin/develop
       cmd.!
     }
     else {

@@ -174,6 +174,6 @@ conflict
 git stash pop
 rm /tmp/pub
 
-echo "=========================="
-echo "Merge complete!  Probably..."
-echo "=========================="
+echo "======================================="
+echo "Merge $1 -> $2 complete!  Probably..."
+echo "======================================="

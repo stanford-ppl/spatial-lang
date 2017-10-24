@@ -106,7 +106,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   
   // Inner counter over row width -- keep track of write address in current row
   val WRITE_countRowPx = (0 until rstride).map{ i =>
-    val cnt = Module(new SingleCounter(col_wPar))
+    val cnt = Module(new SingleCounter(col_wPar, Some(0), Some(line_size), Some(1), Some(0)))
     cnt.io.input.enable := io.w_en(i)
     cnt.io.input.reset := io.reset | swap
     cnt.io.input.saturate := false.B
@@ -117,7 +117,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     cnt
   }  
   // Inner counter over row width -- keep track of write address in current row for transient writer
-  val WRITE_countRowPx_transient = Module(new SingleCounter(transientPar))
+  val WRITE_countRowPx_transient = Module(new SingleCounter(transientPar, Some(0), Some(line_size), Some(1), Some(0)))
   WRITE_countRowPx_transient.io.input.enable := io.w_en.last
   WRITE_countRowPx_transient.io.input.reset := io.reset | swap
   WRITE_countRowPx_transient.io.input.saturate := false.B
@@ -130,17 +130,13 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // Outer counter over number of SRAM -- keep track of current row
   val wCRN_width = 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)
   val WRITE_countRowNum = (0 until rstride).map{i =>
-    val cnt = Module(new NBufCtr(rstride, wCRN_width))
-    cnt.io.input.start := i.U 
-    cnt.io.input.stop := (num_lines+extra_rows_to_buffer).U
+    val cnt = Module(new NBufCtr(rstride, Some(i), Some(num_lines+extra_rows_to_buffer), wCRN_width))
     cnt.io.input.enable := swap
     cnt.io.input.countUp := true.B
     cnt
   }
   // Outer counter over number of SRAM -- keep track of current row for transient writer
-  val WRITE_countRowNum_transient = Module(new NBufCtr(1, wCRN_width))
-  WRITE_countRowNum_transient.io.input.start := 0.U 
-  WRITE_countRowNum_transient.io.input.stop := (num_lines+extra_rows_to_buffer).U
+  val WRITE_countRowNum_transient = Module(new NBufCtr(1,Some(0), Some(num_lines+extra_rows_to_buffer), wCRN_width))
   WRITE_countRowNum_transient.io.input.enable := io.transientDone
   WRITE_countRowNum_transient.io.input.countUp := true.B
   val transient_row = WRITE_countRowNum_transient.io.output.count
@@ -185,10 +181,8 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
   val READ_countRowNum = (0 until row_rPar).map{ i => 
-    val c = Module(new NBufCtr(rstride, 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
+    val c = Module(new NBufCtr(rstride, Some(rstride+i), Some(num_lines+extra_rows_to_buffer), 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
-    c.io.input.start := (rstride+i).U
-    c.io.input.stop := (num_lines+extra_rows_to_buffer).U
     c.io.input.enable := swap
     c.io.input.countUp := true.B
     c

@@ -2,6 +2,7 @@ package spatial.targets
 
 abstract class XilinxDevice extends FPGATarget {
   import XilinxDevice._
+  override val LFIELDS = Array(RequiresRegs, RequiresInReduce, LatencyOf, LatencyInReduce)
   override val FIELDS: Array[String] = Array(RAM18,RAM36,URAM,RAM32X1S,RAM32X1D,RAM32M,RAM64M,RAM64X1S,RAM64X1D,RAM128X1S,RAM128X1D,RAM256X1S,SRLC32E,SRL16E,DSPs,Regs,Mregs,MUX7,MUX8,LUT1,LUT2,LUT3,LUT4,LUT5,LUT6,SLICEL,SLICEM,Slices)
   val DSP_CUTOFF = 16 // TODO: Not sure if this is right
 }
@@ -35,4 +36,8 @@ object XilinxDevice {
   val SLICEL   = "SLICEL"
   val SLICEM   = "SLICEM"
   val Slices   = "Slices"
+  val RequiresRegs = "RequiresRegs"
+  val LatencyOf = "LatencyOf"
+  val LatencyInReduce = "LatencyInReduce"
+  val RequiresInReduce = "RequiresInReduce"
 }

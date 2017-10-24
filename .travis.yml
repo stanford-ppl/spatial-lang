@@ -1,9 +1,12 @@
 language: scala
 scala: 2.11.7
 notifications:
+  slack:
+    rooms:
+      - plasticine-arch:kRp0KfrygHiq2wCMrcgMogBW#regression
   email:
     recipients: mattfel@stanford.edu
-    on_success: never # default: change
+    on_success: change # default: change
     on_failure: always # default: always
 # branches:
 #   only:

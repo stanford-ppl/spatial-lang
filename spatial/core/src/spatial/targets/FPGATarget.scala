@@ -30,15 +30,30 @@ abstract class FPGATarget {
   def name: String    // FPGA name
   def burstSize: Int  // Size of DRAM burst (in bits)
 
+  val LFIELDS: Array[String] // Area resource fields
   val FIELDS: Array[String] // Area resource fields
   val DSP_CUTOFF: Int       // Smallest integer addition (in bits) which uses DSPs
 
   lazy implicit val AREA_CONFIG: AreaConfig[Double] = AreaConfig[Double](FIELDS, 0.0)
+  lazy implicit val LATENCY_CONFIG: LatencyConfig[Double] = LatencyConfig[Double](LFIELDS, 0.0)
   lazy implicit val MODEL_CONFIG: AreaConfig[NodeModel] = AreaConfig[NodeModel](FIELDS, Right(0.0))
+  lazy implicit val LMODEL_CONFIG: LatencyConfig[NodeModel] = LatencyConfig[NodeModel](LFIELDS, Right(0.0))
   lazy implicit val LINEAR_CONFIG: AreaConfig[LinearModel] = AreaConfig[LinearModel](FIELDS, LinearModel(Nil,Set.empty))
 
-  def areaModel: AreaModel        // Area model for this target
-  def latencyModel: LatencyModel  // Latency model for this target
+  private var __areaModel: Option[AreaModel] = None
+  private var __latencyModel: Option[LatencyModel] = None
+
+  protected def makeAreaModel: AreaModel        // Area model for this target
+  protected def makeLatencyModel: LatencyModel  // Latency model for this target
+
+  final def areaModel: AreaModel = {
+    if (__areaModel.isEmpty) __areaModel = Some(makeAreaModel)
+    __areaModel.get
+  }
+  final def latencyModel: LatencyModel = {
+    if (__latencyModel.isEmpty) __latencyModel = Some(makeLatencyModel)
+    __latencyModel.get
+  }
   def capacity: Area              // Device resource maximum, in terms of FIELDS
 
   final def areaAnalyzer(state: State): AreaAnalyzer = AreaAnalyzer(state, areaModel, latencyModel)

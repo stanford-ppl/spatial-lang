@@ -5,8 +5,7 @@ import argon.emul._
 import argon.nodes._
 import argon.util._
 import argon.transform.ForwardTransformer
-import spatial.SpatialConfig
-//import spatial.aliases._
+import spatial.aliases.spatialConfig
 import spatial.lang._
 import spatial.metadata._
 import spatial.nodes._
@@ -19,7 +18,7 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx) = rhs match {
     // Change a write from a mux with the register or some other value to an enabled register write
-    case RegWrite(Mirrored(reg), Mirrored(data), Mirrored(en)) if !SpatialConfig.enablePIR => data match {
+    case RegWrite(Mirrored(reg), Mirrored(data), Mirrored(en)) if !spatialConfig.enablePIR => data match {
       case Op( Mux(sel, Op(e@RegRead(`reg`)), b) ) =>
         val lhs2 = Reg.write(reg, b, Bit.and(en, Bit.not(sel)))(e.mT,e.bT,ctx,state)
         dbg(c"Rewrote ${str(lhs)}")
@@ -37,7 +36,7 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
       case _ => super.transform(lhs, rhs)
     }
 
-    case ParallelPipe(en,func) if SpatialConfig.removeParallelNodes =>
+    case ParallelPipe(en,func) if spatialConfig.removeParallelNodes =>
       func.inline // TODO: Need to account for enables here?
       constant(typ[T])(RemovedParallel)
 

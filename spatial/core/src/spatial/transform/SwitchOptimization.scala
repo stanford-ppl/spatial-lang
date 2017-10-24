@@ -6,7 +6,6 @@ import argon.transform.ForwardTransformer
 import spatial.aliases._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 case class SwitchOptimization(var IR: State) extends ForwardTransformer {
   override val name = "Switch Optimization"
@@ -27,7 +26,7 @@ case class SwitchOptimization(var IR: State) extends ForwardTransformer {
       }
 
     // This version is only better on Plasticine (otherwise should use one-hot mux template on FPGA)
-    case op @ Switch(body, selects, _) if SpatialConfig.enablePIR =>
+    case op @ Switch(body, selects, _) if spatialConfig.enablePIR =>
       val contents = blockNestedContents(body)
       val (cases, interior) = contents.partition{stm => isSwitchCase(stm.rhs) }
       if (interior.forall{stm => !isControlNode(stm.rhs) && effectsOf(stm.lhs.head).isIdempotent }) {

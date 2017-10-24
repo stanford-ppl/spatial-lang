@@ -10,10 +10,12 @@ import spatial.nodes._
 import spatial.utils._
 
 class StratixVLatencyModel extends LatencyModel {
-
+  import spatial.targets.AlteraDevice._
+  val FILE_NAME = "StratixVLatency.csv"
   lazy val memModel = new TileLoadModel
 
-  override def init(): Unit = {
+  @stateful override def init(): Unit = {
+    super.init()
     memModel.init()
   }
 

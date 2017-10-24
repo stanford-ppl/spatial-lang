@@ -1,7 +1,7 @@
 package spatial.models
 package altera
 
-import argon.util.Report._
+import argon.core._
 import forge._
 
 class StratixVAreaModel extends AlteraAreaModel {
@@ -9,6 +9,7 @@ class StratixVAreaModel extends AlteraAreaModel {
   private val MAX_PORT_WIDTH: Int = 40
   private val areaFile = "StratixV-Routing.csv"
   private val keys = Seq("LUT3", "LUT4", "LUT5", "LUT6", "LUT7", "MEM16", "MEM32", "MEM64",	"Regs", "DSPs",	"BRAM")
+
 
   private def bramWordDepth(width: Int): Int = {
     if      (width == 1) 16384
@@ -45,7 +46,7 @@ class StratixVAreaModel extends AlteraAreaModel {
   def calculateRoutingRegs(design: Area): Double = regModel.evaluate(design.seq(keys:_*))
   def calculateUnavailALMs(design: Area): Double = almModel.evaluate(design.seq(keys:_*))
 
-  override def init(): Unit = {
+  @stateful override def init(): Unit = {
     super.init()
     lutModel.init()
     regModel.init()

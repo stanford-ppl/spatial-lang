@@ -49,7 +49,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     //val state = RegInit(pipeReset.U(32.W))
 
     // Initialize state and maxFF
-    val rstCtr = Module(new SingleCounter(1))
+    val rstCtr = Module(new SingleCounter(1,Some(0), Some(1), Some(1), Some(0)))
     rstCtr.io.input.enable := state === pipeReset.U & io.input.enable
     rstCtr.io.input.reset := (state != pipeReset.U && state < pipeSpinWait.U) | io.input.rst
     rstCtr.io.input.saturate := true.B

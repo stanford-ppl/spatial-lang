@@ -6,7 +6,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 trait CppGenHostTransfer extends CppGenSRAM  {
 
@@ -19,23 +18,12 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       case _ => super.needsFPType(tp)
   }
 
-  override def quote(s: Exp[_]): String = {
-  	if (SpatialConfig.enableNaming) {
-	    s match {
-	      case lhs: Sym[_] =>
-	        lhs match {
-	          case Def(SetArg(reg:Sym[_],_)) => s"x${lhs.id}_set${reg.id}"
-	          case Def(GetArg(reg:Sym[_])) => s"x${lhs.id}_get${reg.id}"
-	          case Def(SetMem(_,_)) => s"x${lhs.id}_setMem"
-	          case Def(GetMem(_,_)) => s"x${lhs.id}_getMem"
-	          case _ => super.quote(s)
-	        }
-	      case _ =>
-	        super.quote(s)
-	    }
-    } else {
-    	super.quote(s)
-    }
+  override protected def name(s: Dyn[_]): String = s match {
+  	case Def(SetArg(reg:Sym[_],_)) => s"${s}_set${reg.id}"
+    case Def(GetArg(reg:Sym[_]))   => s"${s}_get${reg.id}"
+    case Def(SetMem(_,_))          => s"${s}_setMem"
+    case Def(GetMem(_,_))          => s"${s}_getMem"
+    case _ => super.name(s)
   } 
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

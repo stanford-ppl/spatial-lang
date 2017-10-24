@@ -1,10 +1,10 @@
 package spatial.codegen.pirgen
 
 import argon.codegen.{Codegen, FileDependencies}
-import argon.core.Config
 import argon.core._
+import spatial.aliases._
 import spatial.nodes._
-import spatial.SpatialConfig
+import spatial.utils._
 
 import scala.collection.mutable
 import scala.language.postfixOps
@@ -44,14 +44,14 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
     preprocessPasses += areaModel
     preprocessPasses += pirStats
 
-    if (SpatialConfig.enableSplitting) {
+    if (spatialConfig.enableSplitting) {
       preprocessPasses += printout
       preprocessPasses += splitter
       preprocessPasses += optimizer
     }
     preprocessPasses += printout
 
-    if (SpatialConfig.enableArchDSE) {
+    if (spatialConfig.enableArchDSE) {
       preprocessPasses += dse
     } else {
       preprocessPasses += pirStats

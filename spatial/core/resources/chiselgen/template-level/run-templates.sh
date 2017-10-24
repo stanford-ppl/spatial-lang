@@ -3,6 +3,7 @@
 
 hn=`hostname`
 echo "hostname is $hn"
+export RUNNING_REGRESSION=1
 # sed Launcher to create a launcher for each test
 file=${TEMPLATES_HOME}/tests/templates/Launcher.scala
 # Get list of args
@@ -18,7 +19,7 @@ sed -n 1,${startLaunch}p $file > $newfile
 for t in ${tests[@]}; do
 echo "  templates = templates ++ Arguments.${t}.zipWithIndex.map{ case(arg,i) => 
     (s\"${t}\$i\" -> { (backendName: String) =>
-        Driver(() => new ${t}(arg), \"verilator\") {
+    	Driver(() => new ${t}(arg), \"verilator\") {
           (c) => new ${t}Tests(c)
         }
       }) 

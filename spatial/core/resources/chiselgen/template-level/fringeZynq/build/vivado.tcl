@@ -3,7 +3,7 @@ if { $argc != 1 } {
   puts [llength $argv]
   foreach i $argv {puts $i}
   puts "The second arg is [lindex $argv 1]"; #indexes start at 0
-	puts "Usage: settings.tcl <clockFreqMHz>"
+  puts "Usage: settings.tcl <clockFreqMHz>"
   exit -1
 }
 
@@ -18,28 +18,56 @@ set_property board_part $BOARD [current_project]
 
 ## Import Verilog generated from Chisel and static Verilog files
 add_files -norecurse [glob *.v]
+add_files -norecurse [glob *.sv]
 
 ## Import PS, reset, AXI protocol conversion and word width conversion IP
 #import_ip -files [glob *.xci]
-import_ip -files [list \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_processing_system7_0_0/design_1_processing_system7_0_0.xci                  \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps7_0_${CLOCK_FREQ_MHZ}M_0/design_1_rst_ps7_0_${CLOCK_FREQ_MHZ}M_0.xci  \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_fclk1_0/design_1_proc_sys_reset_fclk1_0.xci                  \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci                                            \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_0_0/design_1_axi_dwidth_converter_0_0.xci              \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_2_0/design_1_axi_dwidth_converter_2_0.xci              \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_3_0/design_1_axi_dwidth_converter_3_0.xci              \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_0_0/design_1_axi_protocol_converter_0_0.xci          \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_1_0/design_1_axi_protocol_converter_1_0.xci          \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_2_0/design_1_axi_protocol_converter_2_0.xci          \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_3_0/design_1_axi_protocol_converter_3_0.xci          \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_0_0/design_1_axi_clock_converter_0_0.xci                \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_1_0/design_1_axi_clock_converter_1_0.xci                \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_2_0/design_1_axi_clock_converter_2_0.xci                \
-  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_3_0/design_1_axi_clock_converter_3_0.xci
-#  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_data_fifo_0_0/design_1_axi_data_fifo_0_0.xci
-]
+
+switch $TARGET {
+  "ZCU102" {
+    import_ip -files [list \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0.xci                  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps8_0_99M_0/design_1_rst_ps8_0_99M_0.xci  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_fclk1_0/design_1_proc_sys_reset_fclk1_0.xci                  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci                                            \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_0_0/design_1_axi_dwidth_converter_0_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_2_0/design_1_axi_dwidth_converter_2_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_3_0/design_1_axi_dwidth_converter_3_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_0_0/design_1_axi_protocol_converter_0_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_1_0/design_1_axi_protocol_converter_1_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_2_0/design_1_axi_protocol_converter_2_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_3_0/design_1_axi_protocol_converter_3_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_0_0/design_1_axi_clock_converter_0_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_1_0/design_1_axi_clock_converter_1_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_2_0/design_1_axi_clock_converter_2_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_3_0/design_1_axi_clock_converter_3_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_ds_0/design_1_auto_ds_0.xci
+    #  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_data_fifo_0_0/design_1_axi_data_fifo_0_0.xci
+    ]
+  }
+  default {
+    import_ip -files [list \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_processing_system7_0_0/design_1_processing_system7_0_0.xci                  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps7_0_${CLOCK_FREQ_MHZ}M_0/design_1_rst_ps7_0_${CLOCK_FREQ_MHZ}M_0.xci  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_fclk1_0/design_1_proc_sys_reset_fclk1_0.xci                  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci                                            \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_0_0/design_1_axi_dwidth_converter_0_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_2_0/design_1_axi_dwidth_converter_2_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_3_0/design_1_axi_dwidth_converter_3_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_0_0/design_1_axi_protocol_converter_0_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_1_0/design_1_axi_protocol_converter_1_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_2_0/design_1_axi_protocol_converter_2_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_protocol_converter_3_0/design_1_axi_protocol_converter_3_0.xci          \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_0_0/design_1_axi_clock_converter_0_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_1_0/design_1_axi_clock_converter_1_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_2_0/design_1_axi_clock_converter_2_0.xci                \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_3_0/design_1_axi_clock_converter_3_0.xci
+    #  ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_data_fifo_0_0/design_1_axi_data_fifo_0_0.xci
+    ]
+  }
+}
 
 ## Create application-specific IP
 source bigIP.tcl

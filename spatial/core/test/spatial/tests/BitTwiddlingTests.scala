@@ -1,7 +1,5 @@
 package spatial.tests
 
-import argon.TestBenchFailed
-import spatial.SpatialConfig
 import org.scalatest.{FlatSpec, Matchers}
 import org.virtualized._
 
@@ -123,8 +121,6 @@ object ShiftTest extends SpatialTest {
 }
 
 class BitTwiddling extends FlatSpec with Matchers {
-  SpatialConfig.enableSim = true
-
   "Bit selection" should "compile" in { BitSelects.main(Array.empty) }
   "UserVectors" should "compile" in { UserVectors.main(Array.empty) }
   "TwiddlingWithStructs" should "compile" in { TwiddlingWithStructs.main(Array.empty) }

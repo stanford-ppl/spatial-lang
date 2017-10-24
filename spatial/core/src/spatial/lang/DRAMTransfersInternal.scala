@@ -8,15 +8,14 @@ import forge._
 import org.virtualized._
 import spatial.metadata._
 import spatial.utils._
-import spatial.SpatialConfig
 
 // object ShiftInternal {
-//   target = SpatialConfig.target
+//   target = spatialConfig.target
 
 //   @internal def expandLsh
 // }
 object DRAMTransfersInternal {
-  def target = SpatialConfig.target
+  @stateful def target = spatialConfig.target
 
   /** Internals **/
   // Expansion rule for CoarseBurst -  Use coarse_burst(tile,onchip,isLoad) for anything in the frontend
@@ -73,7 +72,7 @@ object DRAMTransfersInternal {
     // as long as the value of the register read is known to be exactly some value.
     // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR | isAlign => //TODO: Hack for pir
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | spatialConfig.enablePIR | isAlign => //TODO: Hack for pir
         dbg(u"$onchip => $offchip: Using aligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedStore(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -84,7 +83,7 @@ object DRAMTransfersInternal {
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | SpatialConfig.enablePIR | isAlign => //TODO: Hack for pir
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | spatialConfig.enablePIR | isAlign => //TODO: Hack for pir
         dbg(u"$offchip => $onchip: Using aligned load ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedLoad(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
@@ -102,7 +101,7 @@ object DRAMTransfersInternal {
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
       // Command generator
-      if (SpatialConfig.enablePIR) { // On plasticine the sequential around data and address generation is inefficient
+      if (spatialConfig.enablePIR) { // On plasticine the sequential around data and address generation is inefficient
         Pipe {
           val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
           val size = requestLength

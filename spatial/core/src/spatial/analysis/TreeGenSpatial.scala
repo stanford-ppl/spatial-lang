@@ -1,12 +1,10 @@
 package spatial.analysis
 
 import argon.core._
-import argon.core.Config
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 import java.io.PrintWriter
 
@@ -39,8 +37,8 @@ trait TreeGenSpatial extends SpatialTraversal {
       }
   }
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
-    new java.io.File(Config.genDir).mkdirs()
-    controller_tree = { new PrintWriter(Config.genDir + "/controller_tree.html") }
+    new java.io.File(config.genDir).mkdirs()
+    controller_tree = { new PrintWriter(config.genDir + "/controller_tree.html") }
   	controller_tree.write("""<!DOCTYPE html>
 <html>
 <head>
@@ -52,9 +50,9 @@ trait TreeGenSpatial extends SpatialTraversal {
 
   <div data-role="main" class="ui-content" style="overflow-x:scroll;">
     <h2>Controller Diagram for """)
-    controller_tree.write(Config.name)
-    if (SpatialConfig.enableSyncMem) {controller_tree.write(" syncMem")}
-    else if (SpatialConfig.enableRetiming) {controller_tree.write(" retimed")}
+    controller_tree.write(config.name)
+    if (spatialConfig.enableSyncMem) {controller_tree.write(" syncMem")}
+    else if (spatialConfig.enableRetiming) {controller_tree.write(" retimed")}
     controller_tree.write("""</h2>
 <TABLE BORDER="3" CELLPADDING="10" CELLSPACING="10">""")
   	super.preprocess(block)
@@ -136,7 +134,8 @@ ${indent()}<!-- Close $name -->
       val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
                                                        case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
                                                        case _ => ""}}.mkString("")
-      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", s"${sym.ctx}", inner)
+      val ctxline = if (transferChannel(sym) >= 0) {s"${sym.ctx}, channel ${transferChannel(sym)}"} else {s"${sym.ctx}"}
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", s"${ctxline}", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
@@ -187,7 +186,8 @@ ${indent()}<!-- Close $name -->
       val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
                                                        case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
                                                        case _ => ""}}.mkString("")
-      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}UnrolledForeach",s"${cchain}",s"$sym", s"${sym.ctx}", inner)
+      val ctxline = if (transferChannel(sym) >= 0) {s"${sym.ctx}, channel ${transferChannel(sym)}"} else {s"${sym.ctx}"}
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}UnrolledForeach",s"${cchain}",s"$sym", s"${ctxline}", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>

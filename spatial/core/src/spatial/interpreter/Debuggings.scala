@@ -17,7 +17,7 @@ trait Debuggings extends AInterpreter {
         println(s"${Console.RED_B}Reached a breakpoint: press a key to continue or q to quit${Console.RESET}")
         
         if (io.StdIn.readLine() == "q") {          
-          Config.exit()
+          config.exit()
           System.exit(0)
         }        
       }
@@ -27,7 +27,7 @@ trait Debuggings extends AInterpreter {
         println(s"[${Console.RED}exit info${Console.RESET}]")
         displayInfo        
         println(s"${Console.RED_B}Reached an exit point${Console.RESET}")
-        Config.exit()                
+        config.exit()
         System.exit(0)
       }
       

@@ -1,7 +1,6 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen._
-import argon.core.Config
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
@@ -18,7 +17,7 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    if (Config.dotDetail == 0) rhs match {
+    if (config.dotDetail == 0) rhs match {
       case _ if isControlNode(lhs) => rhs match {
         case Hwblock(_,_) => super.emitNode(lhs,rhs)
         case _ =>

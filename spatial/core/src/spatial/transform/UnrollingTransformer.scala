@@ -8,7 +8,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 import spatial.lang.Math
 
 case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
@@ -33,10 +32,10 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
     result
   }
   def inReduction[T](isInner: Boolean)(blk: => T): T = {
-    duringClone{e => if (SpatialConfig.enablePIR && !isInner) reduceType(e) = None }{ blk }
+    duringClone{e => if (spatialConfig.enablePIR && !isInner) reduceType(e) = None }{ blk }
   }
   def inCycle[T](reduceTp: Option[ReduceFunction])(blk: => T): T = {
-    duringClone{e => if (SpatialConfig.enablePIR) reduceType(e) = reduceTp }{ blk }
+    duringClone{e => if (spatialConfig.enablePIR) reduceType(e) = reduceTp }{ blk }
   }
 
 
@@ -67,7 +66,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
     val unrollInts: Seq[Int] = accessPatternOf.get(original).map{patterns =>
       patterns.flatMap{
-        case GeneralAffine(prods,_) if SpatialConfig.useAffine => prods.map(_.i).map{i => unrollNum.getOrElse(i, -1) }
+        case GeneralAffine(prods,_) if spatialConfig.useAffine => prods.map(_.i).map{i => unrollNum.getOrElse(i, -1) }
         case p => Seq(p.index.flatMap{i => unrollNum.get(i)}.getOrElse(-1))
       }
     }.getOrElse(Seq(-1))
@@ -506,7 +505,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   }
   def unrollForeachNode(lhs: Sym[_], rhs: OpForeach)(implicit ctx: SrcCtx): Exp[_] = {
     val OpForeach(en, cchain, func, iters) = rhs
-    if (canFullyUnroll(cchain) && !SpatialConfig.enablePIR) fullyUnrollForeach(lhs, f(cchain), func, iters)
+    if (canFullyUnroll(cchain) && !spatialConfig.enablePIR) fullyUnrollForeach(lhs, f(cchain), func, iters)
     else partiallyUnrollForeach(lhs, f(cchain), func, iters)
   }
 
@@ -557,7 +556,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
       isReduceStarter(accValue) = true
 
-      if (SpatialConfig.enablePIR) {
+      if (spatialConfig.enablePIR) {
         inCycle(redType){ reduce.inline(treeResult, accValue) }
       }
       else fold match {
@@ -679,7 +678,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   }
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx) = {
     val OpReduce(en,cchain,accum,map,load,reduce,store,zero,fold,rV,iters) = rhs
-    if (canFullyUnroll(cchain) && !SpatialConfig.enablePIR) {
+    if (canFullyUnroll(cchain) && !spatialConfig.enablePIR) {
       fullyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
     }
     else {
@@ -786,7 +785,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
               isReduceStarter(accValue) = true
 
-              if (SpatialConfig.enablePIR) {
+              if (spatialConfig.enablePIR) {
                 inCycle(redType){ reduce.inline(treeResult, accValue) }
               }
               else if (fold) {

@@ -49,7 +49,6 @@ object TemplateRunner {
     for(testName <- problemsToRun) {
       // Wipe tempdir for consecutive tests of same module
       deleteRecursively(new File(tempDir))
-
       templateMap.get(testName) match {
         case Some(test) =>
           println(s"Starting template $testName")

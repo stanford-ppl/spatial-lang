@@ -1,7 +1,6 @@
 package spatial.codegen.dotgen
 
 import argon.codegen.dotgen.DotCodegen
-import argon.core.Config
 import argon.core._
 import spatial.aliases._
 import spatial.nodes._
@@ -18,7 +17,7 @@ trait DotGenVector extends DotCodegen {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case ListVector(elems)      => 
-    case VectorApply(vector, i) =>  if (Config.dotDetail > 0) {emitVert(lhs);emitEdge(vector, lhs)}
+    case VectorApply(vector, i) =>  if (config.dotDetail > 0) {emitVert(lhs);emitEdge(vector, lhs)}
     case VectorSlice(vector, start, end) => 
     case _ => super.emitNode(lhs, rhs)
   }
