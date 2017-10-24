@@ -9,85 +9,39 @@ import spatial.utils._
 
 import scala.collection.mutable
 
-trait PIRScheduler extends PIRTraversal {
+class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Scheduler"
   override val recurse = Always
+  var IR = codegen.IR
 
-  def mappingIn:mutable.Map[Expr, List[PCU]]
-  def mappingOut:mutable.Map[Expr, List[CU]]
+  def cus = mappingOf.values.flatten.collect{ case cu:CU => cu }.toList
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
-    val cuMapping:Map[ACU, ACU] = mappingIn.keys.flatMap{s =>
-
-      dbgs(s"${mappingIn(s)} -> ${mappingOut(s)}")
-
-      mappingIn(s).zip(mappingOut(s)).map { case (pcu, cu) =>
-        pcu.asInstanceOf[ACU] -> cu.asInstanceOf[ACU]
-      }
-    }.toMap
-
     // Swap dependencies, parents, cchain owners from pcu to cu
-
-    swapCUs(cuMapping)
-
-    for ((k,v) <- cuMapping) {
-      dbgs(s"$k -> $v")
-    }
-
     dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
-    for (cu <- mappingOut.values.flatten) {
-      dbgcu(cu)
-    }
+    //cus.foreach(dbgcu)
+    dbgs(s"globals:${globals}")
     block
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    if ((isControlNode(lhs) || isSRAM(lhs) || isFringe(lhs)) && mappingIn.contains(lhs))
-      schedulePCU(lhs, mappingIn(lhs))
+    mappingOf.getT[CU](lhs).foreach { cus => 
+      schedulePCU(lhs, cus)
+    }
   }
 
-  def schedulePCU(sym: Expr, pcus: List[PCU]):Unit = {
-    mappingOut += sym -> pcus.map { pcu =>
-      dbgblk(s"Scheduling $sym CU: $pcu") {
-        dbgpcu(pcu)
-
-        val cu = pcu.copyToConcrete()
-
-        val origRegs = cu.regs
-        var writeStageRegs = cu.regs
-        var readStageRegs = cu.regs
-
-        // --- Schedule write contexts
-        val wctx = WriteContext(cu)
-        wctx.init()
-        pcu.writeStages.foreach{stage => scheduleStage(stage, wctx) }
-
-        writeStageRegs ++= cu.regs
-        cu.regs = origRegs
-        // --- Schedule read contexts
-        val rctx = ReadContext(cu)
-        rctx.init()
-        pcu.readStages.foreach{stage => scheduleStage(stage, rctx) }
-
-        readStageRegs ++= cu.regs //TODO: should writeStageRegs been removed?
-        cu.regs = origRegs
-
-        // --- Schedule compute context
-  // If addr is a counter or const, just returns that register back. Otherwise returns address wire
-  //def allocateAddrReg(sram: CUMemory, addr: Expr, ctx: CUContext, local: Boolean = false):LocalComponent = {
-  //}
-
+  def schedulePCU(exp: Expr, cus: Iterable[CU]):Unit = {
+    cus.foreach { cu =>
+      mappingOf(exp) = dbgblk(s"Scheduling $exp CU: $cu") {
         val ctx = ComputeContext(cu)
-        pcu.computeStages.foreach{stage => scheduleStage(stage, ctx) }
-        cu.regs ++= writeStageRegs
-        cu.regs ++= readStageRegs
+        cu.pseudoStages.foreach{stage => scheduleStage(stage, ctx) }
         cu
       }
 
     }
   }
 
-  def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"Scheduling stage:$stage") {
+  def scheduleStage(stage: PseudoStage, ctx: CUContext):Unit = dbgblk(s"scheduleStage(${quote(stage)})") {
     stage match {
       case DefStage(lhs@Def(rhs), isReduce) =>
         //dbgs(s"""$lhs = $rhs ${if (isReduce) "[REDUCE]" else ""}""")
@@ -96,7 +50,7 @@ trait PIRScheduler extends PIRTraversal {
 
       case AddrStage(dmem, addr) =>
         //dbgs(s"$mem @ $addr [WRITE]")
-        addrToStage(dmem, addr, ctx)
+        //addrToStage(dmem, addr, ctx)
 
       case OpStage(op, ins, out, isReduce) =>
         //dbgs(s"""$out = $op(${ins.mkString(",")}) [OP]""")
@@ -104,30 +58,30 @@ trait PIRScheduler extends PIRTraversal {
     }
   }
 
-  def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
-    ctx.memories(dmem).foreach { sram =>
-      val wire = ctx match {
-        case WriteContext(cu) => WriteAddrWire(sram)
-        case ReadContext(cu) => ReadAddrWire(sram) 
-      }
-      val addrReg = addr match {
-        case bound:Bound[_] => ctx.reg(addr)
-        case const:Const[_] => ctx.reg(addr)
-        case lhs@Def(rhs) => 
-          mapNodeToStage(lhs, rhs, ctx)
-          ctx.reg(addr)
-      }
-      val reg = propagateReg(addr, addrReg, wire, ctx)
-      ctx match {
-        case WriteContext(cu) => 
-          dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
-          sram.writeAddr += reg
-        case ReadContext(cu) => 
-          dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
-          sram.readAddr += reg
-      }
-    }
-  }
+  //def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
+    //ctx.memories(dmem).foreach { sram =>
+      //val wire = ctx match {
+        //case WriteContext(cu) => WriteAddrWire(sram)
+        //case ReadContext(cu) => ReadAddrWire(sram) 
+      //}
+      //val addrReg = addr match {
+        //case bound:Bound[_] => ctx.reg(addr)
+        //case const:Const[_] => ctx.reg(addr)
+        //case lhs@Def(rhs) => 
+          //mapNodeToStage(lhs, rhs, ctx)
+          //ctx.reg(addr)
+      //}
+      //val reg = propagateReg(addr, addrReg, wire, ctx)
+      //ctx match {
+        //case WriteContext(cu) => 
+          //dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
+          //sram.writeAddr += reg
+        //case ReadContext(cu) => 
+          //dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
+          //sram.readAddr += reg
+      //}
+    //}
+  //}
 
   def mapNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
@@ -201,7 +155,7 @@ trait PIRScheduler extends PIRTraversal {
 
   def opStageToStage(op: PIROp, ins: Seq[Expr], out: Expr, ctx: CUContext, isReduce: Boolean) {
     if (isReduce) {
-      // By convention, the inputs to the reduction tree is the first argument to the node
+      // By convention, the inputs to tLANEShe reduction tree is the first argument to the node
       // This input must be in the previous stage's reduction register
       // Ensure this either by adding a bypass register for raw inputs or changing the output
       // of the previous stage from a temporary register to the reduction register
@@ -210,7 +164,7 @@ trait PIRScheduler extends PIRTraversal {
       val inputs = mutable.ListBuffer[Expr]()
       val accums = mutable.ListBuffer[Expr]()
       ins.foreach {
-        case in@Def(RegRead(reg)) if isAccum(reg) & isWrittenInPipe(reg, ctx.cu.pipe) => accums += in
+        case in@Def(RegRead(reg)) if isAccum(reg) & isWrittenInPipe(reg, mappingOf(ctx.cu)) => accums += in
         case in => inputs += in
       }
       assert(accums.size==1, s"accums:[${accums.mkString(",")}]")
@@ -223,12 +177,14 @@ trait PIRScheduler extends PIRTraversal {
       val Def(RegRead(accumReg)) = accum
       val zero = extractConstant(resetValue(accumReg))
       val acc = ReduceReg()
-      val accParents = mappingIn(parentOf(accumReg).get)
+      val accParents = mappingOf.to[CU](parentOf(accumReg).get)
       assert(accParents.size==1)
       val accParent = accParents.head
       val stage = ReduceStage(op, zero, ctx.refIn(usedInput), acc, accParent=accParent)
       ctx.addReg(out, acc)
+      dbgs(s"addReg: ctx=${ctx.cu.name}, reg=$out -> $acc")
       ctx.addStage(stage)
+      dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$stage")
     }
     else if (op == PIRBypass) {
       assert(ins.length == 1)
@@ -265,6 +221,7 @@ trait PIRScheduler extends PIRTraversal {
         val output = allocateLocal(ctx.cu, out)
         val stage = MapStage(op, inputs, List(ctx.refOut(output)))
         ctx.addStage(stage)
+        dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$stage")
       }
     }
   }

@@ -4,14 +4,15 @@ import argon.core._
 
 import scala.collection.mutable
 
-trait PIROptimizer extends PIRTraversal {
+class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Optimization"
+  var IR = codegen.IR
 
-  def mapping:mutable.Map[Expr, List[CU]]
-  def cus = mapping.values.flatMap{cus => cus}.toList
+  def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
 
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
+    dbgs(s"globals:${quote(globals)}")
     for (cu <- cus) removeRouteThrus(cu) // Remove route through stages
     for (cu <- cus) removeUnusedCUComponents(cu)
     for (cu <- cus) removeDeadStages(cu)
@@ -22,22 +23,25 @@ trait PIROptimizer extends PIRTraversal {
     super.process(b)
   }
 
+  override def preprocess[S:Type](b: Block[S]): Block[S] = {
+    super.preprocess(b)
+  }
+
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
     dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
     dbgs(s"Mapping:")
-    mapping.foreach { case (sym, cus) =>
+    mappingOf.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
-    for (cu <- mapping.values.flatten) {
-      dbgcu(cu)
-    }
+    //cus.foreach(dbgcu)
+    dbgs(s"globals:${quote(globals)}")
     super.postprocess(b)
   }
 
   def removeUnusedCUComponents(cu: CU) = {
     removeUnusedStages(cu)
     removeUnusedCChainCopy(cu)
-    removeUnusedFIFO(cu)
+    removeUnusedMems(cu)
   }
 
   def removeUnusedStages(cu: CU) = dbgl(s"Checking CU $cu for unused stages...") {
@@ -65,8 +69,6 @@ trait PIROptimizer extends PIRTraversal {
     stages.foreach { stage =>
       if (stage.outputMems.isEmpty) {
         dbgs(s"Removing stage with no output from $cu: $stage")
-        cu.writeStages -= stage 
-        cu.readStages -= stage
         cu.computeStages -= stage
         cu.controlStages -= stage
       }
@@ -86,13 +88,13 @@ trait PIROptimizer extends PIRTraversal {
     }
   }
 
-  def removeUnusedFIFO(cu: CU) = dbgl(s"Checking CU $cu for unused FIFO...") {
+  def removeUnusedMems(cu: CU) = dbgl(s"Checking CU $cu for unused FIFO...") {
     var refMems = usedMem(cu) 
-    val unusedFifos = cu.fifos.filterNot{ fifo => refMems.contains(fifo) }
-    if (unusedFifos.nonEmpty) {
-      dbgs(s"Removing unused fifos from $cu")
-      unusedFifos.foreach{ fifo => dbgs(s"$fifo")}
-      cu.memMap.retain { case (e, m) => !unusedFifos.contains(m) }
+    val unusedMems = cu.mems.filterNot{ mem => refMems.contains(mem) }
+    if (unusedMems.nonEmpty) {
+      dbgs(s"Removing unused mems from $cu")
+      unusedMems.foreach{ mem => dbgs(s"$mem")}
+      cu.memMap.retain { case (e, m) => !unusedMems.contains(m) }
     }
   }
 
@@ -108,9 +110,10 @@ trait PIROptimizer extends PIRTraversal {
     inputs.foreach{in => dbgs(s"  $in")}
 
 
-    val unusedBuses = buses filterNot(inputs contains _)
+    val unusedBuses = buses.filterNot(inputs contains _)
 
     def isUnusedReg(reg: LocalComponent) = reg match {
+      case ControlOut(out) => unusedBuses contains out
       case ScalarOut(out) => unusedBuses contains out
       case VectorOut(out) => unusedBuses contains out
       case _ => false
@@ -135,8 +138,12 @@ trait PIROptimizer extends PIRTraversal {
     cu.computeStages.foreach{stage => dbgs(s"$stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,VectorOut(out: VectorBus)))) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
-        val in = mem.writePort.head
+      case bypass@MapStage(
+        PIRBypass, 
+        List(LocalRef(_,MemLoad(mem:CUMemory))), 
+        List(LocalRef(_,VectorOut(out: VectorBus)))
+      ) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
+        val in = mem.writePort.head.asInstanceOf[GlobalBus]
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
@@ -144,20 +151,27 @@ trait PIROptimizer extends PIRTraversal {
         }
         else None
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: OutputArg)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head
+      case bypass@MapStage(
+        PIRBypass, 
+        List(LocalRef(_,MemLoad(mem:CUMemory))), 
+        List(LocalRef(_,ScalarOut(out: OutputArg)))
+      ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head.asInstanceOf[GlobalBus]
         dbgs(s"Found route-thru: $in -> $out")
         swapBus(cus, in, out)
         Some(bypass)
 
-      case bypass@MapStage(PIRBypass, List(LocalRef(_,MemLoadReg(mem:CUMemory))), List(LocalRef(_,ScalarOut(out: ScalarBus)))) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head
+      case bypass@MapStage(
+        PIRBypass, 
+        List(LocalRef(_,MemLoad(mem:CUMemory))), 
+        List(LocalRef(_,ScalarOut(out: ScalarBus)))
+      ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+        val in = mem.writePort.head.asInstanceOf[GlobalBus]
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
           swapBus(cus, out, in)
           Some(bypass)
-        }
-        else None
+        } else None
       case _ => None
     }
     if (bypassStages.nonEmpty) {
@@ -199,16 +213,10 @@ trait PIROptimizer extends PIRTraversal {
     val noOutput = globalOutputs(cu).isEmpty
     dbgs(s"$cu globalOutputs=${globalOutputs(cu)} ${cu.mems.map{m => m.readPort.map(globalOutputs)}}")
 
-    if (cu.writeStages.isEmpty && cu.readStages.isEmpty && cu.computeStages.isEmpty && children.isEmpty && !isFringe 
-        && !isCopied && noOutput) {
-      cus.foreach{ c =>
-        if (c.deps.contains(cu)) {
-          c.deps -= cu
-          c.deps ++= cu.deps
-        }
-      }
+    if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
+        && !isCopied && noOutput && cu.switchTable.isEmpty) {
       dbgs(s"Removing empty CU $cu")
-      mapping.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
+      mappingOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
     }
   }
 

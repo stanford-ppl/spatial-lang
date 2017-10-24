@@ -565,7 +565,8 @@ object utils {
   @stateful def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
   def isUnitPipe(d: Def): Boolean = d.isInstanceOf[UnitPipe]
 
-
+  @stateful def isIfThenElse(e: Exp[_]): Boolean = getDef(e).exists(isIfThenElse)
+  def isIfThenElse(d: Def): Boolean = d.isInstanceOf[IfThenElse[_]]
 
   @stateful def isControlNode(e: Exp[_]): Boolean = getDef(e).exists(isControlNode)
   def isControlNode(d: Def): Boolean = d.isInstanceOf[ControlNode[_]]

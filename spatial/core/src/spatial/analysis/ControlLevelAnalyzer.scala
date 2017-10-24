@@ -5,6 +5,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import spatial.SpatialConfig
 
 /**
   * Basic control style annotation checking / fixing.
@@ -83,7 +84,13 @@ trait ControlLevelAnalyzer extends SpatialTraversal {
       case _ =>
     }
 
-    (isControlNode(lhs) && !isSwitch(lhs) && !isSwitchCase(lhs)) || isOuter
+    if (spatialConfig.enablePIR) {
+      // Consider Switches/if-then-else to be outer controllers in PIR
+      (isControlNode(lhs) && !isSwitchCase(lhs)) || isOuter || isSwitch(lhs) || isIfThenElse(lhs)
+    }
+    else {
+      (isControlNode(lhs) && !isSwitch(lhs) && !isSwitchCase(lhs)) || isOuter
+    }
   }
 
   override def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
