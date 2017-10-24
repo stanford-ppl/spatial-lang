@@ -84,7 +84,7 @@ trait ControlLevelAnalyzer extends SpatialTraversal {
       case _ =>
     }
 
-    if (SpatialConfig.enablePIR) {
+    if (spatialConfig.enablePIR) {
       // Consider Switches/if-then-else to be outer controllers in PIR
       (isControlNode(lhs) && !isSwitchCase(lhs)) || isOuter || isSwitch(lhs) || isIfThenElse(lhs)
     }
