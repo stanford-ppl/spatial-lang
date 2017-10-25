@@ -25,7 +25,7 @@ trait PIRSplitting extends PIRTraversal {
     Could model this as conditional costs for nodes in context of their partition?
    **/
   def splitCU(cu: CU, archCU: CUCost, archMU: MUCost, others: Seq[CU]): List[CU] = cu.style match {
-    case _:MemoryCU => splitPMU(cu, archMU, others)
+    case MemoryCU => splitPMU(cu, archMU, others)
     case _:FringeCU => List(cu)
     case _ if cu.computeStages.isEmpty => List(cu)
     case _ => splitPCU(cu, archCU, others)
@@ -45,9 +45,9 @@ trait PIRSplitting extends PIRTraversal {
 
     val partitions = mutable.ArrayBuffer[Partition]()
 
-    val current = new MUPartition(cu.writeStages, cu.readStages, ctrl, false)
+    val current = new MUPartition(mutable.ArrayBuffer.empty, mutable.ArrayBuffer.empty, ctrl, false) //TODO
 
-    val cost = getMUCost(current, partitions, allStages, others)
+    val cost = getMUCost(current, partitions, allStages, others, cu)
 
     if (cost > archMU) {
       var errReport = s"Failed splitting in PMU $cu"
@@ -65,18 +65,17 @@ trait PIRSplitting extends PIRTraversal {
   }
 
   def splitPCU(cu: CU, arch: CUCost, others: Seq[CU]): List[CU] = dbgblk(s"splitCU($cu)"){
-    dbgs(s"Splitting PCU: $cu")
-    dbgs(s"Compute: ")
-    cu.computeStages.foreach{stage => dbgs(s"  $stage")}
+    dbgl(s"Compute: ") {
+      cu.computeStages.foreach{stage => dbgs(s"$stage")}
+    }
     val allStages = cu.allStages.toList
     val ctrl = cu.cchains.find{case _:UnitCChain | _:CChainInstance => true; case _ => false}
-    val isUnit = cu.lanes == 1
 
     val partitions = mutable.ArrayBuffer[CUPartition]()
     var current: CUPartition = Partition.emptyCU(ctrl, true)
     val remote: CUPartition = new CUPartition(cu.computeStages, ctrl, false)
 
-    def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, isUnit){p => p.cstages}
+    def getCost(p: CUPartition): CUCost = getCUCost(p, partitions, allStages, others, cu){p => p.cstages}
 
     while (remote.nonEmpty) {
       dbgs(s"Computing partition ${partitions.length}")
@@ -113,8 +112,7 @@ trait PIRSplitting extends PIRTraversal {
         errReport += s"Arch: \n$arch"
         errReport += s"Cost: \n$cost"
         throw new SplitException(errReport) with NoStackTrace
-      }
-      else {
+      } else {
         dbgs(s"Partition ${partitions.length}")
         dbgs(getCost(current))
         dbgs(s"  Compute stages: ")
@@ -126,9 +124,10 @@ trait PIRSplitting extends PIRTraversal {
     } // end while
 
     val parent = if (partitions.length > 1) {
-      val parent = ComputeUnit(cu.name, cu.pipe, StreamCU)
+      val exp = mappingOf(cu)
+      val parent = ComputeUnit(cu.name, StreamCU)
+      mappingOf(exp) = parent
       parent.parent = cu.parent
-      parent.deps = cu.deps
       parent.cchains ++= cu.cchains
       val mems = usedMem(cu.cchains)
       parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
@@ -147,8 +146,9 @@ trait PIRSplitting extends PIRTraversal {
       dbgs(cost)
       dbgs(s"Util: ")
       reportUtil(getUtil(cu, cus.filterNot(_ == cu)++others))
-      dbgs(s"Compute stages: ")
-      cu.computeStages.foreach{stage => dbgs(s"  $stage") }
+      dbgl(s"Compute stages: ") {
+        cu.computeStages.foreach{stage => dbgs(s"$stage") }
+      }
     }
 
     parent.toList ++ cus.toList
@@ -159,12 +159,11 @@ trait PIRSplitting extends PIRTraversal {
   def scheduleCUPartition(orig: CU, part: CUPartition, i: Int, parent: Option[CU]): CU = dbgblk(s"scheduleCUPartition(orig=$orig, part=$part, i=$i, parent=$parent)"){
     val isUnit = orig.lanes == 1
 
-    val cu = ComputeUnit(orig.name+"_"+i, orig.pipe, orig.style)
+    val cu = ComputeUnit(orig.name+"_"+i, orig.style)
+    mappingOf(mappingOf(orig)) = cu
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
     cu.fringeGlobals ++= orig.fringeGlobals
-    if (parent.isEmpty) cu.deps ++= orig.deps
-    if (parent.isEmpty) cu.cchains ++= orig.cchains
 
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
@@ -172,7 +171,7 @@ trait PIRSplitting extends PIRTraversal {
     val localIns  = local.flatMap(_.inputMems).toSet ++ cu.cchains.flatMap(localInputs)
     val localOuts = local.flatMap(_.outputMems).toSet
 
-    val readMems = localIns.collect{case MemLoadReg(mem) => mem }
+    val readMems = localIns.collect{case MemLoad(mem) => mem }
     orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
     val remoteIns = remote.flatMap(_.inputMems).toSet
@@ -186,25 +185,23 @@ trait PIRSplitting extends PIRTraversal {
         case VectorIn(bus) => bus
         case ScalarOut(bus) => bus
         case VectorOut(bus) => bus
-        case MemLoadReg(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
-          val bus = CUVector(mem.name+"_sdata")
-          globals += bus
+        case ControlIn(bus) => bus
+        case ControlOut(bus) => bus
+        case MemLoad(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
+          val bus = CUVector(mem.name+"_vdata", cu.innerPar)
           bus
-        case MemLoadReg(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
-          val bus = CUScalar(mem.name+"_vdata")
-          globals += bus
+        case MemLoad(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
+          val bus = CUScalar(mem.name+"_sdata")
           bus
         case WriteAddrWire(mem) =>
           val bus = CUScalar(mem.name+"_waddr")
-          globals += bus
           bus
         case ReadAddrWire(mem) =>
           val bus = CUScalar(mem.name+"_raddr")
-          globals += bus
           bus
         case _                    =>
-          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    else CUVector("bus_" + reg.id)
-          globals += bus
+          val bus = if (isScalar.getOrElse(isUnit)) CUScalar("bus_" + reg.id)    
+                    else CUVector("bus_" + reg.id, cu.innerPar)
           bus
       }
       dbgs(s"globalBus: reg=$reg ${scala.runtime.ScalaRunTime._toString(reg.asInstanceOf[Product])}, bus=$bus") 
@@ -212,17 +209,15 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     def portOut(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
+      case bus:ControlBus => ControlOut(bus)
       case bus:ScalarBus => ScalarOut(bus)
       case bus:VectorBus => VectorOut(bus)
     }
 
-    def portIn(reg: LocalComponent, isScalar:Option[Boolean] = None) = globalBus(reg, isScalar) match {
-      case bus:ScalarBus => 
-        val fifo = allocateRetimingFIFO(reg, bus, cu)
-        MemLoadReg(fifo)
-      case bus:VectorBus => 
-        val fifo = allocateRetimingFIFO(reg, bus, cu)
-        MemLoadReg(fifo)
+    def portIn(reg: LocalComponent, isScalar:Option[Boolean] = None) = {
+      val bus = globalBus(reg, isScalar)
+      val fifo = allocateRetimingFIFO(reg, bus, cu)
+      MemLoad(fifo)
     }
 
     def rerefIn(reg: LocalComponent): LocalRef = {
@@ -230,7 +225,7 @@ trait PIRSplitting extends PIRTraversal {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
         case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg)
-        case MemLoadReg(mem) => 
+        case MemLoad(mem) => 
           assert(localIns.contains(reg), s"localIns=$localIns doesn't contains $reg")
           assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} doesn't contains $mem")
           reg
@@ -243,6 +238,7 @@ trait PIRSplitting extends PIRTraversal {
 
     def rerefOut(reg: LocalComponent): List[LocalRef] = {
       val outs = reg match {
+        case _:ControlOut => List(reg)
         case _:ScalarOut => List(reg)
         case _:VectorOut => List(reg)
         case _ =>
@@ -301,10 +297,10 @@ trait PIRSplitting extends PIRTraversal {
     }
 
     // --- Add bypass stages for locally hosted, remotely read SRAMs
-    /*val remoteSRAMReads = remoteIns.collect{case MemLoadReg(sram) => sram}
+    /*val remoteSRAMReads = remoteIns.collect{case MemLoad(sram) => sram}
     val localBypasses = remoteSRAMReads intersect cu.mems
     localBypasses.foreach{sram =>
-      val reg = MemLoadReg(sram)
+      val reg = MemLoad(sram)
       val out = portOut(reg, isUnit)
 
       if (!cu.computeStages.flatMap(_.outputMems).contains(out)) {
@@ -344,35 +340,18 @@ trait PIRSplitting extends PIRTraversal {
 
     // --- TODO: Control logic
 
-
     // --- Copy counters
-    if (parent.isDefined) {
-      val ctrl = parent.get
-      val f = copyIterators(cu, ctrl)
-
-      // Copy all, but only retain those in the partition
-      cu.cchains = cu.cchains.filter{cc => part.cchains.exists{_.name == cc.name}}
+    parent.fold { // No split
+      cu.cchains ++= orig.cchains
+    } { parent =>  // split
+      val unitCtr = CUCounter(ConstReg(0), ConstReg(1), ConstReg(cu.innerPar), par=cu.innerPar)
+      cu.cchains += CChainInstance(s"${cu.name}_unit", Seq(unitCtr))
+      val f = copyIterators(cu, parent)
 
       def tx(cc: CUCChain): CUCChain = f.getOrElse(cc, cc)
-        /*val ins = localInputs(cc)
-        val ins2 = ins.map(x => portIn(x,true))
-        val swap = ins.zip(ins2).toMap*/
-
-        /*cc2 match {
-          case cc: CUChainInstance =>
-          case _ => cc2
-        }*/
-
-        /*if (f.contains(cc)) f(cc)
-        else if (f.values.toList.contains(cc)) cc  // HACK: DSE
-        else {
-          val mapping = f.map{case (k,v) => s"$k -> $v"}.mkString("\n")
-          throw new Exception(s"Attempted to copy counter $cc in CU $ctrl, but no such counter exists.\nMapping:\n$mapping")
-        }*/
-      //}
       def swap_cchain_Reg(x: LocalComponent) = x match {
-        case CounterReg(cc,idx) => CounterReg(tx(cc), idx)
-        case ValidReg(cc,idx) => ValidReg(tx(cc), idx)
+        case CounterReg(cc,cIdx,iter) => CounterReg(tx(cc), cIdx, iter)
+        case ValidReg(cc,cIdx, valid) => ValidReg(tx(cc), cIdx, valid)
         case _ => x
       }
       def swap_cchains_Ref(x: LocalRef) = x match {
@@ -384,7 +363,7 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)} //TODO refactor this
+        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
         sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
       }
     }

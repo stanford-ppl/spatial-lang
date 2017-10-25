@@ -62,6 +62,8 @@ class SpatialConfig extends argon.core.Config {
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
   var enablePIRSim: Boolean = false
+  lazy val PIR_HOME: String = sys.env.getOrElse("PIR_HOME", {Report.error("Please set the PIR_HOME environment variable."); sys.exit()})
+  var pirsrc: String = s"$PIR_HOME/pir/apps/src"
 
   var enableRetiming: Boolean = _
 

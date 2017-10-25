@@ -210,36 +210,69 @@ trait ChiselGenSRAM extends ChiselCodegen {
     // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
     // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
     // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
+    var specialLB = false
     val readCtrls = readPorts.map{case (port, readers) =>
       val readTops = readers.flatMap{a => topControllerOf(a, mem, i) }
-      readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }
+      mem match {
+        case Def(_:LineBufferNew[_]) => // Allow empty lca, meaning we use a sequential pipe for rotations
+          if (readTops.headOption.isDefined) {
+            readTops.headOption.get.node
+          } else {
+            warn(u"Memory $mem, instance $i, port $port had no read top controllers.  Consider wrapping this linebuffer in a metapipe to get better speedup")
+            specialLB = true
+            // readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }    
+            readers.head.node
+          }
+        case _ =>
+          readTops.headOption.getOrElse{throw new Exception(u"Memory $mem, instance $i, port $port had no read top controllers") }.node    
+      }
+      
     }
     if (readCtrls.isEmpty) throw new Exception(u"Memory $mem, instance $i had no readers?")
 
     // childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)
 
-    val allSiblings = childrenOf(parentOf(readCtrls.head.node).get)
-    val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-    val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-    val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
-    val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-    val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-    val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
-    val numStagesInbetween = lastActivePort - firstActivePort
+    if (!specialLB) {
+      val allSiblings = childrenOf(parentOf(readCtrls.head).get)
+      val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+      val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+      val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
+      val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
+      val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
+      val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+      val numStagesInbetween = lastActivePort - firstActivePort
 
-    val info = (0 to numStagesInbetween).map { port =>
-      val ctrlId = port + firstActivePort
-      val node = allSiblings(ctrlId)
-      val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
-        // emit(src"""${mem}_${i}.readTieDown(${port})""")
-        ""
+      val info = (0 to numStagesInbetween).map { port =>
+        val ctrlId = port + firstActivePort
+        val node = allSiblings(ctrlId)
+        val rd = if (readPortsNumbers.toList.contains(ctrlId)) {"read"} else {
+          // emit(src"""${mem}_${i}.readTieDown(${port})""")
+          ""
+        }
+        val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
+        val empty = if (rd == "" & wr == "") "empty" else ""
+        (node, src"/*$rd $wr $empty*/")
       }
-      val wr = if (writePortsNumbers.toList.contains(ctrlId)) {"write"} else {""}
-      val empty = if (rd == "" & wr == "") "empty" else ""
-      (node, src"/*$rd $wr $empty*/")
+      info.toList
+    } else {
+      // Assume write comes before read and there is only one write
+      val writer = writers.head.ctrl._1
+      val reader = readers.head.ctrl._1
+      val lca = leastCommonAncestorWithPaths[Exp[_]](reader, writer, {node => parentOf(node)})._1.get
+      val allSiblings = childrenOf(lca)
+      var writeSibling: Option[Exp[Any]] = None
+      var candidate = writer
+      while (!writeSibling.isDefined) {
+        if (allSiblings.contains(candidate)) {
+          writeSibling = Some(candidate)
+        } else {
+          candidate = parentOf(candidate).get
+        }
+      }
+      // Get LCA of read and write
+      List((writeSibling.get, src"/*seq write*/"))
     }
 
-    info.toList
   }
 
   // Emit an SRFF that will block a counter from incrementing after the counter reaches the max

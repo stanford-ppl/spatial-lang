@@ -125,7 +125,7 @@ case class SwitchTransformer(var IR: State) extends ForwardTransformer with Spat
       dbg(c"Created switch: ${str(switch)}")
 
       styleOf(switch) = ForkSwitch
-      levelOf(switch) = level //controlLevel.getOrElse(InnerControl)
+      levelOf(switch) = if (spatialConfig.enablePIR) OuterControl else level
 
       controlLevel = prevLevel
 

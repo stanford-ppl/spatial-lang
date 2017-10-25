@@ -4,17 +4,17 @@ import argon.core._
 
 import scala.collection.mutable
 
-trait PIRPrintout extends PIRTraversal {
+class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Printout"
   override val recurse = Always
+  var IR = codegen.IR
 
-  def mapping:mutable.Map[Expr, List[CU]]
-  def cus = mapping.values.toList.flatten
+  def cus = mappingOf.values.flatten.collect{ case cu:CU => cu }.toList
 
   def printCU(cu: CU): Unit = {
 
     val style = cu.style match {
-      case _:MemoryCU => "PMU"
+      case MemoryCU => "PMU"
       case _:FringeCU => "Fringe"
       case _          => "PCU"
     }
@@ -31,12 +31,6 @@ trait PIRPrintout extends PIRTraversal {
       }
       dbgl("Compute stages:") {
         cu.computeStages.foreach{stage => dbgs(s"$stage") }
-      }
-      dbgl("Read stages:") {
-        cu.readStages.foreach { stage => dbgs(s"$stage") }
-      }
-      dbgl("Write stages:") {
-        cu.writeStages.foreach { stage => dbgs(s"$stage") }
       }
       dbgl("Control stages:") {
         cu.controlStages.foreach{stage => dbgs(s"$stage") }
@@ -56,7 +50,7 @@ trait PIRPrintout extends PIRTraversal {
       }
 
       cu.style match {
-        case _:MemoryCU =>
+        case MemoryCU =>
           val cost = getUtil(cu, cus)
           reportUtil(cost)
         case _:FringeCU =>
@@ -68,9 +62,7 @@ trait PIRPrintout extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mapping.contains(lhs)) {
-      mapping(lhs).foreach{cu => printCU(cu) }
-    }
+    cus.foreach(printCU)
   }
 
 }

@@ -40,7 +40,7 @@ trait StreamAnalyzer extends CompilerPass {
           dbg(u"  LCA of $b and $a is $lca (${styleOf(lca)}) so incrementing color of $b to ${transferChannel(parentOf(b).get)} + 1")
           transferChannel(parentOf(b).get) = transferChannel(parentOf(b).get) + 1
         } else { // Can be in same channel
-          Console.println(s"assigning $b to $channel")
+          // Console.println(s"assigning $b to $channel")
           // No change
         }
       }

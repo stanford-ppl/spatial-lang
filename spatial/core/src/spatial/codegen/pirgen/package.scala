@@ -9,12 +9,43 @@ import spatial.nodes._
 import spatial.utils._
 import org.virtualized.SourceContext
 
+import scala.collection.mutable
+import scala.collection.mutable.WrappedArray
+import scala.reflect.runtime.universe.{Block => _, Type => _, _}
+
 package object pirgen {
   type Expr = Exp[_]
   type CU = ComputeUnit
-  type PCU = PseudoComputeUnit
-  type ACU = AbstractComputeUnit
-  type CUControl = ControlType
+
+  val globals   = mutable.Set[GlobalComponent]()
+  val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
+
+  @stateful def quote(x: Any):String = x match {
+    case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
+    case DefStage(exp, isReduce) => s"DefStage(${qdef(exp)}, isReduce=$isReduce)"
+    case x:Iterable[_] => x.map(quote).toString
+    case x => x.toString
+  }
+
+  @stateful def qdef(lhs:Any):String = {
+    val rhs = lhs match {
+      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
+      case Def(e:UnrolledForeach) => 
+        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(e:UnrolledReduce[_,_]) => 
+        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case Op(rhs) => s"$rhs"
+      case Def(rhs) => s"$rhs"
+      case lhs => s"$lhs"
+    }
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
+    }
+    s"$lhs = $rhs$name"
+  }
+
 
   @stateful def isConstant(x: Expr):Boolean = x match {
     case Const(c) => true
@@ -58,7 +89,7 @@ package object pirgen {
 
   def localInputs(a: Any): Set[LocalComponent] = a match {
     case reg: LocalComponent => Set(reg)
-    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writeStart ++ mem.writeEnd ++ mem.writePort ++ mem.readPort)
+    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writePort ++ mem.readPort)
     case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
     case stage: Stage => stage.inputMems.toSet
     case _ => collectX[LocalComponent](a)(localInputs)
@@ -71,18 +102,17 @@ package object pirgen {
   }
 
   def globalInputs(a: Any): Set[GlobalBus] = a match {
-    case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
+    case ControlIn(in) => Set(in)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    //case MemLoadReg(mem) => Set(LocalReadBus(mem))
-    case mem: CUMemory => globalInputs(mem.writeStart ++ mem.writeEnd ++ mem.writePort)
+    case mem: CUMemory => globalInputs(mem.writePort ++ mem.readAddr ++ mem.writeAddr)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
+    case MemLoad(mem) => globalInputs(mem)
     case _ => collectX[GlobalBus](a)(globalInputs)
   }
   def globalOutputs(a: Any): Set[GlobalBus] = a match {
-    case _:LocalReadBus => Set.empty
     case glob: GlobalBus => Set(glob)
     case ScalarOut(out) => Set(out)
     case VectorOut(out) => Set(out)
@@ -100,10 +130,10 @@ package object pirgen {
   def usedCChains(a: Any): Set[CUCChain] = a match {
     case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
 
-    case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_) => cchain}.toSet
+    case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_,_) => cchain}.toSet
     case sram: CUMemory =>
-      (sram.readAddr.collect{case CounterReg(cchain,_) => cchain} ++
-        sram.writeAddr.collect{case CounterReg(cchain,_) => cchain}).toSet
+      (sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
+        sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
 
     case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
     case iter: Iterable[Any] => usedCChains(iter.iterator)
@@ -111,31 +141,31 @@ package object pirgen {
   }
 
   def usedMem(x:Any):Set[CUMemory] = x match {
-    case MemLoadReg(mem) => Set(mem)
-    case LocalReadBus(mem) => Set(mem)
+    case MemLoad(mem) => Set(mem)
     case x:CUMemory if x.mode == SRAMMode =>
-      usedMem(x.readAddr ++ x.writeAddr ++ x.writeStart ++ x.writeEnd ++ x.writePort) + x
+      usedMem(x.readAddr ++ x.writeAddr ++ x.writePort) + x
     case x:CUMemory => Set(x)
     case x:Stage => usedMem(x.inputMems)
     case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
     case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => usedMem(x.mems)
     case x:ComputeUnit => usedMem(x.allStages) ++ usedMem(x.cchains) ++ usedMem(x.srams)
+    case LocalRef(stage, reg) => usedMem(reg)
     case _ => collectX[CUMemory](x)(usedMem)
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
-    case _:ScalarOut | _:VectorOut => false
-    case _:ScalarIn  | _:VectorIn  => true
-    case _:MemLoadReg| _:MemNumel => true
+    case _:ScalarOut | _:VectorOut | _:ControlOut => false
+    case _:ScalarIn  | _:VectorIn  | _:ControlIn => true
+    case _:MemLoad| _:MemNumel => true
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => false
     case _:ControlReg => true
     case _:ValidReg | _:ConstReg[_] | _:CounterReg => true
   }
   def isWritable(x: LocalComponent): Boolean = x match {
-    case _:ScalarOut | _:VectorOut => true
-    case _:ScalarIn  | _:VectorIn  => false
-    case _:MemLoadReg| _:MemNumel => false
+    case _:ScalarOut | _:VectorOut | _:ControlOut => true
+    case _:ScalarIn  | _:VectorIn  | _:ControlIn => false
+    case _:MemLoad| _:MemNumel => false
     case _:TempReg | _:AccumReg | _:ReduceReg => true
     case _:WriteAddrWire | _:ReadAddrWire => true
     case _:ControlReg => true
@@ -152,7 +182,7 @@ package object pirgen {
   }
 
   def memRef(x: LocalComponent):Option[CUMemory] = x match {
-    case MemLoadReg(mem) => Some(mem)
+    case MemLoad(mem) => Some(mem)
     case _ => None
   }
 
@@ -252,6 +282,10 @@ package object pirgen {
       partialAddr = add.out
       addrCompute ++= List(mul,add)
     }
+    if (addrCompute.isEmpty) {
+      partialAddr = fresh[Index]
+      addrCompute ++= List(OpStage(PIRBypass, List(indices.last), partialAddr))
+    }
     (partialAddr, addrCompute)
   }
 
@@ -338,9 +372,6 @@ package object pirgen {
     }
   }
 
-  @stateful def bank(dmem: Expr) = {
-  }
-
   /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
     //val indices = accessIndicesOf(access)
     val pattern = accessPatternOf(access)
@@ -393,16 +424,22 @@ package object pirgen {
       getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
       getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
-    case Def(Switch(body, selects, cases)) => getInnerPar(parentOf(n).get)
-    case Def(SwitchCase(body)) => getInnerPar(parentOf(n).get)
-    case Def(n:ParSRAMStore[_]) => n.ens.size
-    case Def(n:ParSRAMLoad[_]) => n.ens.size
-    case Def(n:ParFIFOEnq[_]) => n.ens.size
-    case Def(n:ParFIFODeq[_]) => n.ens.size
-    case Def(n:ParStreamRead[_]) => n.ens.size
-    case Def(n:ParStreamWrite[_]) => n.ens.size
-    case Def(n:ParFILOPush[_]) => n.ens.size
-    case Def(n:ParFILOPop[_]) => n.ens.size
+    case Def(FringeDenseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
+    case Def(FringeDenseStore(dram, _, dataStream, _)) => getInnerPar(dataStream)
+    case Def(FringeSparseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
+    case Def(FringeSparseStore(dram, cmdStream, _)) => getInnerPar(cmdStream)
+    case Def(Switch(body, selects, cases)) => 1 // Outer Controller
+    case Def(SwitchCase(body)) => 1 
+    case Def(d:StreamInNew[_]) => getInnerPar(readersOf(n).head.node)
+    case Def(d:StreamOutNew[_]) => getInnerPar(writersOf(n).head.node)
+    case Def(d:ParSRAMStore[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFIFOEnq[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFIFODeq[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParStreamRead[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParStreamWrite[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFILOPush[_]) => getInnerPar(parentOf(n).get)
+    case Def(d:ParFILOPop[_]) => getInnerPar(parentOf(n).get)
     case Def(_:SRAMLoad[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
@@ -414,13 +451,155 @@ package object pirgen {
     case Def(_:FILOPop[_]) => 1 
     case Def(_:RegWrite[_]) => 1 
     case Def(_:RegRead[_]) => 1 
+    case n if isArgIn(n) | isArgOut(n) | isGetDRAMAddress(n) => 1
+    case n => throw new Exception(s"Undefined getInnerPar for ${qdef(n)}")
   }
 
-  @stateful def parentOf(exp:Expr):Option[Expr] = {
-    spatial.metadata.parentOf(exp).flatMap {
-      case p@Def(_:Switch[_]) => parentOf(p)
-      case p@Def(_:SwitchCase[_]) => parentOf(p)
-      case p => Some(p)
+  def getOuterDims[T](dmem:Expr, list:Seq[T]):Seq[T] = {
+    list.zipWithIndex.filterNot { case (ele, dim) => Some(dim) == innerDimOf.get(compose(dmem)) }.map { _._1 }
+  }
+
+  @stateful def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
+    case Def(CounterChainNew(ctrs)) =>
+      val loopIters = ctrs.map{
+        case Def(CounterNew(start,end,stride,par)) =>
+          val min = boundOf.get(start).map(_.toDouble).getOrElse(0.0)
+          val max = boundOf.get(end).map(_.toDouble).getOrElse(1.0)
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse(1.0)
+          val p = boundOf.get(par).map(_.toDouble).getOrElse(1.0)
+          dbg(s"nIter: bounds: min=$min, max=$max, step=$step, p=$p")
+
+          val nIters = Math.ceil((max - min)/step)
+          if (ignorePar) nIters.toLong else Math.ceil(nIters/p).toLong
+
+        case Def(Forever()) => 0L
+      }
+      loopIters.fold(1L){_*_}
+  }
+
+  def nIters(x:CUCounter, ignorePar:Boolean) = {
+    val CUCounter(ConstReg(start:Int), ConstReg(end:Int), ConstReg(stride:Int), par) = x
+    val iters = Math.ceil((end - start)/stride)
+    if (ignorePar) iters.toLong else Math.ceil(iters/par).toLong
+  }
+
+  @stateful def nIters(x:CChainInstance, ignorePar:Boolean): Long = {
+    mappingOf.get(x).fold {
+      x.counters.map(c => nIters(c, ignorePar)).product
+    } { exp => nIters(exp) }
+  }
+
+  // Struct handling
+  def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
+
+  @stateful def decomposeWithFields[T](exp: Expr, fields: Seq[T]): Either[Expr, Seq[(String, Expr)]] = {
+    if (fields.size < 1) {
+      Left(exp)
+    }
+    else if (fields.size == 1) {
+      Right(fields.map {
+        case field:String => (field, exp)
+        case (field:String, dexp:Expr) => (field, exp)
+      })
+    }
+    else {
+      Right(decomposed.getOrElseUpdate(exp) {
+        fields.map { f => 
+          val (field, dexp) = f match {
+            case field:String => (field, fresh[Int32]) 
+            case (field:String, dexp:Expr) => (field, dexp)
+          }
+          // Special case where if dexp is constant, it can map to 
+          // multiple exp but doesn't matter is the mapping is incorrect
+          if (!isConstant(dexp) || !composed.contains(dexp)) {
+            composed(dexp) = exp
+          }
+          (field, dexp)
+        }
+      })
     }
   }
+
+  @stateful def decomposeWithFields[T](exp:Expr)(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = exp match {
+    case Def(StreamInNew(bus)) => decomposeBus(bus, exp) 
+    case Def(StreamOutNew(bus)) => decomposeBus(bus, exp)
+    case Def(SimpleStruct(elems)) => decomposeWithFields(exp, elems)
+    case Def(VectorApply(vec, idx)) => decomposeWithFields(exp, getFields(vec))
+    case Def(ListVector(elems)) => decomposeWithFields(exp, elems.flatMap(ele => getFields(ele)))
+    case Def(GetDRAMAddress(dram)) => Left(exp) //TODO: consider the case where dram is composed
+    case Def(RegNew(init)) => 
+      val fields = decomposeWithFields(init) match {
+        case Left(init) => Seq() 
+        case Right(seq) => seq.map{ case (f, e) => f }
+      }
+      decomposeWithFields(exp, fields)
+    case Const(a:WrappedArray[_]) => decomposeWithFields(exp, a.toSeq) 
+    case mem if isMem(mem) => 
+      val fields =  mem.tp.typeArguments(0) match {
+        case s:StructType[_] => s.fields.map(_._1)
+        case _ => Seq()
+      }
+      decomposeWithFields(mem, fields)
+    case ParLocalReader(reads) => 
+      val (mem, _, _) = reads.head
+      decomposeWithFields(exp, getFields(mem))
+    case ParLocalWriter(writes) =>
+      val (mem, _, _, _) = writes.head
+      decomposeWithFields(exp, getFields(mem))
+    case _ => 
+      decomposed.get(exp).map(fs => Right(fs)).getOrElse(Left(exp))
+  }
+
+  @stateful def decomposeBus(bus:Bus, mem:Expr) = bus match {
+    //case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size", "isLoad"))
+    case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size")) // throw away isLoad bit
+    case BurstAckBus => decomposeWithFields(mem, Seq("ack")) 
+    case bus:BurstDataBus[_] => decomposeWithFields(mem, Seq("data")) 
+    //case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
+    case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data"))
+    case GatherAddrBus => decomposeWithFields(mem, Seq("addr"))
+    case bus:GatherDataBus[_] => decomposeWithFields(mem, Seq("data"))
+    //case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
+    case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data"))
+    case ScatterAckBus => decomposeWithFields(mem, Seq("ack")) 
+    case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
+  }
+
+  @stateful def decompose[T](exp: Expr, fields: Seq[T])(implicit ev: TypeTag[T]): Seq[Expr] = {
+    decomposeWithFields(exp, fields) match {
+      case Left(e) => Seq(e)
+      case Right(seq) => seq.map(_._2)
+    }
+  }
+
+  @stateful def decompose(exp: Expr): Seq[Expr] = {
+    decomposeWithFields(exp) match {
+      case Left(e) => Seq(e)
+      case Right(seq) => seq.map(_._2)
+    }
+  }
+
+  @stateful def getFields(exp: Expr): Seq[String] = {
+    decomposeWithFields(exp) match {
+      case Left(e) => Seq()
+      case Right(seq) => seq.map(_._1)
+    }
+  }
+
+  @stateful def getField(dexp: Expr): Option[String] = {
+    decomposeWithFields(compose(dexp)) match {
+      case Left(e) => None 
+      case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
+        throw new Exception(s"composed $dexp=${compose(dexp)}doesn't contain $dexp. seq=$seq")
+        ))
+    }
+  }
+
+  @stateful def getMatchedDecomposed(dele:Expr, ele:Expr):Expr = {
+    val i = decompose(compose(dele)).indexOf(dele)
+    val seq = decompose(ele)
+    seq(i)
+  }
+
+
 }

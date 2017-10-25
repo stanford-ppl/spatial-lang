@@ -5,11 +5,10 @@ import spatial.metadata._
 
 import scala.collection.mutable
 
-trait PIRAreaModelHack extends PIRTraversal {
+class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Area Model Hack"
   override val recurse = Always
-
-  def mapping:mutable.Map[Expr, List[CU]]
+  var IR = codegen.IR
 
   var totalArea = 0.0
   var totalMemArea = 0.0
@@ -24,8 +23,8 @@ trait PIRAreaModelHack extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mapping.contains(lhs)) {
-      mapping(lhs).foreach{cu =>
+    mappingOf.get(lhs).foreach { _.foreach {
+      case cu:CU =>
         dbgs(c"CU:  $cu (lanes = ${cu.lanes}")
         val stageArea = cu.allStages.map{stage => areaOf(stage, cu) }.sum
         val ccArea = cu.cchains.map(cchainArea).sum
@@ -39,13 +38,13 @@ trait PIRAreaModelHack extends PIRTraversal {
         else if (cu.isPCU) {
           totalArea += (stageArea + ccArea)
         }
-      }
-    }
+      case _ =>
+    } }
   }
 
   def areaOf(stage: Stage, cu: CU): Double = stage match {
     case MapStage(op,_,_)      => (opArea(op) + regArea()) * cu.lanes
-    case ReduceStage(op,_,_,_,_) => (REDUCE_STAGES + 1)*(opArea(op) + regArea())
+    case ReduceStage(op,_,_,_,_) => (getReduceCost(cu) + 1)*(opArea(op) + regArea())
   }
 
   def opArea(op: PIROp, verbose: Boolean = true): Double = {
@@ -129,7 +128,7 @@ trait PIRAreaModelHack extends PIRTraversal {
   }
 
   def cchainArea(cc: CUCChain): Double = cc match {
-    case CChainInstance(_,_,ctrs) => counterArea * ctrs.length
+    case CChainInstance(_,ctrs) => counterArea * ctrs.length
     case CChainCopy(_,inst,_) => cchainArea(inst)
     case UnitCChain(_) => counterArea
   }

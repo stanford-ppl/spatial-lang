@@ -1,5 +1,7 @@
 package spatial
 
+import spatial.aliases._
+
 import argon.ArgonArgParser
 import argon.util.Report._
 
@@ -110,6 +112,10 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.enableSynth = false
     spatialConfig.enablePIR = true
   }.text("enables PIR generation")
+
+  parser.opt[String]("pirsrc").action { (x, c) =>
+    spatialConfig.pirsrc = x
+  }.text("copy directory for generated pir source")
 
   parser.opt[Unit]("cgra+").action{ (_,_) =>
     spatialConfig.enableSim = false

@@ -272,6 +272,7 @@ zcu-hw:
 	mv ${ZCU_V_DIR}/fsbl.elf._ ${ZCU_V_DIR}/fsbl.elf
 	mv ${ZCU_V_DIR}/u-boot.elf._ ${ZCU_V_DIR}/u-boot.elf
 	sed -i "s/^set TARGET .*/set TARGET ZCU102/g" ${ZCU_V_DIR}/settings.tcl
+	sed -i "s/bash convert_bitstream accel.bit accel.bit.bin.*/bash convert_bitstream accel.bit accel.bit.bin ZCU102/g" ${ZCU_V_DIR}/Makefile 
 	make -C ${ZCU_V_DIR}
 
 zcu-clean:

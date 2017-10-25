@@ -125,7 +125,6 @@ trait PlasticineLatencyModel extends LatencyModel {
     case FixPtToFltPt(x) => 1
 
     case _:Hwblock             => 1
-    case _:ParallelPipe        => 1
     case _:UnitPipe            => 0
     case _:OpForeach           => 1
     case _:OpReduce[_]         => 1

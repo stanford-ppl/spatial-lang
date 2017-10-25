@@ -1,5 +1,7 @@
 package spatial.codegen.pirgen
 
+import spatial.aliases._
+
 import argon.codegen.FileGen
 import argon.core._
 
@@ -11,13 +13,10 @@ trait PIRFileGen extends FileGen {
   override protected def emitMain[S:Type](b: Block[S]): Unit = emitBlock(b)
 
   override protected def emitFileHeader() {
-    emit("import pir.graph.{Mux =>_, _}")
-    emit("import pir.codegen._")
-    emit("import pir.spade.config._")
-    emit("import pir.Design")
-    emit("import pir.util.enums._")
-    emit("import pir.util._")
-    emit("import pir.PIRApp")
+    emit("import pir._")
+    emit("import pir.node._")
+    emit("import arch._")
+    emit("import pirc.enums._")
     emit("")
     open(s"""object ${config.name} extends PIRApp {""")
     //emit(s"""override val arch = SN_4x4""")
@@ -39,9 +38,9 @@ trait PIRFileGen extends FileGen {
     //TODO: Cannot treat this as a dependency because postprocess is called before stream is closed
     if (sys.env.get("PIR_HOME").isDefined && sys.env("PIR_HOME") != "") {
       // what should be the cleaner way of doing this?
-      val dir = s"${sys.env("PIR_HOME")}/apps/src/gen" 
+      val dir = spatialConfig.pirsrc 
       var cmd = s"mkdir -p $dir"
-      println(cmd)
+      info(cmd)
       cmd.!
 
       cmd = s"cp ${config.genDir}/pir/main.scala $dir/${config.name}.scala"
