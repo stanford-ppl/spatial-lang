@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [[ $1 = "zynq" ]]; then
-	export CLOCK_FREQ_MHZ=125
+	export CLOCK_FREQ_MHZ=150
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
 	tid=`python3 ${REGRESSION_HOME}/../tid.py "$hash" "$apphash" "$timestamp" "Zynq"`
