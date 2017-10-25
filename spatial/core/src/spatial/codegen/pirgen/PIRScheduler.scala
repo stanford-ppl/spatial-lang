@@ -255,9 +255,9 @@ trait PIRScheduler extends PIRTraversal {
         ctx.addReg(out, inputRegs.find{reg => !isControl(reg)}.get)
       }
       else if (hasControlLogic) {
-        error("Could not skip control logic in operation: ")
-        error(s"$out = $op(" + ins.mkString(", ") + ") [reduce = " + isReduce + "]")
-        error(s"Control registers: " + inputRegs.filter(isControl).mkString(", "))
+        bug("Could not skip control logic in operation: ")
+        bug(s"$out = $op(" + ins.mkString(", ") + ") [reduce = " + isReduce + "]")
+        bug(s"Control registers: " + inputRegs.filter(isControl).mkString(", "))
         sys.exit(-1)
       }
       else {

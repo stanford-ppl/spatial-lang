@@ -55,7 +55,10 @@ class FringeContextVCS : public FringeContextBase<void> {
     "DRAM_DEBUG",
     "DRAM_NUM_OUTSTANDING_BURSTS",
     "VPD_ON",
-    "VCD_ON"
+    "VCD_ON",
+    "N3XT_LOAD_DELAY",
+    "N3XT_STORE_DELAY",
+    "N3XT_NUM_CHANNELS"
   };
 
   char* checkAndGetEnvVar(std::string var) {

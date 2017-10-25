@@ -164,11 +164,7 @@ class InvalidOffchipDimensionError(offchip: Exp[_], dim: Int)(implicit ctx: SrcC
 }}
 
 class ConcurrentReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
-  error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
-  error(a.ctxOrElse(ctx), u"  The first read occurs here")
-  error(a.ctxOrElse(ctx))
-  error(b.ctxOrElse(ctx), u"  The second read occurs here")
-  error(b.ctxOrElse(ctx))
+
 }}
 
 class ConcurrentWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
@@ -188,27 +184,7 @@ class PipelinedReadersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: Src
 }}
 
 class PipelinedWritersError(mem: Exp[_], a: Exp[_], b: Exp[_])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
-  error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal pipelined writers: ")
-  error(a.ctxOrElse(ctx), u"  The first write occurs here")
-  error(a.ctxOrElse(ctx))
-  error(b.ctxOrElse(ctx), u"  The second write occurs here")
-  error(b.ctxOrElse(ctx))
-}}
 
-class MultipleReadersError(mem: Exp[_], readers: List[Exp[_]])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
-  error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal multiple readers: ")
-  readers.foreach { read =>
-    error(read.ctxOrElse(ctx), u"  Read defined here")
-    error(read.ctxOrElse(ctx))
-  }
-}}
-
-class MultipleWritersError(mem: Exp[_], writers: List[Exp[_]])(implicit ctx: SrcCtx, state: State) extends UserError(mem.ctxOrElse(ctx)){ def console() = {
-  error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal multiple writers: ")
-  writers.foreach { write =>
-    error(write.ctxOrElse(ctx), u"  Write defined here")
-    error(write.ctxOrElse(ctx))
-  }
 }}
 
 class NoTopError(ctx: SrcCtx)(implicit state: State) extends ProgramError {

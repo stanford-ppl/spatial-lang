@@ -17,6 +17,7 @@ using namespace std;
 #include "vc_hdrs.h"
 #include "svdpi_src.h"
 
+#include <AddrRemapper.h>
 #include <DRAMSim.h>
 
 #define MAX_NUM_Q             128
@@ -24,10 +25,19 @@ using namespace std;
 #define PAGE_OFFSET           (__builtin_ctz(PAGE_SIZE_BYTES))
 #define PAGE_FRAME_NUM(addr)  (addr >> PAGE_OFFSET)
 
+// N3XT constants
+uint32_t N3XT_LOAD_DELAY = 3;
+uint32_t N3XT_STORE_DELAY = 11;
+uint32_t N3XT_NUM_CHANNELS = MAX_NUM_Q;
+
+// Simulation constants
+FILE *traceFp = NULL;
+
 // DRAMSim2
 DRAMSim::MultiChannelMemorySystem *mem = NULL;
 bool useIdealDRAM = false;
 bool debug = false;
+AddrRemapper *remapper = NULL;
 
 extern uint64_t numCycles;
 uint32_t wordSizeBytes = 4;
@@ -35,7 +45,7 @@ uint32_t burstSizeBytes = 64;
 uint32_t burstSizeWords = burstSizeBytes / wordSizeBytes;
 
 uint64_t sparseRequestCounter = 0;  // Used to provide unique tags to each sparse request
-
+uint64_t globalID = 0;
 int sparseCacheSize = -1; // Max. number of lines in cache; -1 == infinity
 
 class DRAMRequest;
@@ -73,6 +83,9 @@ public:
 };
 
 
+// DRAM Request Queue
+std::deque<DRAMRequest*> dramRequestQ[MAX_NUM_Q];
+
 /**
  * DRAM Request corresponding to 1-burst that is enqueued into DRAMSim2
  * The 'size' field reflects the size of the entire command of which
@@ -80,8 +93,10 @@ public:
  */
 class DRAMRequest {
 public:
+  uint64_t id;
   uint64_t addr;
   uint64_t rawAddr;
+  uint64_t smallAddr;
   uint32_t size;
   uint32_t streamId;
   uint64_t tag;
@@ -97,7 +112,9 @@ public:
   DRAMCommand *cmd;
 
   DRAMRequest(uint64_t a, uint64_t ra, uint32_t sz, uint32_t sid, uint64_t t, bool wr, bool sparse, uint64_t issueCycle) {
-    addr = a;
+    id = globalID++;
+    addr = remapper->getBig(a);
+    smallAddr = a;
     rawAddr = ra;
     size = sz;
     streamId = sid;
@@ -106,7 +123,16 @@ public:
     isSparse = sparse;
     sparseTag = -1;
 
-    delay = abs(rand()) % 150 + 50;
+    // N3xt delay
+    if (isWr) {
+      delay = N3XT_STORE_DELAY;
+    } else {
+      delay = N3XT_LOAD_DELAY;
+    }
+    if (useIdealDRAM) {
+      channelID = id % N3XT_NUM_CHANNELS;
+    }
+
     elapsed = 0;
     issued = issueCycle;
     completed = false;
@@ -124,8 +150,14 @@ public:
     } else {
       tagToUse = tag;
     }
-    mem->addTransaction(isWr, addr, tagToUse);
-    channelID = mem->findChannelNumber(addr);
+
+    if (!useIdealDRAM) {
+      mem->addTransaction(isWr, addr, tagToUse);
+      channelID = mem->findChannelNumber(addr);
+    } else {
+      dramRequestQ[channelID].push_back(this);
+      ASSERT(channelID < MAX_NUM_Q, "channelID %d is greater than MAX_NUM_Q %u. Is N3XT_NUM_CHANNELS (%u) > MAX_NUM_Q (%u) ?\n", channelID, MAX_NUM_Q, MAX_NUM_Q, N3XT_NUM_CHANNELS);
+    }
     if (debug) {
       EPRINTF("                  Issuing following command:");
       print();
@@ -168,8 +200,6 @@ struct AddrTag {
 	}
 };
 
-// DRAM Request Queue
-std::deque<DRAMRequest*> dramRequestQ[MAX_NUM_Q];
 
 // WDATA Queue
 std::deque<uint32_t*> wdataQ[MAX_NUM_Q];
@@ -201,6 +231,23 @@ void printQueueStats(int id) {
     }
     EPRINTF("==== END dramRequestQ %d status =====\n", id);
 
+  }
+}
+
+void updateIdealDRAMQ(int id) {
+  if (dramRequestQ[id].size() > 0) {
+    DRAMRequest *req = dramRequestQ[id].front();
+
+    if (useIdealDRAM) {
+      req->elapsed++;
+      if (req->elapsed >= req->delay) {
+        req->completed = true;
+        if (debug) {
+          EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+        }
+
+      }
+    }
   }
 }
 
@@ -276,15 +323,15 @@ bool checkQAndRespond(int id) {
   if (dramRequestQ[id].size() > 0) {
     DRAMRequest *req = dramRequestQ[id].front();
 
-    if (useIdealDRAM) {
-      req->elapsed++;
-      if (req->elapsed >= req->delay) {
-        req->completed = true;
-        if (debug) {
-          EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
-        }
-      }
-    }
+//    if (useIdealDRAM) {
+//      req->elapsed++;
+//      if (req->elapsed >= req->delay) {
+//        req->completed = true;
+//        if (debug) {
+//          EPRINTF("[idealDRAM txComplete] addr = %p, tag = %lx, finished = %lu\n", (void*)req->addr, req->tag, numCycles);
+//        }
+//      }
+//    }
 
     if (req->completed) {
       if (!req->isSparse) {
@@ -313,6 +360,21 @@ bool checkQAndRespond(int id) {
             EPRINTF("[Sending DRAM resp to]: ");
             req->print();
           }
+
+        // N3Xt logging info
+        fprintf(traceFp, "id: %lu\n", req->id);
+        fprintf(traceFp, "issue: %lu\n", req->issued);
+        if (req->isWr) {
+          fprintf(traceFp, "type: STORE\n");
+        } else {
+          fprintf(traceFp, "type: LOAD\n");
+        }
+        fprintf(traceFp, "delay: %d\n", numCycles - req->issued);
+        fprintf(traceFp, "addr: %lu\n", req->smallAddr);
+        fprintf(traceFp, "size: %u\n", burstSizeBytes);
+        fprintf(traceFp, "channel: %d\n", req->channelID);
+        fprintf(traceFp, "\n");
+
 
           if (req->isWr) {
             pokeDRAMWriteResponse(req->tag);
@@ -468,6 +530,12 @@ void checkAndSendDRAMResponse() {
   if (popWhenReady >= 0) { // A particular queue has already poked its response, call it again
     ASSERT(checkQAndRespond(popWhenReady), "popWhenReady (%d) >= 0, but no response generated from queue %d\n", popWhenReady, popWhenReady);
   } else {   // Iterate over all queues and respond to the first non-empty queue
+    if (useIdealDRAM) {
+      for (int i =0; i < MAX_NUM_Q; i++) {
+        updateIdealDRAMQ(i);
+      }
+    }
+
     for (int i =0; i < MAX_NUM_Q; i++) {
       if (checkQAndRespond(i)) {
         popWhenReady = i;
@@ -635,7 +703,7 @@ extern "C" {
       reqs[0]->print();
     }
 
-    if (!useIdealDRAM) {
+//    if (!useIdealDRAM) {
       bool skipIssue = false;
 
       // For each burst request, create an AddrTag
@@ -702,7 +770,7 @@ extern "C" {
           if (cmdIsWr) {  // Schedule in sendWdata function, when wdata arrives
             wrequestQ.push_back(req);
           } else {
-            req->schedule();  // Schedule request with DRAMSim2
+            req->schedule();  // Schedule request with DRAMSim2 / ideal DRAM
           }
 
         } else {
@@ -711,11 +779,17 @@ extern "C" {
           }
         }
       }
-    }
 
+    // Push request into appropriate channel queue
+    // Note that for ideal DRAM, since "scheduling" a request amounts to pushing the request
+    // onto the right dramRequstQ, this happens within the schedule() method in DRAMRequest
     if (dramReady == 1) {
       for (int i=0; i<cmdSize; i++) {
-        dramRequestQ[cmdStreamId].push_back(reqs[i]);
+        if (!useIdealDRAM) {
+          dramRequestQ[cmdStreamId].push_back(reqs[i]);
+        }// else {
+//          dramRequestQ[reqs[i]->channelID].push_back(reqs[i]);
+//        }
       }
     }
 
@@ -725,9 +799,7 @@ extern "C" {
 
 void initDRAM() {
   char *idealDRAM = getenv("USE_IDEAL_DRAM");
-  EPRINTF("idealDRAM = %s\n", idealDRAM);
   if (idealDRAM != NULL) {
-
     if (idealDRAM[0] != 0 && atoi(idealDRAM) > 0) {
       useIdealDRAM = true;
     }
@@ -754,6 +826,33 @@ void initDRAM() {
   }
   EPRINTF("[DRAM] Sparse cache size = %d\n", sparseCacheSize);
 
+  char *loadDelay = getenv("N3XT_LOAD_DELAY");
+  if (loadDelay != NULL) {
+    if (loadDelay[0] != 0 && atoi(loadDelay) > 0) {
+      N3XT_LOAD_DELAY = (uint32_t) atoi(loadDelay);
+    }
+  }
+  char *storeDelay = getenv("N3XT_STORE_DELAY");
+  if (storeDelay != NULL) {
+    if (storeDelay[0] != 0 && atoi(storeDelay) > 0) {
+      N3XT_STORE_DELAY = (uint32_t) atoi(storeDelay);
+    }
+  }
+  char *n3xtChannels = getenv("N3XT_NUM_CHANNELS");
+  if (n3xtChannels != NULL) {
+    if (n3xtChannels[0] != 0 && atoi(n3xtChannels) > 0) {
+      N3XT_NUM_CHANNELS = (uint32_t) atoi(n3xtChannels);
+    }
+  }
+
+  if (useIdealDRAM) {
+    ASSERT(N3XT_NUM_CHANNELS < MAX_NUM_Q, "ERROR: N3XT_NUM_CHANNELS (%u) must be lesser than MAX_NUM_Q (%u)\n", N3XT_NUM_CHANNELS, MAX_NUM_Q);
+    EPRINTF(" ****** Ideal DRAM configuration ******\n");
+    EPRINTF("Num channels         : %u\n", N3XT_NUM_CHANNELS);
+    EPRINTF("Load delay (cycles)  : %u\n", N3XT_LOAD_DELAY);
+    EPRINTF("Store delay (cycles) : %u\n", N3XT_STORE_DELAY);
+    EPRINTF(" **************************************\n");
+  }
 
   if (!useIdealDRAM) {
     // Set up DRAMSim2 - currently hardcoding some values that should later be
@@ -776,5 +875,18 @@ void initDRAM() {
     DRAMSim::TransactionCompleteCB *rwCb = new DRAMSim::Callback<DRAMCallbackMethods, void, unsigned, uint64_t, uint64_t, uint64_t>(&callbackMethods, &DRAMCallbackMethods::txComplete);
     mem->RegisterCallbacks(rwCb, rwCb, NULL);
   }
+
+  // Instantiate 64-to-32-bit address remapper
+  remapper = new AddrRemapper();
+
+  // Open trace file
+  char *traceFileName = NULL;
+  if (useIdealDRAM) {
+    traceFileName = "trace_n3xt.log";
+  } else {
+    traceFileName = "trace_dramsim.log";
+  }
+  traceFp = fopen(traceFileName, "w");
+  ASSERT(traceFp != NULL, "Unable to open file %s!\n", traceFileName);
 }
 

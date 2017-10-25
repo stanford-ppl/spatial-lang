@@ -27,13 +27,65 @@ object utils {
   }
 
   /**
-    * Returns the list of parents of x, ordered outermost to innermost.
+    * Returns the list of parents of x, ordered outermost to innermost, stopping at stop (inclusive).
+    * Output is ordered such that outermost is first, innermost is last
     */
-  def allParents[T](x: T, parent: T => Option[T]): List[Option[T]] = {
+  def allParents[T](x: T, parent: T => Option[T], stop: Option[T] = None): List[Option[T]] = {
     var path: List[Option[T]] = List(Some(x))
     var cur: Option[T] = Some(x)
-    while (cur.isDefined) { cur = parent(cur.get); path ::= cur } // prepend
+    while (cur.isDefined && cur != stop) { cur = parent(cur.get); path ::= cur } // prepend
     path
+  }
+
+  /**
+    * Same as allParents, specifically for controllers
+    */
+  def allCtrlParents(x: Ctrl): List[Ctrl] = allParents(x, {c:Ctrl => parentOf(c)}).flatten
+
+  /**
+    * Returns a list of controllers between the given access's parent (inclusive) and the end controller (non-inclusive)
+    * Access's parent is last in the list
+    */
+  def ctrlBetween(x: Access, end: Ctrl): List[Ctrl] = {
+    allParents[Ctrl](x.ctrl, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
+  }
+
+  /**
+    * Returns a list of loop iterators between the given access's parent (inclusive) and the end controller (non-inclusive)
+    * Innermost iterator is last, outermost is first
+    */
+  def iteratorsBetween(x: Access, end: Ctrl): Seq[Bound[Index]] = {
+    ctrlBetween(x,end).flatMap{ctrl => loopIterators(ctrl) }
+  }
+
+
+  /**
+    * This function generates all possible partitions of the given set.
+    *
+    * The size of this is the Bell number, which doesn't have an entirely straightforward
+    * representation in terms of N, but looks roughly exponential.
+    * Note that by N = 10, the size of the output is over 100,000 and grows by roughly an order of magnitude
+    * with every increment in N thereafter.
+    * First 10 Bell numbers (excluding B0): 1, 2, 5, 15, 52, 203, 877, 4140, 21147, 115975
+    * FIXME: Will see some repeats of some partitions - need to figure out how to avoid this
+    */
+  def partitions[T](elements: Set[T], canUse: Set[T] => Boolean = {_: Set[T] => true}): Iterator[Set[Set[T]]] = {
+    val N = elements.size
+
+    def getPartitions(elems: Set[T], max: Int, depth: Int = 0): Iterator[Set[Set[T]]] = {
+      if (elems.isEmpty) Set(Set.empty[Set[T]]).iterator
+      else {
+        Iterator.range(1, max+1).flatMap{c: Int =>
+          val subsets = elems.subsets(c)
+          val subs = if (c == 1) subsets.take(1) else subsets // FIXME: repeats
+
+          subs.filter(canUse).flatMap{ part: Set[T] =>
+            getPartitions(elems -- part, c, depth+1).map{more: Set[Set[T]] => more + part}
+          }
+        }
+      }
+    }
+    getPartitions(elements, N)
   }
 
   /**
@@ -161,7 +213,9 @@ object utils {
   implicit class Int64RangeInternalOps(x: Int64) {
     @api def toRange64: Range64 = Range64.fromInt64(x)
   }
-
+  implicit class ParamExtractOps(x: Exp[Index]) {
+    @stateful def toInt: Int = x match {case Exact(v) => v.toInt }
+  }
 
   @stateful def lca(a: Ctrl, b: Ctrl): Option[Ctrl] = leastCommonAncestor[Ctrl](a, b, {x => parentOf(x)})
 
@@ -244,8 +298,9 @@ object utils {
     *
     * @return The LCA of a and b and the coarse-grained pipeline distance
     **/
-  @stateful def lcaWithCoarseDistance(a: Access, b: Access): (Ctrl, Int) = {
-    val (lca, dist) = lcaWithDistance(a.ctrl, b.ctrl)
+  @stateful def lcaWithCoarseDistance(a: Access, b: Access): (Ctrl, Int) = lcaWithCoarseDistance(a.ctrl,b.ctrl)
+  @stateful def lcaWithCoarseDistance(a: Ctrl, b: Ctrl): (Ctrl, Int) = {
+    val (lca, dist) = lcaWithDistance(a, b)
     val coarseDistance = if (isMetaPipe(lca) || isStreamPipe(lca)) dist else 0
     (lca, coarseDistance)
   }
@@ -262,6 +317,31 @@ object utils {
       throw new UndefinedChildException(top, access)
 
     pathB.head
+  }
+
+  @stateful def findAllCtrlMetaPipes(mem: Exp[_], ctrls: Set[Ctrl]): Set[Ctrl] = {
+    ctrls.subsets(2).map(_.toList).flatMap{case List(a,b) =>
+      val (lca,dist) = lcaWithCoarseDistance(a,b)
+      if (dist != 0) Some(lca) else None
+    }.toSet
+  }
+
+  @stateful def findAllMetaPipes(mem: Exp[_], accesses: Seq[Access]): Map[Ctrl,Seq[(Access,Access)]] = {
+    assert(accesses.nonEmpty)
+
+    val lcas = accesses.indices.flatMap{i =>
+      (i + 1 until accesses.length).map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+        (lca,dist,(accesses(i),accesses(j)))
+      }
+    }
+
+    /*dbg("")
+    dbg(c"  accesses: $accesses")
+    lcas.foreach{case (lca,dist,access) => dbg(c"    lca(${access._1}, ${access._2}) = $lca ($dist)") }*/
+
+    // Find accesses which require n-buffering, group by their controller
+    lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
   }
 
   /**
@@ -288,17 +368,7 @@ object utils {
     }
 
     val accesses = readers ++ writers
-    assert(accesses.nonEmpty)
-
-    val lcas = accesses.indices.flatMap{i =>
-      (i + 1 until accesses.length).map{j =>
-        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
-        (lca,dist,(accesses(i),accesses(j)))
-      }
-    }
-
-    // Find accesses which require n-buffering, group by their controller
-    val metapipeLCAs = lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
+    val metapipeLCAs = findAllMetaPipes(mem, accesses)
 
     // Hierarchical metapipelining is currently disallowed
     if (metapipeLCAs.keys.size > 1) ambiguousMetapipesError(metapipeLCAs)
@@ -322,11 +392,10 @@ object utils {
     // Port X: X stage(s) after first stage
     // val ports = Map(lcas.map{grp => grp._3 -> (grp._2 - minDist)}:_*)
 
-    dbg("")
-    dbg(c"  accesses: $accesses")
-    lcas.foreach{case (lca,dist,access) => dbg(c"    lca(${access._1}, ${access._2}) = $lca ($dist)") }
+    /*
     dbg(s"  metapipe: $metapipe")
     ports.foreach{case (access, port) => dbg(s"    - $access : port #$port")}
+    */
 
     (metapipe, ports)
   }
@@ -334,13 +403,13 @@ object utils {
 
 
   /** Error checking methods **/
-  @stateful def areConcurrent(a: Access, b: Access): Boolean = {
-    val (top,dist) = lcaWithDistance(a.ctrl, b.ctrl)
-    isInnerPipe(top) || isParallel(top.node)
+  @stateful def areConcurrent(a: Access, b: Access): Option[Ctrl] = {
+    val top = lca(a.ctrl, b.ctrl)
+    top.filter{t => isInnerPipe(t) || isParallel(t.node) }
   }
-  @stateful def arePipelined(a: Access, b: Access): Boolean = {
-    val top = lca(a.ctrl, b.ctrl).get
-    isInnerPipe(top) || isMetaPipe(top) || isStreamPipe(top)
+  @stateful def areMetaPipelined(a: Access, b: Access): Option[Ctrl] = {
+    val top = lca(a.ctrl, b.ctrl)
+    top.filter{t => isMetaPipe(t) || isStreamPipe(t) }
   }
 
   // O(N^2), but number of accesses is typically small
@@ -351,32 +420,30 @@ object utils {
       }
     }
   }
-  @stateful def findAccesses(access: List[Access])(func: (Access, Access) => Boolean): Seq[(Access,Access)] = {
-    access.indices.flatMap{i =>
+  @stateful def findAccesses(access: List[Access])(func: (Access, Access) => Option[Ctrl]): Map[Ctrl,Seq[Access]] = {
+    val matches = access.indices.flatMap{i =>
       (i+1 until access.length).flatMap{j =>
-        if (access(i) != access(j) && func(access(i), access(j))) Some((access(i),access(j))) else None
+        if (access(i) != access(j)) func(access(i),access(j)).map{c => (c,access(i),access(j))} else None
       }
     }
+    matches.groupBy(_._1)
+           .mapValues{ms => ms.flatMap{case (ctrl,a1,a2) => Seq(a1,a2) }.distinct }
   }
 
-  @internal def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
-    if (areConcurrent(a,b)) {new ConcurrentReadersError(mem, a.node, b.node); true } else false
+  @internal def getConcurrentReaders(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+    findAccesses(readersOf(mem)){(a,b) => areConcurrent(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def checkConcurrentWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
-    if (areConcurrent(a,b)) {new ConcurrentWritersError(mem, a.node, b.node); true } else false
+  @internal def getConcurrentWriters(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+    findAccesses(writersOf(mem)){(a,b) => areConcurrent(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def checkPipelinedReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
-    if (arePipelined(a,b)) {new PipelinedReadersError(mem, a.node, b.node); true } else false
+  @internal def getMetaPipelinedReaders(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+    findAccesses(readersOf(mem)){(a,b) => areMetaPipelined(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def checkPipelinedWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
-    if (arePipelined(a,b)) {new PipelinedWritersError(mem, a.node, b.node); true } else false
+  @internal def getMetaPipelinedWriters(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+    findAccesses(writersOf(mem)){(a,b) => areMetaPipelined(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def checkMultipleReaders(mem: Exp[_]): Boolean = if (readersOf(mem).length > 1) {
-    new MultipleReadersError(mem, readersOf(mem).map(_.node)); true
-  } else false
-  @internal def checkMultipleWriters(mem: Exp[_]): Boolean = if (writersOf(mem).length > 1) {
-    new MultipleWritersError(mem, writersOf(mem).map(_.node)); true
-  } else false
+  @internal def hasMultipleReaders(mem: Exp[_]): Boolean = readersOf(mem).length > 1
+  @internal def hasMultipleWriters(mem: Exp[_]): Boolean = writersOf(mem).length > 1
 
   /*def checkConcurrentReadWrite(mem: Exp[_]): Boolean = {
     val hasConcurrent = writersOf(mem).exists{writer =>
@@ -458,6 +525,16 @@ object utils {
   }
 
   /** Control Nodes **/
+  def loopIterators(x: Ctrl): Seq[Bound[Index]] = x.node match {
+    case Def(op:OpReduce[_])      => op.iters
+    case Def(op:OpForeach)        => op.iters
+    case Def(op:OpMemReduce[_,_]) => if (x.block == 0) op.itersMap else op.itersMap ++ op.itersRed
+
+    case Def(op:UnrolledReduce[_,_]) => op.iters.flatten
+    case Def(op:UnrolledForeach)     => op.iters.flatten
+  }
+
+
   implicit class CtrlOps(x: Ctrl) {
     def node: Exp[_] = if (x == null) null else x._1
     def block: Int = if (x == null) -1 else x._2
@@ -565,8 +642,6 @@ object utils {
   @stateful def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
   def isUnitPipe(d: Def): Boolean = d.isInstanceOf[UnitPipe]
 
-
-
   @stateful def isControlNode(e: Exp[_]): Boolean = getDef(e).exists(isControlNode)
   def isControlNode(d: Def): Boolean = d.isInstanceOf[ControlNode[_]]
 
@@ -579,7 +654,9 @@ object utils {
   @stateful def isLoop(e: Exp[_]): Boolean = getDef(e).exists(isLoop)
   def isLoop(d: Def): Boolean = d.isInstanceOf[Loop]
 
-
+  @stateful def isInLoop(e: Exp[_]): Boolean = isLoop(e) || parentOf(e).exists(isLoop)
+  @stateful def isInLoop(ctrl: Ctrl): Boolean = isInLoop(ctrl.node)
+  @stateful def isInLoop(a: Access): Boolean = isInLoop(a.ctrl)
 
   /** Determines if a given controller is forever or has any children that are **/
   @stateful def willRunForever(e: Exp[_]): Boolean = getDef(e).exists(isForever) || childrenOf(e).exists(willRunForever)
@@ -605,6 +682,28 @@ object utils {
   def isFringeNode(d: Def): Boolean = d.isInstanceOf[FringeNode[_]]
 
   /** Counters **/
+  @stateful def counterStart(x: Exp[Counter]): Exp[Index] = x match {
+    case Op(CounterNew(start,_,_,_)) => start
+    case Op(Forever()) =>
+      implicit val ctx: SrcCtx = x.ctx
+      int32s(0)
+    case _ => throw new Exception(s"Cannot get start of symbol $x")
+  }
+  @stateful def counterStride(x: Exp[Counter]): Exp[Index] = x match {
+    case Op(CounterNew(_,_,step,_)) => step
+    case Op(Forever()) =>
+      implicit val ctx: SrcCtx = x.ctx
+      int32s(1)
+    case _ => throw new Exception(s"Cannot get stride of symbol $x")
+  }
+  @stateful def counterEnd(x: Exp[Counter]): Exp[Index] = x match {
+    case Op(CounterNew(_,_,_,end)) => end
+    case Op(Forever()) =>
+      implicit val ctx: SrcCtx = x.ctx
+      int32s(2) // ??
+    case _ => throw new Exception(s"Cannot get counter end of symbol $x")
+  }
+
   @stateful def isUnitCounter(x: Exp[Counter]): Boolean = x match {
     case Op(CounterNew(Const(0), Const(1), Const(1), _)) => true
     case _ => false
@@ -828,12 +927,72 @@ object utils {
   @stateful def isNestedPrimitive(e: Exp[_]): Boolean = (isSwitch(e) || isSwitchCase(e)) && isInnerControl(e)
 
   /** Accesses **/
-  implicit class AccessOps(x: Access) {
-    def node: Exp[_] = x._1
-    def ctrl: Ctrl = x._2 // read or write enabler
-    def ctrlNode: Exp[_] = x._2._1 // buffer control toggler
-    def ctrlBlock: Int = x._2._2
-    @stateful def isInner: Boolean = x._2.isInner
+  implicit class AccessOps(a: Access) {
+    def node: Exp[_] = a._1
+    def ctrl: Ctrl = a._2 // read or write enabler
+    def ctrlNode: Exp[_] = a._2._1 // buffer control toggler
+    def ctrlBlock: Int = a._2._2
+    @stateful def isInner: Boolean = a._2.isInner
+
+    /**
+      * Returns true if an execution of access a may occur before one of access b
+      */
+    def mayPrecede(b: Access): Boolean = {
+      val (ctrl,dist) = lcaWithDistance(b.ctrl, a.ctrl)
+      dist < 0 || (dist > 0 && isInLoop(ctrl.node))
+    }
+
+    /**
+      * Returns true if an execution of access a may occur after one of access b
+      */
+    def mayFollow(b: Access): Boolean = {
+      val (ctrl,dist) = lcaWithDistance(b.ctrl, a.ctrl)
+      dist > 0 || (dist < 0) && isInLoop(ctrl.node)
+    }
+
+    /**
+      * Returns the sequence of enables associated with this access
+      */
+    def enables: Seq[Exp[Bit]] = a.node match {
+      case Def(d:EnabledOp[_]) => d.enables
+      case _ => Nil
+    }
+
+    /**
+      * Returns true if access b must happen every time the body of controller ctrl is run
+      * This case holds when all of the enables of ctrl are true
+      * and when b is not contained in a switch within ctrl
+      *
+      * NOTE: Usable only before unrolling (so enables will not yet include boundary conditions)
+      */
+    def mustOccurWithin(ctrl: Ctrl): Boolean = {
+      val parents = allParents(a.ctrl, {c: Ctrl => parentOf(c)})
+      val innerParents: Seq[Ctrl] = parents.take(parents.indexOf(Some(ctrl))).flatten
+      val switches = innerParents.filter{p => isSwitch(p.node)}
+      switches.isEmpty && a.enables.forall{case Const(c: Boolean) => c; case _ => false }
+    }
+
+    /**
+      * Returns true if access a must always come after access b, relative to some observer access p
+      * NOTE: Usable only before unrolling
+      *
+      * For orderings:
+      *   0. b p a - false
+      *   1. a b p - false
+      *   2. p a b - false
+      *   3. b a p - true if b does not occur within a switch
+      *   4. a p b - true if in a loop and b does not occur within a switch
+      *   5. p b a - true if b does not occur within a switch
+      */
+    def mustFollow(b: Access, p: Access): Boolean = {
+      val (ctrlA,distA) = lcaWithDistance(a.ctrl, p.ctrl) // Positive if a p, negative otherwise
+      val (ctrlB,distB) = lcaWithDistance(b.ctrl, p.ctrl) // Positive if b p, negative otherwise
+      val ctrlAB = lca(a.ctrl,b.ctrl).get
+      if      (distA > 0 && distB > 0) { distA < distB && a.mustOccurWithin(ctrlAB) }   // b a p
+      else if (distA > 0 && distB < 0) { isInLoop(ctrlA) && a.mustOccurWithin(ctrlAB) } // a p b
+      else if (distA < 0 && distB < 0) { distA < distB && isInLoop(ctrlA) && a.mustOccurWithin(ctrlAB) } // p b a
+      else false
+    }
   }
 
   implicit class StreamInfoOps(x: StreamInfo) {
@@ -934,21 +1093,6 @@ object utils {
 
   @stateful def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
   def isResetter(d: Def): Boolean = LocalResetter.unapply(d).isDefined
-  /*@stateful def getAccess(x:Exp[_]):Option[Access] = x match {
-    case LocalReader(reads) =>
-      val ras = reads.flatMap{ case (mem, _, _) => readersOf(mem).filter { _.node == x } }
-      assert(ras.size==1)
-      Some(ras.head)
-    case LocalWriter(writes) =>
-      val was = writes.flatMap{ case (mem, _, _, _) => writersOf(mem).filter {_.node == x} }
-      assert(was.size==1)
-      Some(was.head)
-    case LocalResetter(resetters) =>
-      val ras = resetters.flatMap{ case (mem, _) => resettersOf(mem).filter {_.node == x} }
-      assert(ras.size==1)
-      Some(ras.head)
-    case _ => None
-  }*/
 
   @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {
     case LocalReader(reads) => reads.exists(_.addr.isEmpty)

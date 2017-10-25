@@ -5,20 +5,34 @@
 export LANG=en_US.UTF-8
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "tflop2" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "portland" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "max-2"* ]]; then
   REGRESSION_HOME="/kunle/users/mattfel/regression/"
 elif [[ ${this_machine} = "tucson" ]]; then
+  export thredz="7"
+  export SBT_OPTS="-Xmx64G -Xss1G"
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "london" ]]; then
+  export thredz="7"
+  export SBT_OPTS="-Xmx64G -Xss1G"
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "ottawa" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 elif [[ ${this_machine} = "manchester" ]]; then
+  export thredz="3"
+  export SBT_OPTS="-Xmx32G -Xss1G"
   REGRESSION_HOME="/home/regression/"
 else
   echo "Unrecognized machine ${this_machine}" | tee -a /tmp/log
@@ -172,7 +186,6 @@ git_things() {
   export WIKI_HOME=${WIKI_HOME}
   export wiki_file=${wiki_file}
   export spatial_hash=${spatial_hash}
-  export SBT_OPTS="-Xmx64G -Xss1G"
   export LM_LICENSE_FILE=7193@cadlic0.stanford.edu:/opt/Xilinx/awsF1.lic:27000@cadlic0.stanford.edu
   export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
   export PATH=/usr/bin:$VCS_HOME/amd64/bin:$PATH

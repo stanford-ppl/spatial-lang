@@ -11,13 +11,13 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
   override protected def name(s: Dyn[_]): String = s match {
     case Def(DelayLine(size, data)) => data match {
       case Const(_) => src"$data"
-      case _ => s"${quote(data)}_D$size" + alphaconv.getOrElse(s"${quote(data)}_D$size", "")
+      case _ => wireMap(s"${quote(data)}_D$size" + alphaconv.getOrElse(s"${quote(data)}_D$size", ""))
     }
     case _ => super.name(s)
   }
 
   override protected def quote(e: Exp[_]): String = e match {
-    case Def(DelayLine(_, data)) if !spatialConfig.enableNaming => data match {case Const(_) => quote(data); case _ => super.quote(e) + alphaconv.getOrElse(super.quote(e), "")}
+    case Def(DelayLine(_, data)) if !spatialConfig.enableNaming => data match {case Const(_) => quote(data); case _ => wireMap(super.quote(e) + alphaconv.getOrElse(super.quote(e), ""))}
     case _ => super.quote(e) // All others
   }
 
@@ -37,11 +37,11 @@ trait ChiselGenRetiming extends ChiselGenSRAM {
           alphaconv_register(src"$lhs")
           lhs.tp match {
             case a:VectorType[_] =>
-              logRetime(src"$lhs", src"$data", size, isVec = true, vecWidth = a.width, wire = newWire(lhs.tp), isBool = false/*although what about vec of bools?*/)
+              logRetime(lhs, src"$data", size, true, a.width, newWire(lhs.tp), false/*although what about vec of bools?*/)
             case BooleanType() =>
-              logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = true)
+              logRetime(lhs, src"$data", size, false, 0, newWire(lhs.tp), true)
             case _ =>
-              logRetime(src"$lhs", src"$data", size, isVec = false, vecWidth = 0, wire = newWire(lhs.tp), isBool = false)
+              logRetime(lhs, src"$data", size, false, 0, newWire(lhs.tp), false)
           }
       }
 

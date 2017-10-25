@@ -25,6 +25,8 @@ object CtrEn extends BooleanSignal
 object Ready extends BooleanSignal
 object Valid extends BooleanSignal
 object NowValid extends BooleanSignal
+object Inhibitor extends BooleanSignal
+object Wren extends BooleanSignal
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -71,6 +73,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Ready => wireMap(src"${lhs}_ready")
       case Valid => wireMap(src"${lhs}_valid")
       case NowValid => wireMap(src"${lhs}_now_valid")
+      case Inhibitor => wireMap(src"${lhs}_inhibitor")
+      case Wren => wireMap(src"${lhs}_wren")
     }
   }
 
@@ -89,6 +93,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Ready => wireMap(src"${lhs}_ready")
       case Valid => wireMap(src"${lhs}_valid")
       case NowValid => wireMap(src"${lhs}_now_valid")
+      case Inhibitor => wireMap(src"${lhs}_inhibitor")
+      case Wren => wireMap(src"${lhs}_wren")
     }
   }
 
@@ -208,21 +214,21 @@ trait ChiselGenSRAM extends ChiselCodegen {
   //  view of the counter done signal
   protected def emitInhibitor(lhs: Exp[_], cchain: Option[Exp[_]], fsm: Option[Exp[_]] = None, switch: Option[Exp[_]]): Unit = {
     if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {
-      emitGlobalModule(src"val ${lhs}_inhibitor = Wire(Bool())")
+      emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())") // Used to be global module?
       if (fsm.isDefined) {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
-          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${fsm.get}_doneCondition)")  
+          emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${fsm.get})")  
           emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(1, rr)")
-          /* or'ed _doneCondition back in because of BasicCondFSM!! */
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data | ${fsm.get}_doneCondition // Really want inhibit to turn on at last enabled cycle")        
+          /* or'ed  back in because of BasicCondFSM!! */
+          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data | ${fsm.get} // Really want inhibit to turn on at last enabled cycle")        
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
       } else if (switch.isDefined) {
-        emit(src"${lhs}_inhibitor := ${switch.get}_inhibitor")
+        emit(src"${swap(lhs, Inhibitor)} := ${swap(switch.get, Inhibitor)}")
       } else {
         if (cchain.isDefined) {
           emitGlobalModule(src"val ${lhs}_inhibit = Module(new SRFF()) // Module for masking datapath between ctr_done and pipe done")
           emit(src"${lhs}_inhibit.io.input.set := ${cchain.get}.io.output.done")  
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
+          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
           emit(src"${lhs}_inhibit.io.input.reset := ${swap(lhs, Done)}.D(0, rr)")
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         } else {
@@ -230,25 +236,39 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emit(src"${lhs}_inhibit.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
           val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${lhs}_retime, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
           emit(src"${lhs}_inhibit.io.input.reset := $rster")
-          emit(src"${lhs}_inhibitor := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
+          emit(src"${swap(lhs, Inhibitor)} := ${lhs}_inhibit.io.output.data /*| Utils.delay(Utils.risingEdge(${lhs}_sm.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
           emit(src"${lhs}_inhibit.io.input.asyn_reset := reset")
         }        
       }
     } else {
-      emitGlobalModule(src"val ${lhs}_inhibitor = false.B // Maybe connect to ${swap(lhs, Done)}?  ")      
+      emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())");emit(src"${swap(lhs, Inhibitor)} := false.B // Maybe connect to ${swap(lhs, Done)}?  ")
     }
   }
 
   def logRetime(lhs: String, data: String, delay: Int, isVec: Boolean = false, vecWidth: Int = 1, wire: String = "", isBool: Boolean = false): Unit = {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
-      emitGlobalWire(src"val $lhs = Wire(${wire})")
+      emitGlobalWireMap(src"$lhs", src"Wire(${wire})")
       emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := Utils.getRetimed(${data}(i).r, $delay)}")
     } else {
       if (isBool) {
-        emitGlobalWire(src"""val $lhs = Wire(Bool())""");emit(src"""$lhs := ${data}.D($delay, rr)""")
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(Bool())""");emit(src"""${lhs} := ${data}.D($delay, rr)""")
       } else {
-        emitGlobalWire(src"""val $lhs = Wire(${wire})""");emit(src"""$lhs := Utils.getRetimed($data, $delay)""")
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${wire})""");emit(src"""${lhs}.r := Utils.getRetimed(${data}.r, $delay)""")
+      }
+    }
+  }
+
+  def logRetime(lhs: => Sym[_], data: String, delay: Int, isVec: Boolean, vecWidth: Int, wire: String, isBool: Boolean): Unit = {
+    if (delay > maxretime) maxretime = delay
+    if (isVec) {
+      emitGlobalWireMap(src"$lhs", src"Wire(${wire})")
+      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := Utils.getRetimed(${data}(i).r, $delay)}")
+    } else {
+      if (isBool) {
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(Bool())""");emit(src"""${lhs} := ${data}.D($delay, rr)""")
+      } else {
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${wire})""");emit(src"""${lhs}.r := Utils.getRetimed(${data}.r, $delay)""")
       }
     }
   }
@@ -377,22 +397,23 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimR vector""")
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
+        val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
         emit(src"""val ${lhs}_rVec = Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
         emit(src"""${lhs}_rVec(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_rVec(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
         val p = portsOf(lhs, sram, i).head
-        emit(src"""val ${lhs}_base = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
-        emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
-        emit(src"""${lhs}.raw := ${sram}_$i.io.output.data(${lhs}_base)""")
+        val basequote = src"${lhs}_base" // get string before we create the map
+        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${lhs}_rVec.toArray), $p)""")
+        emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+        emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
       }
 
     case SRAMStore(sram, dims, is, ofs, v, en) =>
       val width = bitWidth(sram.tp.typeArguments.head)
       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${swap(parent, DatapathEn)} & ~${parent}_inhibitor"""
+      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
       emit(src"""${lhs}_wVec(0).data := $v.raw""")
@@ -409,11 +430,37 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
 
   override protected def emitFileFooter() {
+    withStream(getStream("Mapping")) {
+      emit("// ##############")
+      emit("// # BOOL WIRES #")
+      emit("// ##############")
+      emit(src"""${boolMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ##############")
+      emit("// # UINT WIRES #")
+      emit("// ##############")
+      emit(src"""${uintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ##############")
+      emit("// # SINT WIRES #")
+      emit("// ##############")
+      emit(src"""${sintMap.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ################")
+      emit("// # FIXS32 WIRES #")
+      emit("// ################")
+      emit(src"""${fixs32Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+      emit("// ################")
+      emit("// # FIXU32 WIRES #")
+      emit("// ################")
+      emit(src"""${fixu32Map.map{x => src"      // ${x._2} = ${x._1}"}.mkString("\n")}""")
+
+    }
     withStream(getStream("IOModule")) {
       emit("""// Set Build Info""")
       val trgt = s"${spatialConfig.target.name}".replace("DE1", "de1soc")
-      emit(src"""${boolMap.map{x => src"// ${x._1} = ${x._2}"}.mkString("\n")}""")
       emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
+      emit(src"val u = List.fill(${uintMap.size}){Wire(UInt(32.W))}")
+      emit(src"val s = List.fill(${sintMap.size}){Wire(SInt(32.W))}")
+      emit(src"val fs32 = List.fill(${fixs32Map.size}){Wire(new FixedPoint(true, 32, 0))}")
+      emit(src"val fu32 = List.fill(${fixu32Map.size}){Wire(new FixedPoint(false, 32, 0))}")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
     }

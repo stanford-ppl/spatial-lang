@@ -1,5 +1,6 @@
 package spatial.analysis
 
+import argon.analysis._
 import argon.core._
 import argon.traversal.CompilerPass
 import org.virtualized.SourceContext
@@ -14,13 +15,6 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
   var enableWarn = true
 
   def localMems: Seq[Exp[_]]
-
-  type Channels = (Memory, Int)
-  implicit class ChannelOps(x: Channels) {
-    def memory = x._1
-    def duplicates = x._2
-    def toList: List[Memory] = List.fill(duplicates)(memory)
-  }
 
   def mergeBanking(mem: Exp[_], a: Banking, b: Banking, d: Int): Banking = (a,b) match {
     case (Banking(s1,p,o1), Banking(s2,q,o2)) if s1 == s2 => Banking(s1, Math.min(lcm(p,q),d), o1 || o2)
@@ -87,30 +81,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val origDups  = Math.max(dupA, dupB)
     val extraDups = (channelsC + banksC - 1) / banksC //  = ceiling(channelsC / banksC)
     val dupC = Math.max(origDups,extraDups)
-    (memC, dupC)
-  }
-
-  class InstanceGroup (
-    val metapipe: Option[Ctrl],         // Controller if at least some accesses require n-buffering
-    val accesses: Iterable[Access],     // All accesses within this group
-    val channels: Channels,             // Banking/buffering information + duplication
-    val ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
-    val swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
-  ) {
-
-    lazy val revPorts: Array[Set[Access]] = invertPorts(accesses, ports)   // Set of accesses connected for each port
-    def port(x: Int): Set[Access] = if (x >= revPorts.length) Set.empty else revPorts(x)
-
-    def depth: Int = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max+1
-    // Assumes a fixed size, dual ported memory which is duplicated, both to meet duplicates and banking factors
-    def normalizedCost: Int = depth * channels.duplicates * channels.memory.totalBanks
-
-    val id: Int = { InstanceGroup.id += 1; InstanceGroup.id }
-    override def toString = s"IG$id"
-  }
-
-  object InstanceGroup {
-    var id = 0
+    Channels(memC, dupC)
   }
 
   def printGroup(mem: Exp[_], group: InstanceGroup, showErrors: Boolean = false): Unit = {
@@ -125,7 +96,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     group.revPorts.zipWithIndex.foreach{case (portAccesses,port) =>
       val writes = portAccesses.filter(access => writers.contains(access))
       val reads  = portAccesses.filter(access => readers.contains(access))
-      val concurrentWrites = findAccesses(writes.toList){(a,b) => areConcurrent(a,b) || arePipelined(a,b) }
+      val concurrentWrites = findAccesses(writes.toList){(a,b) => areConcurrent(a,b) || areMetaPipelined(a,b) }
       if (concurrentWrites.nonEmpty && showErrors) {
         bug(mem.ctx, s"Instance $group for writer $mem appears to have multiple concurrent writers on port #$port")
         concurrentWrites.foreach{case (a,b) =>
@@ -152,12 +123,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     }
   }
 
-  def invertPorts(accesses: Iterable[Access], ports: Map[Access, Set[Int]]): Array[Set[Access]] = {
-    val depth = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max + 1
-    Array.tabulate(depth){port =>
-      accesses.filter{a => ports(a).contains(port) }.toSet
-    }
-  }
+
 
 
   def bankAccessGroup(
@@ -173,7 +139,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val accesses = writers ++ reader
 
     val group = {
-      if (accesses.isEmpty) new InstanceGroup(None, Nil, (BankedMemory(Nil,1,false), 1), Map.empty, Map.empty)
+      if (accesses.isEmpty) new InstanceGroup(None, Nil, Channels(BankedMemory(Nil,1,false), 1), Map.empty, Map.empty)
       else {
         val bankings = accesses.map{a => bankAccess(mem, a.node) }
         val channels = bankings.reduce{(a,b) => mergeChannels(mem, a, b) }
@@ -201,7 +167,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
             case BankedMemory(banks, _, _) => BankedMemory(banks, depth, isAccum)
             case DiagonalMemory(strides, banks, _, _) => DiagonalMemory(strides, banks, depth, isAccum)
           }
-          val bufferedChannels = (bufferedMemory, channels.duplicates)
+          val bufferedChannels = Channels(bufferedMemory, channels.duplicates)
 
           metapipe match {
             // Metapipelined case: partition accesses based on whether they're n-buffered or time multiplexed w/ buffer
@@ -403,7 +369,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     def allowPipelinedWriters: Boolean  = true
   }
 
-  def bank(mem: Exp[_], bankAccess: (Exp[_], Exp[_]) => (Memory, Int), settings: BankSettings) {
+  def bank(mem: Exp[_], bankAccess: (Exp[_], Exp[_]) => Channels, settings: BankSettings) {
     dbg("")
     dbg("")
     dbg("-----------------------------------")
@@ -666,7 +632,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     }
 
     val channels = factors.flatten.map{case Exact(c) => c.toInt}.product
-    (BankedMemory(Seq(Banking(1, channels, false)), depth = 1, isAccum = false), 1)
+    Channels(BankedMemory(Seq(Banking(1, channels, false)), depth = 1, isAccum = false), 1)
   }
 
   // TODO: Concurrent writes to registers should be illegal
@@ -674,7 +640,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
-    (BankedMemory(Seq(NoBanking(1)), depth = 1, isAccum = false), duplicates)
+    Channels(BankedMemory(Seq(NoBanking(1)), depth = 1, isAccum = false), duplicates)
   }
 
   def bankLineBufferAccess(mem: Exp[_], access: Exp[_]): Channels = {
@@ -767,7 +733,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val banks = banking.map(_.banks).product
     val duplicates = Math.max(channels / banks, 1)
 
-    (BankedMemory(banking, 1, isAccum = false), duplicates)
+    Channels(BankedMemory(banking, 1, isAccum = false), duplicates)
   }
 
   def bankStream(mem: Exp[_]): Unit = {
@@ -852,7 +818,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       dbg(c"  patterns: $patterns")
       dbg(c"  banking:  $banking")
 
-      (BankedMemory(banking, depth = 1, isAccum = false), duplicates) : Channels
+      Channels(BankedMemory(banking, depth = 1, isAccum = false), duplicates)
     }
 
     if (channels.nonEmpty) {
@@ -860,7 +826,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
 
       dbg(c"instance for $buffer: $instance")
 
-      duplicatesOf(buffer) = List(instance._1)
+      duplicatesOf(buffer) = Seq(instance.memory)
     }
     else {
       duplicatesOf(buffer) = Nil

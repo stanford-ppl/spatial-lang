@@ -1,12 +1,28 @@
 package spatial.metadata
 
+import argon.analysis._
 import argon.core._
 import forge._
 import spatial.aliases._
 import spatial.utils._
 
+object BankableAffine {
+  def unapply(pattern: IndexPattern): Option[(Array[Int], Seq[Exp[Index]], Int)] = pattern match {
+    case GeneralAffine(products, offset) =>
+      val asOpt = products.map(p => p.a.getEval{case Exact(c) => c.toInt })
+      val bOpt = offset.getEval{case Exact(c) => c.toInt }
+      if (asOpt.forall(_.isDefined) && bOpt.isDefined) {
+        val as = asOpt.map(_.get).toArray
+        val b = bOpt.get
+        val is = products.map(_.i)
+        Some((as, is, b))
+      }
+      else None
+    case _ => None
+  }
+}
+
 case class Banking(stride: Int, banks: Int, isOuter: Boolean) // Strided bank
-//case object NoBanking extends Banking { def banks = 1 }     // No banking in the given dimension
 
 object NoBanking {
   def apply(stride: Int) = Banking(stride, 1, isOuter = false)
@@ -39,6 +55,34 @@ case class DiagonalMemory(strides: Seq[Int], banks: Int, depth: Int, isAccum: Bo
   def totalBanks = banks
   def costBasisBanks = banks +: List.fill(strides.length - 1)(1)
 }
+
+case class Channels(memory: Memory, duplicates: Int) {
+  def toList: List[Memory] = List.fill(duplicates){memory}
+}
+
+/*case class InstanceGroup (
+  metapipe: Option[Ctrl],         // Controller if at least some accesses require n-buffering
+  accesses: Iterable[Access],     // All accesses within this group
+  channels: Channels,             // Banking/buffering information + duplication
+  ports: Map[Access, Set[Int]],   // Set of ports each access is connected to
+  swaps: Map[Access, Ctrl]        // Swap controller for done signal for n-buffering
+) {
+
+  private def invertedPorts: Array[Set[Access]] = {
+    val depth = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max + 1
+    Array.tabulate(depth){port =>
+      accesses.filter{a => ports(a).contains(port) }.toSet
+    }
+  }
+
+  lazy val revPorts: Array[Set[Access]] = invertedPorts  // Set of accesses connected for each port
+  def port(x: Int): Set[Access] = if (x >= revPorts.length) Set.empty else revPorts(x)
+
+  def depth: Int = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max+1
+  // Assumes a fixed size, dual ported memory which is duplicated, both to meet duplicates and banking factors
+  def normalizedCost: Int = depth * channels.duplicates * channels.memory.totalBanks
+}*/
+
 
 /**
   * Metadata for which bank a access belongs to

@@ -1,6 +1,6 @@
 package spatial.analysis
 
-import argon.analysis.AccessPatternAnalyzer
+import argon.analysis._
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
@@ -13,6 +13,14 @@ import org.virtualized.SourceContext
 trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override val name = "Spatial Affine Analysis"
   override val recurse = Default
+
+  override def offsetOf(i: Bound[Index]): Option[Exp[Index]] = {
+    Some(ctrOf(i).map(counterStart).getOrElse(throw new Exception(s"Cannot get start of iter $i")))
+  }
+  override def strideOf(i: Bound[Index]): Option[Exp[Index]] = {
+    Some(ctrOf(i).map(counterStride).getOrElse(throw new Exception(s"Cannot get stride of iter $i")))
+  }
+
 
   // Pair of symbols for nodes used in address calculation addition nodes
   def indexPlusUnapply(x: Exp[Index]): Option[(Exp[Index], Exp[Index])] = x match {
@@ -71,7 +79,17 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     case _ => super.isInvariant(b, i)
   }
 
+
+  def ZERO: Seq[IndexPattern] = Seq(GeneralAffine(Nil, Zero))
+
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
+    case CounterNew(start,end,step,par) =>
+      accessPatternOf(start) = extractAccessPatterns(Seq(start))
+      accessPatternOf(end) = extractAccessPatterns(Seq(end))
+
+    case RegRead(reg) => accessPatternOf(lhs) = ZERO
+    case RegWrite(reg,_,_) => accessPatternOf(lhs) = ZERO
+
     case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
     case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case e: SparseTransferMem[_,_,_] => accessPatternOf(lhs) = List(LinearAccess(e.i))

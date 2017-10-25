@@ -24,6 +24,7 @@ module test;
   export "DPI" function startVCD;
   export "DPI" function stopVPD;
   export "DPI" function stopVCD;
+  export "DPI" function terminateSim;
 
   reg clock = 1;
   reg reset = 1;
@@ -419,6 +420,16 @@ module test;
 
   function void getCycles(output longint cycles);
     cycles = numCycles;
+  endfunction
+
+  function void terminateSim();
+		if (vpdon) begin
+			$vcdplusflush;
+		end
+		if (vcdon) begin
+			$dumpflush;
+		end
+    $finish;
   endfunction
 
   always @(posedge clock) begin

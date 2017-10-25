@@ -126,10 +126,10 @@ trait ChiselGenReg extends ChiselGenSRAM {
       }
     case RegRead(reg)    => 
       if (isArgIn(reg) | isHostIO(reg)) {
-        emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)}) // ${reg.name.getOrElse("")}""")
-        emitGlobalWire(src"""${lhs}.number := io.argIns(${argMapping(reg).argInId})""")
+        emitGlobalWireMap(src"""${lhs}""",src"Wire(${newWire(reg.tp.typeArguments.head)})")
+        emitGlobalWire(src"""${lhs}.r := io.argIns(${argMapping(reg).argInId})""")
       } else {
-        emitGlobalWire(src"""val $lhs = Wire(${newWire(lhs.tp)})""") 
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""") 
         if (dispatchOf(lhs, reg).isEmpty) {
           throw new spatial.EmptyDispatchException(lhs)
         }
@@ -209,32 +209,31 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
             if (fully_unrolled_accum) {
-              emit(src"""val ${reg}_wren = ${swap(parentOf(lhs).get, DatapathEn)}""")
-              emit(src"""val ${reg}_resetter = ${swap(parentOf(lhs).get, RstEn)}""")
+              emitGlobalWireMap(src"""${reg}_wren""", "Wire(Bool())");emit(src"${swap(reg, Wren)} := ${swap(parentOf(lhs).get, DatapathEn)}")
+              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}""")
             }
+            emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(reg.tp.typeArguments.head)})""")
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
-              val wren = wireMap(src"${reg}_wren")
               fps match {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     emit(src"""${reg}_${ii}.io.input.next := ${v}.number""")
-                    emit(src"""${reg}_${ii}.io.input.enable := $wren.D(${symDelay(lhs)})""")
+                    emit(src"""${reg}_${ii}.io.input.enable := ${swap(reg, Wren)}.D(${symDelay(lhs)})""")
                     emit(src"""${reg}_${ii}.io.input.init := ${reg}_initval.number""")
                     emit(src"""${reg}_${ii}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}, rr)""")
                     emit(src"""${lhs} := ${reg}_${ii}.io.output""")
-                    emitGlobalWire(src"""val ${lhs} = Wire(${newWire(reg.tp.typeArguments.head)})""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-                    emit(src"""${reg}_${ii}.write(${data_string}, $en & ($wren & ${swap(parent, IIDone)}).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write(${data_string}, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                   if (dup.isAccum) {
-                    emit(src"""${reg}_${ii}.write($v, $en & ($wren & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${swap(reg, Resetter)} ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${swap(reg, Resetter)} ${manualReset}, List($ports), ${reg}_initval.number)""")
                   } else {
-                    emit(src"""${reg}_${ii}.write($v, $en & ($wren & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
+                    emit(src"""${reg}_${ii}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number)""")
                   }
                   
               }
@@ -246,6 +245,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
             }
         }
       }
+
 
     case _ => super.emitNode(lhs, rhs)
   }

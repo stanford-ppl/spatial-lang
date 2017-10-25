@@ -32,8 +32,8 @@ trait SpatialLangAliases extends ArgonCommonAliases {
 
 /** External (outside spatial.lang) aliases **/
 trait SpatialCommonAliases extends SpatialLangAliases {
-  type Matrix[T] = spatial.lang.Matrix[T]
-  val Matrix = spatial.lang.Matrix
+  type MMatrix[T] = spatial.lang.Matrix[T]
+  val MMatrix = spatial.lang.Matrix
   type Tensor3[T] = spatial.lang.Tensor3[T]
   val Tensor3 = spatial.lang.Tensor3
   type Tensor4[T] = spatial.lang.Tensor4[T]
@@ -174,6 +174,7 @@ trait SpatialInternalAliases extends SpatialCommonAliases with ArgonInternalAlia
   type Blk  = (argon.core.Exp[_], Int)
   type Ctrl = (argon.core.Exp[_], Int)
   type Access = (argon.core.Exp[_], Ctrl)
+  type UnrolledAccess = (argon.core.Exp[_], Ctrl, Seq[Int])
   type StreamInfo = (argon.core.Exp[_], argon.core.Exp[_])
   type PortMap = (Int, Int, Int)
 }
@@ -182,6 +183,9 @@ trait SpatialExternalAliases extends SpatialCommonAliases with ArgonExternalAlia
   type File = spatial.lang.File
   type Tup2[A,B] = argon.lang.Tuple2[A,B]
   type Range = spatial.lang.Range
+
+  type Matrix[T] = spatial.lang.Matrix[T]
+  val Matrix = spatial.lang.Matrix
 
   lazy val Math = spatial.lang.Math
   lazy val bound = spatial.metadata.Bound
