@@ -65,6 +65,11 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean 
     }
   })
 
+  // We can do better than MaxJ by forcing mems to be single-ported since
+  //   we know how to properly schedule reads and writes
+  val wInBound = io.w.addr < (size).U
+  val rInBound = io.r.addr < (size).U
+
   if (syncMem) {
     val m = Module(new fringe.SRAM(bitWidth, size))
     m.io.raddr := io.r.addr
@@ -88,11 +93,6 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean 
   }
 
   if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
-    // We can do better than MaxJ by forcing mems to be single-ported since
-    //   we know how to properly schedule reads and writes
-    val wInBound = io.w.addr < (size).U
-    val rInBound = io.r.addr < (size).U
-
     io.debug.invalidRAddr := ~rInBound
     io.debug.invalidWAddr := ~wInBound
     io.debug.rwOn := io.w.en & io.r.en
