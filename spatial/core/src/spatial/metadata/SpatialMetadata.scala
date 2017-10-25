@@ -357,6 +357,15 @@ case class UnrollNumbers(nums: Seq[Int]) extends Metadata[UnrollNumbers] { def m
 /**
   * Identifies whether a memory or associated write is an accumulator / accumulating write
   */
+case class MTransferChannel(ch: Int) extends Metadata[MTransferChannel] { def mirror(f:Tx) = this }
+@data object transferChannel {
+  def apply(x: Exp[_]): Int = metadata[MTransferChannel](x).map(_.ch).getOrElse(-1)
+  def update(x: Exp[_], ch: Int) = metadata.add(x, MTransferChannel(ch))
+}
+
+/**
+  * Identifies whether a memory or associated write is an accumulator / accumulating write
+  */
 case class MAccum(is: Boolean) extends Metadata[MAccum] { def mirror(f:Tx) = this }
 @data object isAccum {
   def apply(x: Exp[_]): Boolean = metadata[MAccum](x).exists(_.is)

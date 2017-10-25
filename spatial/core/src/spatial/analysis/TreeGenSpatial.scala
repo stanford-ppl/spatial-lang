@@ -134,7 +134,8 @@ ${indent()}<!-- Close $name -->
       val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
                                                        case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
                                                        case _ => ""}}.mkString("")
-      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", s"${sym.ctx}", inner)
+      val ctxline = if (transferChannel(sym) >= 0) {s"${sym.ctx}, channel ${transferChannel(sym)}"} else {s"${sym.ctx}"}
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", s"${ctxline}", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
@@ -185,7 +186,8 @@ ${indent()}<!-- Close $name -->
       val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
                                                        case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
                                                        case _ => ""}}.mkString("")
-      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}UnrolledForeach",s"${cchain}",s"$sym", s"${sym.ctx}", inner)
+      val ctxline = if (transferChannel(sym) >= 0) {s"${sym.ctx}, channel ${transferChannel(sym)}"} else {s"${sym.ctx}"}
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}UnrolledForeach",s"${cchain}",s"$sym", s"${ctxline}", inner)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>

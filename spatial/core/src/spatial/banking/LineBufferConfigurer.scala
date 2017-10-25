@@ -9,17 +9,17 @@ import spatial.utils._
 
 class LineBufferConfigurer(override val mem: Exp[_]) extends AddressedMemoryConfigurer(mem) {
 
-  override def getAccessVector(access: Access): Seq[Seq[AccessVector]] = access.node match {
+  override def getAccessVector(access: Access): Seq[Seq[CompactVector]] = access.node match {
     case Def(LineBufferColSlice(_, row, col, Exact(len))) => accessPatternOf(access.node).last match {
-      case BankableAffine(as, is, ps, b) =>
-        Seq.tabulate(len.toInt) { c => Seq(DenseAccessVector(as, is, is.map {_ => 1}, b + c, access)) }
+      case BankableAffine(as, is, b) =>
+        Seq.tabulate(len.toInt) { c => Seq(CompactAffineVector(as, is, b + c, access)) }
       case _ =>
         // EXPERIMENTAL: Treat the col address as its own index
-        Seq.tabulate(len.toInt) { c => Seq(DenseAccessVector(Array(1), Seq(col), Seq(1), c, access)) }
+        Seq.tabulate(len.toInt) { c => Seq(CompactAffineVector(Array(1), Seq(col), c, access)) }
     }
     case _ => accessPatternOf(access.node).last match {
-      case BankableAffine(as, is, ps, b) => Seq(Seq(DenseAccessVector(as, is, ps, b, access)))
-      case _ => Seq(Seq(RandomAddress(access)))
+      case BankableAffine(as, is, b) => Seq(Seq(CompactAffineVector(as, is, b, access)))
+      case _ => Seq(Seq(CompactRandomVector(access)))
     }
   }
 

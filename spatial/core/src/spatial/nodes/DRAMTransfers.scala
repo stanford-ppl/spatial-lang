@@ -1,7 +1,6 @@
 package spatial.nodes
 
 import argon.core._
-import argon.transform.Transformer
 import forge._
 import spatial.aliases._
 import spatial.utils._

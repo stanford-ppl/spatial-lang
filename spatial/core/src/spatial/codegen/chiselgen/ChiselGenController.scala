@@ -39,14 +39,16 @@ trait ChiselGenController extends ChiselGenCounter{
 
     iters.zipWithIndex.foreach{ case (is, i) =>
       if (is.size == 1) { // This level is not parallelized, so assign the iter as-is
-        emit(src"${is(0)}${suffix}.raw := ${counters(i)}${suffix}(0).r")
         val w = cchainWidth(counters(i))
-        emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
+        emitGlobalWireMap(src"${is(0)}${suffix}", src"Wire(new FixedPoint(true,$w,0))")
+        // if (suffix == "") emitGlobalWireMap(src"${is(0)}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${is(0)}${suffix} = Wire(new FixedPoint(true,$w,0))")
+        emit(src"${swap(src"${is(0)}${suffix}", Blank)}.raw := ${counters(i)}${suffix}(0).r")
       } else { // This level IS parallelized, index into the counters correctly
         is.zipWithIndex.foreach{ case (iter, j) =>
-          emit(src"${iter}${suffix}.raw := ${counters(i)}${suffix}($j).r")
           val w = cchainWidth(counters(i))
-          emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
+          emitGlobalWireMap(src"${iter}${suffix}", src"Wire(new FixedPoint(true,$w,0))")
+          // if (suffix == "") emitGlobalWireMap(src"${iter}", src"Wire(new FixedPoint(true,$w,0))") else emitGlobalWire(src"val ${iter}${suffix} = Wire(new FixedPoint(true,$w,0))")
+          emit(src"${swap(src"${iter}${suffix}", Blank)}.raw := ${counters(i)}${suffix}($j).r")
         }
       }
     }
@@ -56,14 +58,24 @@ trait ChiselGenController extends ChiselGenCounter{
     if (spatialConfig.enableInstrumentation) {
       val ctx = s"${lhs.ctx}"
       emitInstrumentation(src"""// Instrumenting $lhs, context: ${ctx}, depth: ${controllerStack.length}""")
-      emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
-      emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
-      emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).bits := ${lhs}_cycles.io.count""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length}).valid := ${swap(hwblock_sym.head, Done)}""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).bits := ${lhs}_iters.io.count""")
-      emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${instrumentCounters.length} + 1).valid := ${swap(hwblock_sym.head, Done)}""")
+      val id = instrumentCounters.length
+      if (config.multifile == 5 || config.multifile == 6) {
+        emitInstrumentation(src"ic(${id*2}).io.enable := ${swap(lhs,En)}")
+        emitInstrumentation(src"ic(${id*2+1}).io.enable := Utils.risingEdge(${swap(lhs, Done)})")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).bits := ic(${id*2}).io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).valid := ${swap(hwblock_sym.head, Done)}""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).bits := ic(${id*2+1}).io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).valid := ${swap(hwblock_sym.head, Done)}""")        
+      } else {
+        emitInstrumentation(src"""val ${lhs}_cycles = Module(new InstrumentationCounter())""")
+        emitInstrumentation(src"${lhs}_cycles.io.enable := ${swap(lhs,En)}")
+        emitInstrumentation(src"""val ${lhs}_iters = Module(new InstrumentationCounter())""")
+        emitInstrumentation(src"${lhs}_iters.io.enable := Utils.risingEdge(${swap(lhs, Done)})")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).bits := ${lhs}_cycles.io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id}).valid := ${swap(hwblock_sym.head, Done)}""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).bits := ${lhs}_iters.io.count""")
+        emitInstrumentation(src"""io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * ${id} + 1).valid := ${swap(hwblock_sym.head, Done)}""")        
+      }
       instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
     }
   }
@@ -84,20 +96,38 @@ trait ChiselGenController extends ChiselGenCounter{
 
     valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
       layer.zip(count).foreach{ case (v, c) =>
-        // emitGlobalWire(s"//${validPassMap}")
-        emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
-        emit(src"${v}${suffix} := Mux(${counter_data(i)._3} >= 0.S, ${c}${suffix} < ${counter_data(i)._2}, ${c}${suffix} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
+        // // Handled by allocatevalids
+        // if (suffix == "") {
+        //   emitGlobalModuleMap(src"${v}","Wire(Bool())")  
+        // } else {
+        //   emitGlobalModule(src"val ${v}${suffix} = Wire(Bool())")
+        // }
+        emit(src"${swap(src"${v}${suffix}", Blank)} := Mux(${counter_data(i)._3} >= 0.S, ${swap(src"${c}${suffix}", Blank)} < ${counter_data(i)._2}, ${swap(src"${c}${suffix}", Blank)} > ${counter_data(i)._2}) // TODO: Generate these inside counter")
         if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
-          emitGlobalModule(src"""val ${v}${suffix}_chain = Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
-          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""val ${v}${suffix}_chain_read_$i = ${v}${suffix}_chain.read(${i}) === 1.U(1.W)""")}
+          emitGlobalModuleMap(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}""",src"""Module(new NBufFF(${childrenOf(lhs).size}, 1))""")
+          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModule(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}_chain_read_$i", Blank)} := ${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}.read(${i}) === 1.U(1.W)""")}
           withStream(getStream("BufferControlCxns")) {
             childrenOf(lhs).zipWithIndex.foreach{ case (s, i) =>
               emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
               emitGlobalWireMap(src"${s}_en", "Wire(Bool())")
-              emit(src"""${v}${suffix}_chain.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s,En)}, List($i))""")
+              emit(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s,En)}, List($i))""")
             }
           }
-          emit(src"""${v}${suffix}_chain.chain_pass(${v}${suffix}, ${lhs}_sm.io.output.ctr_inc)""")
+          emit(src"""${swap(src"${swap(src"${v}${suffix}", Blank)}", Chain)}.chain_pass(${swap(src"${v}${suffix}", Blank)}, ${swap(lhs, SM)}.io.output.ctr_inc)""")
+        }
+      }
+    }
+    // Console.println(s"map is $validPassMap")
+  }
+
+  def allocateValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
+    // Need to recompute ctr data because of multifile 5
+    valids.zip(iters).zipWithIndex.foreach{ case ((layer,count), i) =>
+      layer.zip(count).foreach{ case (v, c) =>
+        // emitGlobalWire(s"//${validPassMap}")
+        emitGlobalModuleMap(src"${v}${suffix}","Wire(Bool())")  
+        if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) {
+          childrenOf(lhs).indices.drop(1).foreach{i => emitGlobalModuleMap(src"""${v}${suffix}_chain_read_$i""", "Wire(Bool())")}
         }
       }
     }
@@ -137,10 +167,10 @@ trait ChiselGenController extends ChiselGenCounter{
         stages.zipWithIndex.foreach{ case (s, i) =>
           emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
           emitGlobalWireMap(src"${s}_en", "Wire(Bool())")
-          emit(src"""${idx}_chain.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s, En)}, List($i))""")
+          emit(src"""${swap(idx, Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s, En)}, List($i))""")
         }
       }
-      emit(src"""${idx}_chain.chain_pass(${idx}, ${controller}_sm.io.output.ctr_inc)""")
+      emit(src"""${swap(idx, Chain)}.chain_pass(${idx}, ${swap(controller, SM)}.io.output.ctr_inc)""")
       // Associate bound sym with both ctrl node and that ctrl node's cchain
     }
   }
@@ -154,8 +184,8 @@ trait ChiselGenController extends ChiselGenCounter{
     inds.zipWithIndex.foreach { case (idx,index) =>
       val this_counter = ctrMapping.filter(_ <= index).length - 1
       val this_width = cchainWidth(counters(this_counter))
-      emitGlobalModule(src"""val ${idx}_chain = Module(new NBufFF(${stages.size}, ${this_width}))""")
-      stages.indices.foreach{i => emitGlobalModule(src"""val ${idx}_chain_read_$i = ${idx}_chain.read(${i})""")}
+      emitGlobalModuleMap(src"""${idx}_chain""", src"""Module(new NBufFF(${stages.size}, ${this_width}))""")
+      stages.indices.foreach{i => emitGlobalModuleMap(src"""${idx}_chain_read_$i""", src"Wire(UInt(${this_width}.W))"); emitGlobalModule(src"""${swap(src"${idx}_chain_read_$i", Blank)} := ${swap(idx, Chain)}.read(${i})""")}
     }
   }
 
@@ -291,8 +321,8 @@ trait ChiselGenController extends ChiselGenCounter{
               e.foreach{ their_en =>
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   // Hacky way to avoid double-suffixing
-                  if (!src"$my_en".contains(src"_copy${previousLevel}")) {  
-                    result = result.filter{a => !src"$a".contains(src"$my_en")} :+ src"${my_en}_copy${previousLevel}"
+                  if (!src"$my_en".contains(src"_copy${previousLevel}") && !src"$my_en".contains("(") /* hack for remapping */) {  
+                    result = result.filter{a => !src"$a".contains(src"$my_en")} :+ swap(src"${my_en}_copy${previousLevel}", Blank)
                   }
                 }
               }
@@ -411,22 +441,33 @@ trait ChiselGenController extends ChiselGenCounter{
                   Issue # 199           
               */
               case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
-                emit(src"val ${sym}${i}_range = Utils.getRetimed(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
-                emit(src"val ${sym}${i}_jump = Utils.getRetimed(${st}.S(${32 min 2*w}.W) *-* ${p}.S(${32 min 2*w}.W), 1)")
-                emit(src"val ${sym}${i}_hops = (${sym}${i}_range /-/ ${sym}${i}_jump).asUInt")
-                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
-                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, 1)")
+                emit(src"val ${sym}${i}_range = ${e} - ${s}")
+                emit(src"val ${sym}${i}_jump = ${st} * ${p}")
+                emit(src"val ${sym}${i}_hops = ${sym}${i}_range / ${sym}${i}_jump")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range % ${sym}${i}_jump")
+                emit(src"val ${sym}${i}_evenfit = ${sym}${i}_leftover == 0")
+                emit(src"val ${sym}${i}_adjustment = if (${sym}${i}_evenfit) 0 else 1")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := (${sym}${i}_hops + ${sym}${i}_adjustment).U(${32 min 2*w}.W)""")
+              case (Exact(s), _, Exact(st), Exact(p)) => 
+                emit(src"val ${sym}${i}_range =  Utils.getRetimed(${end} - ${start}, 1)")
+                emit(src"val ${sym}${i}_jump = ${st} * ${p}")
+                emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump.FP(true, 32, 0)")
+                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt((${32 min 2*w}.W)))")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 emit("// TODO: Figure out how to make this one cheaper!")
-                emit(src"val ${sym}${i}_range = Utils.getRetimed(${e}.S(${32 min 2*w}.W) - ${s}.S(${32 min 2*w}.W), 1)")
+                emit(src"val ${sym}${i}_range = ${e} - ${s}")
                 emit(src"val ${sym}${i}_jump = Utils.getRetimed(${step} *-* ${p}.S(${w}.W), 1)")
-                emit(src"val ${sym}${i}_hops = (${sym}${i}_range /-/ ${sym}${i}_jump).asUInt")
-                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
+                emit(src"val ${sym}${i}_hops = (${sym}${i}_range.S(${w}.W) /-/ ${sym}${i}_jump).asUInt")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range.S(${w}.W) %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt((${32 min 2*w}.W)))")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
               case _ => 
                 emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, 1)")
                 emit(src"val ${sym}${i}_jump = Utils.getRetimed(${step} *-* ${par}, 1)")
@@ -434,16 +475,17 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
                 emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
-                emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt((32.W)))")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
             }
-            emit(src"""${sym}_level${i}_iters := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
-            src"${sym}_level${i}_iters"
+            // emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
+            src"${swap(src"${sym}_level${i}_iters", Blank)}"
           case Def(Forever()) =>
             hasForever = true
             // need to change the outer pipe counter interface!!
-            emitGlobalWire(src"val ${sym}_level${i}_iters = Wire(UInt(32.W))")
-            emit(src"""${sym}_level${i}_iters := 0.U // Count forever""")
-            src"${sym}_level${i}_iters"
+            emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
+            emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := 0.U // Count forever""")
+            src"${swap(src"${sym}_level${i}_iters", Blank)}"
         }
       }
     } else { 
@@ -502,32 +544,32 @@ trait ChiselGenController extends ChiselGenCounter{
           }}.reduce{_&&_}
       }
     } else true
+    emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}")
     emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emitGlobalWire(s"""val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emit(src"// This is now global: val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime, staticNiter = $static))")
-    emitGlobalModule(src"val ${sym}_sm = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${sym}_retime, staticNiter = $static))")
-    emit(src"""${sym}_sm.io.input.enable := ${swap(sym, En)} & retime_released""")
+    emitGlobalModuleMap(src"${sym}_sm", src"Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
+    emit(src"// This is now global: val ${swap(sym, SM)} = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
+    emit(src"""${swap(sym, SM)}.io.input.enable := ${swap(sym, En)} & retime_released""")
     if (isFSM) {
       emitGlobalWireMap(src"${sym}_inhibitor", "Wire(Bool())") // hacky but oh well
-      emit(src"""${swap(sym, Done)} := (${sym}_sm.io.output.done & ~${swap(sym, Inhibitor)}.D(2,rr)).D(${sym}_retime,rr)""")      
+      emit(src"""${swap(sym, Done)} := (${swap(sym, SM)}.io.output.done & ~${swap(sym, Inhibitor)}.D(2,rr)).D(${swap(sym, Retime)},rr)""")      
     } else {
-      emit(src"""${swap(sym, Done)} := ${sym}_sm.io.output.done.D(${sym}_retime,rr)""")
+      emit(src"""${swap(sym, Done)} := ${swap(sym, SM)}.io.output.done.D(${swap(sym, Retime)},rr)""")
     }
     emitGlobalWireMap(src"""${swap(sym, RstEn)}""", """Wire(Bool())""") // TODO: Is this legal?
-    emit(src"""${swap(sym, RstEn)} := ${sym}_sm.io.output.rst_en // Generally used in inner pipes""")
-    emit(src"""${sym}_sm.io.input.numIter := (${numIter.mkString(" *-* ")}).raw.asUInt // Unused for inner and parallel""")
-    emit(src"""${sym}_sm.io.input.rst := ${swap(sym, Resetter)} // generally set by parent""")
+    emit(src"""${swap(sym, RstEn)} := ${swap(sym, SM)}.io.output.rst_en // Generally used in inner pipes""")
+    emit(src"""${swap(sym, SM)}.io.input.numIter := (${numIter.mkString(" *-* ")}).raw.asUInt // Unused for inner and parallel""")
+    emit(src"""${swap(sym, SM)}.io.input.rst := ${swap(sym, Resetter)} // generally set by parent""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, CtrTrivial)} // Immediate parent has forever counter, so never mask out datapath_en""")    
     } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined)) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} ${getNowValidLogic(sym)}""")  
     } else if (isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
-      emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} & ~${sym}_sm.io.output.done ${getNowValidLogic(sym)}""")  
+      emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} & ~${swap(sym, SM)}.io.output.done ${getNowValidLogic(sym)}""")  
     } else if ((isStreamChild(sym) & hasStreamIns)) { // _done used to be commented out but I'm not sure why
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} ${getNowValidLogic(sym)} """)  
     } else {
-      emit(src"""${swap(sym, DatapathEn)} := ${sym}_sm.io.output.ctr_inc & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)}""")
+      emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, SM)}.io.output.ctr_inc & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)}""")
     }
     
     /* Counter Signals for controller (used for determining done) */
@@ -537,18 +579,18 @@ trait ChiselGenController extends ChiselGenCounter{
           emitGlobalWireMap(src"""${swap(cchain.get, En)}""", """Wire(Bool())""") 
           sym match { 
             case Def(n: UnrolledReduce[_,_]) => // These have II
-              emit(src"""${swap(cchain.get, En)} := ${sym}_sm.io.output.ctr_inc & ${swap(sym, IIDone)}""")
+              emit(src"""${swap(cchain.get, En)} := ${swap(sym, SM)}.io.output.ctr_inc & ${swap(sym, IIDone)}""")
             case Def(n: UnrolledForeach) => 
               if (isStreamChild(sym) & hasStreamIns) {
                 emit(src"${swap(cchain.get, En)} := ${swap(sym, DatapathEn)} & ${swap(sym, IIDone)} & ~${swap(sym, Inhibitor)} ${getNowValidLogic(sym)}") 
               } else {
-                emit(src"${swap(cchain.get, En)} := ${sym}_sm.io.output.ctr_inc & ${swap(sym, IIDone)}// Should probably also add inhibitor")
+                emit(src"${swap(cchain.get, En)} := ${swap(sym, SM)}.io.output.ctr_inc & ${swap(sym, IIDone)}// Should probably also add inhibitor")
               }             
             case _ => // If parent is stream, use the fine-grain enable, otherwise use ctr_inc from sm
               if (isStreamChild(sym) & hasStreamIns) {
                 emit(src"${swap(cchain.get, En)} := ${swap(sym, DatapathEn)} & ~${swap(sym, Inhibitor)} ${getNowValidLogic(sym)}") 
               } else {
-                emit(src"${swap(cchain.get, En)} := ${sym}_sm.io.output.ctr_inc // Should probably also add inhibitor")
+                emit(src"${swap(cchain.get, En)} := ${swap(sym, SM)}.io.output.ctr_inc // Should probably also add inhibitor")
               } 
           }
           emit(src"""// ---- Counter Connections for $smStr ${sym} (${cchain.get}) ----""")
@@ -559,8 +601,8 @@ trait ChiselGenController extends ChiselGenCounter{
             emit(src"""${swap(ctr, Resetter)} := ${swap(sym, RstEn)}.D(0,rr) // changed on 9/19""")
           }
           if (isInner) { 
-            // val dlay = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {src"1 + ${sym}_retime"} else "1"
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${swap(ctr, Done)}, 1)""")
+            // val dlay = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) {src"1 + ${swap(sym, Retime)}"} else "1"
+            emit(src"""${swap(sym, SM)}.io.input.ctr_done := Utils.delay(${swap(ctr, Done)}, 1)""")
           }
 
         }
@@ -569,11 +611,11 @@ trait ChiselGenController extends ChiselGenCounter{
         if (isInner) { 
           emitGlobalWireMap(src"${sym}_ctr_en", "Wire(Bool())")
           if (isStreamChild(sym) & hasStreamIns) {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(${swap(sym, En)} & ~${swap(sym, Done)}, 1) // Disallow consecutive dones from stream inner""")
+            emit(src"""${swap(sym, SM)}.io.input.ctr_done := Utils.delay(${swap(sym, En)} & ~${swap(sym, Done)}, 1) // Disallow consecutive dones from stream inner""")
             emit(src"""${swap(sym, CtrEn)} := ${swap(sym, Done)} // stream kiddo""")
           } else {
-            emit(src"""${sym}_sm.io.input.ctr_done := Utils.delay(Utils.risingEdge(${sym}_sm.io.output.ctr_inc), 1)""")
-            emit(src"""${swap(sym, CtrEn)} := ${sym}_sm.io.output.ctr_inc""")            
+            emit(src"""${swap(sym, SM)}.io.input.ctr_done := Utils.delay(Utils.risingEdge(${swap(sym, SM)}.io.output.ctr_inc), 1)""")
+            emit(src"""${swap(sym, CtrEn)} := ${swap(sym, SM)}.io.output.ctr_inc""")            
           }
         } else {
           emit(s"// TODO: How to properly emit for non-innerpipe unit counter?  Probably doesn't matter")
@@ -583,8 +625,8 @@ trait ChiselGenController extends ChiselGenCounter{
 
     val hsi = if (isInner & hasStreamIns) "true.B" else "false.B"
     val hf = if (hasForever) "true.B" else "false.B"
-    emit(src"${sym}_sm.io.input.hasStreamIns := $hsi")
-    emit(src"${sym}_sm.io.input.forever := $hf")
+    emit(src"${swap(sym, SM)}.io.input.hasStreamIns := $hsi")
+    emit(src"${swap(sym, SM)}.io.input.forever := $hf")
 
     // emitChildrenCxns(sym, cchain, iters, isFSM)
     /* Create reg chain mapping */
@@ -637,16 +679,16 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""// ---- Begin $smStr ${sym} Children Signals ----""")
       childrenOf(sym).zipWithIndex.foreach { case (c, idx) =>
         if (smStr == "Streampipe" & cchain.isDefined) {
-          emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${swap(src"${cchain.get}_copy${c}", Done)};""")
+          emit(src"""${swap(sym, SM)}.io.input.stageDone(${idx}) := ${swap(src"${cchain.get}_copy${c}", Done)};""")
         } else {
-          emit(src"""${sym}_sm.io.input.stageDone(${idx}) := ${swap(c, Done)};""")
+          emit(src"""${swap(sym, SM)}.io.input.stageDone(${idx}) := ${swap(c, Done)};""")
         }
 
-        emit(src"""${sym}_sm.io.input.stageMask(${idx}) := ${swap(c, Mask)};""")
+        emit(src"""${swap(sym, SM)}.io.input.stageMask(${idx}) := ${swap(c, Mask)};""")
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${swap(c, BaseEn)} := ${sym}_sm.io.output.stageEnable(${idx}).D(1,rr) & ~${swap(c, Done)}.D(1,rr)""")  
+        emit(src"""${swap(c, BaseEn)} := ${swap(sym, SM)}.io.output.stageEnable(${idx}).D(1,rr) & ~${swap(c, Done)}.D(1,rr)""")  
         emit(src"""${swap(c, En)} := ${swap(c, BaseEn)} ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
@@ -667,12 +709,12 @@ trait ChiselGenController extends ChiselGenCounter{
           // emit copied cchain is now responsibility of child
           // emitCounterChain(cchain.get, ctrs, src"_copy$c")
           emit(src"""${swap(src"${cchain.get}_copy${c}", En)} := ${signalHandle}""")
-          emit(src"""${swap(src"${cchain.get}_copy${c}", Resetter)} := ${sym}_sm.io.output.rst_en.D(1,rr)""")
+          emit(src"""${swap(src"${cchain.get}_copy${c}", Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr)""")
         }
         if (c match { case Def(StateMachine(_,_,_,_,_,_)) => true; case _ => false}) { // If this is an fsm, we want it to reset with each iteration, not with the reset of the parent
-          emit(src"""${swap(c, Resetter)} := ${sym}_sm.io.output.rst_en | ${swap(c, Done)}.D(1,rr)""")
+          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en | ${swap(c, Done)}.D(1,rr)""")
         } else {
-          emit(src"""${swap(c, Resetter)} := ${sym}_sm.io.output.rst_en""")  
+          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en""")  
         }
         
       }
@@ -730,10 +772,10 @@ trait ChiselGenController extends ChiselGenCounter{
       if (iiOf(lhs) <= 1) {
         emit(src"""${swap(lhs, IIDone)} := true.B""")
       } else {
-        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${lhs}_retime)));""")
+        emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${swap(lhs, Retime)})));""")
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs,En)}""")
-        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${lhs}_retime.S""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${swap(lhs, Retime)}.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
@@ -775,7 +817,6 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       emitChildrenCxns(lhs, None, None)
       emitCopiedCChain(lhs)
-      // emit(s"//${validPassMap} and ${cchainPassMap} on $ens")
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
@@ -939,6 +980,12 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   override protected def emitFileFooter() {
+    if (config.multifile == 5 | config.multifile == 6) {
+      withStream(getStream("GlobalModules")) {
+        emit(src"val ic = List.fill(${instrumentCounters.length*2}){Module(new InstrumentationCounter())}")
+      }
+    }
+
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Instrumentation")

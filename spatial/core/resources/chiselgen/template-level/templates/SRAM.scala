@@ -92,11 +92,13 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean 
     }    
   }
 
-  io.debug.invalidRAddr := ~rInBound
-  io.debug.invalidWAddr := ~wInBound
-  io.debug.rwOn := io.w.en & io.r.en
-  io.debug.error := ~rInBound | ~wInBound | (io.w.en & io.r.en)
-  // io.debug.addrProbe := m(0.U)
+  if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
+    io.debug.invalidRAddr := ~rInBound
+    io.debug.invalidWAddr := ~wInBound
+    io.debug.rwOn := io.w.en & io.r.en
+    io.debug.error := ~rInBound | ~wInBound | (io.w.en & io.r.en)
+    // io.debug.addrProbe := m(0.U)
+  }
 
 }
 
@@ -136,19 +138,21 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
   }.reduce{_+_}
 
-  // Check if read/write is in bounds
-  val rInBound = io.r.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}
-  val wInBound = io.w.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}
 
   // Connect the other ports
   m.io.w.data := io.w.data
   m.io.w.en := io.w.en & io.wMask
   m.io.r.en := io.r.en & io.rMask
   io.output.data := m.io.output.data
-  io.debug.invalidWAddr := ~wInBound
-  io.debug.invalidRAddr := ~rInBound
-  io.debug.rwOn := io.w.en & io.wMask & io.r.en & io.rMask
-  io.debug.error := ~wInBound | ~rInBound | (io.w.en & io.r.en)
+  if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
+    // Check if read/write is in bounds
+    val rInBound = io.r.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}
+    val wInBound = io.w.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}
+    io.debug.invalidWAddr := ~wInBound
+    io.debug.invalidRAddr := ~rInBound
+    io.debug.rwOn := io.w.en & io.wMask & io.r.en & io.rMask
+    io.debug.error := ~wInBound | ~rInBound | (io.w.en & io.r.en)
+  }
 }
 
 
@@ -257,9 +261,9 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     convertedR.en := rbundle.en
     val syncDelay = if (syncMem) 1 else 0
     val flatBankId = bankingMode match {
-      case DiagonalMemory => chisel3.util.ShiftRegister(rbundle.addr.reduce{_+_}, syncDelay) %-% banks.head.U
+      case DiagonalMemory => Utils.getRetimed(rbundle.addr.reduce{_+_}, syncDelay) %-% banks.head.U
       case BankedMemory => 
-        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => chisel3.util.ShiftRegister(logical, syncDelay) %-% b.U }
+        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => Utils.getRetimed(logical, syncDelay) %-% b.U }
        bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
         // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
     }
@@ -321,21 +325,22 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     base
   }
 
-
-  // Connect debug signals
-  val wInBound = io.w.map{ v => v.addr.zip(logicalDims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}}.reduce{_&_}
-  val rInBound = io.r.map{ v => v.addr.zip(logicalDims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}}.reduce{_&_}
-  val writeOn = io.w.map{ v => v.en }
-  val readOn = io.r.map{ v => v.en }
-  val rwOn = writeOn.zip(readOn).map{ case(a,b) => a&b}.reduce{_|_}
-  val rCollide = bankIdR.zip( readOn).map{ case(id1,en1) => bankIdR.zip( readOn).map{ case(id2,en2) => Mux((id1 === id2) & en1 & en2, 1.U, 0.U)}.reduce{_+_} }.reduce{_+_} !=  readOn.map{Mux(_, 1.U, 0.U)}.reduce{_+_}
-  val wCollide = bankIdW.zip(writeOn).map{ case(id1,en1) => bankIdW.zip(writeOn).map{ case(id2,en2) => Mux((id1 === id2) & en1 & en2, 1.U, 0.U)}.reduce{_+_} }.reduce{_+_} != writeOn.map{Mux(_, 1.U, 0.U)}.reduce{_+_}
-  io.debug.invalidWAddr := ~wInBound
-  io.debug.invalidRAddr := ~rInBound
-  io.debug.rwOn := rwOn
-  io.debug.readCollision := rCollide
-  io.debug.writeCollision := wCollide
-  io.debug.error := ~wInBound | ~rInBound | rwOn | rCollide | wCollide
+  if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
+    // Connect debug signals
+    val wInBound = io.w.map{ v => v.addr.zip(logicalDims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}}.reduce{_&_}
+    val rInBound = io.r.map{ v => v.addr.zip(logicalDims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}}.reduce{_&_}
+    val writeOn = io.w.map{ v => v.en }
+    val readOn = io.r.map{ v => v.en }
+    val rwOn = writeOn.zip(readOn).map{ case(a,b) => a&b}.reduce{_|_}
+    val rCollide = bankIdR.zip( readOn).map{ case(id1,en1) => bankIdR.zip( readOn).map{ case(id2,en2) => Mux((id1 === id2) & en1 & en2, 1.U, 0.U)}.reduce{_+_} }.reduce{_+_} !=  readOn.map{Mux(_, 1.U, 0.U)}.reduce{_+_}
+    val wCollide = bankIdW.zip(writeOn).map{ case(id1,en1) => bankIdW.zip(writeOn).map{ case(id2,en2) => Mux((id1 === id2) & en1 & en2, 1.U, 0.U)}.reduce{_+_} }.reduce{_+_} != writeOn.map{Mux(_, 1.U, 0.U)}.reduce{_+_}
+    io.debug.invalidWAddr := ~wInBound
+    io.debug.invalidRAddr := ~rInBound
+    io.debug.rwOn := rwOn
+    io.debug.readCollision := rCollide
+    io.debug.writeCollision := wCollide
+    io.debug.error := ~wInBound | ~rInBound | rwOn | rCollide | wCollide
+  }
 
 }
 
@@ -423,26 +428,20 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
   val statesInW = wHashmap.map { t =>
-    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
-    c.io.input.start := (t._1).U
-    c.io.input.stop := numBufs.U
+    val c = Module(new NBufCtr(1,Some(t._1), Some(numBufs), 1+Utils.log2Up(numBufs)))
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     (t._1 -> c)
   }
   val statesInR = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
-    c.io.input.start := i.U 
-    c.io.input.stop := numBufs.U
+    val c = Module(new NBufCtr(1,Some(i), Some(numBufs), 1+Utils.log2Up(numBufs)))
     c.io.input.enable := swap
     c.io.input.countUp := true.B
     c
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
-    c.io.input.start := i.U 
-    c.io.input.stop := numBufs.U
+    val c = Module(new NBufCtr(1,Some(i), Some(numBufs), 1+Utils.log2Up(numBufs)))
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     c
@@ -661,26 +660,20 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
 
   val statesInW = wHashmap.map { t =>
-    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
-    c.io.input.start := (t._1).U
-    c.io.input.stop := numBufs.U
+    val c = Module(new NBufCtr(1,Some(t._1), Some(numBufs),1+Utils.log2Up(numBufs)))
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     (t._1 -> c)
   }
   val statesInR = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
-    c.io.input.start := i.U 
-    c.io.input.stop := numBufs.U
+    val c = Module(new NBufCtr(1,Some(i), Some(numBufs), 1+Utils.log2Up(numBufs)))
     c.io.input.enable := swap
     c.io.input.countUp := true.B
     c
   }
 
   val statesOut = (0 until numBufs).map{  i => 
-    val c = Module(new NBufCtr(1,1+Utils.log2Up(numBufs)))
-    c.io.input.start := i.U 
-    c.io.input.stop := numBufs.U
+    val c = Module(new NBufCtr(1,Some(i), Some(numBufs), 1+Utils.log2Up(numBufs)))
     c.io.input.enable := swap
     c.io.input.countUp := false.B
     c

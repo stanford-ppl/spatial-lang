@@ -3,20 +3,19 @@ package spatial.transform
 import argon.analysis._
 import argon.core._
 import argon.nodes._
-import argon.transform.ForwardTransformer
-import org.virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.lang.Math
 
+import org.virtualized.SourceContext
+
 case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   override val name = "Unrolling Transformer"
   var inHwScope: Boolean = false
 
   def strMeta(e: Exp[_]): Unit = metadata.get(e).foreach{m => logs(c" - ${m._1}: ${m._2}") }
-
 
   /**
     * Clone functions - used to add extra rules (primarily for metadata) during unrolling
@@ -38,9 +37,6 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
   def inCycle[T](reduceTp: Option[ReduceFunction])(blk: => T): T = {
     duringClone{e => if (spatialConfig.enablePIR) reduceType(e) = reduceTp }{ blk }
   }
-
-
-
 
 
   /**

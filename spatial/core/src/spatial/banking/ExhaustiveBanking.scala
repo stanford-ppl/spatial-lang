@@ -164,15 +164,20 @@ trait ExhaustiveBanking extends BankingStrategy {
                                              writes.groupBy(_.access.ctrl).toSeq.map(_._2)
 
     val dimIndices = dims.indices
-    val hierarchical = dimIndices.map{d => Seq(d) }
-    val fullDiagonal = Seq(dimIndices)
-    val strategies = Seq(hierarchical, fullDiagonal)  // try all partitionings?
+    val hierarchical = dimIndices.map{d => Seq(d) }   // Fully hierarchical (each dimension has separate bank addr.)
+    val fullDiagonal = Seq(dimIndices)                // Fully diagonal (all dimensions contribute to single bank addr.)
+    val strategies = Seq(hierarchical, fullDiagonal)  // TODO: try all possible dimension orderings?
     val options = strategies.flatMap{strategy =>
-      val banking = strategy.map{dimensions =>
+      // Split up accesses based on the dimension groups in this banking strategy
+      // Then, for each dimension group, determine the banking
+      val banking = strategy.map{dimensions =>        // Set of dimensions to bank together
         val accesses = accessGrps.map{grp =>
+          // Slice out the dimensions from this each access in this group
           val slice: Set[AccessMatrix] = grp.map{a => a.takeDims(dimensions) }
-          val linearOnly: Set[Seq[SparseAccessVector]] = slice.filterNot(_.exists{case _:RandomAddress => true; case _ => false})
-            .map(_.asInstanceOf[Seq[SparseAccessVector]])
+          // Only keep accesses which do not contain a random access
+          val linearOnly = slice.filterNot(_.exists{case _:UnrolledRandomVector => true; case _ => false})
+                                .map(_.asInstanceOf[Seq[UnrolledAffineVector]])
+          // Convert all purely affine accesses to matrices + offset vectors
           linearOnly.map{access =>
             val a = Matrix(access.map{row => row.as}.toArray)
             val c = access.map{row => row.b}.toArray

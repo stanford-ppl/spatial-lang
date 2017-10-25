@@ -3,6 +3,10 @@
 # NOTE: This script belongs on a remote where all machines can see and use it
 
 export LANG=en_US.UTF-8
+export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/..)
+if [[ ${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
+  export JAVA_HOME=${JAVA_HOME}/..
+fi
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then
   export thredz="3"
@@ -19,11 +23,11 @@ elif [[ ${this_machine} = "portland" ]]; then
 elif [[ ${this_machine} = "max-2"* ]]; then
   REGRESSION_HOME="/kunle/users/mattfel/regression/"
 elif [[ ${this_machine} = "tucson" ]]; then
-  export thredz="7"
+  export thredz="32"
   export SBT_OPTS="-Xmx64G -Xss1G"
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "london" ]]; then
-  export thredz="7"
+  export thredz="32"
   export SBT_OPTS="-Xmx64G -Xss1G"
   REGRESSION_HOME="/home/mattfel/regression/"
 elif [[ ${this_machine} = "ottawa" ]]; then

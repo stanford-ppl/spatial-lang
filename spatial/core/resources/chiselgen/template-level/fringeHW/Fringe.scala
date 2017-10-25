@@ -111,7 +111,7 @@ class Fringe(
   regs.io.waddr := io.waddr
   regs.io.wen := io.wen
   regs.io.wdata := io.wdata
-  io.rdata := RegNext(regs.io.rdata)
+  io.rdata := chisel3.util.ShiftRegister(regs.io.rdata, 1)
 
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status

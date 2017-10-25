@@ -85,6 +85,7 @@ trait SpatialCompiler extends ArgonCompiler {
       def streamEnablers = uctrlAnalyzer.streamEnablers
       def streamHolders = uctrlAnalyzer.streamHolders
       def streamLoadCtrls = uctrlAnalyzer.streamLoadCtrls
+      def tileTransferCtrls = uctrlAnalyzer.tileTransferCtrls
       def streamParEnqs = uctrlAnalyzer.streamParEnqs
     }
 

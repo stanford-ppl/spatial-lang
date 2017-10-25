@@ -142,6 +142,7 @@ class AddressedMemoryConfigurer(override val mem: Exp[_])(implicit state: State)
         writers.foreach { wr => bug(s"${str(wr.node)}") }
       }
       def createVector(access: Access) = {
+        // Fake the 
         val i = iteratorsBetween(access, (parentOf(mem).get,-1)).last
         Seq(CompactAffineVector(Array(1), Seq(i), 0, access))
       }

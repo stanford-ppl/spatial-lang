@@ -39,6 +39,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var metapipes: List[Exp[_]] = Nil
   var streampipes: List[Exp[_]] = Nil
   var streamLoadCtrls: List[Exp[_]] = Nil // Pops
+  var tileTransferCtrls: List[Exp[_]] = Nil // Pops
   var streamParEnqs: List[Exp[_]] = Nil // Pops
   var streamEnablers: List[Exp[_]] = Nil // Pops
   var streamHolders: List[Exp[_]] = Nil // Pushes
@@ -52,6 +53,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     localMems = Nil
     metapipes = Nil
     streamLoadCtrls = Nil
+    tileTransferCtrls = Nil
     streamParEnqs = Nil
     streampipes = Nil
     top = None
@@ -208,6 +210,11 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     streamLoadCtrls ::= ctrl
   }
 
+  def addTileTransferCtrl(ctrl: Exp[_]) = instrument("addTileTransferCtrl"){
+    dbgs(c"  Registered tile transfer $ctrl")
+    tileTransferCtrls ::= ctrl
+  }
+
   def addParEnq(ctrl: Exp[_]) = instrument("addParEnq"){
     dbgs(c"  Registered par enq $ctrl")
     streamParEnqs ::= ctrl
@@ -317,6 +324,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
       if (isStreamLoad(lhs)) addStreamLoadMem(lhs)
+      if (isTileTransfer(lhs)) addTileTransferCtrl(lhs)
       if (isParEnq(lhs)) addParEnq(lhs)
       if (isStreamStageEnabler(lhs)) addStreamDeq(lhs, parent.node)
       if (isStreamStageHolder(lhs)) addStreamEnq(lhs, parent.node)

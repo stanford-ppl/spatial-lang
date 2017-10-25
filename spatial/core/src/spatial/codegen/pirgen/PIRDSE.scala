@@ -11,21 +11,20 @@ import java.io.PrintStream
 import java.nio.file.{Files, Paths}
 
 
-trait PIRDSE extends PIRSplitting with PIRRetiming {
+class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
   override val name = "Plasticine DSE"
   override val recurse = Always
+  var IR = codegen.IR
 
-  def mapping:mutable.Map[Expr, List[CU]]
-  val cus = ArrayBuffer[CU]()
+  lazy val cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
 
-  override def process[S:Type](b: Block[S]) = {
-    visitBlock(b)
-    dse()
-    b
+  override def preprocess[S:Type](b: Block[S]): Block[S] = {
+    super.preprocess(b)
   }
 
-  override protected def visit(lhs: Sym[_], rhs: Op[_]) {
-    if (mapping.contains(lhs)) cus ++= mapping(lhs)
+  override def process[S:Type](b: Block[S]) = {
+    dse()
+    b
   }
 
   def dse() {

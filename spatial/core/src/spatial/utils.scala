@@ -642,6 +642,12 @@ object utils {
   @stateful def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
   def isUnitPipe(d: Def): Boolean = d.isInstanceOf[UnitPipe]
 
+<<<<<<< HEAD
+=======
+  @stateful def isIfThenElse(e: Exp[_]): Boolean = getDef(e).exists(isIfThenElse)
+  def isIfThenElse(d: Def): Boolean = d.isInstanceOf[IfThenElse[_]]
+
+>>>>>>> origin/develop
   @stateful def isControlNode(e: Exp[_]): Boolean = getDef(e).exists(isControlNode)
   def isControlNode(d: Def): Boolean = d.isInstanceOf[ControlNode[_]]
 
@@ -823,6 +829,14 @@ object utils {
   @stateful def isHostOut(e: Exp[_]): Boolean = isHostIO(e) && readersOf(e).isEmpty
 
   @stateful def isStreamLoad(e: Exp[_]): Boolean = getDef(e).exists(_.isInstanceOf[FringeDenseLoad[_]])
+
+  @stateful def isTileTransfer(e: Exp[_]): Boolean = e match {
+    case Def(_:FringeDenseLoad[_]) => true
+    case Def(_:FringeDenseStore[_]) => true
+    case Def(_:FringeSparseLoad[_]) => true
+    case Def(_:FringeSparseStore[_]) => true
+    case _ => false
+  }
 
   @stateful def isParEnq(e: Exp[_]): Boolean = e match {
     case Def(_:ParFIFOEnq[_]) => true

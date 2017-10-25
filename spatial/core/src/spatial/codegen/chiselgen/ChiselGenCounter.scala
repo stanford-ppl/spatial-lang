@@ -86,7 +86,8 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
         case Def(CounterNew(_,_,_,Literal(p))) => p
         case Def(Forever()) => 1
       }
-      emitGlobalWire(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => Wire(SInt(${counter_data(i)._5}.W)) }""")
+      if (suffix == "") {emitGlobalWireMap(s"""${quote(c)}""", src"""Wire(Vec($x, SInt(${counter_data(i)._5}.W)))""")}
+      else {emitGlobalWire(s"""val ${quote(c)}${suffix} = (0 until $x).map{ j => Wire(SInt(${counter_data(i)._5}.W)) }""")}
       emit(s"""(0 until $x).map{ j => ${quote(c)}${suffix}(j) := ${quote(lhs)}${suffix}.io.output.counts($i + j) }""")
     }
 
@@ -131,13 +132,13 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     case b: Bound[_] =>
       if (streamCtrCopy.contains(b)) {
         if (validPassMap.contains((e, getCtrSuffix(controllerStack.head)) )) {
-          super.quote(e) + getCtrSuffix(controllerStack.head) +  getValidSuffix(controllerStack.head, validPassMap(e, getCtrSuffix(controllerStack.head)))
+          swap(super.quote(e) + getCtrSuffix(controllerStack.head) + getValidSuffix(controllerStack.head, validPassMap(e, getCtrSuffix(controllerStack.head))), Blank)
         } else {
-          super.quote(e) + getCtrSuffix(controllerStack.head)
+          swap(super.quote(e) + getCtrSuffix(controllerStack.head), Blank)
         }
       } else {
         if (validPassMap.contains((e, "") )) {
-          super.quote(e) + getValidSuffix(controllerStack.head, validPassMap(e, ""))
+          swap(super.quote(e) + getValidSuffix(controllerStack.head, validPassMap(e, "")), Blank)
         } else {
           super.quote(e)
         }

@@ -196,7 +196,7 @@ object ops {
       } else {
        Utils.target match {
          case AWS_F1 => b/c // Raghu's box
-         case Zynq => FringeGlobals.bigIP.divide(b, c, 16) // Raghu's box. Divide latency set to 16.
+         case Zynq => FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
          case DE1 => b/c // Raghu's box
         case de1soc => b/c // Raghu's box
          case Default => b/c
@@ -520,10 +520,12 @@ object ops {
 
 object Utils {
 
-  var target: DeviceTarget = Default
+  var regression_testing = scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0")
 
+  // These properties should be set inside IOModule
+  var target: DeviceTarget = Default
   var fixmul_latency = 6
-  var fixdiv_latency = 16
+  var fixdiv_latency = 20
   var fixadd_latency = 1
   var fixsub_latency = 1
   var fixmod_latency = 16
@@ -802,9 +804,21 @@ object Utils {
       sig
     }
     else {
-      val sr = Module(new RetimeWrapper(sig.getWidth, delay))
-      sr.io.in := sig.asUInt
-      sig.cloneType.fromBits(sr.io.out)
+      if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
+        chisel3.util.ShiftRegister(sig, delay)
+      } else {
+        val sr = Module(new RetimeWrapper(sig.getWidth, delay))
+        sr.io.in := sig.asUInt
+        sig.cloneType.fromBits(sr.io.out)
+      }
+    }
+  }
+
+  class PrintStackTraceException extends Exception
+  def printStackTrace = {
+    try { throw new PrintStackTraceException }
+    catch {
+      case ste: PrintStackTraceException => ste.printStackTrace
     }
   }
   // def toFix[T <: chisel3.core.Data](a: T): FixedPoint = {

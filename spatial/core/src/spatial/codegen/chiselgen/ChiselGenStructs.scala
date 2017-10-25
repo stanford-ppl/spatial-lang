@@ -60,9 +60,9 @@ trait ChiselGenStructs extends ChiselGenSRAM {
       val rand_string = (0 until 5).map{_ => scala.util.Random.alphanumeric.filter(_.isLetter).head}.mkString("") // Random letter since quoteConst has no lhs handle
       val items = tuples.zipWithIndex.map{ case(t,i) => 
         val width = bitWidth(t._2.tp)
-        emitGlobalWire(src"val ${rand_string}_item${i} = Wire(UInt(${width}.W))")
-        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { emit(src"${rand_string}_item${i} := ${t._2}(${width-1},0)") } else {emit(src"${rand_string}_item${i} := ${t._2}.r")} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
-        src"${rand_string}_item${i}"
+        emitGlobalWireMap(src"${rand_string}_item${i}",src"Wire(UInt(${width}.W))")
+        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { emit(src"${swap(src"${rand_string}_item${i}", Blank)} := ${t._2}(${width-1},0)") } else {emit(src"${swap(src"${rand_string}_item${i}", Blank)} := ${t._2}.r")} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        src"${swap(src"${rand_string}_item${i}", Blank)}"
       }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
           bitWidth(t._2.tp)  
@@ -77,14 +77,14 @@ trait ChiselGenStructs extends ChiselGenSRAM {
     case SimpleStruct(tuples)  =>
       val items = tuples.zipWithIndex.map{ case(t,i) => 
         val width = bitWidth(t._2.tp)
-        emitGlobalWire(src"val ${lhs}_item${i} = Wire(UInt(${width}.W))")
-        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { emit(src"${lhs}_item${i} := ${t._2}(${width-1},0)") } else {emit(src"${lhs}_item${i} := ${t._2}.r")} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
-        src"${lhs}_item${i}"
+        emitGlobalWireMap(src"${lhs}_item${i}",src"Wire(UInt(${width}.W))")
+        if (width > 1 & !spatialNeedsFPType(t._2.tp)) { emit(src"${swap(src"${lhs}_item${i}", Blank)} := ${t._2}(${width-1},0)") } else {emit(src"${swap(src"${lhs}_item${i}", Blank)} := ${t._2}.r")} // FIXME: This is a hacky way to fix chisel/verilog auto-upcasting from multiplies
+        src"${swap(src"${lhs}_item${i}", Blank)}"
       }.reverse.mkString(",")
       val totalWidth = tuples.map{ t => 
           bitWidth(t._2.tp)  
       }.reduce{_+_}
-      emitGlobalWire(src"val $lhs = Wire(UInt(${totalWidth}.W))")
+      emitGlobalWireMap(src"$lhs", src"Wire(UInt(${totalWidth}.W))")
       emit(src"$lhs := chisel3.util.Cat($items)")
     case VectorConcat(items) =>
       val items_string = items.map{a => src"${a}.r"}.mkString(",")
@@ -94,7 +94,7 @@ trait ChiselGenStructs extends ChiselGenSRAM {
       if (spatialNeedsFPType(lhs.tp)) {
         lhs.tp match {
           case FixPtType(s,d,f) => 
-            emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
+            emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""")
             emit(src"""${lhs}.r := ${struct}($msb, $lsb)""")
           case _ => emit(src"val $lhs = ${struct}($msb, $lsb)")
         }

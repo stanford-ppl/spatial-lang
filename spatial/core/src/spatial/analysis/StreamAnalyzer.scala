@@ -21,11 +21,31 @@ trait StreamAnalyzer extends CompilerPass {
 
   def streamPipes: Seq[Exp[_]]
   def streamLoadCtrls: Seq[Exp[_]] // List of all FringeDenseLoad nodes
+  def tileTransferCtrls: Seq[Exp[_]] // List of all tile transfers
   def streamParEnqs: Seq[Exp[_]]
   def streamEnablers: Seq[Exp[_]]
   def streamHolders: Seq[Exp[_]]
 
   override protected def process[S: Type](block: Block[S]) = {
+    // Color each of the transfers
+    // Init all nodes
+    tileTransferCtrls.foreach{ a => transferChannel(parentOf(a).get) = 0}
+    // Assign correctly
+    dbg(u"Coloring tile transfers: ${tileTransferCtrls}")
+    tileTransferCtrls.zipWithIndex.foreach{ case(a,i) => 
+      val channel = transferChannel(parentOf(a).get)
+      tileTransferCtrls.drop(i+1).foreach{ b => 
+        val lca =leastCommonAncestorWithPaths[Exp[_]](a, b, {node => parentOf(node)})._1.get
+        if (styleOf(lca) == ForkJoin || styleOf(lca) == MetaPipe || styleOf(lca) == StreamPipe) {
+          dbg(u"  LCA of $b and $a is $lca (${styleOf(lca)}) so incrementing color of $b to ${transferChannel(parentOf(b).get)} + 1")
+          transferChannel(parentOf(b).get) = transferChannel(parentOf(b).get) + 1
+        } else { // Can be in same channel
+          // Console.println(s"assigning $b to $channel")
+          // No change
+        }
+      }
+    }
+
     // Set metadata for tileloads
     streamLoadCtrls.foreach{ ctrl =>  // So hacky, please fix
       dbg(u"Trying to match ctrl $ctrl to a consuming Fifo or SRAM write")

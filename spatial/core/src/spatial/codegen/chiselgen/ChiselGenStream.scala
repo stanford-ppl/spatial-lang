@@ -13,9 +13,9 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case StreamInNew(bus) =>
-      emitGlobalWire(src"val ${lhs}_ready_options = Wire(Vec(${readersOf(lhs).length}, Bool()))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_ready_options", src"Wire(Vec(${readersOf(lhs).length}, Bool()))", forceful = true)
       emitGlobalWireMap(src"${lhs}_ready", "Wire(Bool())", forceful = true)
-      emitGlobalWire(src"${swap(lhs, Ready)} := ${lhs}_ready_options.reduce{_|_}", forceful = true)
+      emitGlobalWire(src"${swap(lhs, Ready)} := ${swap(lhs, ReadyOptions)}.reduce{_|_}", forceful = true)
       emitGlobalWireMap(src"""${lhs}_now_valid""","""Wire(Bool())""", forceful = true)
       emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
       emitGlobalWire(src"val ${lhs} = Wire(${newWire(readersOf(lhs).head.node.tp)})", forceful = true)
@@ -77,19 +77,19 @@ trait ChiselGenStream extends ChiselGenSRAM {
       }
 
     case StreamOutNew(bus) =>
-      emitGlobalWire(src"val ${lhs}_valid_options = Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_valid_options", src"Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
       emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
-      emitGlobalWire(src"${swap(lhs, Valid)} := ${lhs}_valid_options.reduce{_|_}", forceful = true)
+      emitGlobalWire(src"${swap(lhs, Valid)} := ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
         case Def(e@ParStreamWrite(_, data, ens)) => 
-          emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${ens.length}*${writersOf(lhs).length}, ${newWire(data.head.tp)}))")
+          emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${ens.length*writersOf(lhs).length}, ${newWire(data.head.tp)}))")
           emitGlobalWire(src"""val ${lhs} = Vec((0 until ${ens.length}).map{i => 
-            val ${lhs}_slice_options = (0 until ${writersOf(lhs).length}).map{j => ${lhs}_data_options(i*${writersOf(lhs).length}+j)}
-            Mux1H(${lhs}_valid_options, ${lhs}_slice_options)
+            val ${lhs}_slice_options = (0 until ${writersOf(lhs).length}).map{j => ${swap(lhs, DataOptions)}(i*${writersOf(lhs).length}+j)}
+            Mux1H(${swap(lhs, ValidOptions)}, ${lhs}_slice_options)
           }.toList)""")
         case Def(e@StreamWrite(_, data, _)) => 
-          emitGlobalWire(src"val ${lhs}_data_options = Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))", forceful = true)
-          emitGlobalWire(src"val ${lhs} = Mux1H(${lhs}_valid_options, ${lhs}_data_options)", forceful = true)
+          emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))", forceful = true)
+          emitGlobalWire(src"val ${lhs} = Mux1H(${swap(lhs, ValidOptions)}, ${swap(lhs, DataOptions)})", forceful = true)
       }
 
       emitGlobalWireMap(src"${lhs}_ready", "Wire(Bool())", forceful = true)
@@ -195,10 +195,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
       }
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_rId = getStreamInLane("$stream")""")
-      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
+      emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
 
-      // emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${swap(parent, Done)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
-//      emit(src"""${stream}_ready_options(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+      // emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, Done)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+//      emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -226,8 +226,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
     case StreamWrite(stream, data, en) =>
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
-      emit(src"""${stream}_valid_options(${lhs}_wId) := (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr) & $en""")
-      emit(src"""${stream}_data_options(${lhs}_wId) := $data""")
+      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr) & $en""")
+      emit(src"""${swap(stream, DataOptions)}(${lhs}_wId) := $data""")
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
             case VGA => 
