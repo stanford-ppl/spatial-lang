@@ -90,8 +90,8 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
       dispatchers.foreach{origDispatches =>
         if (origDispatches.size != 1) {
-          error(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
-          sys.exit()
+          bug(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
+          bug(original.ctx)
         }
         val dispatches = origDispatches.flatMap{orig =>
           dbgs(c"  Dispatch #$orig: ")
