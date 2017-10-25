@@ -110,7 +110,6 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
     case ListVector(elems) => 
       assert(elems.size==1, s"ListVector elems size is not 1! elems:[${elems.mkString(",")}]")
-      //ctx.addReg(lhs, ctx.reg(elems.head)) //TODO: is size of elems always be 1 for pir?
       decompose(lhs).zip(elems.flatMap(decompose)).foreach { case (lhs, elem) =>
         ctx.addReg(lhs, ctx.reg(elem))
       }
@@ -120,6 +119,19 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       decompose(vec).zip(decompose(lhs)).foreach { case (vec, lhs) =>
         ctx.addReg(lhs, ctx.reg(vec))
       }
+
+    //case VectorSlice(vector, end, start) =>
+      //val output = allocateLocal(ctx.cu, lhs)
+      ////val mask = 
+      //MapStage(PIRBitAnd, List(cu.reg(vector), ), List(ctx.refOut(output)))
+      
+    //case VectorConcat(vectors) if lhs.tp.asInstanceOf[VectorType[_]].width <= 32  =>
+
+    case DataAsBits(a) =>
+      ctx.addReg(a, ctx.reg(lhs))
+
+    case BitsAsData(a, mT) =>
+      ctx.addReg(a, ctx.reg(lhs))
 
     case SimpleStruct(elems) =>
       decompose(lhs).foreach { elem => allocateLocal(ctx.cu, elem) }

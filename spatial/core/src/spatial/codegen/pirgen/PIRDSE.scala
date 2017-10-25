@@ -63,7 +63,7 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
     if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
 
     val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,regsMax_PMU,_) = mcu
-    READ_WRITE = readWrite
+    PMU_STAGES = readWrite
 
     val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
     val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite, $regsMax_PMU"
@@ -77,8 +77,8 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
 
     threads.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(spatialConfig.threads))
 
-    val results = (REDUCE_STAGES to 16).flatMap{stages =>
-      STAGES = stages
+    val results = (numReduceStages(spec.lanes) to 16).flatMap{stages =>
+      PCU_STAGES = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()
 
@@ -127,23 +127,23 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
 
             val stats = Statistics(
               /** Utilization **/
-              total = util,
-              pcuOnly = pcuOnly,
-              pmuOnly = pmuOnly,
-              /** PCUS **/
-              sIn_PCU  = sIns_PCU,
-              sOut_PCU = sOuts_PCU,
-              vIn_PCU  = vIns_PCU,
-              vOut_PCU = vOuts_PCU,
-              stages   = stages,
-              regs_PCU = regsMax_PCU,
+              total               = util        ,
+              pcuOnly             = pcuOnly     ,
+              pmuOnly             = pmuOnly     ,
+              /** PCUs **/
+              pcu_vin             = vIns_PCU    ,
+              pcu_vout            = vOuts_PCU   ,
+              pcu_sin             = sIns_PCU    ,
+              pcu_sout            = sOuts_PCU    ,
+              pcu_stages          = stages      ,
+              pcu_regs            = regsMax_PCU ,
               /** PMUs **/
-              sIn_PMU   = sIns_PMU,
-              sOut_PMU  = sOuts_PMU,
-              vIn_PMU   = vIns_PMU,
-              vOut_PMU  = vOuts_PMU,
-              readWrite = readWrite,
-              regs_PMU  = regsMax_PMU
+              pmu_vin             = vIns_PMU    ,
+              pmu_vout            = vOuts_PMU    ,
+              pmu_sin             = sIns_PMU    ,
+              pmu_sout            = sOuts_PMU   ,
+              pmu_stages          = readWrite   ,
+              pmu_regs            = regsMax_PMU
             )
 
             if (pass == 0) first = text
@@ -172,7 +172,7 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
     Files.createDirectories(Paths.get(dir))
 
     val name = config.name
-    val valid = new PrintStream(s"$dir/${name}_$LANES.csv")
+    val valid = new PrintStream(s"$dir/${name}_${spec.lanes}.csv")
     //val invalid = new PrintStream(s"$dir/${name}_${LANES}_invalid.csv")
 
     config.verbosity = prevVerbosity

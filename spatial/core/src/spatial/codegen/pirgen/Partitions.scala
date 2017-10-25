@@ -8,11 +8,9 @@ import spatial.aliases._
 import scala.collection.mutable
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
-
-  @lazyvar var STAGES: Int = spatialConfig.stages                   // Number of compute stages per CU
-  def LANES: Int = spatialConfig.lanes                              // Number of SIMD lanes per CU
-  def REDUCE_STAGES: Int = (Math.log(LANES)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
-  @lazyvar var READ_WRITE: Int = spatialConfig.readWrite
+  def spec = spatialConfig.plasticineSpec
+  var PCU_STAGES = spec.pcu_stages
+  var PMU_STAGES = spec.pmu_stages
 
   abstract class Partition {
     var cchains: Set[CUCChain] = Set[CUCChain]()
@@ -163,9 +161,11 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     readCost + writeCost
   }
 
-  def getReduceCost(cu:CU) = {
-    (Math.log(cu.innerPar)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
+  def numReduceStages(lanes:Int) = {
+    (Math.log(lanes)/Math.log(2)).toInt + 1  // Number of stages required to reduce across all lanes
   }
+
+  def getReduceCost(cu:CU) = numReduceStages(cu.innerPar)
 
   def getCUCost[P<:Partition](p: P, prev: Seq[Partition], all: List[Stage], others: Seq[CU], cu:CU)(getStages: P => Seq[Stage]) = dbgblk(s"getCUCost: $p"){
     val local = getStages(p)
@@ -432,22 +432,27 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     pcuOnly: Utilization,
     pmuOnly: Utilization,
     /** UCUs **/
-    sIn_UCU: Int = spatialConfig.sIn_UCU,       // TODO: These aren't used in splitting, ignored for now
-    stages_UCU: Int = spatialConfig.stages_UCU, // TODO: These aren't used in splitting, ignored for now
+    scu_sin:    Int = spec.scu_sin    ,
+    scu_sout:   Int = spec.scu_sout   ,
+    scu_stages: Int = spec.scu_stages ,
+    scu_regs:   Int = spec.scu_regs   ,
     /** PCUs **/
-    sIn_PCU:  Int = spatialConfig.sIn_PCU,
-    sOut_PCU: Int = spatialConfig.sOut_PCU,
-    vIn_PCU:  Int = spatialConfig.vIn_PCU,
-    vOut_PCU: Int = spatialConfig.vOut_PCU,
-    stages:   Int = spatialConfig.stages,
-    regs_PCU: Int = spatialConfig.regs_PCU,
+    pcu_vin:    Int = spec.pcu_vin    ,
+    pcu_vout:   Int = spec.pcu_vout   ,
+    pcu_sin:    Int = spec.pcu_sin    ,
+    pcu_sout:   Int = spec.pcu_sout   ,
+    pcu_stages: Int = spec.pcu_stages ,
+    pcu_regs:   Int = spec.pcu_regs   ,
     /** PMUs **/
-    sIn_PMU:  Int = spatialConfig.sIn_PMU,
-    sOut_PMU: Int = spatialConfig.sOut_PMU,
-    vIn_PMU:  Int = spatialConfig.vIn_PMU,
-    vOut_PMU: Int = spatialConfig.vOut_PMU,
-    readWrite:Int = spatialConfig.readWrite,
-    regs_PMU: Int = spatialConfig.regs_PMU
+    pmu_vin:    Int = spec.pmu_vin    ,
+    pmu_vout:   Int = spec.pmu_vout   ,
+    pmu_sin:    Int = spec.pmu_sin    ,
+    pmu_sout:   Int = spec.pmu_sout   ,
+    pmu_stages: Int = spec.pmu_stages ,
+    pmu_regs:   Int = spec.pmu_regs   ,
+    /** General **/
+    lanes:      Int = spec.lanes      ,
+    wordWidth:  Int = spec.wordWidth
   ) {
     val nPCUs = total.pcus - total.ucus
     val nUCUs = total.ucus
@@ -457,20 +462,20 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val requiredRegs_PMU = pmuOnly.regsMax
 
     // Total available
-    val nALUs_PCU = (LANES * nPCUs * stages) + (nUCUs * stages)
-    val nSIns_PCU = (sIn_PCU * nPCUs) + (nUCUs * sIn_PCU)
-    val nSOut_PCU = (sOut_PCU * nPCUs) + (nUCUs * 2)
-    val nVIns_PCU = (vIn_PCU * nPCUs) + (nUCUs * 0)
-    val nVOut_PCU = (vOut_PCU * nPCUs) + (nUCUs * 0)
-    val nRegs_PCU = (LANES * regs_PCU * nPCUs * stages) + (nUCUs * stages * regs_PCU)
+    val nALUs_PCU = (lanes * nPCUs * pcu_stages) + (nUCUs * scu_stages)
+    val nSIns_PCU = (pcu_sin * nPCUs) + (nUCUs * scu_sin)
+    val nSOut_PCU = (pcu_sout * nPCUs) + (nUCUs * scu_sout)
+    val nVIns_PCU = (pcu_vin * nPCUs) + (nUCUs * 0)
+    val nVOut_PCU = (pcu_vout * nPCUs) + (nUCUs * 0)
+    val nRegs_PCU = (lanes * pcu_regs * nPCUs * pcu_stages) + (nUCUs * scu_stages * scu_regs)
 
-    val nALUs_PMU = nPMUs * readWrite
+    val nALUs_PMU = nPMUs * pmu_stages 
     val nMems_PMU = nPMUs
-    val nSIns_PMU = sIn_PMU * nPMUs
-    val nSOut_PMU = sOut_PMU * nPMUs
-    val nVIns_PMU = vIn_PMU * nPMUs
-    val nVOut_PMU = vOut_PMU * nPMUs
-    val nRegs_PMU = regs_PMU * nPMUs * readWrite
+    val nSIns_PMU = pmu_sin * nPMUs
+    val nSOut_PMU = pmu_sout * nPMUs
+    val nVIns_PMU = pmu_vin * nPMUs
+    val nVOut_PMU = pmu_vout * nPMUs
+    val nRegs_PMU = pmu_regs * nPMUs * pmu_stages
 
     val nALUs = nALUs_PCU + nALUs_PMU
     val nMems = nMems_PMU

@@ -34,9 +34,9 @@ trait PIRSplitting extends PIRTraversal {
 
   // TODO: PMU splitting. For now just throws an exception if it doesn't fit the specified constraints
   def splitPMU(cu: CU, archMU: MUCost, others: Seq[CU]): List[CU] = {
-    if (cu.lanes > LANES) {
+    if (cu.lanes > spec.lanes) {
       var errReport = s"Failed splitting in PMU $cu"
-      errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed $LANES"
+      errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed ${spec.lanes}"
       throw new SplitException(errReport) with NoStackTrace
     }
 

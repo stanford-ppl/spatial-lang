@@ -25,21 +25,24 @@ class SpatialConfig extends argon.core.Config {
   )
 
   case class PlasticineConf(
-    sinUcu: Int,
-    stagesUcu: Int,
-    sinPcu: Int,
-    soutPcu:Int,
-    vinPcu: Int,
-    voutPcu: Int,
-    regsPcu: Int,
-    comp: Int,
-    sinPmu: Int,
-    soutPmu:Int,
-    vinPmu: Int,
-    voutPmu: Int,
-    regsPmu: Int,
-    rw: Int,
-    lanes: Int
+    scu_sin:Int,
+    scu_sout:Int,
+    scu_stages:Int,
+    scu_regs:Int,
+    pcu_vin:Int,
+    pcu_vout:Int,
+    pcu_sin:Int,
+    pcu_sout:Int,
+    pcu_stages:Int,
+    pcu_regs:Int,
+    pmu_vin:Int,
+    pmu_vout:Int,
+    pmu_sin:Int,
+    pmu_sout:Int,
+    pmu_stages:Int,
+    pmu_regs:Int,
+    lanes: Int,
+    wordWidth: Int
   )
 
   var useBasicBlocks: Boolean = false
@@ -79,22 +82,7 @@ class SpatialConfig extends argon.core.Config {
   def removeParallelNodes: Boolean = enablePIR
   def rewriteLUTs: Boolean = enablePIR
 
-  var sIn_UCU: Int = _
-  var stages_UCU: Int = _
-
-  var sIn_PCU: Int = _
-  var sOut_PCU: Int = _
-  var vIn_PCU: Int = _
-  var vOut_PCU: Int = _
-  var stages: Int = _
-  var regs_PCU: Int = _
-  var sIn_PMU: Int = _
-  var sOut_PMU: Int = _
-  var vIn_PMU: Int = _
-  var vOut_PMU: Int = _
-  var readWrite: Int = _
-  var regs_PMU: Int = _
-  var lanes: Int = _
+  var plasticineSpec:PlasticineConf = _
 
   var threads: Int = 8
 
@@ -151,49 +139,34 @@ spatial {
 
     val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  sin-ucu = 10
-  stages-ucu = 10
-  sin-pcu = 10
-  sout-pcu = 10
-  vin-pcu = 4
-  vout-pcu = 1
-  regs-pcu = 16
-  comp = 10
-  sin-pmu = 10
-  sout-pmu = 10
-  vin-pmu = 4
-  vout-pmu = 1
-  regs-pmu = 16
-  rw = 10
+  scu_sin = 10
+  scu_sout = 2
+  scu_stages = 5
+  scu_regs = 16
+  pcu_vin = 4
+  pcu_vout = 2
+  pcu_sin = 6
+  pcu_sout = 2
+  pcu_stages = 7
+  pcu_regs = 16
+  pmu_vin = 4
+  pmu_vout = 1
+  pmu_sin = 4
+  pmu_sout = 1
+  pmu_stages = 0
+  pmu_regs = 16
   lanes = 16
+  wordWidth = 32
 }
   """)
 
     val mergedPlasticineConf = ConfigFactory.load().withFallback(defaultPlasticine).resolve()
 
-    loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
-      case Right(plasticineConf) =>
-        sIn_UCU = plasticineConf.sinUcu
-        stages_UCU = plasticineConf.stagesUcu
-        sIn_PCU = plasticineConf.sinPcu
-        sOut_PCU = plasticineConf.soutPcu
-        vIn_PCU = plasticineConf.vinPcu
-        vOut_PCU = plasticineConf.voutPcu
-        stages = plasticineConf.comp
-        regs_PCU = plasticineConf.regsPcu
-        sIn_PMU = plasticineConf.sinPmu
-        sOut_PMU = plasticineConf.soutPmu
-        vIn_PMU = plasticineConf.vinPmu
-        vOut_PMU = plasticineConf.voutPmu
-        readWrite = plasticineConf.rw
-        regs_PMU = plasticineConf.regsPmu
-        lanes = plasticineConf.lanes
-
+    plasticineSpec = loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
+      case Right(plasticineConf) => plasticineConf
       case Left(failures) =>
-//        error("Unable to read Plasticine configuration")
-//        error(failures.head.description)
-//        failures.tail.foreach{x => error(x.description) }
-//        sys.exit(-1)
+        throw new Exception(s"Unable to read Plasticine configuration")
+        sys.exit(-1)
     }
   }
 
