@@ -120,12 +120,38 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
         ctx.addReg(lhs, ctx.reg(vec))
       }
 
-    //case VectorSlice(vector, end, start) =>
-      //val output = allocateLocal(ctx.cu, lhs)
-      ////val mask = 
-      //MapStage(PIRBitAnd, List(cu.reg(vector), ), List(ctx.refOut(output)))
+    case VectorSlice(vector, end, start) =>
+      /*  -------  --------------  --------
+       *          e              s
+       *  0000000  111111111111111111111111
+       *  >> s (right shift by s)
+       * */
+      val vec = ctx.reg(vector)
+      val output = allocateLocal(ctx.cu, lhs)
+      val maskString = "0" * (spec.wordWidth - end) + "1" * end
+      val maskInt = Integer.parseInt(maskString, 2)
+      val mask = ConstReg(maskInt)
+      dbgblk(s"VectorSlice($vector, end=$end, start=$start)") {
+        dbgs(s"maskString=$maskString")
+        dbgs(s"maskInt=$maskInt")
+        val midOutput = if (start!=0) output else allocateLocal(ctx.cu, fresh[Int32])
+        val maskStage = MapStage(PIRBitAnd, List(ctx.refIn(vec), ctx.refIn(mask)), List(ctx.refOut(midOutput)))
+        ctx.addStage(maskStage)
+        dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$maskStage")
+        dbgs(s"")
+        if (start != 0) {
+          val amt = ConstReg(start)
+          val shiftStage = MapStage(PIRFixSra, List(ctx.refIn(midOutput), ctx.refIn(amt)), List(ctx.refOut(output)))
+          ctx.addStage(shiftStage)
+          dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$shiftStage")
+        }
+      }
       
-    //case VectorConcat(vectors) if lhs.tp.asInstanceOf[VectorType[_]].width <= 32  =>
+    case VectorConcat(vectors) if lhs.tp.asInstanceOf[VectorType[_]].width <= spec.wordWidth  =>
+
+    case VectorConcat(vectors) if lhs.tp.asInstanceOf[VectorType[_]].width > spec.wordWidth  =>
+      val width = lhs.tp.asInstanceOf[VectorType[_]].width
+      error(s"Plasticine cannot support VectorConcat more than ${spec.wordWidth} bits. vector width = $width")
 
     case DataAsBits(a) =>
       ctx.addReg(a, ctx.reg(lhs))

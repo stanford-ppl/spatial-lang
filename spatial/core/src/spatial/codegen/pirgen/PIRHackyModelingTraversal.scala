@@ -45,10 +45,10 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     def willProbablyFitMaybe(others: Seq[Partition], isUnit: Boolean, scope: Seq[Exp[_]]): Boolean = {
       val (outsideInputs, outsideOutputs, nCycles) = cost(others, isUnit, scope)
 
-      val inputLimit  = if (isUnit) spec.pcu_sin  else spec.pcu_vin
-      val outputLimit = if (isUnit) spec.pcu_sout else spec.pcu_vout
+      val inputLimit  = if (isUnit) spec.pcuSin  else spec.pcuVin
+      val outputLimit = if (isUnit) spec.pcuSout else spec.pcuVout
 
-      outsideInputs.size <= inputLimit && outsideOutputs.size <= outputLimit && nCycles < spec.pcu_stages
+      outsideInputs.size <= inputLimit && outsideOutputs.size <= outputLimit && nCycles < spec.pcuStages
     }
     def nonEmpty = stages.nonEmpty
 
@@ -83,7 +83,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     def cost(p: Partition) = p.cost(partitions, par == 1, scope)
 
     while (remote.nonEmpty) {
-      current addTail remote.popHead(spec.pcu_stages)
+      current addTail remote.popHead(spec.pcuStages)
 
       while (willFit(current) && remote.nonEmpty) {
         current addTail remote.popHead()
@@ -144,8 +144,8 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
         // Last is always 10
         paths(stage) = offset + i
         if (lastOption.contains(stage)) {
-          delays(stage) = spec.pcu_stages - 1 - i
-          i = spec.pcu_stages - 1
+          delays(stage) = spec.pcuStages - 1 - i
+          i = spec.pcuStages - 1
         }
         else if (latencyOf(stage) > 0) delays(stage) = 1
         else delays(stage) = 0

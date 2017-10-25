@@ -23,6 +23,8 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
   }
 
   override def process[S:Type](b: Block[S]) = {
+    PCU_STAGES = spec.pcuStages
+    PMU_STAGES = spec.pmuStages
     dse()
     b
   }
@@ -131,19 +133,19 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
               pcuOnly             = pcuOnly     ,
               pmuOnly             = pmuOnly     ,
               /** PCUs **/
-              pcu_vin             = vIns_PCU    ,
-              pcu_vout            = vOuts_PCU   ,
-              pcu_sin             = sIns_PCU    ,
-              pcu_sout            = sOuts_PCU    ,
-              pcu_stages          = stages      ,
-              pcu_regs            = regsMax_PCU ,
+              pcuVin             = vIns_PCU    ,
+              pcuVout            = vOuts_PCU   ,
+              pcuSin             = sIns_PCU    ,
+              pcuSout            = sOuts_PCU    ,
+              pcuStages          = stages      ,
+              pcuRegs            = regsMax_PCU ,
               /** PMUs **/
-              pmu_vin             = vIns_PMU    ,
-              pmu_vout            = vOuts_PMU    ,
-              pmu_sin             = sIns_PMU    ,
-              pmu_sout            = sOuts_PMU   ,
-              pmu_stages          = readWrite   ,
-              pmu_regs            = regsMax_PMU
+              pmuVin             = vIns_PMU    ,
+              pmuVout            = vOuts_PMU    ,
+              pmuSin             = sIns_PMU    ,
+              pmuSout            = sOuts_PMU   ,
+              pmuStages          = readWrite   ,
+              pmuRegs            = regsMax_PMU
             )
 
             if (pass == 0) first = text

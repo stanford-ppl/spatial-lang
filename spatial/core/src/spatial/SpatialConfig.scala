@@ -25,22 +25,22 @@ class SpatialConfig extends argon.core.Config {
   )
 
   case class PlasticineConf(
-    scu_sin:Int,
-    scu_sout:Int,
-    scu_stages:Int,
-    scu_regs:Int,
-    pcu_vin:Int,
-    pcu_vout:Int,
-    pcu_sin:Int,
-    pcu_sout:Int,
-    pcu_stages:Int,
-    pcu_regs:Int,
-    pmu_vin:Int,
-    pmu_vout:Int,
-    pmu_sin:Int,
-    pmu_sout:Int,
-    pmu_stages:Int,
-    pmu_regs:Int,
+    scuSin:Int,
+    scuSout:Int,
+    scuStages:Int,
+    scuRegs:Int,
+    pcuVin:Int,
+    pcuVout:Int,
+    pcuSin:Int,
+    pcuSout:Int,
+    pcuStages:Int,
+    pcuRegs:Int,
+    pmuVin:Int,
+    pmuVout:Int,
+    pmuSin:Int,
+    pmuSout:Int,
+    pmuStages:Int,
+    pmuRegs:Int,
     lanes: Int,
     wordWidth: Int
   )
@@ -139,24 +139,24 @@ spatial {
 
     val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  scu_sin = 10
-  scu_sout = 2
-  scu_stages = 5
-  scu_regs = 16
-  pcu_vin = 4
-  pcu_vout = 2
-  pcu_sin = 6
-  pcu_sout = 2
-  pcu_stages = 7
-  pcu_regs = 16
-  pmu_vin = 4
-  pmu_vout = 1
-  pmu_sin = 4
-  pmu_sout = 1
-  pmu_stages = 0
-  pmu_regs = 16
+  scu-sin = 10
+  scu-sout = 2
+  scu-stages = 5
+  scu-regs = 16
+  pcu-vin = 4
+  pcu-vout = 2
+  pcu-sin = 6
+  pcu-sout = 2
+  pcu-stages = 7
+  pcu-regs = 16
+  pmu-vin = 4
+  pmu-vout = 1
+  pmu-sin = 4
+  pmu-sout = 1
+  pmu-stages = 0
+  pmu-regs = 16
   lanes = 16
-  wordWidth = 32
+  word-width = 32
 }
   """)
 
@@ -165,7 +165,7 @@ plasticine {
     plasticineSpec = loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
       case Right(plasticineConf) => plasticineConf
       case Left(failures) =>
-        throw new Exception(s"Unable to read Plasticine configuration")
+        throw new Exception(s"Unable to read Plasticine configuration ${failures}")
         sys.exit(-1)
     }
   }

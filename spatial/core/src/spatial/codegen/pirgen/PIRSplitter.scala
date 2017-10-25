@@ -13,20 +13,20 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
   val splittingMap = mutable.HashMap[CU, List[CU]]()
 
   lazy val PCUMax = CUCost(
-    sIn=spec.pcu_sin,
-    sOut=spec.pcu_sout,
-    vIn=spec.pcu_vin,
-    vOut=spec.pcu_vout,
+    sIn=spec.pcuSin,
+    sOut=spec.pcuSout,
+    vIn=spec.pcuVin,
+    vOut=spec.pcuVout,
     comp=PCU_STAGES,
-    regsMax = spec.pcu_regs
+    regsMax = spec.pcuRegs
   )
   lazy val PMUMax = MUCost(
-    sIn=spec.pmu_sin,
-    sOut=spec.pmu_sout,
-    vIn=spec.pmu_vin,
-    vOut=spec.pmu_vout,
+    sIn=spec.pmuSin,
+    sOut=spec.pmuSout,
+    vIn=spec.pmuVin,
+    vOut=spec.pmuVout,
     comp=PMU_STAGES,
-    regsMax = spec.pmu_regs
+    regsMax = spec.pmuRegs
   )
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {
