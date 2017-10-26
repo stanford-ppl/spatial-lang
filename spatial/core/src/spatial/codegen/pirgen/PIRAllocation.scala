@@ -562,10 +562,17 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     val indexExps = expsUsedInCalcExps(stms)(Seq(), inds)
     (indexExps, inds)
   }
+<<<<<<< HEAD
 
   def allocateRemoteMemAddrCalc(mem:Expr, access:Expr, addrCU:CU) = {
     val par = getInnerPar(access)
 
+=======
+
+  def allocateRemoteMemAddrCalc(mem:Expr, access:Expr, addrCU:CU) = {
+    val par = getInnerPar(access)
+
+>>>>>>> e9151d804ddcb345bffe635d2cd7e991d94abffe
     val (indexExps, addr) = extractAddrExprs(access)
     val indexSyms = indexExps.collect { case s:Sym[_] => s }
 
