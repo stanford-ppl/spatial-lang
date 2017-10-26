@@ -366,9 +366,18 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       else {
         parentOf(reader).foreach { pipe => // RegRead outside HwBlock doesn't have parent
           dbgs(s"parentOf($reader) = ${qdef(pipe)}")
-          val stms = allocateCU(pipe).pseudoStages.collect { case DefStage(s, _) => s }
-          dbgl(s"$pipe.pseudoStages:") { stms.foreach { stm => dbgs(s"$stm") } }
-          stms.foreach {
+
+          // Inspect counter creation enclosed in parent of the reader
+          getStms(pipe).foreach {
+            case TP(s@Def(_:CounterNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
+            case TP(s@Def(_:CounterChainNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
+            case _ =>
+          }
+
+          // Inspect stages of parent of reader
+          val stages = allocateCU(pipe).pseudoStages.collect { case DefStage(s, _) => s }
+          dbgl(s"$pipe.pseudoStages:") { stages.foreach { stm => dbgs(s"$stm") } }
+          stages.foreach {
             case s@Def(d) if isAccess(s) => 
               val (indexExps, addr) = extractAddrExprs(s)
               if (indexExps.contains(reader) && isReader(s)) { // Read remote addr calculation
@@ -376,8 +385,6 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
               } else if (d.allInputs.contains(reader)) {
                 readerCUs += allocateCU(pipe)
               }
-            case s@Def(d:CounterNew) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
-            case s@Def(d:CounterChainNew) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
             case s@Def(d) if d.allInputs.contains(reader) & isControlNode(s) => readerCUs += allocateCU(s)
             case s@Def(d) if d.allInputs.contains(reader) => readerCUs += allocateCU(pipe) // Include pipe only if it's used 
             case s@Def(d) => 
