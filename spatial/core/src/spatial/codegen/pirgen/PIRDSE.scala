@@ -23,8 +23,6 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
   }
 
   override def process[S:Type](b: Block[S]) = {
-    PCU_STAGES = spec.pcuStages
-    PMU_STAGES = spec.pmuStages
     dse()
     b
   }
@@ -65,7 +63,7 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
     if (!foundMCU) throw new Exception("Unable to find minimum MCU parameters")
 
     val MUCost(sIns_PMU,sOuts_PMU,vIns_PMU,vOuts_PMU,readWrite,regsMax_PMU,_) = mcu
-    PMU_STAGES = readWrite
+    spec.pmuStages = readWrite
 
     val pmuText = s"r/w=$readWrite, sIn_PMU=$sIns_PMU, sOut_PMU=$sOuts_PMU, vIn_PMU=$vIns_PMU, vOut_PMU=$vOuts_PMU"
     val pmuSettings = s"$sIns_PMU, $sOuts_PMU, $vIns_PMU, $vOuts_PMU, $readWrite, $regsMax_PMU"
@@ -80,7 +78,7 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
     threads.tasksupport = new ForkJoinTaskSupport(new java.util.concurrent.ForkJoinPool(spatialConfig.threads))
 
     val results = (numReduceStages(spec.lanes) to 16).flatMap{stages =>
-      PCU_STAGES = stages
+      spec.pcuStages = stages
       Console.print("stages = " + stages)
       val start = System.currentTimeMillis()
 

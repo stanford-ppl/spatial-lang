@@ -33,13 +33,13 @@ class SpatialConfig extends argon.core.Config {
     pcuVout:Int,
     pcuSin:Int,
     pcuSout:Int,
-    pcuStages:Int,
+    var pcuStages:Int, // Can be reset by PIRDSE
     pcuRegs:Int,
     pmuVin:Int,
     pmuVout:Int,
     pmuSin:Int,
     pmuSout:Int,
-    pmuStages:Int,
+    var pmuStages:Int,
     pmuRegs:Int,
     lanes: Int,
     wordWidth: Int

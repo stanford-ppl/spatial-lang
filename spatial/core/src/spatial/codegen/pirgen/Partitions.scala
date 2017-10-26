@@ -9,8 +9,6 @@ import scala.collection.mutable
 
 trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   def spec = spatialConfig.plasticineSpec
-  var PCU_STAGES:Int = _ 
-  var PMU_STAGES:Int = _ 
 
   abstract class Partition {
     var cchains: Set[CUCChain] = Set[CUCChain]()
