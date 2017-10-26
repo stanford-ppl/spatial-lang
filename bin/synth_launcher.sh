@@ -46,6 +46,8 @@ echo $apphash > ${REGRESSION_HOME}/data/apphash
 echo $timestamp > ${REGRESSION_HOME}/data/timestamp
 
 # Run tests
+cd ${REGRESSION_HOME}/next-spatial/spatial-lang
+set $inputarg
 echo "Runnign synth_regression with $inputarg"
 bash bin/synth_regression.sh $inputarg
 

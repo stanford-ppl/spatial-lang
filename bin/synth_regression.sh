@@ -32,6 +32,6 @@ else
 	if [[ $1 = "zynq" ]]; then
 		bin/regression 4 nobranch Zynq Dense Sparse
 	elif [[ $1 = "aws" ]]; then
-		bin/regression 4 nobranch AWS Dense Sparse
+		bin/regression 8 nobranch AWS Dense Sparse
 	fi
 fi

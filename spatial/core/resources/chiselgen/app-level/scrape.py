@@ -90,3 +90,6 @@ worksheet.update_cell(tid,col,sys.argv[10])
 worksheet = sh.worksheet('Timing Met') # Select worksheet by index
 worksheet.update_cell(tid,col,sys.argv[11])
 
+# Tell last update
+worksheet = sh.worksheet('STATUS')
+worksheet.update_cell(22,3,stamp)
