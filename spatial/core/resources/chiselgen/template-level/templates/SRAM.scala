@@ -5,6 +5,7 @@ import chisel3._
 import chisel3.util._
 import ops._
 import fringe._
+import chisel3.util.MuxLookup
 
 import scala.collection.mutable.HashMap
 
@@ -45,8 +46,8 @@ class multidimR(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
   override def cloneType = (new multidimR(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
-class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean = false) extends Module { // Unbanked, inner 1D mem
-  def this(size: Int) = this(size, true, 32)
+class Mem1D(val size: Int, bitWidth: Int, syncMem: Boolean = false) extends Module { // Unbanked, inner 1D mem
+  def this(size: Int) = this(size, 32)
 
   val addrWidth = Utils.log2Up(size)
 
@@ -71,25 +72,35 @@ class Mem1D(val size: Int, val isFifo: Boolean, bitWidth: Int, syncMem: Boolean 
   val rInBound = io.r.addr < (size).U
 
   if (syncMem) {
-    val m = Module(new fringe.SRAM(bitWidth, size))
-    m.io.raddr := io.r.addr
-    m.io.waddr := io.w.addr
-    m.io.wen   := io.w.en & wInBound
-    m.io.wdata := io.w.data
-    io.output.data := m.io.rdata
+    if (size <= Utils.SramThreshold) {
+      val m = (0 until size).map{ i =>
+        val reg = RegInit(0.U(bitWidth.W))
+        reg := Mux(io.w.en & (io.w.addr === i.U(addrWidth.W)), io.w.data, reg)
+        (i.U(addrWidth.W) -> reg)
+      }
+      val radder = Utils.getRetimed(io.r.addr,1)
+      io.output.data := MuxLookup(radder, 0.U(bitWidth.W), m)
+    } else {
+      val m = Module(new fringe.SRAM(bitWidth, size))
+      m.io.raddr := io.r.addr
+      m.io.waddr := io.w.addr
+      m.io.wen   := io.w.en & wInBound
+      m.io.wdata := io.w.data
+      io.output.data := m.io.rdata
+    }
   } else {
-    if (isFifo) { // Fifos need to be dual port to avoid strangeness
+    if (size <= Utils.SramThreshold) {
+      val m = (0 until size).map{ i =>
+        val reg = RegInit(0.U(bitWidth.W))
+        reg := Mux(io.w.en & (io.w.addr === i.U(addrWidth.W)), io.w.data, reg)
+        (i.U(addrWidth.W) -> reg)
+      }
+      io.output.data := MuxLookup(io.r.addr, 0.U(bitWidth.W), m)
+    } else {
       val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
       when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
       io.output.data := m(io.r.addr)
-    } else {
-      if (syncMem) {
-      } else {
-        val m = Mem(size, UInt(bitWidth.W) /*, seqRead = true deprecated? */)
-        when (io.w.en & wInBound) {m(io.w.addr) := io.w.data}
-        io.output.data := m(io.r.addr)
-      }
-    }    
+    }
   }
 
   if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
@@ -126,7 +137,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
   })
 
   // Instantiate 1D mem
-  val m = Module(new Mem1D(depth, true, bitWidth, syncMem))
+  val m = Module(new Mem1D(depth, bitWidth, syncMem))
 
   // Address flattening
   m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
