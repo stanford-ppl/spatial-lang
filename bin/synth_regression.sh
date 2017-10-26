@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [[ $1 = "zynq" ]]; then
-	export CLOCK_FREQ_MHZ=125
+	export CLOCK_FREQ_MHZ=250
 	export PIR_HOME=${REGRESSION_HOME}
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
