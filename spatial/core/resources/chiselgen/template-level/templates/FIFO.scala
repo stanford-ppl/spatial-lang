@@ -43,7 +43,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   elements.io.input.dinc_en := deq_options.reduce{_|_}
 
   // Create physical mems
-  val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true, bitWidth))}
+  val m = (0 until p).map{ i => Module(new Mem1D(depth/p, bitWidth))}
 
   // Create head and reader sub counters
   val sw_width = 2 + Utils.log2Up(p/pW)
@@ -329,7 +329,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
 
   // Create physical mems
   val banks = max(pW.max, pR.max)
-  val m = (0 until banks).map{ i => Module(new Mem1D(depth/banks, true, bitWidth))}
+  val m = (0 until banks).map{ i => Module(new Mem1D(depth/banks, bitWidth))}
 
   // Create compacting network
   val enqCompactor = Module(new CompactingEnqNetwork(pW, banks, width, bitWidth))
@@ -463,7 +463,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   elements.io.input.dinc_en := pop_options.reduce{_|_}
 
   // Create physical mems
-  val m = (0 until p).map{ i => Module(new Mem1D(depth/p, true, bitWidth))}
+  val m = (0 until p).map{ i => Module(new Mem1D(depth/p, bitWidth))}
 
   // Create head and reader sub counters
   val sa_width = 2 + Utils.log2Up(p)
