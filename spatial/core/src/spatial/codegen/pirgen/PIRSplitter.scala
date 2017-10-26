@@ -17,7 +17,7 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
     sOut=spec.pcuSout,
     vIn=spec.pcuVin,
     vOut=spec.pcuVout,
-    comp=PCU_STAGES,
+    comp=spec.pcuStages,
     regsMax = spec.pcuRegs
   )
   lazy val PMUMax = MUCost(
@@ -25,7 +25,7 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
     sOut=spec.pmuSout,
     vIn=spec.pmuVin,
     vOut=spec.pmuVout,
-    comp=PMU_STAGES,
+    comp=spec.pmuStages,
     regsMax = spec.pmuRegs
   )
 

@@ -58,31 +58,6 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  //def addrToStage(dmem: Expr, addr: Expr, ctx: CUContext) {
-    //ctx.memories(dmem).foreach { sram =>
-      //val wire = ctx match {
-        //case WriteContext(cu) => WriteAddrWire(sram)
-        //case ReadContext(cu) => ReadAddrWire(sram) 
-      //}
-      //val addrReg = addr match {
-        //case bound:Bound[_] => ctx.reg(addr)
-        //case const:Const[_] => ctx.reg(addr)
-        //case lhs@Def(rhs) => 
-          //mapNodeToStage(lhs, rhs, ctx)
-          //ctx.reg(addr)
-      //}
-      //val reg = propagateReg(addr, addrReg, wire, ctx)
-      //ctx match {
-        //case WriteContext(cu) => 
-          //dbgs(s"Setting write address for ${ctx.memories(dmem).mkString(", ")} to $reg")
-          //sram.writeAddr += reg
-        //case ReadContext(cu) => 
-          //dbgs(s"Setting read address for ${ctx.memories(dmem).mkString(", ")} to $reg")
-          //sram.readAddr += reg
-      //}
-    //}
-  //}
-
   def mapNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
     case ParLocalReader(reads) =>
@@ -153,14 +128,13 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val width = lhs.tp.asInstanceOf[VectorType[_]].width
       error(s"Plasticine cannot support VectorConcat more than ${spec.wordWidth} bits. vector width = $width")
 
+    case SimpleStruct(elems) => decompose(lhs).foreach { elem => allocateLocal(ctx.cu, elem) }
+
     case DataAsBits(a) =>
-      ctx.addReg(a, ctx.reg(lhs))
+      ctx.addReg(lhs, ctx.reg(a))
 
     case BitsAsData(a, mT) =>
-      ctx.addReg(a, ctx.reg(lhs))
-
-    case SimpleStruct(elems) =>
-      decompose(lhs).foreach { elem => allocateLocal(ctx.cu, elem) }
+      ctx.addReg(lhs, ctx.reg(a))
 
     case FieldApply(struct, fieldName) =>
       val ele = lookupField(struct, fieldName).getOrElse(
