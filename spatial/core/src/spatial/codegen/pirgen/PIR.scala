@@ -137,6 +137,7 @@ case class VectorOut(bus: VectorBus) extends LocalPort[VectorOut] {
 // --- Counter chains
 case class CUCounter(var start: LocalComponent, var end: LocalComponent, var stride: LocalComponent, var par:Int) extends PIR {
   val name = s"ctr${CUCounter.nextId()}"
+  def longString = s"ctr(${start}, ${end}${end.getClass.getSimpleName}, ${stride}, $par)"
 }
 object CUCounter {
   var id: Int = 0
@@ -146,7 +147,7 @@ object CUCounter {
 sealed abstract class CUCChain(val name: String) extends PIR { def longString: String } 
 case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
   override def toString = name
-  def longString: String = s"$name (" + counters.mkString(", ") + ")"
+  def longString: String = s"$name (${counters.map(_.longString).mkString(",")})"
 }
 case class CChainCopy(override val name: String, inst: CUCChain, var owner: CU) extends CUCChain(name) {
   override def toString = s"$owner.copy($name)"

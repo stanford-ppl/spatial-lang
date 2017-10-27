@@ -33,7 +33,9 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
     super.preprocess(b)
   }
 
-  override def postprocess[S:Type](b: Block[S]): Block[S] = {
+  override protected def postprocess[S:Type](b: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing Splitting ------------- //")
+    dbgs(s"globals:${globals}")
     super.postprocess(b)
   }
 
@@ -47,18 +49,18 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
           case x => mutable.Set(x)
         }
       }
-      dbgs(s"\n\n//----------- Finishing PIRSplitter ------------- //")
-      dbgs(s"Mapping:")
-      splittingMap.foreach { case (cu, cus) =>
-        dbgs(s"${cu} -> [${cus.mkString(",")}]")
-        cus.foreach(dbgcu)
-      }
-      dbgs(s"globals:${quote(globals)}")
     } catch {case e: SplitException =>
       error("Failed splitting")
       error(e.msg)
       sys.exit(-1)
     }
+    dbgs(s"\n\n//----------- Finishing Splitting ------------- //")
+    dbgs(s"Mapping:")
+    splittingMap.foreach { case (cu, cus) =>
+      dbgs(s"${cu} -> [${cus.mkString(",")}]")
+      cus.foreach(dbgcu)
+    }
+    dbgs(s"globals:${quote(globals)}")
     b
   }
 

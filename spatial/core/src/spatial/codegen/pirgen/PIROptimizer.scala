@@ -20,7 +20,10 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     removeUnusedGlobalBuses()
     for (cu <- cus) removeDeadStages(cu)
     removeEmptyCUs(cus)
-    super.process(b)
+    val block = super.process(b)
+    dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
+    cus.foreach(dbgcu)
+    block
   }
 
   override def preprocess[S:Type](b: Block[S]): Block[S] = {
@@ -28,12 +31,12 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   override def postprocess[S:Type](b: Block[S]): Block[S] = {
+    // Printed inside PIRCodegen
     dbgs(s"\n\n//----------- Finishing PIROptimizer ------------- //")
     dbgs(s"Mapping:")
     mappingOf.foreach { case (sym, cus) =>
       dbgs(s"${sym} -> [${cus.mkString(",")}]")
     }
-    //cus.foreach(dbgcu)
     dbgs(s"globals:${quote(globals)}")
     super.postprocess(b)
   }
@@ -92,8 +95,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     var refMems = usedMem(cu) 
     val unusedMems = cu.mems.filterNot{ mem => refMems.contains(mem) }
     if (unusedMems.nonEmpty) {
-      dbgs(s"Removing unused mems from $cu")
-      unusedMems.foreach{ mem => dbgs(s"$mem")}
+      dbgs(s"Removing unused mems from $cu: [${unusedMems.mkString(",")}]")
       cu.memMap.retain { case (e, m) => !unusedMems.contains(m) }
     }
   }

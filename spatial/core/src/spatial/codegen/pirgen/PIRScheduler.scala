@@ -16,13 +16,20 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def cus = mappingOf.values.flatten.collect{ case cu:CU => cu }.toList
 
-  override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
-    // Swap dependencies, parents, cchain owners from pcu to cu
+  override protected def process[S:Type](b: Block[S]): Block[S] = {
+    val block = super.process(b)
     dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
-    //cus.foreach(dbgcu)
+    cus.foreach(dbgcu)
     dbgs(s"globals:${globals}")
     block
   }
+
+  override protected def postprocess[S:Type](b: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing Scheduling ------------- //")
+    dbgs(s"globals:${globals}")
+    super.postprocess(b)
+  }
+
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
     mappingOf.getT[CU](lhs).foreach { cus => 

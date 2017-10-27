@@ -425,6 +425,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   }
 
   def runAll[S:Type](b: Block[S]): Block[S] = {
+    init()
     var block = b
     block = preprocess(block)
     block = run(block)

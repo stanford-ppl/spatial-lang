@@ -17,6 +17,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   // -- State
   var top: Option[Expr] = None
   val allocated = mutable.ListBuffer[Expr]()
+  val stageCache = mutable.Map[Expr, Seq[DefStage]]()
+
   lazy val topCU = ComputeUnit("top", TopCU)
 
   def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
@@ -40,7 +42,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def allocateCChains(pipe: Expr, cu:CU) = {
+  def allocateCChains(pipe: Expr) = {
+    val cu = mappingOf.to[CU](pipe).head
     pipe match {
       case Def(_:UnitPipe | _:Hwblock) => 
         val cc = UnitCChain(s"${pipe}_unit")
@@ -115,30 +118,6 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
  
     if (top.isEmpty && parent.isEmpty) top = Some(exp)
 
-    exp match {
-      case Def(Hwblock(func,_)) =>
-        allocateCChains(exp, cu) 
-
-      case Def(UnitPipe(en, func)) =>
-        allocateStages(exp, cu, func)
-        allocateCChains(exp, cu) 
-
-      case Def(UnrolledForeach(en, cchain, func, iters, valids)) =>
-        allocateStages(exp, cu, func)
-        allocateCChains(exp, cu) 
-
-      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-        allocateStages(exp, cu, func)
-        allocateCChains(exp, cu) 
-
-      case Def(Switch(body, selects, cases)) =>
-        allocateSwitchControl(exp, cu, selects, cases)
-
-      case Def(SwitchCase(body)) =>
-        allocateStages(exp, cu, body)
-      case _ =>
-    }
-
     mutable.Set(cu)
   }}.head
 
@@ -175,7 +154,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     cus.toList
   }
 
-  def copyBounds(pipe:Expr, cu:CU, stages: Seq[Expr]) = {
+  def copyBounds(pipe:Expr, cu:CU, stages: Seq[Expr]) = dbgblk(s"copyBounds($pipe)"){
     val allExps = stages ++ stages.flatMap{x => getDef(x).map(_.expInputs).getOrElse(Nil) }
 
     allExps.foreach {
@@ -192,37 +171,54 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           val ctrIdx = inds.zipWithIndex.filter { case (inds, idx) => inds.contains(b) }.head._2
           val iterIdx = inds.filter{_.contains(b)}.head.indexOf(b)
           copyIterators(cu, fromCU, Some(ctrIdx -> iterIdx))
+          dbgs(s"bound=$b fromCU=${fromCU.name} ctrIdx=$ctrIdx -> iterIdx=$iterIdx")
         }
       case _ => 
     }
   }
 
+  def extractStages(pipe:Expr):Seq[DefStage] = stageCache.getOrElseUpdate(pipe, {
+    val cu = allocateCU(pipe)
+
+    val func = pipe match {
+      case Def(Hwblock(func,_)) => None
+      case Def(UnitPipe(en, func)) => Some(func)
+      case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some(func)
+      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => Some(func)
+      case Def(Switch(body, selects, cases)) => None
+      case Def(SwitchCase(body)) => Some(body)
+    }
+
+    func.fold[Seq[DefStage]](Nil) { func =>
+      val stms = getStms(pipe) 
+      val localCompute = symsUsedInCalcExps(stms)(Seq(func.result), func.effectful)
+      localCompute.map { s => 
+        val isReduce = (s match {
+          case Def(RegRead(_)) => false
+          case Def(RegWrite(_,_,_)) => false
+          case s => reduceType(s).isDefined
+        }) && !isBlockReduce(func)
+        DefStage(s, isReduce)
+      }
+    }
+  })
   /*
    * Schedule stages of CU corresponding to pipe
    * */
-  def allocateStages(pipe: Expr, cu:CU, func: Block[Any]):CU = dbgblk(s"allocateStages ${qdef(pipe)}") {
-    val stms = getStms(pipe) 
+  def allocateStages(pipe: Expr) = dbgblk(s"allocateStages ${qdef(pipe)}") {
+    val cu = allocateCU(pipe)
+    val stages = extractStages(pipe) 
 
-    val localCompute = symsUsedInCalcExps(stms)(Seq(func.result), func.effectful)
-    copyBounds(pipe, cu, localCompute)
-
-    // Sanity check
-    val trueComputation = localCompute.filterNot{case Exact(_) => true; case s => isRegisterRead(s)}
     if (isOuterControl(pipe)) {
+      val trueComputation = stages.map{_.op}.filterNot{case Exact(_) => true; case s => isRegisterRead(s)}
       if (trueComputation.nonEmpty) {
         warn(s"Outer control $pipe has compute stages: ")
         trueComputation.foreach{case lhs@Def(rhs) => warn(s"$lhs = $rhs")}
       }
     }
     else { // Only inner pipes have stages
-      cu.pseudoStages ++= localCompute.map{ s => 
-        val isReduce = (s match {
-          case Def(RegRead(_)) => false
-          case Def(RegWrite(_,_,_)) => false
-          case s => reduceType(s).isDefined
-        }) && !isBlockReduce(func)
-        DefStage(s, isReduce = isReduce)
-      }
+      cu.pseudoStages ++= stages
+      copyBounds(pipe, cu, stages.map(_.op))
       dbgl(s"prescheduled stages for $cu:") {
         cu.pseudoStages.foreach {
           case s@DefStage(op, _) => dbgs(s"${qdef(op)} reduceType=${reduceType(op)}")
@@ -369,13 +365,16 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
           // Inspect counter creation enclosed in parent of the reader
           getStms(pipe).foreach {
-            case TP(s@Def(_:CounterNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
-            case TP(s@Def(_:CounterChainNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
-            case _ =>
+            case TP(s@Def(_:CounterNew), d) if d.allInputs.contains(reader) => 
+              val ctrls = usersOf(s).map { _.ctrl }.toSet
+              assert(ctrls.size==1, s"Counter $s has not exactly one user controller ${ctrls}")
+              readerCUs += allocateCU(ctrls.head._1) 
+              dbgs(s"${qdef(s)}")
+              dbgs(s"ctrl=${ctrls.head}")
+            case s =>
           }
-
           // Inspect stages of parent of reader
-          val stages = allocateCU(pipe).pseudoStages.collect { case DefStage(s, _) => s }
+          val stages = extractStages(pipe).map { _.op} 
           dbgl(s"$pipe.pseudoStages:") { stages.foreach { stm => dbgs(s"$stm") } }
           stages.foreach {
             case s@Def(d) if isAccess(s) => 
@@ -567,7 +566,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     val par = getInnerPar(access)
 
     val (indexExps, addr) = extractAddrExprs(access)
-    val indexSyms = indexExps.collect { case s:Sym[_] => s }
+    val indexSyms = indexExps.collect { case s:Expr => s }
 
     val (flatAddr, flatStages) = flattenNDIndices(addr, stagedDimsOf(mem.asInstanceOf[Exp[SRAM[_]]]))
 
@@ -719,7 +718,32 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
     dbgl(s"Visiting ${qdef(lhs)}") {
       rhs match {
-        case _ if isControlNode(lhs) => allocateCU(lhs)
+        case Hwblock(func,_) =>
+          val cu = allocateCU(lhs)
+          allocateCChains(lhs) 
+
+        case UnitPipe(en, func) =>
+          val cu = allocateCU(lhs)
+          allocateStages(lhs)
+          allocateCChains(lhs) 
+
+        case UnrolledForeach(en, cchain, func, iters, valids) =>
+          val cu = allocateCU(lhs)
+          allocateStages(lhs)
+          allocateCChains(lhs) 
+
+        case UnrolledReduce(en, cchain, accum, func, iters, valids) =>
+          val cu = allocateCU(lhs)
+          allocateStages(lhs)
+          allocateCChains(lhs) 
+
+        case Switch(body, selects, cases) =>
+          val cu = allocateCU(lhs)
+          allocateSwitchControl(lhs, cu, selects, cases)
+
+        case SwitchCase(body) =>
+          val cu = allocateCU(lhs)
+          allocateStages(lhs)
 
         case _ if isFringe(lhs) =>
           val dram = rhs.allInputs.filter { e => isDRAM(e) }.head
@@ -762,7 +786,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         case _:OpForeach => throw new Exception(s"Disallowed compact op $lhs = $rhs")
         case _:OpReduce[_] => throw new Exception(s"Disallowed compact op $lhs = $rhs")
         case _:OpMemReduce[_,_] => throw new Exception(s"Disallowed compact op $lhs = $rhs")
-        case _ => 
+        case _ => dbgs(s"Unmatched Node")
       }
     }
     super.visit(lhs, rhs)
@@ -773,7 +797,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     super.preprocess(b)
   }
 
-  override def postprocess[S:Type](b: Block[S]): Block[S] = {
+  override def process[S:Type](b: Block[S]): Block[S] = {
+    val block = super.process(b)
     dbgs(s"\n\n//----------- Finishing Allocation ------------- //")
     dbgblk(s"decomposition") {
       decomposed.keys.foreach { k => dbgs(s"${qdef(k)} -> [${decompose(k).mkString(",")}]") }
@@ -781,9 +806,13 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     dbgblk(s"composition") {
       composed.keys.foreach { k => dbgs(s"${qdef(compose(k))}")}
     }
-    //cus.foreach(dbgcu)
-    dbgs(s"globals:${globals}")
+    cus.foreach(dbgcu)
+    block
+  }
 
+  override def postprocess[S:Type](b: Block[S]): Block[S] = {
+    dbgs(s"\n\n//----------- Finishing Allocation ------------- //")
+    dbgs(s"globals:${globals}")
     super.postprocess(b)
   }
 }

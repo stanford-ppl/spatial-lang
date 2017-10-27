@@ -140,17 +140,20 @@ package object pirgen {
     case _ => Set.empty
   }
 
-  def usedMem(x:Any):Set[CUMemory] = x match {
-    case MemLoad(mem) => Set(mem)
-    case x:CUMemory if x.mode == SRAMMode =>
-      usedMem(x.readAddr ++ x.writeAddr ++ x.writePort) + x
-    case x:CUMemory => Set(x)
-    case x:Stage => usedMem(x.inputMems)
-    case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
-    case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => usedMem(x.mems)
-    case x:ComputeUnit => usedMem(x.allStages) ++ usedMem(x.cchains) ++ usedMem(x.srams)
-    case LocalRef(stage, reg) => usedMem(reg)
-    case _ => collectX[CUMemory](x)(usedMem)
+  def usedMem(x:Any, logger:Option[PIRLogger]=None):Set[CUMemory] = {
+    def rec(x:Any) = usedMem(x, logger)
+    def f = x match {
+      case MemLoad(mem) => Set(mem)
+      case x:CUMemory if x.mode == SRAMMode => rec(x.readAddr ++ x.writeAddr ++ x.writePort) + x
+      case x:CUMemory => Set(x)
+      case x:Stage => rec(x.inputMems)
+      case x:CUCounter => rec(x.start) ++ rec(x.end) ++ rec(x.stride)
+      case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => rec(x.mems)
+      case x:ComputeUnit => rec(x.allStages) ++ rec(x.cchains) ++ rec(x.srams)
+      case LocalRef(stage, reg) => rec(reg)
+      case _ => collectX[CUMemory](x)(rec)
+    }
+    logger.fold (f) { _.dbgblk(s"usedMem($x, ${x.getClass.getSimpleName})") { f } }
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
