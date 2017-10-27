@@ -55,6 +55,7 @@ if (lasthash != sys.argv[1] or lastapphash != sys.argv[2]):
 			worksheet.update_cell(id,1, link)
 			worksheet.update_cell(id,2, alink)
 			worksheet.update_cell(id,3, t)
+			worksheet.update_cell(id,4, os.uname()[1])
 			worksheet.update_cell(id,4, freq + ' MHz')
 	sys.stdout.write(str(id))
 else:
@@ -72,6 +73,7 @@ else:
 				worksheet.update_cell(id,1, link)
 				worksheet.update_cell(id,2, alink)
 				worksheet.update_cell(id,3, t)
+				worksheet.update_cell(id,4, os.uname()[1])
 				worksheet.update_cell(id,4, freq + ' MHz')
 		sys.stdout.write(str(id))
 	else:

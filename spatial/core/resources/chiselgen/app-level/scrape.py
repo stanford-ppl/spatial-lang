@@ -1,5 +1,6 @@
 import gspread
 import sys
+import os
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 
@@ -93,3 +94,4 @@ worksheet.update_cell(tid,col,sys.argv[11])
 # Tell last update
 worksheet = sh.worksheet('STATUS')
 worksheet.update_cell(22,3,stamp)
+worksheet.update_cell(22,4,os.uname()[1])
