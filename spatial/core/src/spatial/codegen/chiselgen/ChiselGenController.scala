@@ -784,7 +784,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset.toBool; retime_counter.io.input.enable := true.B;""")
       emitGlobalWire(src"""val retime_released = RegInit(false.B)""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")
-      emit(src"""retime_released := retime_counter.io.output.done """)
+      emit(src"""retime_released := Utils.getRetimed(retime_counter.io.output.done,1) // break up critical path by delaying this """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
       // Emit unit counter for this
