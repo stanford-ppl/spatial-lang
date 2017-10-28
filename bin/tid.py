@@ -81,7 +81,7 @@ else:
 		udates = [x[0] for x in worksheet.get_all_values() if x[0] != '']
 		st=len(udates) + 1
 		if (st > 20):
-			last = worksheet[-1]
+			last = udates[-1]
 			for x in range(1, st):
 				worksheet.update_cell(x,1, '')
 			worksheet.update_cell(1,1,last)
