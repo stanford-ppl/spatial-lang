@@ -56,6 +56,7 @@ if (lasthash != sys.argv[1] or lastapphash != sys.argv[2]):
 			worksheet.update_cell(id,2, alink)
 			worksheet.update_cell(id,3, t)
 			worksheet.update_cell(id,4, freq + ' MHz')
+			worksheet.update_cell(id,5, os.uname()[1])
 	sys.stdout.write(str(id))
 else:
 	# get time difference
@@ -73,6 +74,7 @@ else:
 				worksheet.update_cell(id,2, alink)
 				worksheet.update_cell(id,3, t)
 				worksheet.update_cell(id,4, freq + ' MHz')
+				worksheet.update_cell(id,5, os.uname()[1])
 		sys.stdout.write(str(id))
 	else:
 		worksheet = sh.worksheet("STATUS")
