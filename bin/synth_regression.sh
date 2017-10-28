@@ -16,7 +16,7 @@ elif [[ $1 = "aws" ]]; then
 	echo $tid > ${REGRESSION_HOME}/data/tid
 fi
 
-export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:/opt/Xilinx/Vivado/2017.1/bin/vivado:$PATH
+export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:/opt/Xilinx/Vivado/2017.1/bin:$PATH
 
 # Current hash matches previous hash, skip test
 if [[ $tid = "-1" ]]; then
