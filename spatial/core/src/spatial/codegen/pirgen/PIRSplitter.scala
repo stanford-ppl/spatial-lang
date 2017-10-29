@@ -89,29 +89,29 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
     else List(cu)
   }
 
-  def getParent(cus:List[CU]):CU = {
+  def getSC(cus:List[CU]):CU = {
     if (cus.size==1) return cus.head
     val parents = cus.filter { _.style == StreamCU }
     assert(parents.size==1)
     parents.head
   }
 
-  def swapToParent(cu:CU) = splittingMap.get(cu).map(getParent).getOrElse(cu)
+  def swapToSC(cu:CU) = splittingMap.get(cu).map(getSC).getOrElse(cu)
 
   def swapRef(cu:CU): Unit = dbgblk(s"swapRef($cu)") {
     cu.cchains.foreach{cchain => swapCU_cchain(cchain) }
-    cu.parent = cu.parent.map{parent => swapToParent(parent) }
+    cu.parent = cu.parent.map{parent => swapToSC(parent) }
     cu.mems.foreach{mem => swapCU_mem(mem) }
     cu.allStages.foreach{stage => swapCU_stage(stage) }
 
     def swapCU_cchain(cchain: CUCChain): Unit = cchain match {
-      case cc: CChainCopy => cc.owner = swapToParent(cc.owner)
+      case cc: CChainCopy => cc.owner = swapToSC(cc.owner)
       case _ => // No action
     }
 
     def swapCU_stage(stage:Stage) = {
       stage match {
-        case stage:ReduceStage => stage.accParent = swapToParent(stage.accParent)
+        case stage:ReduceStage => stage.accParent = swapToSC(stage.accParent)
         case stage =>
       }
       stage.inputMems.foreach(swapCU_reg)
@@ -126,30 +126,38 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
     def swapCU_mem(mem: CUMemory) {
       mem.readAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
       mem.writeAddr.foreach{case reg:LocalComponent => swapCU_reg(reg); case _ => }
-      consumerOf(mem) =  consumerOf(mem).flatMap { case (reader, consumer) => 
+      swapAccess(mem)
+    }
+
+    def swapAccess(mem:CUMemory) = {
+      consumerOf(mem) = consumerOf(mem).flatMap { case (reader, consumer) => 
         val newReaders = mem.mode match {
           case SRAMMode =>
-            val addrInputs = globalInputs(mem)
+            val addrInputs = globalInputs(mem.readAddr)
             dbgs(s"addrInputs($mem) = $addrInputs")
-            splittingMap(reader).filter { reader =>
-              val addrOutputs = globalOutputs(reader)
-              dbgs(s"addrOutputs($reader) = $addrOutputs")
-              (addrInputs intersect addrOutputs).nonEmpty
+            splittingMap.get(reader).fold(List(reader)) { splits =>
+              splits.filter { reader =>
+                val addrOutputs = globalOutputs(reader)
+                dbgs(s"addrOutputs($reader) = $addrOutputs")
+                (addrInputs intersect addrOutputs).nonEmpty
+              }
             }
           case _ => List(cu) // LocalMem
         }
-        val newConsumer = swapToParent(consumer)
+        val newConsumer = swapToSC(consumer)
         newReaders.map { reader => (reader, newConsumer) }
       }
       producerOf(mem) =  producerOf(mem).flatMap { case (writer, producer) => 
         val dataInputs = globalInputs(mem.writeAddr)
         dbgs(s"dataInputs($mem) = $dataInputs")
-        val newWriters = splittingMap(writer).filter { writer =>
-          val dataOutputs = globalOutputs(writer)
-          dbgs(s"dataOutputs($writer) = $dataOutputs")
-          (dataOutputs intersect dataInputs).nonEmpty
+        val newWriters = splittingMap.get(writer).fold(List(writer)) { splits =>
+          splits.filter { writer =>
+            val dataOutputs = globalOutputs(writer)
+            dbgs(s"dataOutputs($writer) = $dataOutputs")
+            (dataOutputs intersect dataInputs).nonEmpty
+          }
         }
-        val newProducer = swapToParent(producer)
+        val newProducer = swapToSC(producer)
         newWriters.map { writer => (writer, newProducer) }
       }
     }

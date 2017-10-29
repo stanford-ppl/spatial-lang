@@ -58,7 +58,7 @@ trait PIRGenController extends PIRCodegen {
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
-    case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp(${reg.init})")
+    case reg:TempReg        => emit(s"""val ${quote(reg)} = CU.temp(${reg.init}).name("${quote(reg)}")""")
     //case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
     case reg:ControlReg if genControlLogic => emit(s"val ${quote(reg)} = CU.ctrl")
     case _ => // No preallocation

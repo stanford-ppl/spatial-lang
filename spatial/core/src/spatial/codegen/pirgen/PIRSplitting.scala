@@ -103,14 +103,14 @@ trait PIRSplitting extends PIRTraversal {
         // Find first SRAM owner which can still be spliced
         var errReport = s"Failed splitting in CU $cu"
         errReport += s"\nCompute stages: "
-        remote.cstages.foreach{stage => errReport += s"\n  $stage" }
+        remote.cstages.foreach{stage => errReport += s"\n  $stage\n" }
 
-        errReport += "\nCost for last split option: "
+        errReport += "Cost for last split option: "
         current addTail remote.popHead()
-        current.cstages.foreach{stage => errReport += s"\n  $stage"}
+        current.cstages.foreach{stage => errReport += s"\n  $stage\n"}
         val cost = getCost(current)
-        errReport += s"Arch: \n$arch"
-        errReport += s"Cost: \n$cost"
+        errReport += s"Arch: \n$arch\n"
+        errReport += s"Cost: \n$cost\n"
         throw new SplitException(errReport) with NoStackTrace
       } else {
         dbgs(s"Partition ${partitions.length}")

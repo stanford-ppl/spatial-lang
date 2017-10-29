@@ -116,7 +116,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
       dbgblk(s"VectorSlice($vector, end=$end, start=$start)") {
         dbgs(s"maskString=$maskString")
         dbgs(s"maskInt=$maskInt")
-        val midOutput = if (start!=0) output else allocateLocal(ctx.cu, fresh[Int32])
+        val midOutput = if (start!=0) allocateLocal(ctx.cu, fresh[Int32]) else output
         val maskStage = MapStage(PIRBitAnd, List(ctx.refIn(vec), ctx.refIn(mask)), List(ctx.refOut(midOutput)))
         ctx.addStage(maskStage)
         dbgs(s"addStage: ctx=${ctx.cu.name}, stage=$maskStage")
