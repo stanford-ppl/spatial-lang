@@ -28,7 +28,6 @@ switch $TARGET {
     import_ip -files [list \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0.xci                  \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps8_0_99M_0/design_1_rst_ps8_0_99M_0.xci  \
-      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_fclk1_0/design_1_proc_sys_reset_fclk1_0.xci                  \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci                                            \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_0_0/design_1_axi_dwidth_converter_0_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
@@ -74,7 +73,7 @@ set_property top design_1_wrapper [current_fileset]
 #set_property STEPS.SYNTH_DESIGN.ARGS.RETIMING true [get_runs synth_1]
 set_property STEPS.SYNTH_DESIGN.ARGS.KEEP_EQUIVALENT_REGISTERS true [get_runs synth_1]
 
-launch_runs synth_1
+launch_runs synth_1 -jobs 6
 wait_on_run synth_1
 
 open_run -name implDesign synth_1
@@ -83,9 +82,9 @@ report_utilization -packthru -file ./synth_utilization.rpt
 report_utilization -packthru -hierarchical -hierarchical_depth 20 -hierarchical_percentages -file ./synth_utilization_hierarchical.rpt
 report_ram_utilization -detail -file ./synth_ram_utilization.rpt
 
-launch_runs impl_1
+launch_runs impl_1 -jobs 6
 wait_on_run impl_1
-launch_runs impl_1 -to_step write_bitstream
+launch_runs impl_1 -to_step write_bitstream -jobs 6
 wait_on_run impl_1
 
 # Reports

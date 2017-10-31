@@ -38,6 +38,8 @@ switch $TARGET {
     # connect_bd_net [get_bd_pins proc_sys_reset_fclk1/ext_reset_in] [get_bd_pins zynq_ultra_ps_e_0/pl_resetn0]
     # set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_bd_cells processing_system7_0]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins zynq_ultra_ps_e_0/maxihpm1_fpd_aclk]
+    # Disable HP1
+    set_property -dict [list CONFIG.PSU__USE__M_AXI_GP1 {0}] [get_bd_cells zynq_ultra_ps_e_0]
 
     # # Make AXI4 to AXI3 protocol converters
     # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter:2.1 axi_protocol_converter_0
