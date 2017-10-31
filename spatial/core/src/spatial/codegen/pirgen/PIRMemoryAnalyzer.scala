@@ -41,12 +41,12 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     super.visit(lhs, rhs)
   }
 
-  def containsInnerInd(ind:Expr):Boolean = {
+  def containsInnerInd(ind:Expr):Boolean = dbgblk(s"containsInnerInd($ind)") {
     ind match {
       case b:Bound[_] => 
         val ctrl = ctrlOf(ind).get.node
         extractInnerBounds(ctrl).contains(b)
-      case e:Sym[_] => e.dependents.exists(containsInnerInd)
+      case Def(d) => d.allInputs.exists(containsInnerInd)
       case e => false
     }
   }
@@ -60,7 +60,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case _ => Nil
   }
 
-  def markInnerDim(mem:Expr, inds:Seq[Expr]) = {
+  def markInnerDim(mem:Expr, inds:Seq[Expr]) = dbgblk(s"markInnerDim($mem)") {
     inds.zipWithIndex.foreach { case (ind, dim) =>
       if (containsInnerInd(ind)) {
         innerDimOf(mem) = dim
