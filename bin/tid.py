@@ -63,7 +63,7 @@ else:
 	FMT = '%Y-%m-%d %H:%M:%S'
 	tdelta = datetime.strptime(t, FMT) - datetime.strptime(lasttime, FMT)
 	# Do new test anyway if results are over 24h old
-	if (tdelta.seconds > 86400):
+	if (tdelta.total_seconds() > 86400):
 		link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/tree/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
 		alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-apps/tree/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 		numsheets = len(sh.worksheets())
@@ -86,7 +86,7 @@ else:
 				worksheet.update_cell(x,1, '')
 			worksheet.update_cell(1,1,last)
 			st=2
-		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' because hashes (' + sys.argv[1] + ' and ' + sys.argv[2] + ') match and only ' + str(float(tdelta.seconds) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
+		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' because hashes (' + sys.argv[1] + ' and ' + sys.argv[2] + ') match and only ' + str(float(tdelta.total_seconds()) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
 		worksheet.update_cell(st+1,1, '')
 		sys.stdout.write("-1")
 
