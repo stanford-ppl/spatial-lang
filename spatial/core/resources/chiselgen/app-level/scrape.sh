@@ -22,7 +22,7 @@ elif [[ $1 = "AWS" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
 	par_tmg=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/timing_summary_route_design.rpt
 	word="CLB"
-	f1=4
+	f1=5
 	f2=8
 fi
 
