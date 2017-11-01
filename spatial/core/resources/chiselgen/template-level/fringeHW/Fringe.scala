@@ -111,7 +111,14 @@ class Fringe(
   regs.io.waddr := io.waddr
   regs.io.wen := io.wen
   regs.io.wdata := io.wdata
-  io.rdata := chisel3.util.ShiftRegister(regs.io.rdata, 1)
+  // TODO: Fix this bug asap so that the axi42rf bridge verilog anticipates the 1 cycle delay of the data
+  val bug239_hack = false
+  if (bug239_hack) {
+    io.rdata := regs.io.rdata
+  } else {
+    io.rdata := chisel3.util.ShiftRegister(regs.io.rdata, 1)
+  }
+  
 
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
