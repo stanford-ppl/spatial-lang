@@ -67,7 +67,7 @@ class FringeZynq(
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
   // AXI-lite bridge
-  if (FringeGlobals.target == "zynq") {
+  if (FringeGlobals.target == "zynq" || FringeGlobals.target == "zcu") {
     val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, w))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
