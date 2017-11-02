@@ -256,6 +256,8 @@ public:
     EPRINTF("[run] Begin..\n");
      // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
+    double timeout = 10; // seconds
+    int timed_out = 0;
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
@@ -271,12 +273,20 @@ public:
         double endTime = getTime();
         EPRINTF("Elapsed time: %lf ms, status = %08x\n", endTime - startTime, status);
         dumpAllRegs();
+        if (endTime - startTime > timeout * 1000) {
+          timed_out = 1;
+          fprintf(stderr, "TIMEOUT, %lf seconds elapsed..", (endTime - startTime) / 1000 );
+          break;
+        }
       }
     }
     double endTime = getTime();
     fprintf(stderr, "Design done, ran for %lf ms, status = %08x\n", endTime - startTime, status);
     writeReg(commandReg, 0);
     while (status == 1) {
+      if (timed_out == 1) {
+        break;
+      }
       status = readReg(statusReg);
     }
   }
