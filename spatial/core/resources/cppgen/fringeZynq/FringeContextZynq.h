@@ -256,6 +256,7 @@ public:
     EPRINTF("[run] Begin..\n");
      // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
+    double timeout = 20 // seconds
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
@@ -271,6 +272,9 @@ public:
         double endTime = getTime();
         EPRINTF("Elapsed time: %lf ms, status = %08x\n", endTime - startTime, status);
         dumpAllRegs();
+        if (endTime - startTime > timeout * 1000) {
+          break;
+        }
       }
     }
     double endTime = getTime();
