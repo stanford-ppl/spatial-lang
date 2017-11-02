@@ -12,7 +12,7 @@ import templates.Utils.log2Up
  * @param numArgOuts: Number of 'argOut' registers that can be written to in parallel
  */
 class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0, val numArgIOs: Int = 0) extends Module {
-  val addrWidth = if (FringeGlobals.target == "zynq") 32 else if (FringeGlobals.target == "zcu") 40 else log2Up(d)
+  val addrWidth = if (FringeGlobals.target == "zynq" || FringeGlobals.target == "zcu") 32 else log2Up(d)
   val pureArgIns = numArgIns-numArgIOs
   val pureArgOuts = numArgOuts-numArgIOs
   val argInRange = List(0, 1) ++ (2 until numArgIns).toList
