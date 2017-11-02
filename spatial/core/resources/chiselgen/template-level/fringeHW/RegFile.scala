@@ -58,13 +58,13 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   val regs = List.tabulate(d) { i =>
     val ff = Module(new FF(w))
     if ((argOutRange contains i) & (argInRange contains i)) {
-      ff.io.enable := Mux(io.wen & (io.waddr === i.U), io.wen & (io.waddr === i.U), io.argOuts(argOutRange.indexOf(i)).valid)
-      ff.io.in := Mux(io.wen & (io.waddr === i.U), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)
+      ff.io.enable := Mux(io.wen & (io.waddr === i.U(addrWidth.W)), io.wen & (io.waddr === i.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
+      ff.io.in := Mux(io.wen & (io.waddr === i.U(addrWidth.W)), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)
     } else if (argOutRange contains i) {
-      ff.io.enable := io.argOuts(argOutRange.indexOf(i)).valid | (io.wen & (io.waddr === i.U))
+      ff.io.enable := io.argOuts(argOutRange.indexOf(i)).valid | (io.wen & (io.waddr === i.U(addrWidth.W)))
       ff.io.in := Mux(io.argOuts(regIdx2ArgOut(i)).valid, io.argOuts(regIdx2ArgOut(i)).bits, io.wdata)
     } else {
-      ff.io.enable := io.wen & (io.waddr === i.U)
+      ff.io.enable := io.wen & (io.waddr === i.U(addrWidth.W))
       ff.io.in := io.wdata
     }
 
