@@ -86,7 +86,7 @@ else:
 				worksheet.update_cell(x,1, '')
 			worksheet.update_cell(1,1,last)
 			st=2
-		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' because hashes (' + sys.argv[1] + ' and ' + sys.argv[2] + ') match and only ' + str(float(tdelta.total_seconds()) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
+		worksheet.update_cell(st,1, 'Skipped test at ' + t + ' on ' + os.uname()[1] + ' because hashes (' + sys.argv[1] + ' and ' + sys.argv[2] + ') match and only ' + str(float(tdelta.total_seconds()) / 3600.0) + ' hours elapsed since last test (' + lasttime + ') and 24 hours are required')
 		worksheet.update_cell(st+1,1, '')
 		sys.stdout.write("-1")
 
