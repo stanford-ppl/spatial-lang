@@ -177,7 +177,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def extractStages(pipe:Expr):Seq[DefStage] = stageCache.getOrElseUpdate(pipe, {
+  def extractStages(pipe:Expr):Seq[DefStage] = stageCache.getOrElseUpdate(pipe, dbgblk(s"extractStages($pipe)") {
     val cu = allocateCU(pipe)
 
     val func = pipe match {
@@ -205,7 +205,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
   /*
    * Schedule stages of CU corresponding to pipe
    * */
-  def allocateStages(pipe: Expr) = dbgblk(s"allocateStages ${qdef(pipe)}") {
+  def allocateStages(pipe: Expr) = {
     val cu = allocateCU(pipe)
     val stages = extractStages(pipe) 
 

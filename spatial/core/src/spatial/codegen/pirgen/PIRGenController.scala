@@ -235,7 +235,7 @@ trait PIRGenController extends PIRCodegen {
 
   def quote(ref: LocalRef): String = ref match {
     case LocalRef(stage, reg: ConstReg[_])   => quote(reg)
-    case LocalRef(stage, reg: CounterReg) => s"CU.ctr(${quote(reg)})"
+    case LocalRef(stage, reg: CounterReg) => s"${quote(reg)}"
     case LocalRef(stage, reg: ValidReg)   => quote(reg)
 
     case LocalRef(stage, wire: WriteAddrWire)  => quote(wire)
@@ -243,10 +243,10 @@ trait PIRGenController extends PIRCodegen {
 
     case LocalRef(stage, reg: ReduceReg) if allocatedReduce.contains(reg) => quote(reg)
     case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce"
-    case LocalRef(stage, reg: AccumReg)    => s"CU.accum(${quote(reg)})"
+    case LocalRef(stage, reg: AccumReg)    => s"${quote(reg)}"
     case LocalRef(stage, reg: TempReg)     => s"${quote(reg)}"
-    case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(${quote(reg)})"
-    case LocalRef(stage, reg@MemLoad(mem)) => s"CU.load(${quote(mem)})"
+    case LocalRef(stage, reg: ControlReg)  => s"${quote(reg)}"
+    case LocalRef(stage, reg@MemLoad(mem)) => s"${quote(mem)}"
 
     case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(${quote(reg)})"
     case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(${quote(reg)})"
