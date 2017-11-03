@@ -8,10 +8,10 @@
 		// User parameters ends
 		// Do not modify the parameters beyond this line
 
-		// Width of S_AXI data bus
-		parameter integer C_S_AXI_DATA_WIDTH	= 32,
 		// Width of S_AXI address bus
-		parameter integer C_S_AXI_ADDR_WIDTH	= 32
+		parameter integer C_S_AXI_ADDR_WIDTH	= 32,
+		// Width of S_AXI data bus
+		parameter integer C_S_AXI_DATA_WIDTH	= 32
 	)
 	(
 		// Users to add ports here
