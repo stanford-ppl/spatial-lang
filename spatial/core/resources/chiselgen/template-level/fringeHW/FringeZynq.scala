@@ -27,7 +27,7 @@ class FringeZynq(
   val axiParams: AXI4BundleParameters
 ) extends Module {
   val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
-  val addrWidth = log2Up(numRegs)
+  // val addrWidth = log2Up(numRegs)
 
   val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
   val statusReg = 1   //       Changing these values alone has no effect on the logic below.
