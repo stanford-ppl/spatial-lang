@@ -92,19 +92,19 @@ object FIFO {
     stage(FIFONumel(fifo))(ctx)
   }
 
-  @internal def par_deq[T:Type:Bits](
+  @internal def banked_deq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     ens:  Seq[Exp[Bit]]
-  )(implicit ctx: SrcCtx) = {
-    implicit val vT = VectorN.typeFromLen[T](ens.length)
-    stageWrite(fifo)( ParFIFODeq(fifo, ens) )(ctx)
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](ens.length)
+    stageWrite(fifo)( BankedFIFODeq(fifo, ens) )(ctx)
   }
 
-  @internal def par_enq[T:Type:Bits](
+  @internal def banked_enq[T:Type:Bits](
     fifo: Exp[FIFO[T]],
     data: Seq[Exp[T]],
     ens:  Seq[Exp[Bit]]
-  )(implicit ctx: SrcCtx) = {
-    stageWrite(fifo)( ParFIFOEnq(fifo, data, ens) )(ctx)
+  ): Exp[MUnit] = {
+    stageWrite(fifo)( BankedFIFOEnq(fifo, data, ens) )(ctx)
   }
 }

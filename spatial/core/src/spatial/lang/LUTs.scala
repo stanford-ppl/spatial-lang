@@ -139,6 +139,16 @@ object LUT {
     }
     else node
   }
+
+  @internal def banked_load[T:Type:Bits](
+    lut:  Exp[LUT[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
+    ens:  Seq[Exp[Bit]]
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen(ens.length)
+    stage( BankedLUTLoad(lut,bank,addr,ens) )(ctx)
+  }
 }
 
 case class LUT1[T:Type:Bits](s: Exp[LUT1[T]]) extends Template[LUT1[T]] with LUT[T] {

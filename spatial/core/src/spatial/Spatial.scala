@@ -9,6 +9,7 @@ import argon.util.Report
 import spatial.aliases._
 import spatial.dse._
 import spatial.analysis._
+import spatial.banking._
 import spatial.transform._
 import spatial.codegen.pirgen._
 import spatial.codegen.chiselgen.ChiselGenSpatial
@@ -18,6 +19,7 @@ import spatial.codegen.scalagen.ScalaGenSpatial
 import spatial.interpreter.Interpreter
 import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
+import spatial.transform.unrolling.UnrollingTransformer
 
 import scala.language.existentials
 
@@ -48,7 +50,7 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val rewriter       = RewriteTransformer(state)
     lazy val unroller       = UnrollingTransformer(state)
 
-    lazy val memAnalyzer    = new MemoryAnalyzer { var IR = state; def localMems = ctrlAnalyzer.localMems }
+    lazy val memAnalyzer    = MemoryAnalyzer(state)
     lazy val paramAnalyzer  = new ParameterAnalyzer{var IR = state }
     lazy val heuristicAnalyzer = new HeuristicAnalyzer { var IR = state }
 

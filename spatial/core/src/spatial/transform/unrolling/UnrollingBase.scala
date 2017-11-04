@@ -1,4 +1,4 @@
-package spatial.transform
+package spatial.transform.unrolling
 
 import argon.core._
 import argon.transform.ForwardTransformer
@@ -6,7 +6,6 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import org.virtualized.SourceContext
 
 trait UnrollingBase extends ForwardTransformer {
   /**
@@ -31,10 +30,6 @@ trait UnrollingBase extends ForwardTransformer {
   // Sequence of valid bits associated with current unrolling scope
   def globalValids: Seq[Exp[Bit]] = if (validBits.nonEmpty) validBits else Seq(Bit.const(true))
 
-
-  def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A]
-
-
   /**
     * Unroll numbers - gives the unroll index of each pre-unrolled (prior to transformer) index
     * Used to determine which duplicate a particular memory access should be associated with
@@ -47,6 +42,97 @@ trait UnrollingBase extends ForwardTransformer {
     unrollNum = prevUnroll
     result
   }
+
+  /**
+    * Memory duplicate substitution rules - gives a mapping from a pre-unrolled memory
+    * and dispatch index to an unrolled memory instance
+    */
+  var memories: Map[(Exp[_], Int), Exp[_]] = Map.empty
+  def withMemories[A](mems: Seq[((Exp[_],Int), Exp[_])])(blk: => A): A = {
+    val prevMems = memories
+    memories ++= mems
+    val result = blk
+    memories = prevMems
+    result
+  }
+
+  /**
+    * Clone functions - used to add extra rules (primarily for metadata) during unrolling
+    * Applied directly after mirroring
+    */
+  var cloneFuncs: List[Exp[_] => Unit] = Nil
+  def duringClone[T](func: Exp[_] => Unit)(blk: => T)(implicit ctx: SrcCtx): T = {
+    val prevCloneFuncs = cloneFuncs
+    cloneFuncs = cloneFuncs :+ func   // Innermost is executed last
+
+    val result = blk
+    cloneFuncs = prevCloneFuncs
+
+    result
+  }
+  def inReduction[T](isInner: Boolean)(blk: => T): T = {
+    duringClone{e => if (spatialConfig.enablePIR && !isInner) reduceType(e) = None }{ blk }
+  }
+  def inCycle[T](reduceTp: Option[ReduceFunction])(blk: => T): T = {
+    duringClone{e => if (spatialConfig.enablePIR) reduceType(e) = reduceTp }{ blk }
+  }
+
+
+  var inHwScope: Boolean = false
+
+  def unroll(stm: Stm, lanes: Unroller): List[Exp[_]] = stm match {
+    case TP(lhs, rhs) => unroll(lhs, rhs, lanes)(lhs.ctx)
+    case TTP(lhs,rhs) => throw new Exception("TTP not supported in Spatial!")
+  }
+  def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = {
+    logs(s"Duplicating $lhs = $rhs")
+    lanes.duplicate(lhs, rhs)
+  }
+
+  override def transform[A:Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Exp[A] = rhs match {
+    case e:Hwblock =>
+      inHwScope = true
+      val lhs2 = super.transform(lhs,rhs)
+      inHwScope = false
+      lhs2
+    case _ => super.transform(lhs, rhs)
+  }
+
+  override def mirror(lhs: Seq[Sym[_]], rhs: Def): Seq[Exp[_]] = rhs match {
+    case op: Op[_] => Seq(cloneOp(lhs.head.asInstanceOf[Sym[Any]], op.asInstanceOf[Op[Any]]))
+    case _ => super.mirror(lhs, rhs)
+  }
+
+  def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
+    def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
+      case Def(op: EnabledControlNode)  => op.mirrorAndEnable(this, globalValids)
+      case Def(op: EnabledPrimitive[_]) => op.mirrorAndEnable(this, globalValid)
+      case _ => rhs.mirrorNode(f).head
+    }).asInstanceOf[Exp[A]]
+
+    logs(c"Cloning $lhs = $rhs")
+    strMeta(lhs)
+
+    val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), lhs.ctx) }
+
+    /*if (isAccess(lhs) && isNew && inHwScope) {
+      registerAccess(lhs -> lhs2)
+    }*/
+
+    if (isNew) cloneFuncs.foreach{func => func(lhs2) }
+    logs(c"Created ${str(lhs2)}")
+    strMeta(lhs2)
+
+    if (cloneFuncs.nonEmpty) {
+      dbgs(c"Cloning $lhs = $rhs")
+      metadata.get(lhs).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
+      dbgs(c"Created ${str(lhs2)}")
+      metadata.get(lhs2).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
+    }
+
+    lhs2
+  }
+
 
   /**
     * Helper objects for unrolling
@@ -64,6 +150,8 @@ trait UnrollingBase extends ForwardTransformer {
 
     def contexts: Array[ Map[Exp[Any],Exp[Any]] ]
 
+    val memContexts: Array[ Seq[((Exp[_],Int), Exp[_])] ] = Array.fill(P)(Nil)
+
     private var __valids: Option[ Seq[Seq[Exp[Bit]]] ] = None
     protected def createLaneValids(): Seq[Seq[Exp[Bit]]]
 
@@ -73,16 +161,20 @@ trait UnrollingBase extends ForwardTransformer {
       vlds
     }
 
+    def inLanes[A](lns: Seq[Int])(block: Int => A): Seq[A] = lns.map{ln => inLane(ln)(block(ln)) }
+
     def inLane[A](i: Int)(block: => A): A = {
       val save = subst
       val addr = parAddr(i)
-      withUnrollNums(inds.zip(addr)) {
-        withSubstRules(contexts(i)) {
-          withValids(valids(i)) {
-            val result = block
-            // Retain only the substitutions added within this scope
-            contexts(i) ++= subst.filterNot(save contains _._1)
-            result
+      withMemories(memContexts(i)) {
+        withUnrollNums(inds.zip(addr)) {
+          withSubstRules(contexts(i)) {
+            withValids(valids(i)) {
+              val result = block
+              // Retain only the substitutions added within this scope
+              contexts(i) ++= subst.filterNot(save contains _._1)
+              result
+            }
           }
         }
       }
@@ -93,6 +185,7 @@ trait UnrollingBase extends ForwardTransformer {
     def foreach(block: Int => Unit) { map(block) }
 
     // --- Each unrolling rule should do at least one of three things:
+
     // 1. Split a given vector as the substitution for the single original symbol
     def duplicate[A](s: Sym[A], d: Op[A]): List[Exp[_]] = map{_ =>
       val s2 = cloneOp(s, d)
@@ -107,9 +200,23 @@ trait UnrollingBase extends ForwardTransformer {
       register(orig -> element)
       element
     }
+    def splitLanes[T:Type](lns: List[Int])(orig: Exp[_], vec: Exp[Vector[T]])(implicit ctx: SrcCtx): List[Exp[T]] = {
+      lns.zipWithIndex.map{case (ln,i) =>
+        inLane(ln){
+          val element = Vector.select[T](vec.asInstanceOf[Exp[Vector[T]]], i)
+          register(orig -> element)
+          element
+        }
+      }
+    }
+
     // 3. Create an unrolled mapping of symbol (orig -> unrolled) for each lane
     def unify[T](orig: Exp[T], unrolled: Exp[T]): List[Exp[T]] = {
       foreach{p => register(orig -> unrolled) }
+      List(unrolled)
+    }
+    def unifyLanes[T](lns: List[Int])(orig: Exp[T], unrolled: Exp[T]): List[Exp[T]] = {
+      inLanes(lns){p => register(orig -> unrolled) }
       List(unrolled)
     }
 
@@ -118,12 +225,14 @@ trait UnrollingBase extends ForwardTransformer {
       List(unrolled)
     }
 
+    def duplicateMem(mem: Exp[_])(blk: Int => Seq[(Exp[_],Int)]): Unit = foreach{p =>
+      val duplicates = blk(p)
+      memContexts(p) ++= duplicates.map{case (mem2,d) => (mem,d) -> mem2 }
+    }
+
     // Same symbol for all lanes
     def isCommon(e: Exp[_]): Boolean = contexts.map{p => f(e)}.forall{e2 => e2 == f(e)}
   }
-
-
-
 
 
   case class PartialUnroller(cchain: Exp[CounterChain], inds: Seq[Bound[Index]], isInnerLoop: Boolean) extends Unroller {
@@ -158,7 +267,7 @@ trait UnrollingBase extends ForwardTransformer {
       case Def(CounterNew(Exact(start),_,Exact(step),Exact(par))) =>
         List.tabulate(par.toInt){i => FixPt.int32s(BigDecimal(start + step*i)) }
     }
-    val indexValids = indices.zip(countersOf(cchain)).map{
+    val indexValids: Seq[Seq[Const[Bit]]] = indices.zip(countersOf(cchain)).map{
       case (is, Def(CounterNew(_,Exact(end),_,_))) =>
         is.map{case Exact(i) => Bit.const(i < end) }
     }

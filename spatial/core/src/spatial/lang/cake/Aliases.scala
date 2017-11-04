@@ -174,6 +174,7 @@ trait SpatialInternalAliases extends SpatialCommonAliases with ArgonInternalAlia
   type Blk  = (argon.core.Exp[_], Int)
   type Ctrl = (argon.core.Exp[_], Int)
   type Access = (argon.core.Exp[_], Ctrl)
+  type UAccess = (argon.core.Exp[_], Seq[Int])
   type UnrolledAccess = (argon.core.Exp[_], Ctrl, Seq[Int])
   type StreamInfo = (argon.core.Exp[_], argon.core.Exp[_])
   type PortMap = (Int, Int, Int)

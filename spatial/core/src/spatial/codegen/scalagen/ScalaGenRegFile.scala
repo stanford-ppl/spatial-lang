@@ -64,7 +64,7 @@ trait ScalaGenRegFile extends ScalaGenMemories {
       }
 
     case RegFileShiftIn(rf,i,d,data,en)    => shiftIn(lhs, rf, i, d, data, isVec = false, en)
-    case ParRegFileShiftIn(rf,i,d,data,en) => shiftIn(lhs, rf, i, d, data, isVec = true, en)
+    case RegFileVectorShiftIn(rf,i,d,data,en) => shiftIn(lhs, rf, i, d, data, isVec = true, en)
 
     case op@ParRegFileStore(rf,inds,data,ens) =>
       val dims = stagedDimsOf(rf)

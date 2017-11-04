@@ -240,7 +240,7 @@ trait LatencyModel {
     case _:RegFileStore[_]      => model("RegFileStore")()("LatencyOf").toLong
     case _:ParRegFileStore[_]   => model("ParRegFileStore")()("LatencyOf").toLong
     case _:RegFileShiftIn[_]    => model("RegFileShiftIn")()("LatencyOf").toLong
-    case _:ParRegFileShiftIn[_] => model("ParRegFileShiftIn")()("LatencyOf").toLong
+    case _:RegFileVectorShiftIn[_] => model("ParRegFileShiftIn")()("LatencyOf").toLong
 
     // Streams
     case _:StreamRead[_]        => model("StreamRead")()("LatencyOf").toLong

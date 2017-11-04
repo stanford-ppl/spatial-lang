@@ -40,7 +40,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           w.node match {
             case Def(_:RegFileStore[_]) => (port, 1, 1)
             case Def(_:RegFileShiftIn[_]) => (port, 1, 1)
-            case Def(_@ParRegFileShiftIn(_,inds,d,data,en)) => (port, inds.length, data.tp.asInstanceOf[VectorType[_]].width) // Get stride
+            case Def(_@RegFileVectorShiftIn(_,inds,d,data,en)) => (port, inds.length, data.tp.asInstanceOf[VectorType[_]].width) // Get stride
             case Def(_@ParRegFileStore(_,_,_,en)) => (port, en.length, 1)
           }
         }
@@ -140,7 +140,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emit(src"""${rf}_$i.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf, i)})) """)
       }
 
-    case ParRegFileShiftIn(rf,inds,d,data,en) => 
+    case RegFileVectorShiftIn(rf,inds,d,data,en) =>
       val width = bitWidth(rf.tp.typeArguments.head)
       val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
       val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""

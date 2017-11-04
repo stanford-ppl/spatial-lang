@@ -14,8 +14,8 @@ case class RegType[T:Bits](child: Type[T]) extends Type[Reg[T]] {
 }
 
 class RegIsMemory[T:Type:Bits] extends Mem[T, Reg] {
-  @api def load(mem: Reg[T], is: Seq[Index], en: Bit): T = mem.value
-  @api def store(mem: Reg[T], is: Seq[Index], data: T, en: Bit): MUnit = MUnit(Reg.write(mem.s, data.s, en.s))
+  @api def load(mem: Reg[T], addr: Seq[Index], en: Bit): T = mem.value
+  @api def store(mem: Reg[T], data: T, addr: Seq[Index], en: Bit): MUnit = MUnit(Reg.write(mem.s, data.s, en.s))
   @api def iterators(mem: Reg[T]): Seq[Counter] = Seq(Counter(0, 1, 1, 1))
   def par(mem: Reg[T]) = None
 }
@@ -42,10 +42,8 @@ case class HostIONew[T:Type:Bits](init: Exp[T]) extends Alloc[Reg[T]] {
   val bT = bits[T]
 }
 
-case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends LocalReaderOp[T](reg) {
+case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends LocalReaderOp[T,T](reg) {
   def mirror(f:Tx) = Reg.read(f(reg))
-  val mT = typ[T]
-  val bT = bits[T]
   override def aliases = Nil
 
   // Register read is stateless, so it doesn't have any enables
@@ -59,11 +57,9 @@ case class RegWrite[T:Type:Bits](
   reg:  Exp[Reg[T]],
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp(reg,value=data,en=en)
+) extends LocalWriterOp[T](reg,data,en=en)
 {
   def mirror(f:Tx) = Reg.write(f(reg),f(data), f(en))
-  val mT = typ[T]
-  val bT = bits[T]
 }
 
 case class RegReset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bit]) extends LocalResetterOp(reg,en) {

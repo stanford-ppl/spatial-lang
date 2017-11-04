@@ -1,3 +1,5 @@
+name := "Spatial-Lang"
+
 scalaVersion in ThisBuild := "2.12.1"
 
 organization in ThisBuild := "stanford-ppl"
@@ -21,5 +23,4 @@ lazy val spatial = (project in file("core"))
     resolvers += Resolver.sonatypeRepo("snapshots"),
     resolvers += Resolver.sonatypeRepo("releases"),
     addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
-
   ))

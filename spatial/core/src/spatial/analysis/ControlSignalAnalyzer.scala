@@ -69,6 +69,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     metadata.clearAll[Resetters]
     metadata.clearAll[MShouldDuplicate]
 
+    globaldata.clear[LocalMemories]
+
     super.preprocess(block)
   }
 
@@ -83,6 +85,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       super.postprocess(block)
     }
     instrument.dump(s"#${state.pass-1} $name: ")
+
+    globaldata.add(LocalMemories(localMems))
     result
   }
 
@@ -317,6 +321,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       dbgs(c"  parent: $parent, ctrl: $ctrl")
 
       if (parent.node != lhs) parentOf(lhs) = parent.node else parentOf(lhs) = ctrl.node
+      if (parent.node != lhs) ctrlOf(lhs) = parent        else ctrlOf(lhs) = ctrl
 
       checkPendingNodes(lhs, rhs, Some(parent), Some(blk))
 

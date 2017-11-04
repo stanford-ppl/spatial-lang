@@ -2,6 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import spatial.aliases._
+import spatial.banking._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -27,6 +28,8 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
   }
 
   override protected def postprocess[S:Type](block: Block[S]): Block[S] = {
+    globaldata.add(LocalMemories(localMems))
+
     // Eliminate duplicates which no longer have readers as long as at least one duplicate is retained
     instrument("postprocess") {
       localMems.foreach { mem =>

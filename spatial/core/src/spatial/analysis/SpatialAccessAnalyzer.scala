@@ -21,11 +21,14 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     Some(ctrOf(i).map(counterStride).getOrElse(throw new Exception(s"Cannot get stride of iter $i")))
   }
 
+  def indexMinusApply(x: Exp[Index]): Option[(Exp[Index], Exp[Index])] = x match {
+    case Op(FixSub(a,b)) => Some((a,b))
+    case _ => None
+  }
 
   // Pair of symbols for nodes used in address calculation addition nodes
   def indexPlusUnapply(x: Exp[Index]): Option[(Exp[Index], Exp[Index])] = x match {
     case Op(FixAdd(a,b)) => Some((a,b))
-    case Op(FixSub(a,b)) => Some((a,b))
     case _ => None
   }
   // Pair of symbols for nodes used in address calculation multiplication nodes
@@ -79,16 +82,15 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     case _ => super.isInvariant(b, i)
   }
 
+  def ZERO: Seq[IndexPattern] = Seq(SymbolicAffine(Nil, Zero))
 
-  def ZERO: Seq[IndexPattern] = Seq(GeneralAffine(Nil, Zero))
-
-  override protected def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
+  override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) =>
       accessPatternOf(start) = extractAccessPatterns(Seq(start))
       accessPatternOf(end) = extractAccessPatterns(Seq(end))
 
-    case RegRead(reg) => accessPatternOf(lhs) = ZERO
-    case RegWrite(reg,_,_) => accessPatternOf(lhs) = ZERO
+    case _:RegRead[_]  => accessPatternOf(lhs) = ZERO
+    case _:RegWrite[_] => accessPatternOf(lhs) = ZERO
 
     case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
     case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))

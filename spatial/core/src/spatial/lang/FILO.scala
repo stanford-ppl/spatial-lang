@@ -93,20 +93,20 @@ object FILO {
     stage(FILONumel(filo))(ctx)
   }
 
-  @internal def par_pop[T:Type:Bits](
+  @internal def banked_pop[T:Type:Bits](
     filo: Exp[FILO[T]],
     ens:  Seq[Exp[Bit]]
-  )(implicit ctx: SrcCtx) = {
-    implicit val vT = VectorN.typeFromLen[T](ens.length)
-    stageWrite(filo)( ParFILOPop(filo, ens) )(ctx)
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](ens.length)
+    stageWrite(filo)( BankedFILOPop(filo, ens) )(ctx)
   }
 
-  @internal def par_push[T:Type:Bits](
+  @internal def banked_push[T:Type:Bits](
     filo: Exp[FILO[T]],
     data: Seq[Exp[T]],
     ens:  Seq[Exp[Bit]]
-  )(implicit ctx: SrcCtx) = {
-    stageWrite(filo)( ParFILOPush(filo, data, ens) )(ctx)
+  ): Exp[MUnit] = {
+    stageWrite(filo)( BankedFILOPush(filo, data, ens) )(ctx)
   }
 }
 

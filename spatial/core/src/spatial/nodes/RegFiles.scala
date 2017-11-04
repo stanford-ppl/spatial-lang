@@ -26,8 +26,8 @@ case class RegFile3Type[T:Bits](child: Type[T]) extends Type[RegFile3[T]] with R
 }
 
 class RegFileIsMemory[T:Type:Bits,C[T]](implicit mC: Type[C[T]], ev: C[T] <:< RegFile[T]) extends Mem[T, C] {
-  @api def load(mem: C[T], is: Seq[Index], en: Bit): T = wrap(RegFile.load(mem.s, unwrap(is), en.s))
-  @api def store(mem: C[T], is: Seq[Index], data: T, en: Bit): MUnit = wrap(RegFile.store(mem.s, unwrap(is), data.s, en.s))
+  @api def load(mem: C[T], addr: Seq[Index], en: Bit): T = wrap(RegFile.load(mem.s, unwrap(addr), en.s))
+  @api def store(mem: C[T], data: T, addr: Seq[Index], en: Bit): MUnit = wrap(RegFile.store(mem.s, unwrap(addr), data.s, en.s))
   @api def iterators(mem: C[T]): Seq[Counter] = stagedDimsOf(mem.s).map{d => Counter(0, wrap(d), 1, 1) }
   def par(mem: C[T]) = None
 }
@@ -47,22 +47,18 @@ case class RegFileLoad[T:Type:Bits](
   reg:  Exp[RegFile[T]],
   inds: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalReaderOp[T](reg,addr=inds,en=en) {
+) extends LocalReaderOp[T,T](reg,addr=inds,en=en) {
   def mirror(f:Tx) = RegFile.load(f(reg),f(inds),f(en))
   override def aliases = Nil
-  val mT = typ[T]
-  val bT = bits[T]
 }
 
 case class RegFileStore[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  inds: Seq[Exp[Index]],
+  addr: Seq[Exp[Index]],
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp(reg,addr=inds,value=data,en=en) {
-  def mirror(f:Tx) = RegFile.store(f(reg),f(inds),f(data),f(en))
-  val mT = typ[T]
-  val bT = bits[T]
+) extends LocalWriterOp[T](reg,data,addr,en) {
+  def mirror(f:Tx) = RegFile.store(f(reg),f(addr),f(data),f(en))
 }
 
 case class RegFileReset[T:Type:Bits](
@@ -76,42 +72,39 @@ case class RegFileReset[T:Type:Bits](
 
 case class RegFileShiftIn[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  inds: Seq[Exp[Index]],
+  addr: Seq[Exp[Index]],
   dim:  Int,
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp(reg,addr=inds,value=data,en=en) {
-  def mirror(f:Tx) = RegFile.shift_in(f(reg),f(inds),dim,f(data),f(en))
-  val mT = typ[T]
-  val bT = bits[T]
+) extends LocalWriterOp[T](reg,data,addr,en) {
+  def mirror(f:Tx) = RegFile.shift_in(f(reg),f(addr),dim,f(data),f(en))
 }
 
-case class ParRegFileShiftIn[T:Type:Bits](
+case class RegFileVectorShiftIn[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  inds: Seq[Exp[Index]],
+  addr: Seq[Exp[Index]],
   dim:  Int,
   data: Exp[Vector[T]],
   en:   Exp[Bit]
-) extends LocalWriterOp(reg,addr=inds,value=data,en=en) {
-  def mirror(f:Tx) = RegFile.par_shift_in(f(reg),f(inds),dim,f(data),f(en))
+) extends LocalWriterOp[T](reg,data,addr,en) {
+  def mirror(f:Tx) = RegFile.par_shift_in(f(reg),f(addr),dim,f(data),f(en))
 }
 
-case class ParRegFileLoad[T:Type:Bits](
+case class BankedRegFileLoad[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  inds: Seq[Seq[Exp[Index]]],
+  bank: Seq[Seq[Exp[Index]]],
+  addr: Seq[Exp[Index]],
   ens:  Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends ParLocalReaderOp[VectorN[T]](reg,addrs=inds,ens=ens) {
-  def mirror(f:Tx) = RegFile.par_load(f(reg),inds.map(is => f(is)),f(ens))
-  override def aliases = Nil
-  val mT = typ[T]
+)(implicit val vT: Type[VectorN[T]]) extends BankedReaderOp[T](reg,bank,addr,ens) {
+  def mirror(f:Tx) = RegFile.banked_load(f(reg),bank.map{a=>f(a)},f(addr),f(ens))
 }
 
-case class ParRegFileStore[T:Type:Bits](
+case class BankedRegFileStore[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  inds: Seq[Seq[Exp[Index]]],
   data: Seq[Exp[T]],
+  bank: Seq[Seq[Exp[Index]]],
+  addr: Seq[Exp[Index]],
   ens:  Seq[Exp[Bit]]
-) extends ParLocalWriterOp(reg,addrs=inds,values=data,ens=ens) {
-  def mirror(f:Tx) = RegFile.par_store(f(reg),inds.map(is => f(is)),f(data),f(ens))
-  val mT = typ[T]
+) extends BankedWriterOp[T](reg,data,bank,addr,ens) {
+  def mirror(f:Tx) = RegFile.banked_store(f(reg), f(data), bank.map{a=>f(a)}, f(addr), f(ens))
 }

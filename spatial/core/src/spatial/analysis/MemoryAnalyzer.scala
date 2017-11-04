@@ -1,4 +1,4 @@
-package spatial.analysis
+/*package spatial.analysis
 
 import argon.analysis._
 import argon.core._
@@ -575,11 +575,11 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       }
     }
     else (patterns, strides).zipped.map{ case (pattern, stride) => pattern match {
-      case AffineAccess(Exact(a),i,b) => Banking(a.toInt*stride, bankFactor(i), isOuter(i))
+      /*case AffineAccess(Exact(a),i,b) => Banking(a.toInt*stride, bankFactor(i), isOuter(i))
       case StridedAccess(Exact(a),i)  => Banking(a.toInt*stride, bankFactor(i), isOuter(i))
       case OffsetAccess(i,b)          => Banking(stride, bankFactor(i), isOuter(i))
       case LinearAccess(i)            => Banking(stride, bankFactor(i), isOuter(i))
-      case InvariantAccess(b)         => NoBanking(stride) // Single "bank" in this dimension
+      case InvariantAccess(b)         => NoBanking(stride) // Single "bank" in this dimension*/
       case RandomAccess               => NoBanking(stride) // Single "bank" in this dimension
       case _                          => NoBanking(stride)
     }}
@@ -833,4 +833,4 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     }
   }
 
-}
+}*/

@@ -1,9 +1,15 @@
 package spatial.banking
 
 import argon.core._
-import spatial.aliases._
 
 trait BankingStrategy {
-  def registerIndices(indices: Seq[Exp[Index]]): Unit
-  def bankAccesses(reads: Set[AccessMatrix], writes: Set[AccessMatrix]): Seq[ModBanking]
+  implicit val IR: State
+
+  def bankAccesses(
+    mem:    Exp[_],                   // Memory to be banked
+    reads:  Set[AccessMatrix],        // Reads to this banked memory
+    writes: Set[AccessMatrix],        // Writes to this banked memory
+    domain: Array[(Array[Int],Int)]   // Iteration domain
+  ): Seq[ModBanking]
+
 }

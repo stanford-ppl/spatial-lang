@@ -9,7 +9,7 @@ import spatial.metadata._
 
 trait SRAM[T] { this: Template[_] =>
   def s: Exp[SRAM[T]]
-  @internal protected def ofs = lift[Int, Index](0).s
+  def rank: Int
   protected[spatial] var p: Option[Index] = None
 
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d),None,None)}
@@ -45,36 +45,62 @@ object SRAM {
   @internal def alloc[T:Type:Bits,C[_]<:SRAM[_]](dims: Exp[Index]*)(implicit mC: Type[C[T]]): Exp[C[T]] = {
     stageMutable( SRAMNew[T,C](dims) )(ctx)
   }
-  @internal def load[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], en: Exp[Bit]): Exp[T] = {
-    if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)
-    stage( SRAMLoad(sram, dims, indices, ofs, en) )(ctx)
+  @internal def load[T:Type:Bits](sram: Exp[SRAM[T]], addr: Seq[Exp[Index]], en: Exp[Bit]): Exp[T] = {
+    if (addr.length != rankOf(sram)) new DimensionMismatchError(sram, rankOf(sram), addr.length)
+    stage( SRAMLoad(sram, addr, en) )(ctx)
   }
-  @internal def store[T:Type:Bits](sram: Exp[SRAM[T]], dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Exp[Index], data: Exp[T], en: Exp[Bit]): Exp[MUnit] = {
-    if (indices.length != dims.length) new DimensionMismatchError(sram, dims.length, indices.length)
-    stageWrite(sram)( SRAMStore(sram, dims, indices, ofs, data, en) )(ctx)
+  @internal def store[T:Type:Bits](sram: Exp[SRAM[T]], data: Exp[T], addr: Seq[Exp[Index]], en: Exp[Bit]): Exp[MUnit] = {
+    if (addr.length != rankOf(sram)) new DimensionMismatchError(sram, rankOf(sram), addr.length)
+    stageWrite(sram)( SRAMStore(sram, data, addr, en) )(ctx)
   }
 
-  @internal def par_load[T:Type:Bits](
+  @internal def load_vector[T:Type:Bits](
     sram: Exp[SRAM[T]],
-    addr: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
+    en:   Exp[Bit],
+    dim:  Int,
+    len:  Int,
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](len)
+    stage( SRAMLoadVector(sram,addr,en,dim,len))(ctx)
+  }
+
+  @internal def store_vector[T:Type:Bits](
+    sram: Exp[SRAM[T]],
+    data: Exp[VectorN[T]],
+    addr: Seq[Exp[Index]],
+    en:   Exp[Bit],
+    dim:  Int,
+    len:  Int
+  ): Exp[MUnit] = {
+    stageWrite(sram)( SRAMStoreVector(sram,data,addr,en,dim,len) )(ctx)
+  }
+
+  @internal def banked_load[T:Type:Bits](
+    sram: Exp[SRAM[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
     ens:  Seq[Exp[Bit]]
-  ) = {
-    implicit val vT = VectorN.typeFromLen[T](addr.length)
-    stage( ParSRAMLoad(sram, addr, ens) )(ctx)
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](addr.length)
+    stage( BankedSRAMLoad(sram,bank,addr,ens) )(ctx)
   }
 
-  @internal def par_store[T:Type:Bits](
+  @internal def banked_store[T:Type:Bits](
     sram: Exp[SRAM[T]],
-    addr: Seq[Seq[Exp[Index]]],
     data: Seq[Exp[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
     ens:  Seq[Exp[Bit]]
-  ) = {
-    stageWrite(sram)( ParSRAMStore(sram, addr, data, ens) )(ctx)
+  ): Exp[MUnit] = {
+    stageWrite(sram)( BankedSRAMStore(sram, data, bank, addr, ens) )(ctx)
   }
 
 }
 
 case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with SRAM[T] {
+  def rank: Int = 1
+
   /** Returns the total size of this SRAM1. **/
   @api def length: Index = wrap(stagedDimsOf(s).head)
   /** Returns the total size of this SRAM1. **/
@@ -88,9 +114,9 @@ case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with 
   @api def par(p: Index): SRAM1[T] = { val x = SRAM1(s); x.p = Some(p); x }
 
   /** Returns the value in this SRAM1 at the given address `a`. **/
-  @api def apply(a: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s), ofs, Bit.const(true)))
+  @api def apply(a: Index): T = wrap(SRAM.load(this.s, Seq(a.s), Bit.const(true)))
   /** Updates the value in this SRAM1 at the given address `a` to `data`. **/
-  @api def update(a: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s), ofs, data.s, Bit.const(true)))
+  @api def update(a: Index, data: T): MUnit = MUnit(SRAM.store(this.s, data.s, Seq(a.s), Bit.const(true)))
 
   /**
     * Create a sparse load from the given sparse region of DRAM to this on-chip memory.
@@ -115,6 +141,8 @@ object SRAM1 {
 }
 
 case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with SRAM[T] {
+  def rank: Int = 2
+
   /** Returns the number of rows in this SRAM2. **/
   @api def rows: Index = wrap(stagedDimsOf(s).head)
   /** Returns the number of columns in this SRAM2. **/
@@ -123,9 +151,9 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
   @api def size: Index = rows * cols
 
   /** Returns the value in this SRAM2 at the given `row` and `col`. **/
-  @api def apply(row: Index, col: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(row.s,col.s), ofs, Bit.const(true)))
+  @api def apply(row: Index, col: Index): T = wrap(SRAM.load(this.s, Seq(row.s,col.s), Bit.const(true)))
   /** Updates the value in this SRAM2 at the given `row` and `col` to `data`. **/
-  @api def update(row: Index, col: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(row.s,col.s), ofs, data.s, Bit.const(true)))
+  @api def update(row: Index, col: Index, data: T): MUnit = MUnit(SRAM.store(this.s, data.s, Seq(row.s,col.s), Bit.const(true)))
   /**
     * Annotates that addresses in this SRAM2 can be read in parallel by factor `p`.
     *
@@ -149,6 +177,8 @@ object SRAM2 {
 }
 
 case class SRAM3[T:Type:Bits](s: Exp[SRAM3[T]]) extends Template[SRAM3[T]] with SRAM[T] {
+  def rank: Int = 3
+
   /** Returns the first dimension of this SRAM3. **/
   @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
   /** Returns the second dimension of this SRAM3. **/
@@ -159,9 +189,9 @@ case class SRAM3[T:Type:Bits](s: Exp[SRAM3[T]]) extends Template[SRAM3[T]] with 
   @api def size: Index = dim0 * dim1 * dim2
 
   /** Returns the value in this SRAM3 at the given 3-dimensional address `a`, `b`, `c`. **/
-  @api def apply(a: Index, b: Index, c: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, Bit.const(true)))
+  @api def apply(a: Index, b: Index, c: Index): T = wrap(SRAM.load(this.s, Seq(a.s,b.s,c.s), Bit.const(true)))
   /** Updates the value in this SRAM3 at the given 3-dimensional address to `data`. **/
-  @api def update(a: Index, b: Index, c: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, data.s, Bit.const(true)))
+  @api def update(a: Index, b: Index, c: Index, data: T): MUnit = MUnit(SRAM.store(this.s, data.s, Seq(a.s,b.s,c.s), Bit.const(true)))
   /**
     * Annotates that addresses in this SRAM2 can be read in parallel by factor `p`.
     *
@@ -180,6 +210,8 @@ object SRAM3 {
 }
 
 case class SRAM4[T:Type:Bits](s: Exp[SRAM4[T]]) extends Template[SRAM4[T]] with SRAM[T] {
+  def rank: Int = 4
+
   @api def par(p: Index): SRAM4[T] = { val x = SRAM4(s); x.p = Some(p); x }
 
   /** Returns the first dimension of this SRAM4. **/
@@ -194,9 +226,9 @@ case class SRAM4[T:Type:Bits](s: Exp[SRAM4[T]]) extends Template[SRAM4[T]] with 
   @api def size: Index = dim0 * dim1 * dim2 * dim3
 
   /** Returns the value in this SRAM4 at the 4-dimensional address `a`, `b`, `c`, `d`. **/
-  @api def apply(a: Index, b: Index, c: Index, d: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, Bit.const(true)))
+  @api def apply(a: Index, b: Index, c: Index, d: Index): T = wrap(SRAM.load(this.s, Seq(a.s,b.s,c.s,d.s), Bit.const(true)))
   /** Updates the value in this SRAM4 at the 4-dimensional address to `data`. **/
-  @api def update(a: Index, b: Index, c: Index, d: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, data.s, Bit.const(true)))
+  @api def update(a: Index, b: Index, c: Index, d: Index, data: T): MUnit = MUnit(SRAM.store(this.s, data.s, Seq(a.s,b.s,c.s,d.s), Bit.const(true)))
 
   /** Create a dense, burst load from the given region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAM4[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
@@ -209,6 +241,8 @@ object SRAM4 {
 }
 
 case class SRAM5[T:Type:Bits](s: Exp[SRAM5[T]]) extends Template[SRAM5[T]] with SRAM[T] {
+  def rank: Int = 5
+
   @api def par(p: Index): SRAM5[T] = { val x = SRAM5(s); x.p = Some(p); x }
 
   /** Returns the first dimension of this SRAM5. **/
@@ -225,9 +259,9 @@ case class SRAM5[T:Type:Bits](s: Exp[SRAM5[T]]) extends Template[SRAM5[T]] with 
   @api def size: Index = dim0 * dim1 * dim2 * dim3 * dim4
 
   /** Returns the value in this SRAM5 at the 5-dimensional address `a`, `b`, `c`, `d`, `e`. **/
-  @api def apply(a: Index, b: Index, c: Index, d: Index, e: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, Bit.const(true)))
+  @api def apply(a: Index, b: Index, c: Index, d: Index, e: Index): T = wrap(SRAM.load(this.s, Seq(a.s,b.s,c.s,d.s,e.s), Bit.const(true)))
   /** Updates the value in this SRAM5 at the 5-dimensional address to `data`. **/
-  @api def update(a: Index, b: Index, c: Index, d: Index, e: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, data.s, Bit.const(true)))
+  @api def update(a: Index, b: Index, c: Index, d: Index, e: Index, data: T): MUnit = MUnit(SRAM.store(this.s, data.s, Seq(a.s,b.s,c.s,d.s,e.s), Bit.const(true)))
 
   /** Create a dense, burst load from the given region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAM5[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)

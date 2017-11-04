@@ -5,10 +5,10 @@ import forge._
 
 /** Addressable, potentially multi-dimensional hardware memories **/
 trait Mem[T,C[_]] {
-  /** Loads an element from `mem` at the given multi-dimensional address `indices` with enable `en`. **/
-  @api def load(mem: C[T], indices: Seq[Index], en: Bit): T
-  /** Stores `data` into `mem` at the given multi-dimensional address `indices` with enable `en`. **/
-  @api def store(mem: C[T], indices: Seq[Index], data: T, en: Bit): MUnit
+  /** Loads an element from `mem` at the given multi-dimensional address `addr` with enable `en`. **/
+  @api def load(mem: C[T], addr: Seq[Index], en: Bit): T
+  /** Stores `data` into `mem` at the given multi-dimensional address `addr` with enable `en`. **/
+  @api def store(mem: C[T], data: T, addr: Seq[Index], en: Bit): MUnit
   /** Returns a `Seq` of counters which define the iteration space of the given memory `mem`. **/
   @api def iterators(mem: C[T]): Seq[Counter]
 

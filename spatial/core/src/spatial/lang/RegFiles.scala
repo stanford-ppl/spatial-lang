@@ -106,7 +106,7 @@ object RegFile {
     data: Exp[Vector[T]],
     en:   Exp[Bit]
   ) = {
-    stageWrite(reg)(ParRegFileShiftIn(reg, inds, dim, data, en))(ctx)
+    stageWrite(reg)(RegFileVectorShiftIn(reg, inds, dim, data, en))(ctx)
   }
 
   @internal def par_load[T:Type:Bits](
@@ -126,6 +126,27 @@ object RegFile {
   ) = {
     stageWrite(reg)(ParRegFileStore(reg, inds, data, ens))(ctx)
   }
+
+  @internal def banked_load[T:Type:Bits](
+    reg:  Exp[RegFile[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
+    ens:  Seq[Exp[Bit]]
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](ens.length)
+    stage( BankedRegFileLoad(reg,bank,addr,ens) )(ctx)
+  }
+
+  @internal def banked_store[T:Type:Bits](
+    reg:  Exp[RegFile[T]],
+    data: Seq[Exp[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
+    ens:  Seq[Exp[Bit]]
+  ): Exp[MUnit] = {
+    stageWrite(reg)( BankedRegFileStore(reg,data,bank,addr,ens) )(ctx)
+  }
+
 }
 
 case class RegFile1[T:Type:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[T]] with RegFile[T] {

@@ -336,7 +336,7 @@ abstract class AreaModel {
     case _:RegFileStore[_]      => NoArea
     case _:ParRegFileStore[_]   => NoArea
     case _:RegFileShiftIn[_]    => NoArea
-    case _:ParRegFileShiftIn[_] => NoArea
+    case _:RegFileVectorShiftIn[_] => NoArea
 
     /** Primitives **/
     // Bit

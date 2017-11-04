@@ -44,7 +44,7 @@ case class LUTNew[T:Type:Bits,C[_]<:LUT[_]](
   val mT = typ[T]
   val bT = bits[T]
 
-  override def toString = {
+  override def toString: String = {
     val es = elems.take(3).mkString(",")
     val more = if (elems.length > 3) s"... [${elems.length-3} more]" else ""
     s"LUTNew($dims, Seq($es$more))"
@@ -55,9 +55,16 @@ case class LUTLoad[T:Type:Bits](
   lut:  Exp[LUT[T]],
   inds: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalReaderOp[T](lut,addr=inds,en=en) {
+) extends LocalReaderOp[T,T](lut,addr=inds,en=en) {
   def mirror(f:Tx) = LUT.load(f(lut),f(inds),f(en))
   override def aliases = Nil
-  val mT = typ[T]
-  val bT = bits[T]
+}
+
+case class BankedLUTLoad[T:Type:Bits](
+  lut:  Exp[LUT[T]],
+  bank: Seq[Seq[Exp[Index]]],
+  addr: Seq[Exp[Index]],
+  ens:  Seq[Exp[Bit]]
+)(implicit val vT: Type[VectorN[T]]) extends BankedReaderOp[T](lut,bank,addr,ens) {
+  def mirror(f:Tx) = LUT.banked_load(f(lut), bank.map{a=>f(a)},f(addr),f(ens))
 }

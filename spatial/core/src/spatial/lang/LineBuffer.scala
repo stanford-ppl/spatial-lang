@@ -14,7 +14,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     // UNSUPPORTED: Strided range apply of line buffer
     cols.step.map(_.s) match {
       case None | Some(Const(1)) =>
-      case _ => error(ctx, "Unsupported stride in LineBuffer apply")
+      case _ => error(ctx, "Unsupported stride in vectorized LineBuffer read")
     }
 
     val start  = cols.start.map(_.s).getOrElse(int32s(0))
@@ -27,7 +27,13 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     // UNSUPPORTED: Strided range apply of line buffer
     rows.step.map(_.s) match {
       case None | Some(Const(1)) =>
-      case _ => error(ctx, "Unsupported stride in LineBuffer apply")
+      case _ => error(ctx, "Unsupported stride in vectorized LineBuffer read")
+    }
+    implicit val vT: Type[VectorN[T]] = length match {
+      case Final(c) => VectorN.typeFromLen[T](c.toInt)
+      case _ =>
+        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
+        VectorN.typeFromLen[T](0)
     }
 
     val start = rows.start.map(_.s).getOrElse(int32s(0))
@@ -42,9 +48,9 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
   @api def enq(data: T, en: Bit): MUnit = MUnit(LineBuffer.enq(this.s, data.s, en.s))
 
   /** Creates an enqueue port of `data` to this LineBuffer which rotates when `row` changes. **/
-  @api def enq(row: Index, data: T): MUnit = MUnit(LineBuffer.rotateEnq(this.s, row.s, data.s, Bit.const(true)))
+  @api def enq(row: Index, data: T): MUnit = MUnit(LineBuffer.rotateEnq(this.s, data.s, Bit.const(true), row.s))
   /** Creates an enqueue port of `data` to this LineBuffer enabled by `en` which rotates when `row` changes. **/
-  @api def enq(row: Index, data: T, en: Bit): MUnit = MUnit(LineBuffer.rotateEnq(this.s, row.s, data.s, en.s))
+  @api def enq(row: Index, data: T, en: Bit): MUnit = MUnit(LineBuffer.rotateEnq(this.s, data.s, en.s, row.s))
 
   /** Creates a dense transfer from the given region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAMDenseTile1[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
@@ -71,91 +77,79 @@ object LineBuffer {
   implicit def linebufferIsMemory[T:Type:Bits]: Mem[T, LineBuffer] = new LineBufferIsMemory[T]
 
 
-  @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], verticalStride: Exp[Index]) = {
+  @internal def alloc[T:Type:Bits](rows: Exp[Index], cols: Exp[Index], verticalStride: Exp[Index]): Exp[LineBuffer[T]] = {
     stageMutable(LineBufferNew[T](rows, cols, verticalStride))(ctx)
   }
 
   @internal def col_slice[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    row:        Exp[Index],
-    colStart:   Exp[Index],
-    length:     Exp[Index]
-  ) = {
-    implicit val vT = length match {
-      case Final(c) => VectorN.typeFromLen[T](c.toInt)
-      case _ =>
-        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
-        VectorN.typeFromLen[T](0)
-    }
-    stageUnique(LineBufferColSlice(linebuffer, row, colStart, length))(ctx)
+    buff: Exp[LineBuffer[T]],
+    row:  Exp[Index],
+    col:  Exp[Index],
+    len:  Int
+  ): Exp[VectorN[T]] = {
+    stageUnique(LineBufferColSlice(buff, row, col, len))(ctx)
   }
 
   @internal def row_slice[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    rowStart:   Exp[Index],
-    length:     Exp[Index],
-    col:        Exp[Index]
-  ) = {
-    implicit val vT = length match {
-      case Final(c) => VectorN.typeFromLen[T](c.toInt)
-      case _ =>
-        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
-        VectorN.typeFromLen[T](0)
-    }
-    stageUnique(LineBufferRowSlice(linebuffer, rowStart, length, col))(ctx)
+    buff: Exp[LineBuffer[T]],
+    row:  Exp[Index],
+    col:  Exp[Index],
+    len:  Int
+  ): Exp[VectorN[T]] = {
+    stageUnique(LineBufferRowSlice(buff, row, col, len))(ctx)
   }
 
   @internal def load[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    row:        Exp[Index],
-    col:        Exp[Index],
-    en:         Exp[Bit]
-  ) = {
-    stageWrite(linebuffer)(LineBufferLoad(linebuffer,row,col,en))(ctx)
+    buff: Exp[LineBuffer[T]],
+    row:  Exp[Index],
+    col:  Exp[Index],
+    en:   Exp[Bit]
+  ): Exp[T] = {
+    stageWrite(buff)(LineBufferLoad(buff,row,col,en))(ctx)
   }
 
   @internal def enq[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    data:       Exp[T],
-    en:         Exp[Bit]
-  ) = {
-    stageWrite(linebuffer)(LineBufferEnq(linebuffer,data,en))(ctx)
+    buff: Exp[LineBuffer[T]],
+    data: Exp[T],
+    en:   Exp[Bit]
+  ): Exp[MUnit] = {
+    stageWrite(buff)(LineBufferEnq(buff,data,en))(ctx)
   }
 
   @internal def rotateEnq[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    row:        Exp[Index],
+    buff: Exp[LineBuffer[T]],
     data:       Exp[T],
-    en:         Exp[Bit]
-  ) = {
-    stageWrite(linebuffer)(LineBufferRotateEnq(linebuffer,row,data,en))(ctx)
+    en:         Exp[Bit],
+    row:        Exp[Index]
+  ): Exp[MUnit] = {
+    stageWrite(buff)(LineBufferRotateEnq(buff,data,en,row))(ctx)
   }
 
-  @internal def par_load[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    rows:       Seq[Exp[Index]],
-    cols:       Seq[Exp[Index]],
-    ens:        Seq[Exp[Bit]]
-  ) = {
-    implicit val vT = VectorN.typeFromLen[T](ens.length)
-    stageWrite(linebuffer)(ParLineBufferLoad(linebuffer,rows,cols,ens))(ctx)
+  @internal def banked_load[T:Type:Bits](
+    buff: Exp[LineBuffer[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
+    ens:  Seq[Exp[Bit]]
+  ): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](ens.length)
+    stageWrite(buff)(BankedLineBufferLoad(buff,bank,addr,ens))(ctx)
   }
 
-  @internal def par_enq[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    data:       Seq[Exp[T]],
-    ens:        Seq[Exp[Bit]]
-  ) = {
-    stageWrite(linebuffer)(ParLineBufferEnq(linebuffer,data,ens))(ctx)
+  @internal def banked_enq[T:Type:Bits](
+    buff: Exp[LineBuffer[T]],
+    data: Seq[Exp[T]],
+    ens:  Seq[Exp[Bit]]
+  ): Exp[MUnit] = {
+    stageWrite(buff)(BankedLineBufferEnq(buff,data,ens))(ctx)
   }
 
-  @internal def par_rotateEnq[T:Type:Bits](
-    linebuffer: Exp[LineBuffer[T]],
-    row:        Exp[Index],
-    data:       Seq[Exp[T]],
-    ens:        Seq[Exp[Bit]]
-  ) = {
-    stageWrite(linebuffer)(ParLineBufferRotateEnq(linebuffer,row,data,ens))(ctx)
+  @internal def banked_rotateEnq[T:Type:Bits](
+    buff: Exp[LineBuffer[T]],
+    data: Seq[Exp[T]],
+    ens:  Seq[Exp[Bit]],
+    row:  Exp[Index],
+  ): Exp[MUnit] = {
+    stageWrite(buff)(BankedLineBufferRotateEnq(buff,data,ens,row))(ctx)
   }
 
 }

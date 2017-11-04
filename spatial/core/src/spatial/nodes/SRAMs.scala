@@ -37,11 +37,11 @@ case class SRAM5Type[T:Bits](child: Type[T]) extends Type[SRAM5[T]] with SRAMTyp
 }
 
 class SRAMIsMemory[T:Type:Bits,C[T]](implicit mC: Type[C[T]], ev: C[T] <:< SRAM[T]) extends Mem[T,C] {
-  @api def load(mem: C[T], is: Seq[Index], en: Bit): T = {
-    wrap(SRAM.load(mem.s, stagedDimsOf(mem.s), unwrap(is), lift[Int,Index](0).s, en.s))
+  @api def load(mem: C[T], addr: Seq[Index], en: Bit): T = {
+    wrap(SRAM.load(mem.s, unwrap(addr), en.s))
   }
-  @api def store(mem: C[T], is: Seq[Index], data: T, en: Bit): MUnit = {
-    wrap(SRAM.store[T](mem.s, stagedDimsOf(mem.s),unwrap(is),lift[Int,Index](0).s,data.s,en.s))
+  @api def store(mem: C[T], data: T, addr: Seq[Index], en: Bit): MUnit = {
+    wrap(SRAM.store[T](mem.s, data.s, unwrap(addr), en.s))
   }
   @api def iterators(mem: C[T]): Seq[Counter] = {
     stagedDimsOf(mem.s).zipWithIndex.map{case (d,i) =>
@@ -61,46 +61,58 @@ case class SRAMNew[T:Type:Bits,C[_]<:SRAM[_]](dims: Seq[Exp[Index]])(implicit cT
 }
 case class SRAMLoad[T:Type:Bits](
   mem:  Exp[SRAM[T]],
-  dims: Seq[Exp[Index]],
-  is:   Seq[Exp[Index]],
-  ofs:  Exp[Index],
+  addr: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalReaderOp[T](mem,addr=is,en=en) {
-  def mirror(f:Tx) = SRAM.load(f(mem), f(dims), f(is), f(ofs), f(en))
-  val mT = typ[T]
-  val bT = bits[T]
+) extends LocalReaderOp[T,T](mem,addr,en) {
+  def mirror(f:Tx) = SRAM.load(f(mem), f(addr), f(en))
 }
+
 case class SRAMStore[T:Type:Bits](
   mem:  Exp[SRAM[T]],
-  dims: Seq[Exp[Index]],
-  is:   Seq[Exp[Index]],
-  ofs:  Exp[Index],
   data: Exp[T],
+  addr: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalWriterOp(mem,value=data,addr=is,en=en) {
-  def mirror(f:Tx) = SRAM.store(f(mem), f(dims), f(is), f(ofs), f(data), f(en))
-  val mT = typ[T]
-  val bT = bits[T]
+) extends LocalWriterOp[T](mem,data,addr,en) {
+  def mirror(f:Tx) = SRAM.store(f(mem), f(data), f(addr), f(en))
+}
+
+case class SRAMLoadVector[T:Type:Bits](
+  mem:  Exp[SRAM[T]],
+  addr: Seq[Exp[Index]],
+  en:   Exp[Bit],
+  dim:  Int,
+  len:  Int
+)(implicit vT: Type[VectorN[T]]) extends VectorReaderOp[T,VectorN[T]](mem,addr,en,dim=dim,len=len) {
+  def mirror(f:Tx) = SRAM.load_vector(f(mem),f(addr),f(en),dim,len)
+}
+
+case class SRAMStoreVector[T:Type:Bits](
+  mem:  Exp[SRAM[T]],
+  data: Exp[VectorN[T]],
+  addr: Seq[Exp[Index]],
+  en:   Exp[Bit],
+  dim:  Int,
+  len:  Int
+) extends VectorWriterOp[T](mem,data,addr,en,dim=dim,len=len) {
+  def mirror(f:Tx) = SRAM.store_vector(f(mem),f(data),f(addr),f(en),dim,len)
 }
 
 
-case class ParSRAMLoad[T:Type:Bits](
-  sram: Exp[SRAM[T]],
-  addr: Seq[Seq[Exp[Index]]],
-  ens:  Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends ParLocalReaderOp[VectorN[T]](sram,addrs=addr,ens=ens) {
-  def mirror(f:Tx) = SRAM.par_load(f(sram), addr.map{inds => f(inds)}, f(ens))
-  val mT = typ[T]
-  val bT = bits[T]
+case class BankedSRAMLoad[T:Type:Bits](
+  sram: Exp[SRAM[T]],         // SRAM
+  bank: Seq[Seq[Exp[Index]]], // Vector of multi-dimensional bank addresses
+  addr: Seq[Exp[Index]],      // Vector of bank offsets
+  ens:  Seq[Exp[Bit]]         // Enables
+)(implicit val vT: Type[VectorN[T]]) extends BankedReaderOp[T](sram, bank, addr, ens) {
+  def mirror(f:Tx) = SRAM.banked_load(f(sram),bank.map{a => f(a)}, f(addr), f(ens))
 }
 
-case class ParSRAMStore[T:Type:Bits](
-  sram: Exp[SRAM[T]],
-  addr: Seq[Seq[Exp[Index]]],
-  data: Seq[Exp[T]],
-  ens:  Seq[Exp[Bit]]
-) extends ParLocalWriterOp(sram,values=data,addrs=addr,ens=ens) {
-  def mirror(f:Tx) = SRAM.par_store(f(sram),addr.map{inds => f(inds)},f(data),f(ens))
-  val mT = typ[T]
-  val bT = bits[T]
+case class BankedSRAMStore[T:Type:Bits](
+  sram: Exp[SRAM[T]],         // SRAM
+  data: Seq[Exp[T]],          // Write data
+  bank: Seq[Seq[Exp[Index]]], // Vector of multi-dimensional bank addresses
+  addr: Seq[Exp[Index]],      // Vector of bank offsets
+  ens:  Seq[Exp[Bit]]         // Enables
+) extends BankedWriterOp[T](sram, data, bank, addr, ens) {
+  def mirror(f:Tx) = SRAM.banked_store(f(sram), f(data), bank.map{a => f(a)}, f(addr), f(ens))
 }

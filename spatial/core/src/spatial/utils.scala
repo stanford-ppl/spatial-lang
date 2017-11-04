@@ -46,18 +46,15 @@ object utils {
     * Returns a list of controllers between the given access's parent (inclusive) and the end controller (non-inclusive)
     * Access's parent is last in the list
     */
-  def ctrlBetween(x: Access, end: Ctrl): List[Ctrl] = {
-    allParents[Ctrl](x.ctrl, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
-  }
+  def ctrlBetween(start: Ctrl, end: Ctrl): List[Ctrl] = allParents[Ctrl](start, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
+  def ctrlBetween(x: Access, end: Ctrl): List[Ctrl] = ctrlBetween(x.ctrl, end)
 
   /**
     * Returns a list of loop iterators between the given access's parent (inclusive) and the end controller (non-inclusive)
     * Innermost iterator is last, outermost is first
     */
-  def iteratorsBetween(x: Access, end: Ctrl): Seq[Bound[Index]] = {
-    ctrlBetween(x,end).flatMap{ctrl => loopIterators(ctrl) }
-  }
-
+  def iteratorsBetween(start: Ctrl, end: Ctrl): Seq[Bound[Index]] = ctrlBetween(start,end).flatMap(loopIterators)
+  def iteratorsBetween(x: Access, end: Ctrl): Seq[Bound[Index]] = iteratorsBetween(x.ctrl,end)
 
   /**
     * This function generates all possible partitions of the given set.
@@ -642,12 +639,9 @@ object utils {
   @stateful def isUnitPipe(e: Exp[_]): Boolean = getDef(e).exists(isUnitPipe)
   def isUnitPipe(d: Def): Boolean = d.isInstanceOf[UnitPipe]
 
-<<<<<<< HEAD
-=======
   @stateful def isIfThenElse(e: Exp[_]): Boolean = getDef(e).exists(isIfThenElse)
   def isIfThenElse(d: Def): Boolean = d.isInstanceOf[IfThenElse[_]]
 
->>>>>>> origin/develop
   @stateful def isControlNode(e: Exp[_]): Boolean = getDef(e).exists(isControlNode)
   def isControlNode(d: Def): Boolean = d.isInstanceOf[ControlNode[_]]
 
@@ -706,8 +700,14 @@ object utils {
     case Op(CounterNew(_,_,_,end)) => end
     case Op(Forever()) =>
       implicit val ctx: SrcCtx = x.ctx
-      int32s(2) // ??
+      int32s(2) // FIXME: What is the end of a forever counter?
     case _ => throw new Exception(s"Cannot get counter end of symbol $x")
+  }
+  @stateful def counterLength(x: Exp[Counter]): Option[Int] = {
+    (counterStart(x), counterEnd(x), counterStride(x)) match {
+      case (Exact(start),Exact(end),Exact(stride)) => Some(math.ceil((end - start).toDouble / stride.toDouble).toInt)
+      case _ => None
+    }
   }
 
   @stateful def isUnitCounter(x: Exp[Counter]): Boolean = x match {
@@ -941,6 +941,18 @@ object utils {
   @stateful def isNestedPrimitive(e: Exp[_]): Boolean = (isSwitch(e) || isSwitchCase(e)) && isInnerControl(e)
 
   /** Accesses **/
+  implicit class UnrolledAccessOps(a: UnrolledAccess) {
+    def node: Exp[_] = a._1
+    def ctrl: Ctrl   = a._2
+    def id: Seq[Int] = a._3
+    def uaccess: UAccess = (node, id)
+    def access: Access = (node, ctrl)
+  }
+  implicit class UAccessOps(a: UAccess) {
+    def node: Exp[_] = a._1
+    def id: Seq[Int] = a._2
+  }
+
   implicit class AccessOps(a: Access) {
     def node: Exp[_] = a._1
     def ctrl: Ctrl = a._2 // read or write enabler
@@ -1059,9 +1071,7 @@ object utils {
 
   object LocalReset {
     def apply(mem: Exp[_]): List[LocalReset] = List( (mem, None) )
-    def apply(mem: Exp[_], en: Exp[Bit] = null): List[LocalReset] = {
-      List( (mem, Option(en)) )
-    }
+    def apply(mem: Exp[_], en: Exp[Bit] = null): LocalReset = (mem, Option(en))
   }
 
   // Memory, optional value, optional indices, optional enable
@@ -1094,6 +1104,35 @@ object utils {
     }
   }
 
+  type BankedRead = (Exp[_], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Index]]], Option[Seq[Exp[Bit]]])
+  implicit class BankedReadOps(x: BankedRead) {
+    def mem = x._1
+    def bank = x._2
+    def addr = x._3
+    def ens  = x._4
+  }
+
+  type BankedWrite = (Exp[_], Option[Seq[Exp[_]]], Option[Seq[Seq[Exp[Index]]]], Option[Seq[Exp[Index]]], Option[Seq[Exp[Bit]]])
+  implicit class BankedWriteOps(x: BankedWrite) {
+    def mem = x._1
+    def data = x._2
+    def bank = x._3
+    def addr = x._4
+    def ens  = x._5
+  }
+
+  object BankedRead {
+    def apply(mem: Exp[_], bank: Seq[Seq[Exp[Index]]] = null, addr: Seq[Exp[Index]] = null, ens: Seq[Exp[Bit]] = null): List[BankedRead] = {
+      List( (mem, Option(bank), Option(addr), Option(ens)) )
+    }
+  }
+  object BankedWrite {
+    def apply(mem: Exp[_], data: Seq[Exp[_]] = null, bank: Seq[Seq[Exp[Index]]] = null, addr: Seq[Exp[Index]] = null, ens: Seq[Exp[Bit]] = null): List[BankedWrite] = {
+      List( (mem, Option(data), Option(bank), Option(addr), Option(ens)) )
+    }
+  }
+
+
   @stateful def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
 
   @stateful def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
@@ -1108,6 +1147,7 @@ object utils {
   @stateful def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
   def isResetter(d: Def): Boolean = LocalResetter.unapply(d).isDefined
 
+  @stateful def isAccessWithoutAddress(e: Access): Boolean = isAccessWithoutAddress(e.node)
   @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {
     case LocalReader(reads) => reads.exists(_.addr.isEmpty)
     case LocalWriter(write) => write.exists(_.addr.isEmpty)

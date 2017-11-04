@@ -30,7 +30,7 @@ trait PlasticineLatencyModel extends LatencyModel {
     case _:RegFileStore[_]      => 0
     case _:ParRegFileStore[_]   => 0
     case _:RegFileShiftIn[_]    => 0
-    case _:ParRegFileShiftIn[_] => 0
+    case _:RegFileVectorShiftIn[_] => 0
 
     // Streams
     case _:StreamRead[_]     => 0

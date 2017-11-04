@@ -48,12 +48,12 @@ object StreamIn {
   @internal def alloc[T:Type:Bits](bus: Bus): Exp[StreamIn[T]] = {
     stageMutable(StreamInNew[T](bus))(ctx)
   }
-  @internal def read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]) = {
+  @internal def read[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]): Exp[T] = {
     stageWrite(stream)(StreamRead(stream, en))(ctx)
   }
-  @internal def par_read[T:Type:Bits](stream: Exp[StreamIn[T]], ens: Seq[Exp[Bit]]) = {
-    implicit val vT = VectorN.typeFromLen[T](ens.length)
-    stageWrite(stream)( ParStreamRead(stream, ens) )(ctx)
+  @internal def banked_read[T:Type:Bits](stream: Exp[StreamIn[T]], ens: Seq[Exp[Bit]]): Exp[VectorN[T]] = {
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](ens.length)
+    stageWrite(stream)( BankedStreamRead(stream, ens) )(ctx)
   }
 }
 
@@ -72,11 +72,11 @@ object StreamOut {
   @internal def alloc[T:Type:Bits](bus: Bus): Exp[StreamOut[T]] = {
     stageMutable(StreamOutNew[T](bus))(ctx)
   }
-  @internal def write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bit]) = {
+  @internal def write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Exp[T], en: Exp[Bit]): Exp[MUnit] = {
     stageWrite(stream)(StreamWrite(stream, data, en))(ctx)
   }
-  @internal def par_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Seq[Exp[T]], ens: Seq[Exp[Bit]]) = {
-    stageWrite(stream)( ParStreamWrite(stream, data, ens) )(ctx)
+  @internal def banked_write[T:Type:Bits](stream: Exp[StreamOut[T]], data: Seq[Exp[T]], ens: Seq[Exp[Bit]]): Exp[MUnit] = {
+    stageWrite(stream)( BankedStreamWrite(stream, data, ens) )(ctx)
   }
 }
 
@@ -101,5 +101,15 @@ object BufferedOut {
   }
   @internal def write[T:Type:Bits](buffer: Exp[BufferedOut[T]], data: Exp[T], is: Seq[Exp[Index]], en: Exp[Bit]) = {
     stageWrite(buffer)(BufferedOutWrite(buffer,data,is,en))(ctx)
+  }
+
+  @internal def banked_write[T:Type:Bits](
+    buff: Exp[BufferedOut[T]],
+    data: Seq[Exp[T]],
+    bank: Seq[Seq[Exp[Index]]],
+    addr: Seq[Exp[Index]],
+    ens:  Seq[Exp[Bit]]
+  ): Exp[MUnit] = {
+    stageWrite(buff)( BankedBufferedOutWrite(buff,data,bank,addr,ens) )(ctx)
   }
 }
