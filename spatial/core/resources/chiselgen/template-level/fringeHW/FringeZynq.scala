@@ -68,7 +68,7 @@ class FringeZynq(
 
   // AXI-lite bridge
   if (FringeGlobals.target == "zynq" || FringeGlobals.target == "zcu") {
-    val datawidth = if (FringeGlobals.target == "zcu") 64 else 32
+    val datawidth = if (FringeGlobals.target == "zcu") 128 else 32
     val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
