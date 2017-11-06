@@ -269,6 +269,7 @@ zcu-hw:
 	# Some hacks that really need to be fixed in a way better than sed
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
 	sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
+	sed -i "s/EPRINTF(.*/\/\/fprintf(stderr,/g" cpp/fringeZynq/FringeContextZynq.h # Not sure why eprintf randomly crashes zcu
 
 	sbt "run-main top.Instantiator --verilog --testArgs zcu"
 	mv ${BIGIP_SCRIPT} ${ZCU_V_DIR}/
