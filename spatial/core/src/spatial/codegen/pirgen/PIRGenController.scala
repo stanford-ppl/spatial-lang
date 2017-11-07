@@ -133,31 +133,19 @@ trait PIRGenController extends PIRCodegen {
         case None => //ScalarBuffer doesn't have banking
       }
 
-      var attrs = ""
+      var attrs = mutable.ListBuffer[String]()
       
       mem.bufferDepth.foreach { depth => attrs += s".buffering($depth)" }
 
-      mem.writePort.foreach { vec => attrs += s""".wtPort(${quote(vec)})""" }
-      mem.readPort.foreach { vec => attrs += s""".rdPort(${quote(vec)})""" }
-
-      mem.readAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoad) => attrs += s""".rdAddr(${quote(a)})"""
-        case _ =>
+      mem.writePort.foreach { case (data, addr, top) => 
+        attrs += s""".store(${quote(data)}, ${addr.map(quote)}, ${top.map(t => s""""${t.name}"""")})"""
       }
-      mem.writeAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoad) => attrs += s""".wtAddr(${quote(a)})"""
-        case _ =>
+      mem.readPort.foreach { case (data, addr, top) =>
+        attrs += s""".load(${quote(data)}, ${addr.map(quote)}, ${top.map(t => s""""${t.name}"""")})"""
       }
 
-      consumerOf(mem).foreach { case (reader, consumer) => 
-        attrs += s""".consumer("${reader.name}", "${consumer.name}")"""
-      }
-
-      producerOf(mem).foreach { case (writer, producer) => 
-        attrs += s""".producer("${writer.name}", "${producer.name}")"""
-      }
-
-      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$attrs""")
+      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})""")
+      attrs.foreach { attr => emit(s"  $attr") }
 
     //case mc@MemoryController(name,region,mode,parent) =>
       //emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")

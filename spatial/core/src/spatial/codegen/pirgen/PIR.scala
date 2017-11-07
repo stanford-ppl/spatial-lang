@@ -169,10 +169,10 @@ case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
 
   // writePort either from bus or for sram can be from a vector FIFO
   //val writePort = mutable.ListBuffer[GlobalBus]()
-  var writePort = mutable.ListBuffer[Component]()
-  var readPort: Option[Component] = None
-  var readAddr = mutable.ListBuffer[LocalComponent]()
-  var writeAddr = mutable.ListBuffer[LocalComponent]()
+  val writePort = mutable.ListBuffer[(Component, Option[LocalComponent], Option[CU])]() // (data, addr, producer/consumer)
+  val readPort = mutable.ListBuffer[(Component, Option[LocalComponent], Option[CU])]()
+  //var readAddr = mutable.ListBuffer[LocalComponent]()
+  //var writeAddr = mutable.ListBuffer[LocalComponent]()
 
   override def toString = name
 

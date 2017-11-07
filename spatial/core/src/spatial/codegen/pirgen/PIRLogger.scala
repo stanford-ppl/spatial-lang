@@ -55,9 +55,9 @@ trait PIRLogger extends SpatialTraversal {
         dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem})""") {
           dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
           dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
-          dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
-          dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
-          dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
+          dbgs(s"""readPort    = ${mem.readPort.map(_.toString).mkString(",")}""")
+          //dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
+          //dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
           producerOf.get(mem).foreach { _.foreach { case (writer, producer) =>
             dbgs(s"writer=$writer, producer=$producer")
           } }

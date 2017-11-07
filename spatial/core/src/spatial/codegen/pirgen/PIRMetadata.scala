@@ -55,14 +55,24 @@ object instOf extends MOneToOneMap with MetadataMaps {
   type V = Int
 }
 
+/*
+ * producerOf
+ * 1. sram: (writeAddrFIFO, producer)
+ * 2. localMem: (writeBus, producer)
+ * */
 object producerOf extends MOneToManyMap with MetadataMaps {
   type K = CUMemory
-  type V = (CU, CU) // (writer, producer)
+  type V = (Any, CU) // (writer, producer)
   override def apply(k:K):VV = map.getOrElse(k, mutable.Set[V]())
 }
 
+/*
+ * consumerOf
+ * 1. sram: (readAddrFIFO, consumer)
+ * 2. localMem: (currentCU, consumer)
+ * */
 object consumerOf extends MOneToManyMap with MetadataMaps {
   type K = CUMemory
-  type V = (CU, CU) // (reader, consumer)
+  type V = (Any, CU) // (reader, consumer)
   override def apply(k:K):VV = map.getOrElse(k, mutable.Set[V]())
 }

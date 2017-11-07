@@ -8,8 +8,6 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Optimization"
   var IR = codegen.IR
 
-  def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:ComputeUnit => cu}.toList
-
   override def process[S:Type](b: Block[S]): Block[S] = {
     msg("Starting traversal PIR Optimizer")
     dbgs(s"globals:${quote(globals)}")
@@ -156,10 +154,10 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         List(LocalRef(_,MemLoad(mem:CUMemory))), 
         List(LocalRef(_,VectorOut(out: VectorBus)))
       ) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
-        val in = mem.writePort.head.asInstanceOf[GlobalBus]
+        val (in:GlobalBus, _, _) = mem.writePort.head
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
-          swapBus(cus, out, in)
+          swapBus(cus, orig=out, swap=in)
           Some(bypass)
         }
         else None
@@ -169,9 +167,9 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         List(LocalRef(_,MemLoad(mem:CUMemory))), 
         List(LocalRef(_,ScalarOut(out: OutputArg)))
       ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head.asInstanceOf[GlobalBus]
+        val (in:GlobalBus, _, _) = mem.writePort.head
         dbgs(s"Found route-thru: $in -> $out")
-        swapBus(cus, in, out)
+        swapBus(cus, orig=in, swap=out)
         Some(bypass)
 
       case bypass@MapStage(
@@ -179,10 +177,10 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         List(LocalRef(_,MemLoad(mem:CUMemory))), 
         List(LocalRef(_,ScalarOut(out: ScalarBus)))
       ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
-        val in = mem.writePort.head.asInstanceOf[GlobalBus]
+        val (in:GlobalBus, _, _) = mem.writePort.head
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
-          swapBus(cus, out, in)
+          swapBus(cus, orig=out, swap=in)
           Some(bypass)
         } else None
       case _ => None

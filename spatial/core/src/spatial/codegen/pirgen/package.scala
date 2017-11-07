@@ -19,6 +19,7 @@ package object pirgen {
 
   val globals   = mutable.Set[GlobalComponent]()
   val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
+  def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:CU => cu}.toList
 
   @stateful def quote(x: Any):String = x match {
     case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
@@ -84,12 +85,13 @@ package object pirgen {
     case Some(x) => func(x) // Why is this not matching on Iterable or Iterator?
     case iter: Iterator[_] => iter.flatMap(func).toSet
     case iter: Iterable[_] => func(iter.iterator)
+    case (data,addr,_) => func(data) ++ func(addr)
     case _ => Set.empty
   }
 
   def localInputs(a: Any): Set[LocalComponent] = a match {
     case reg: LocalComponent => Set(reg)
-    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writePort ++ mem.readPort)
+    case mem: CUMemory => localInputs(/*mem.readAddr ++ mem.writeAddr ++ */mem.writePort ++ mem.readPort)
     case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
     case stage: Stage => stage.inputMems.toSet
     case _ => collectX[LocalComponent](a)(localInputs)
@@ -106,7 +108,7 @@ package object pirgen {
     case ControlIn(in) => Set(in)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.writePort ++ mem.readAddr ++ mem.writeAddr)
+    case mem: CUMemory => globalInputs(mem.writePort/* ++ mem.readAddr ++ mem.writeAddr*/)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
     case MemLoad(mem) => globalInputs(mem)
@@ -128,15 +130,20 @@ package object pirgen {
   def vectorOutputs(a: Any): Set[VectorBus] = globalOutputs(a).collect{case x: VectorBus => x}
 
   def usedCChains(a: Any): Set[CUCChain] = a match {
+    case cc:CUCChain => Set(cc)
     case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
 
     case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_,_) => cchain}.toSet
     case sram: CUMemory =>
-      (sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
-        sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
+      //(sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
+        //sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
+      sram.readPort.flatMap { case (_, addr, _) => usedCChains(addr) }.toSet ++
+      sram.writePort.flatMap { case (_, addr, _) => usedCChains(addr) }.toSet
 
     case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
     case iter: Iterable[Any] => usedCChains(iter.iterator)
+    case Some(x) => usedCChains(x)
+    case CounterReg(cchain, counterIdx, parIdx) => Set(cchain)
     case _ => Set.empty
   }
 
@@ -144,7 +151,9 @@ package object pirgen {
     def rec(x:Any) = usedMem(x, logger)
     def f = x match {
       case MemLoad(mem) => Set(mem)
-      case x:CUMemory if x.mode == SRAMMode => rec(x.readAddr ++ x.writeAddr ++ x.writePort) + x
+      case x:CUMemory if x.mode == SRAMMode => 
+        x.readPort.flatMap { case (_, addr, _) => rec(addr) }.toSet ++
+        x.writePort.flatMap { case (data, addr, _) => rec(addr) ++ rec(data) } + x
       case x:CUMemory => Set(x)
       case x:Stage => rec(x.inputMems)
       case x:CUCounter => rec(x.start) ++ rec(x.end) ++ rec(x.stride)
@@ -284,10 +293,6 @@ package object pirgen {
       val add = OpStage(PIRFixAdd, List(mul.out, partialAddr),  fresh[Index])
       partialAddr = add.out
       addrCompute ++= List(mul,add)
-    }
-    if (addrCompute.isEmpty) {
-      partialAddr = fresh[Index]
-      addrCompute ++= List(OpStage(PIRBypass, List(indices.last), partialAddr))
     }
     (partialAddr, addrCompute)
   }
@@ -604,5 +609,10 @@ package object pirgen {
     seq(i)
   }
 
+  def getWriterCU(bus:GlobalBus):CU = {
+    val writers = cus.filter { cu => globalOutputs(cu).contains(bus) }
+    assert(writers.size==1, s"writers of $bus = ${writers}.size != 1")
+    writers.head
+  }
 
 }

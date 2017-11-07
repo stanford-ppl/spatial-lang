@@ -129,8 +129,7 @@ trait PIRSplitting extends PIRTraversal {
       mappingOf(exp) = parent
       parent.parent = cu.parent
       parent.cchains ++= cu.cchains
-      val mems = usedMem(cu.cchains)
-      parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
+      parent.memMap ++= cu.memMap.filter { case (e, m) => usedMem(cu.cchains).contains(m) } 
       Some(parent)
     }
     else None
@@ -363,8 +362,10 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
-        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
+        //sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
+        //sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
+        sram.readPort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
+        sram.writePort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
       }
     }
 
