@@ -309,6 +309,7 @@ public:
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
+    sleep(0.2); // Prevents zcu crash for some unknown reason
     Xil_Out32(fringeScalarBase+reg*sizeof(u32), data);
   }
 
