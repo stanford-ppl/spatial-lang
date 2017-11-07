@@ -71,6 +71,12 @@ class Fringe(
   // Divide up channels within memStreams into 'numChannels' in round-robin fashion
   // The method below returns the IDs of load and store streams for each channel
   def getChannelAssignment(numStreams: Int, numChannels: Int) = {
+    FringeGlobals.channelAssignment match {
+      case AllToOne => List.fill(numStreams)(0)
+      case BasicRoundRobin => List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList }
+      case ColoredRoundRobin => List.tabulate(numStreams) { i => ChannelMapping(i) }
+      case AdvancedColored => List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList } // TODO: Implement this!
+    }
     List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList }
   }
 
