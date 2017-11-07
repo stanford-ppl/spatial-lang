@@ -34,7 +34,7 @@ class Command(val addrWidth: Int, val sizeWidth: Int, memChannel: Int) extends B
 case class StreamParInfo(w: Int, v: Int, memChannel: Int)
 
 class MemoryStream(addrWidth: Int, sizeWidth: Int, memChannel: Int) extends Bundle {
-  val cmd = Flipped(Decoupled(new Command(addrWidth, sizeWidth)))
+  val cmd = Flipped(Decoupled(new Command(addrWidth, sizeWidth, 0)))
 
   override def cloneType(): this.type = {
     new MemoryStream(addrWidth, sizeWidth, memChannel).asInstanceOf[this.type]

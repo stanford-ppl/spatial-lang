@@ -45,7 +45,7 @@ object FringeGlobals {
     pw
   }
 
-  def channelAssignment = ColoredRoundRobin
+  var channelAssignment: ChannelAssignment = ColoredRoundRobin
 
   def tclScript = _tclScript
   def tclScript_= (value: PrintWriter): Unit = _tclScript = value
