@@ -998,6 +998,9 @@ trait ChiselGenController extends ChiselGenCounter{
     }
 
     withStream(getStream("IOModule")) {
+      emit(src"// Root controller for app: ${config.name}")
+      emit(src"// Complete config: ${config.printer()}")
+      emit(src"// Complete spatialConfig: ${spatialConfig.printer()}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
 
