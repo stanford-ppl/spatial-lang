@@ -70,7 +70,7 @@ trait TreeGenSpatial extends SpatialTraversal {
     controller_tree.write(s"""
 ${indent()}<!--Begin $node -->
 ${indent()}<TD><font size = "6">$title<br><font size = "2">$ctx</font><br><b>$node</b></font><br><font size = "1">Counter: $ctr</font>""")
-    if (!inner & !collapsible) {controller_tree.write("""<br><font size = "1">Stages below are route-through (think of cycle counts as duty-cycles)</font>""")}
+    if (!inner & !collapsible) {controller_tree.write("""<br><font size = "1"><b>**Stages below are route-through (think of cycle counts as duty-cycles)**</b></font>""")}
     controller_tree.write("""
 """)
     if (!inner) {
