@@ -256,7 +256,7 @@ public:
     EPRINTF("[run] Begin..\n");
      // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
-    double timeout = 10; // seconds
+    double timeout = 60; // seconds
     int timed_out = 0;
 
     // Implement 4-way handshake

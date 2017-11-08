@@ -47,6 +47,10 @@ switch $TARGET {
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps7_0_${CLOCK_FREQ_MHZ}M_0/design_1_rst_ps7_0_${CLOCK_FREQ_MHZ}M_0.xci  \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_proc_sys_reset_fclk1_0/design_1_proc_sys_reset_fclk1_0.xci                  \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci                                            \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_0_0/design_1_axi_register_slice_0_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_1_0/design_1_axi_register_slice_1_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_2_0/design_1_axi_register_slice_2_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_3_0/design_1_axi_register_slice_3_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_0_0/design_1_axi_dwidth_converter_0_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_2_0/design_1_axi_dwidth_converter_2_0.xci              \
