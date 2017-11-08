@@ -33,6 +33,10 @@ switch $TARGET {
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_2_0/design_1_axi_dwidth_converter_2_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_3_0/design_1_axi_dwidth_converter_3_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_0_0/design_1_axi_register_slice_0_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_1_0/design_1_axi_register_slice_1_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_2_0/design_1_axi_register_slice_2_0.xci              \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_register_slice_3_0/design_1_axi_register_slice_3_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_0_0/design_1_axi_clock_converter_0_0.xci                \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_1_0/design_1_axi_clock_converter_1_0.xci                \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_clock_converter_2_0/design_1_axi_clock_converter_2_0.xci                \

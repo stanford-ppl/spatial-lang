@@ -66,13 +66,14 @@ trait TreeGenSpatial extends SpatialTraversal {
     super.postprocess(block)
   }
 
-  def print_stage_prefix(title: String, ctr: String, node: String, ctx: String, inner: Boolean = false) {
+  def print_stage_prefix(title: String, ctr: String, node: String, ctx: String, inner: Boolean = false, collapsible: Boolean = true) {
     controller_tree.write(s"""
 ${indent()}<!--Begin $node -->
 ${indent()}<TD><font size = "6">$title<br><font size = "2">$ctx</font><br><b>$node</b></font><br><font size = "1">Counter: $ctr</font> 
 """)
     if (!inner) {
-      controller_tree.write(s"""${indent()}<div data-role="collapsible">
+      val coll = if (collapsible) "data-role=\"collapsible\""
+      controller_tree.write(s"""${indent()}<div $coll>
 ${indent()}<h4> </h4>${table_init}
 """)
     }
@@ -127,15 +128,17 @@ ${indent()}<!-- Close $name -->
 
     case UnitPipe(_,func) =>
       controllerStack.push(sym)
+      var collapsible = true
       val inner = levelOf(sym) match { 
-      	case InnerControl => childrenOf(sym).length == 0 // To catch when we have switch as a child
+      	case InnerControl if childrenOf(sym).length == 0 => true
+        case InnerControl if childrenOf(sym).length > 0 => collapsible = false; false // To catch when we have switch as a child
       	case _ => false
       }
       val tileXfer = childrenOf(sym).map{c => c match {case Def(FringeSparseLoad(_,_,_)) => "Gather."; case Def(FringeSparseStore(_,_,_)) => "Scatter."; 
                                                        case Def(FringeDenseLoad(_,_,_)) => "Load."; case Def(FringeDenseStore(_,_,_,_)) => "Store."; 
                                                        case _ => ""}}.mkString("")
       val ctxline = if (transferChannel(sym) >= 0) {s"${sym.ctx}, channel ${transferChannel(sym)}"} else {s"${sym.ctx}"}
-      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", s"${ctxline}", inner)
+      print_stage_prefix(s"${getScheduling(sym)}${tileXfer}Unitpipe",s"",s"$sym", s"${ctxline}", inner, collapsible)
       print_stream_info(sym)
       val children = getControlNodes(func)
       children.foreach { s =>
@@ -228,9 +231,13 @@ ${indent()}<!-- Close $name -->
 
     case op@Switch(_,selects, cases) =>
       controllerStack.push(sym)
-      val inner = false // Switch will always print some SwitchCases
+      val inner = false
+      val collapsible = levelOf(sym) match { 
+        case InnerControl => false 
+        case _ => true
+      }
       val ohm = if (Bits.unapply(op.mT).isDefined) {"OHM."} else ""
-      print_stage_prefix(s"${getScheduling(sym)}${ohm}Switch",s"",s"$sym", s"${sym.ctx}", inner)
+      print_stage_prefix(s"${getScheduling(sym)}${ohm}Switch",s"",s"$sym", s"${sym.ctx}", inner, collapsible)
       print_stream_info(sym)
       cases.foreach{c => getStm(c).foreach(visitStm) }
       print_stage_suffix(s"$sym", inner)
