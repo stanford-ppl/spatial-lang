@@ -574,14 +574,28 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     dbgs(s"flatStages:$flatStages")
     dbgl(s"addrStages:") { addrStages.foreach { stage => dbgs(s"$stage") } }
 
-    val bus = if (addrStages.nonEmpty) {
+    val numAccess = if (isReader(access)) readersOf(mem).size else writersOf(mem).size
+    dbgs(s"numAccess=$numAccess")
+    val optimization = false
+    val bus = if (addrStages.isEmpty && numAccess <= 1 && optimization) {
+      // Optimization. Don't allocate extra address calcualtion. Use counters in PMU to map address
+      // calculation
+      decompose(mem).zip(decompose(access)).foreach { case (dmem, daccess) =>
+        val sramCUs = getMCUforAccess(dmem, daccess)
+        sramCUs.foreach { sramCU =>
+          copyBounds(pipe=mappingOf(sramCU), cu=sramCU, stages=indexExps ++ addr)
+        }
+      }
+      None
+    } else {
       // Add bypass stage to load counter value to output
       if (flatStages.isEmpty) {
         val bound = flatAddr
         flatAddr = fresh[Index]
-        flatStages ++= List(OpStage(PIRBypass, List(bound), flatAddr))
+        addrStages ++= List(OpStage(PIRBypass, List(bound), flatAddr))
       }
       val addrCU = if (isReader(access)) allocateCU(access) else getWriterCU(access)
+      dbgs(s"addrCU=${addrCU.name}")
       copyBounds(pipe=mappingOf(addrCU), cu=addrCU, stages=indexExps ++ addr)
       addrCU.pseudoStages ++= addrStages
       val postfix = access match {
@@ -597,16 +611,6 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         addrCU.addReg(flatAddr, VectorOut(bus))
         Some(bus)
       }
-    } else {
-      // Optimization. Don't allocate extra address calcualtion. Use counters in PMU to map address
-      // calculation
-      decompose(mem).zip(decompose(access)).foreach { case (dmem, daccess) =>
-        val sramCUs = getMCUforAccess(dmem, daccess)
-        sramCUs.foreach { sramCU =>
-          copyBounds(pipe=mappingOf(sramCU), cu=sramCU, stages=indexExps ++ addr)
-        }
-      }
-      None
     }
     (flatAddr, bus)
   }
