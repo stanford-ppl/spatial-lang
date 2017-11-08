@@ -22,7 +22,7 @@ export AWS_CONFIG_FILE=/home/mattfel/aws-fpga/hdk/cl/examples/rootkey.csv
 export RPT_HOME=/home/mattfel/aws-fpga/hdk/cl/examples
 
 this_machine=`hostname`
-export SBT_OPTS="-Xmx64G -Xss1G"
+export SBT_OPTS="-Xmx32G -Xss1G"
 export _JAVA_OPTIONS="-Xmx32g -Xss8912k -Xms16g"
 export REGRESSION_HOME="/home/mattfel/regression/synth/$inputarg"
 
