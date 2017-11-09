@@ -71,23 +71,24 @@ class Fringe(
   // Divide up channels within memStreams into 'numChannels' in round-robin fashion
   // The method below returns the IDs of load and store streams for each channel
   def getChannelAssignment(numStreams: Int, numChannels: Int) = {
-    FringeGlobals.channelAssignment match {
-      case AllToOne => List.fill(numStreams)(0)
+    val chans = FringeGlobals.channelAssignment match {
+      case AllToOne => List.tabulate(numChannels) { i => if (i == 0) (0 until numStreams).toList else List() }
       case BasicRoundRobin => List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList }
-      case ColoredRoundRobin => List.tabulate(numChannels) { i => loadStreamInfo.zipWithIndex.filter{case (s, i) => s.memChannel == i}.map{_._2} ++ storeStreamInfo.zipWithIndex.filter{case (s, i) => s.memChannel == i}.map{_._2 + loadStreamInfo.size} }
-            case AdvancedColored => List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList } // TODO: Implement this!
-          }
-          List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList }
-        }
+      case ColoredRoundRobin => List.tabulate(numChannels) { i => loadStreamInfo.zipWithIndex.map{case (s, ii) => if (s.memChannel % numChannels == i) ii else -1}.filter{_ >= 0} ++ storeStreamInfo.zipWithIndex.map{case (s, ii) => if (s.memChannel % numChannels == i) ii + loadStreamInfo.size else -1}.filter{_ >= 0} }
+      case AdvancedColored => List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList } // TODO: Implement this!
+    }
+    Console.println(s"chans $chans")
+     List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList}
+  }
       
-        def getAppStreamIDs(assignment: List[Int]) = {
-          val (loads, absStores) = if (assignment.indexWhere { _ >= loadStreamInfo.size } == -1) (assignment, List[Int]()) // No stores for this channel
-                                else assignment.splitAt(assignment.indexWhere { _ >= loadStreamInfo.size })
-          val stores = absStores.map { _ - loadStreamInfo.size } // Compute indices into stores array
-          (loads, stores)
-        }
+  def getAppStreamIDs(assignment: List[Int]) = {
+    val (loads, absStores) = if (assignment.indexWhere { _ >= loadStreamInfo.size } == -1) (assignment, List[Int]()) // No stores for this channel
+                          else assignment.splitAt(assignment.indexWhere { _ >= loadStreamInfo.size })
+    val stores = absStores.map { _ - loadStreamInfo.size } // Compute indices into stores array
+    (loads, stores)
+  }
       
-          println(s"[Fringe] loadStreamInfo: $loadStreamInfo, storeStreamInfo: )$storeStreamInfo")
+  println(s"[Fringe] loadStreamInfo: $loadStreamInfo, storeStreamInfo: )$storeStreamInfo")
   val numStreams = loadStreamInfo.size + storeStreamInfo.size
   val assignment = getChannelAssignment(numStreams, numChannels)
   val mags = List.tabulate(numChannels) { i =>
