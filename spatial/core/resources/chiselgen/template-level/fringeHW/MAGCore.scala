@@ -90,7 +90,7 @@ class MAGCore(
 
   def packCmd(c: Command): UInt = Cat(c.addr, c.isWr, c.isSparse, c.size)
   def unpackCmd(c: UInt): Command = {
-    val cmd = Wire(new Command(addrWidth, sizeWidth))
+    val cmd = Wire(new Command(addrWidth, sizeWidth, 0))
     val addrStart = c.getWidth - 1
     val isWrStart = addrStart - addrWidth
     val isSparseStart = isWrStart - 1
@@ -102,7 +102,7 @@ class MAGCore(
     cmd
   }
 
-  val headCommand = Wire(new Command(addrWidth, sizeWidth))
+  val headCommand = Wire(new Command(addrWidth, sizeWidth, 0))
   headCommand := unpackCmd(commandFifo.io.deq(0))
 
   commandFifo.io.enq.zip(cmds) foreach {case (enq, cmd) => enq(0) := packCmd(cmd.bits) }
@@ -500,8 +500,14 @@ class MAGCore(
   io.app.stores.zipWithIndex.foreach { case (store, i) =>
     val storeCounter = getCounter(io.enable & store.cmd.valid)
     val storeCounterHandshake = getCounter(io.enable & store.cmd.valid & store.cmd.ready)
+    val lastWaddr = getFF(headCommand.addr, io.enable & store.cmd.valid & store.cmd.ready)
+    val firstSent = RegInit(true.B)
+    firstSent := Mux(io.enable & store.cmd.valid & store.cmd.ready, false.B, firstSent)
+    val firstWaddr = getFF(headCommand.addr, firstSent)
     connectDbgSignal(storeCounter, s"StoreCmds from Accel (valid) $i")
     connectDbgSignal(storeCounterHandshake, s"StoreCmds from Accel (valid & ready) $i")
+    connectDbgSignal(firstWaddr, s"First store cmd addr $i")    
+    connectDbgSignal(lastWaddr, s"Last store cmd addr $i")    
   }
 
   connectDbgSignal(getCounter(respValid), "Num DRAM Responses")

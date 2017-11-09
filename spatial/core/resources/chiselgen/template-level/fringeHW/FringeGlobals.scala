@@ -2,6 +2,12 @@ package fringe
 import java.io.{File, PrintWriter}
 import fringe.bigIP.BigIP
 
+sealed trait ChannelAssignment
+object AllToOne extends ChannelAssignment          // Assign all drams to channel 0
+object BasicRoundRobin extends ChannelAssignment   // Assign dram i to channel i % numChannels
+object ColoredRoundRobin extends ChannelAssignment // Assign dram i to color % numChannels, where color is computed in spatial
+object AdvancedColored extends ChannelAssignment   // Assign dram i to color, based on spatials advanced allocation rules that account for transfer intensity (TODO)
+
 // Some global constants
 object FringeGlobals {
   // BigIP handle
@@ -18,14 +24,14 @@ object FringeGlobals {
   def target = _target
   def target_= (value: String): Unit = {
     bigIP = value match {
-      case "zynq" => new fringeZynq.bigIP.BigIPZynq()
+      case "zynq" | "zcu" => new fringeZynq.bigIP.BigIPZynq()
       case "aws" => new fringeAWS.bigIP.BigIPAWS()
       case "de1soc" => new fringeDE1SoC.bigIP.BigIPDE1SoC()
       case _ => new fringe.bigIP.BigIPSim()
     }
 
     magPipelineDepth = value match {
-      case "zynq" => 0
+      case "zynq" | "zcu" => 0
       case _ => 1
     }
 
@@ -38,6 +44,9 @@ object FringeGlobals {
     pw.flush
     pw
   }
+
+  var channelAssignment: ChannelAssignment = ColoredRoundRobin
+
   def tclScript = _tclScript
   def tclScript_= (value: PrintWriter): Unit = _tclScript = value
 

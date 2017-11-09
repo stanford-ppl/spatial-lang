@@ -450,33 +450,33 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := (${sym}${i}_hops + ${sym}${i}_adjustment).U(${32 min 2*w}.W)""")
               case (Exact(s), _, Exact(st), Exact(p)) => 
-                emit(src"val ${sym}${i}_range =  Utils.getRetimed(${end} - ${start}, 1)")
+                emit(src"val ${sym}${i}_range =  Utils.getRetimed(${end} - ${start}, Utils.fixsub_latency)")
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump.FP(true, 32, 0)")
-                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
-                emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
+                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, Utils.fixeql_latency)")
+                emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), Utils.mux_latency)")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"val ${sym}${i}_range = ${e} - ${s}")
-                emit(src"val ${sym}${i}_jump = Utils.getRetimed(${step} *-* ${p}.S(${w}.W), 1)")
+                emit(src"val ${sym}${i}_jump = ${step} *-* ${p}.S(${w}.W)")
                 emit(src"val ${sym}${i}_hops = (${sym}${i}_range.S(${w}.W) /-/ ${sym}${i}_jump).asUInt")
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range.S(${w}.W) %-% ${sym}${i}_jump")
-                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, 1)")
-                emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
+                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover.asUInt === 0.U, Utils.fixeql_latency)")
+                emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), Utils.mux_latency)")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
               case _ => 
-                emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, 1)")
-                emit(src"val ${sym}${i}_jump = Utils.getRetimed(${step} *-* ${par}, 1)")
+                emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, Utils.fixsub_latency)")
+                emit(src"val ${sym}${i}_jump = ${step} *-* ${par}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
-                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, 1)")
-                emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), 1)")
+                emit(src"val ${sym}${i}_evenfit = Utils.getRetimed(${sym}${i}_leftover === 0.U, Utils.fixeql_latency)")
+                emit(src"val ${sym}${i}_adjustment = Utils.getRetimed(Mux(${sym}${i}_evenfit, 0.U, 1.U), Utils.mux_latency)")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
             }
             // emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, 1).r""")
             src"${swap(src"${sym}_level${i}_iters", Blank)}"
@@ -782,9 +782,10 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""val retime_counter = Module(new SingleCounter(1, Some(0), Some(max_retime), Some(1), Some(0))) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       // emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
       emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset.toBool; retime_counter.io.input.enable := true.B;""")
-      emitGlobalWire(src"""val retime_released = RegInit(false.B)""")
+      emitGlobalWire(src"""val retime_released_reg = RegInit(false.B)""")
+      emitGlobalWire(src"""val retime_released = Utils.getRetimed(retime_released_reg, 1)""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")
-      emit(src"""retime_released := retime_counter.io.output.done """)
+      emit(src"""retime_released := Utils.getRetimed(retime_counter.io.output.done,1) // break up critical path by delaying this """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
       // Emit unit counter for this
@@ -997,6 +998,9 @@ trait ChiselGenController extends ChiselGenCounter{
     }
 
     withStream(getStream("IOModule")) {
+      emit(src"// Root controller for app: ${config.name}")
+      emit(src"// Complete config: ${config.printer()}")
+      emit(src"// Complete spatialConfig: ${spatialConfig.printer()}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
 
