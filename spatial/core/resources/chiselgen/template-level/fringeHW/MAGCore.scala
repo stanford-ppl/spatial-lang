@@ -500,8 +500,14 @@ class MAGCore(
   io.app.stores.zipWithIndex.foreach { case (store, i) =>
     val storeCounter = getCounter(io.enable & store.cmd.valid)
     val storeCounterHandshake = getCounter(io.enable & store.cmd.valid & store.cmd.ready)
+    val lastWaddr = getFF(headCommand.addr, io.enable & store.cmd.valid & store.cmd.ready)
+    val firstSent = RegInit(true.B)
+    firstSent := Mux(io.enable & store.cmd.valid & store.cmd.ready, false.B, firstSent)
+    val firstWaddr = getFF(headCommand.addr, firstSent)
     connectDbgSignal(storeCounter, s"StoreCmds from Accel (valid) $i")
     connectDbgSignal(storeCounterHandshake, s"StoreCmds from Accel (valid & ready) $i")
+    connectDbgSignal(firstWaddr, s"First store cmd addr $i")    
+    connectDbgSignal(lastWaddr, s"Last store cmd addr $i")    
   }
 
   connectDbgSignal(getCounter(respValid), "Num DRAM Responses")
