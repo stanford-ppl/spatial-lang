@@ -98,6 +98,23 @@ class SpatialConfig extends argon.core.Config {
 
   var threads: Int = 8
 
+  override def printer():String = {
+    val vars = this.getClass.getDeclaredFields
+    var cmd = ""
+    for(v <- vars){
+      try { 
+        cmd = cmd + " --" + v.getName() + "=" + v.get(this)
+      } catch {
+        case e: java.lang.IllegalAccessException => 
+          v.setAccessible(true)
+          cmd = cmd + " --" + v.getName() + "=" + v.get(this)
+          v.setAccessible(false)
+        case _: Throwable => 
+      }
+    }
+    cmd
+  }
+
   override def init(): Unit = {
     super.init()
 

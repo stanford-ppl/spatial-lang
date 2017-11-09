@@ -45,6 +45,7 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val switchInsert   = SwitchTransformer(state)
     lazy val switchOptimize = SwitchOptimization(state)
     lazy val unitPipeInsert = UnitPipeTransformer(state)
+    lazy val pipeMerger     = PipeMergerTransformer(state)
     lazy val regCleanup     = RegisterCleanup(state)
     lazy val regReadCSE     = RegReadCSE(state)
     lazy val rewriter       = RewriteTransformer(state)
@@ -227,6 +228,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += initAnalyzer
 
     // --- Post-Unroll Analysis
+    // passes += pipeMerger
     passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
     passes += printer
     passes += bufferAnalyzer    // Set top controllers for n-buffers

@@ -125,6 +125,7 @@ object Arguments {
     77
   )
   val Mem1D = List(
+    4,
     50,
     1024
   )

@@ -28,34 +28,33 @@ class NBufCtr(val stride: Int = 1, val start: Option[Int], val stop: Option[Int]
   })
 
   if (start.isDefined && stop.isDefined) {
-    // TODO: NBufFF still has variable start??? 
-    val cnt = Reg(UInt(width.W))  // Because chisel f***ing broke reg init randomly on 3/7/17, work around
+    val cnt = Wire(UInt(width.W))
 
     val effectiveCnt = Mux(cnt + start.get.U(width.W) >= stop.get.U(width.W), (cnt.asSInt + (start.get-stop.get).S(width.W)).asUInt, cnt + start.get.U(width.W))
 
     val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U(width.W), (stop.get-stride).U(width.W), cnt-stride.U(width.W)), cnt) // TODO: This could be an issue if strided counter is used in reverse
     val nextCntUp = Mux(io.input.enable, Mux(cnt + stride.U(width.W) >= stop.get.U(width.W), 0.U(width.W) + (cnt.asSInt + (stride - stop.get).S(width.W)).asUInt, cnt+stride.U(width.W)), cnt)
-    cnt := Mux(reset.toBool, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown))
+    cnt := Utils.getRetimed(Mux(reset.toBool, 0.U, Mux(io.input.countUp, nextCntUp, nextCntDown)), 1)
 
     io.output.count := effectiveCnt    
   } else if (stop.isDefined) {
-    val cnt = Reg(UInt(width.W))  // Because chisel f***ing broke reg init randomly on 3/7/17, work around
+    val cnt = Wire(UInt(width.W))
 
     val effectiveCnt = Mux(cnt + io.input.start >= stop.get.U(width.W), cnt + io.input.start - stop.get.U(width.W), cnt + io.input.start)
 
     val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U(width.W), (stop.get-stride).U(width.W), cnt-stride.U(width.W)), cnt) // TODO: This could be an issue if strided counter is used in reverse
     val nextCntUp = Mux(io.input.enable, Mux(cnt + stride.U(width.W) >= stop.get.U(width.W), 0.U(width.W) + cnt+stride.U(width.W) - stop.get.U(width.W), cnt+stride.U(width.W)), cnt)
-    cnt := Mux(reset.toBool, 0.U(width.W), Mux(io.input.countUp, nextCntUp, nextCntDown))
+    cnt := Utils.getRetimed(Mux(reset.toBool, 0.U(width.W), Mux(io.input.countUp, nextCntUp, nextCntDown)), 1)
 
     io.output.count := effectiveCnt
   } else {
-    val cnt = Reg(UInt(width.W))  // Because chisel f***ing broke reg init randomly on 3/7/17, work around
+    val cnt = Wire(UInt(width.W))
 
     val effectiveCnt = Mux(cnt + io.input.start >= io.input.stop, cnt + io.input.start - io.input.stop, cnt + io.input.start)
 
     val nextCntDown = Mux(io.input.enable, Mux(cnt === 0.U(width.W), io.input.stop-stride.U(width.W), cnt-stride.U(width.W)), cnt) // TODO: This could be an issue if strided counter is used in reverse
     val nextCntUp = Mux(io.input.enable, Mux(cnt + stride.U(width.W) >= io.input.stop, 0.U(width.W) + cnt+stride.U(width.W) - io.input.stop, cnt+stride.U(width.W)), cnt)
-    cnt := Mux(reset.toBool, 0.U(width.W), Mux(io.input.countUp, nextCntUp, nextCntDown))
+    cnt := Utils.getRetimed(Mux(reset.toBool, 0.U(width.W), Mux(io.input.countUp, nextCntUp, nextCntDown)), 1)
 
     io.output.count := effectiveCnt
   }

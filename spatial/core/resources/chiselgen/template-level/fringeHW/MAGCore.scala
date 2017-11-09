@@ -90,7 +90,7 @@ class MAGCore(
 
   def packCmd(c: Command): UInt = Cat(c.addr, c.isWr, c.isSparse, c.size)
   def unpackCmd(c: UInt): Command = {
-    val cmd = Wire(new Command(addrWidth, sizeWidth))
+    val cmd = Wire(new Command(addrWidth, sizeWidth, 0))
     val addrStart = c.getWidth - 1
     val isWrStart = addrStart - addrWidth
     val isSparseStart = isWrStart - 1
@@ -102,7 +102,7 @@ class MAGCore(
     cmd
   }
 
-  val headCommand = Wire(new Command(addrWidth, sizeWidth))
+  val headCommand = Wire(new Command(addrWidth, sizeWidth, 0))
   headCommand := unpackCmd(commandFifo.io.deq(0))
 
   commandFifo.io.enq.zip(cmds) foreach {case (enq, cmd) => enq(0) := packCmd(cmd.bits) }

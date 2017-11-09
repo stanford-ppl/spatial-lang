@@ -1,5 +1,6 @@
 import gspread
 import sys
+import os
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 
@@ -84,9 +85,13 @@ worksheet.update_cell(tid,col,sys.argv[9])
 
 # Page 8 - Synth time
 worksheet = sh.worksheet('Synth Time') # Select worksheet by index
-worksheet.update_cell(tid,col,sys.argv[10])
+worksheet.update_cell(tid,col,float(sys.argv[10]) / 3600.)
 
 # Page 9 - Timing met
 worksheet = sh.worksheet('Timing Met') # Select worksheet by index
 worksheet.update_cell(tid,col,sys.argv[11])
 
+# Tell last update
+worksheet = sh.worksheet('STATUS')
+worksheet.update_cell(22,3,stamp)
+worksheet.update_cell(22,4,os.uname()[1])
