@@ -504,6 +504,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     dbgs(s"flatStages:$flatStages")
     dbgl(s"addrStages:") { addrStages.foreach { stage => dbgs(s"$stage") } }
 
+    // TODO: change this to be per bank to futher optimize the case when some back can have a single
+    // reader/writer even the entire SRAM might have multiple readers/writers.
     val numAccess = if (isReader(access)) {
       readersOf(mem).size
     } else {
