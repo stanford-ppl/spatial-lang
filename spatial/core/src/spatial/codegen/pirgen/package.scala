@@ -463,10 +463,6 @@ package object pirgen {
     case n => throw new Exception(s"Undefined getInnerPar for ${qdef(n)}")
   }
 
-  def getOuterDims[T](dmem:Expr, list:Seq[T]):Seq[T] = {
-    list.zipWithIndex.filterNot { case (ele, dim) => Some(dim) == innerDimOf.get(compose(dmem)) }.map { _._1 }
-  }
-
   @stateful def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{

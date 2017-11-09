@@ -41,8 +41,20 @@ object readerCUsOf extends MOneToOneMap with MetadataMaps {
 }
 
 object innerDimOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr
+  type K = Expr // SRAM
   type V = Int
+}
+
+object outerDimsOf extends MOneToOneMap with MetadataMaps {
+  type K = Expr // SRAM
+  type V = Seq[Int]
+}
+
+// K: sram Exp
+// V: List of number of outer banks per duplicate
+object numOuterBanksOf extends MOneToOneMap with MetadataMaps {
+  type K = Expr
+  type V = Seq[Int]
 }
 
 object bankOf extends MOneToOneMap with MetadataMaps {
@@ -53,6 +65,12 @@ object bankOf extends MOneToOneMap with MetadataMaps {
 object instOf extends MOneToOneMap with MetadataMaps {
   type K = CUMemory
   type V = Int
+}
+
+// Static analysis of which bank an access belongs to
+object staticBanksOf extends MOneToOneMap with MetadataMaps {
+  type K = Expr 
+  type V = Seq[Int]
 }
 
 /*
