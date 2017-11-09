@@ -27,8 +27,8 @@ case class MemoryTransformer(var IR: State) extends ForwardTransformer {
       }
       SRAM.alloc[T,SRAM5](dims:_*)(typ[T],bits[T],sramType,ctx,state)
   }
-  def loadSRAM[T:Type:Bits](sram: Exp[SRAM[_]], dims: Seq[Exp[Index]], is: Seq[Exp[Index]], en: Exp[Bit])(implicit ctx: SrcCtx): Exp[T] = {
-    SRAM.load(sram.asInstanceOf[Exp[SRAM[T]]],dims,is,FixPt.int32s(0),en)
+  def loadSRAM[T:Type:Bits](sram: Exp[SRAM[_]], addr: Seq[Exp[Index]], en: Exp[Bit])(implicit ctx: SrcCtx): Exp[T] = {
+    SRAM.load(sram.asInstanceOf[Exp[SRAM[T]]], addr, en)
   }
 
   override def transform[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = rhs match {
@@ -38,10 +38,9 @@ case class MemoryTransformer(var IR: State) extends ForwardTransformer {
       transferMetadata(lhs, sram)
       sram.asInstanceOf[Exp[T]] // Actually a lie, but its ok
 
-    case op @ LUTLoad(lut, inds, en) =>
+    case op @ LUTLoad(lut, addr, en) =>
       val sram = f(lut).asInstanceOf[Exp[SRAM[_]]]
-      val dims = stagedDimsOf(sram)
-      val lhs2 = loadSRAM(sram,dims,f(inds),f(en))(op.mT,op.bT,ctx)
+      val lhs2 = loadSRAM(sram,f(addr),f(en))(op.mT,op.bT,ctx)
       transferMetadata(lhs, lhs2)
       lhs2
 

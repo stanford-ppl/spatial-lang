@@ -241,7 +241,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
       case DiagonalMemory => wbundle.addr.reduce{_+_} %-% banks.head.U
       case BankedMemory => 
         val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical %-% b.U }
-       bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
+       bankCoords.zipWithIndex.map{ case (c, i1) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
         // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
     }
 

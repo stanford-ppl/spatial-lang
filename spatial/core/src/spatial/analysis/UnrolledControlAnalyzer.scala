@@ -31,7 +31,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
     globaldata.add(LocalMemories(localMems))
 
     // Eliminate duplicates which no longer have readers as long as at least one duplicate is retained
-    instrument("postprocess") {
+    /*instrument("postprocess") {
       localMems.foreach { mem =>
         val orig = duplicatesOf(mem)
         val inds: Set[Int] = orig.indices.toSet
@@ -83,7 +83,7 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
           }
         }
       }
-    }
+    }*/
 
     instrument.dump(s"#${state.pass-1} $name: ")
 

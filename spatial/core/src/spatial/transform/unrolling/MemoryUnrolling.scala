@@ -19,15 +19,18 @@ trait MemoryUnrolling extends UnrollingBase {
     def address(laneAddr: Seq[Exp[Index]]): Seq[Exp[Index]] = inst.banking.map{_.bankAddress(laneAddr)}
 
     access match {
-      case Def(_:LineBufferEnq[_])  => addr
       // LineBuffers are special in that their first dimension is always implicitly fully banked
-      case Def(_:LineBufferLoad[_]) => addr.map{case row::col => row +: address(col) }
+      case Def(_:LineBufferLoad[_])     => addr.map{case row::col => row +: address(col) }
+      case Def(_:LineBufferColSlice[_]) => addr.map{case row::col => row +: address(col) }
+      case Def(_:LineBufferRowSlice[_]) => addr.map{case row::col => row +: address(col) }
       case _ => addr.map{laneAddr => address(laneAddr) }
     }
   }
 
-  def bankOffset(access: Exp[_], addr: Seq[Seq[Exp[Index]]], inst: Memory, lanes: Unroller): Seq[Exp[Index]] = {
-
+  def bankOffset(mem: Exp[_], access: Exp[_], addr: Seq[Seq[Exp[Index]]], inst: Memory, lanes: Unroller): Seq[Exp[Index]] = {
+    access match {
+      case _ => addr.map{laneAddr => inst.bankOffset(mem, laneAddr) }
+    }
   }
 
   def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean): List[(Exp[_], (List[Int],List[Int]))] = {
@@ -45,10 +48,10 @@ trait MemoryUnrolling extends UnrollingBase {
     mems.groupBy(_._1).mapValues{vs => (vs.map(_._2), vs.map(_._3)) }.toList
   }
 
-  sealed abstract class UnrolledAccess { def s: Exp[_] }
-  case class Read[T](v: Exp[T]) extends UnrolledAccess { def s = v }
-  case class Vec[T](v: Exp[VectorN[T]]) extends UnrolledAccess { def s = v }
-  case class Write(v: Exp[MUnit]) extends UnrolledAccess { def s = v }
+  sealed abstract class UnrolledAccess[T] { def s: Exp[_] }
+  case class Read[T](v: Exp[T]) extends UnrolledAccess[T] { def s = v }
+  case class Vec[T](v: Exp[VectorN[T]]) extends UnrolledAccess[T] { def s = v }
+  case class Write[T](v: Exp[MUnit]) extends UnrolledAccess[T] { def s = v }
 
   def bankedAccess[T:Type:Bits](
     access: Exp[_],
@@ -57,7 +60,7 @@ trait MemoryUnrolling extends UnrollingBase {
     bank:   Option[Seq[Seq[Exp[Index]]]],
     addr:   Option[Seq[Exp[Index]]],
     ens:    Option[Seq[Exp[Bit]]]
-  )(implicit ctx: SrcCtx): UnrolledAccess = access match {
+  )(implicit ctx: SrcCtx): UnrolledAccess[T] = access match {
     case Def(_:FIFODeq[_])          => Vec(FIFO.banked_deq(mem.asInstanceOf[Exp[FIFO[T]]], ens.get))
     case Def(_:FILOPop[_])          => Vec(FILO.banked_pop(mem.asInstanceOf[Exp[FILO[T]]], ens.get))
     case Def(_:LineBufferLoad[_])   => Vec(LineBuffer.banked_load(mem.asInstanceOf[Exp[LineBuffer[T]]],bank.get,addr.get,ens.get))
@@ -66,17 +69,17 @@ trait MemoryUnrolling extends UnrollingBase {
     case Def(_:SRAMLoad[_])         => Vec(SRAM.banked_load(mem.asInstanceOf[Exp[SRAM[T]]], bank.get, addr.get, ens.get))
     case Def(_:StreamRead[_])       => Vec(StreamIn.banked_read(mem.asInstanceOf[Exp[StreamIn[T]]], ens.get))
 
-    case Def(_:BufferedOutWrite[_]) => Write(BufferedOut.banked_write(mem.asInstanceOf[Exp[BufferedOut[T]]], data.get, bank.get, addr.get, ens.get))
-    case Def(_:FIFOEnq[_])          => Write(FIFO.banked_enq(mem.asInstanceOf[Exp[FIFO[T]]], data.get, ens.get))
-    case Def(_:FILOPush[_])         => Write(FILO.banked_push(mem.asInstanceOf[Exp[FILO[T]]], data.get, ens.get))
-    case Def(_:RegFileStore[_])     => Write(RegFile.banked_store(mem.asInstanceOf[Exp[RegFile[T]]], data.get, bank.get, addr.get, ens.get))
-    case Def(_:SRAMStore[_])        => Write(SRAM.banked_store(mem.asInstanceOf[Exp[SRAM[T]]], data.get, bank.get, addr.get, ens.get))
-    case Def(_:StreamWrite[_])      => Write(StreamOut.banked_write(mem.asInstanceOf[Exp[StreamOut[T]]], data.get, ens.get))
+    case Def(_:BufferedOutWrite[_]) => Write[T](BufferedOut.banked_write(mem.asInstanceOf[Exp[BufferedOut[T]]], data.get, bank.get, addr.get, ens.get))
+    case Def(_:FIFOEnq[_])          => Write[T](FIFO.banked_enq(mem.asInstanceOf[Exp[FIFO[T]]], data.get, ens.get))
+    case Def(_:FILOPush[_])         => Write[T](FILO.banked_push(mem.asInstanceOf[Exp[FILO[T]]], data.get, ens.get))
+    case Def(_:LineBufferEnq[_])    => Write[T](LineBuffer.banked_enq(mem.asInstanceOf[Exp[LineBuffer[T]]],data.get,ens.get))
+    case Def(_:RegFileStore[_])     => Write[T](RegFile.banked_store(mem.asInstanceOf[Exp[RegFile[T]]], data.get, bank.get, addr.get, ens.get))
+    case Def(_:SRAMStore[_])        => Write[T](SRAM.banked_store(mem.asInstanceOf[Exp[SRAM[T]]], data.get, bank.get, addr.get, ens.get))
+    case Def(_:StreamWrite[_])      => Write[T](StreamOut.banked_write(mem.asInstanceOf[Exp[StreamOut[T]]], data.get, ens.get))
 
-    case Def(_:LineBufferEnq[_])    => Write(LineBuffer.banked_enq(mem.asInstanceOf[Exp[LineBuffer[T]]],data.get,ens.get))
 
     case Def(_:RegRead[_])          => Read(Reg.read(mem.asInstanceOf[Exp[Reg[T]]]))
-    case Def(_:RegWrite[_])         => Write(Reg.write(mem.asInstanceOf[Exp[Reg[T]]],data.get.head, ens.get.head))
+    case Def(_:RegWrite[_])         => Write[T](Reg.write(mem.asInstanceOf[Exp[Reg[T]]],data.get.head, ens.get.head))
 
     // Special case rotateEnq because I'm lazy and don't want to duplicate unrolling code just for this one node
     case Def(_:LineBufferRotateEnq[_]) =>
@@ -104,20 +107,46 @@ trait MemoryUnrolling extends UnrollingBase {
 
     mems.flatMap{case (mem2,(dps,lns)) =>
       val ens   = en.map{e => lanes.inLanes(lns){_ => Bit.and(f(e),globalValid()) }}
-      val data2 = data.map{d => lanes.inLanes(lns){_ => f(d) } }
-      val inst = duplicatesOf(mem2).head
-      val addr2 = addr.map{a => lanes.inLanes(lns){_ => f(a) } }
+      val inst  = duplicatesOf(mem2).head
+      val addrOpt = addr.map{a =>
+        val a2 = lanes.inLanes(lns){p => (f(a),p) }                   // lanes of ND addresses
+        val distinct = a2.groupBy(_._1).mapValues(_.map(_._2)).toSeq  // ND address -> lane IDs
+        val addr: Seq[Seq[Exp[Index]]] = distinct.map(_._1)           // Vector of ND addresses
+        val take: Seq[Int] = distinct.map(_._2.last)                  // Last index of each distinct address
+        val mapping: Map[Int,Int] = distinct.zipWithIndex.flatMap{case (entry,aId) => entry._2.map{laneId => laneId -> aId }}.toMap
+        (addr, take, mapping)
+      }
+      val addr2   = addrOpt.map(_._1)                        // Vector of ND addresses
+      val take    = addrOpt.map(_._2).getOrElse(lns.indices) // List of lanes which do not require broadcast
+      val addrMap = addrOpt.map(_._3)                        // Lane -> vector ID
+      def vecLength: Int = addr2.map(_.length).getOrElse(lns.length)
+      def laneToVecAddr(lane: Int): Int = addrMap.map(_.apply(lane)).getOrElse(lns.indexOf(lane))
+
+      // Writing two different values to the same address currently just writes the last value
+      // TODO: Fix for time multiplexed case. How to represent this?
+      val data2 = data.map{d =>
+        val d2 = lanes.inLanes(lns){_ => f(d) }
+        take.map{t => d2(t) }
+      }
+
       val bank  = addr2.map{a => bankAddress(access,a,inst,lanes) }
-      val ofs   = addr2.map{a => bankOffset(access,a,inst,lanes) }
+      val ofs   = addr2.map{a => bankOffset(mem,access,a,inst,lanes) }
+      val ports = dps.flatMap{d => portsOf(access, mem, d) }.toSet
+
       val banked = bankedAccess[T](access,mem,data2,bank,ofs,ens)
-      val ports  = dps.flatMap{d => portsOf(access, mem, d) }.toSet
 
       portsOf(banked.s,mem2,0) = ports
 
       dbgs(s"  ${str(banked.s)}"); strMeta(banked.s)
 
       banked match{
-        case Vec(vec)     => lanes.splitLanes(lns)(access,vec)
+        case Vec(vec) =>
+          val elems = take.indices.map{i => Vector.select[T](vec, i) }
+          lanes.inLanes(lns){p =>
+            val elem = elems(laneToVecAddr(p))
+            register(access -> elem)
+            elem
+          }
         case Read(v)      => lanes.unifyLanes(lns)(access,v)
         case Write(write) => lanes.unifyLanes(lns)(access,write)
       }
@@ -135,6 +164,10 @@ trait MemoryUnrolling extends UnrollingBase {
     mem:   Exp[_],
     lanes: Unroller
   )(implicit ctx: SrcCtx): List[Exp[_]] = {
+    if (duplicatesOf(mem).length > 1) {
+      warn(lhs.ctx, "Unrolling a status check node on a duplicated memory. Behavior is undefined.")
+      warn(lhs.ctx)
+    }
     lanes.map{p => withSubstScope(mem -> memories((mem,0)) ) { cloneOp(lhs, rhs) } }
   }
 

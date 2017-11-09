@@ -180,15 +180,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def appendResetter(resetter: Exp[_], ctrl: Ctrl) = instrument("appendResetter"){
-    val LocalResetter(resetters) = resetter
-    resetters.foreach{case (mem,en) =>
-      val access = (resetter, ctrl)
+    val LocalResetter(rst) = resetter
+    val (mem,en) = rst
+    val access = (resetter, ctrl)
+    
+    if (!resettersOf(mem).contains(access))
+      resettersOf(mem) = access +: resettersOf(mem)
 
-      if (!resettersOf(mem).contains(access))
-        resettersOf(mem) = access +: resettersOf(mem)
-
-      dbgs(c"  Added resetter $resetter of $mem in $ctrl")
-    }
+    dbgs(c"  Added resetter $resetter of $mem in $ctrl")
   }
 
   def addResetter(resetter: Exp[_], ctrl: Ctrl) = instrument("addResetter"){

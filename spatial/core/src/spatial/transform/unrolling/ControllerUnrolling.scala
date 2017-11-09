@@ -1,6 +1,5 @@
 package spatial.transform.unrolling
 
-import argon.analysis._
 import argon.core._
 import argon.nodes._
 import spatial.aliases._

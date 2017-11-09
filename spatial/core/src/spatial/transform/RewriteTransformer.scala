@@ -45,7 +45,7 @@ case class RewriteTransformer(var IR: State) extends ForwardTransformer{
         val data = BitOps.dataAsBitVector(wrap(x))
         val range = (log2(y.toDouble)-1).toInt :: 0  //Range.alloc(None, FixPt.int32(log2(y.toDouble) - 1),None,None)
         val selected = data.apply(range)
-        implicit val vT = VectorN.typeFromLen[Bit](selected.width)
+        implicit val vT: Type[VectorN[Bit]] = VectorN.typeFromLen[Bit](selected.width)
         BitOps.bitVectorAsData[FixPt[S,I,F]](selected, enWarn = false).s
       }
       selectMod(f(x), y.toDouble)(op.mS,op.mI,op.mF).asInstanceOf[Exp[T]]

@@ -27,10 +27,12 @@ object Affine {
 
 /**
   * Abstract class for any banking strategy
-  * (Currently, the only strategy is mod banking)
+  * (Currently, the only strategy is (possibly hierarchical) mod banking)
   */
 sealed abstract class Banking {
   def nBanks: Int
+  def stride: Int
+  def dims: Seq[Int]
   @internal def bankAddress(ndAddr: Seq[Exp[Index]]): Exp[Index]
 }
 
@@ -39,6 +41,7 @@ sealed abstract class Banking {
   */
 case class ModBanking(N: Int, B: Int, alpha: Seq[Int], dims: Seq[Int]) extends Banking {
   override def nBanks: Int = N
+  override def stride: Int = B
 
   @internal def bankAddress(ndAddr: Seq[Exp[Index]]): Exp[Index] = {
     val mults = alpha.zip(dims).map{case (a,dim) => wrap(ndAddr(dim))*a }
@@ -82,7 +85,22 @@ case class Memory(
   banking: Seq[Banking],  // Banking information
   depth:   Int,           // Buffer depth
   isAccum: Boolean        // Flags whether this instance is an accumulator
-)
+) {
+  @internal def bankOffset(mem: Exp[_], addr: Seq[Exp[Index]]): Exp[Index] = {
+    val w = constDimsOf(mem)
+    val d = w.length
+
+    val n = banking.map(_.nBanks).product
+    val b = banking.find(_.dims.contains(d-1)).map(_.stride).getOrElse(1)
+
+    // TODO: Need to confirm correctness for non-flat case
+    spatial.lang.Math.sumTree((0 until d).map{t =>
+      val xt = wrap(addr(t))
+      if (t < d - 1) { xt * (w.slice(t+1,d-2).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
+      else           { (xt / (n*b)) * b + xt % b }
+    }).s
+  }
+}
 
 
 /**

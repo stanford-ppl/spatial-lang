@@ -16,6 +16,80 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   protected val dims: Seq[Int] = constDimsOf(mem)
   protected val lastIndex: HashMap[Exp[Index],Exp[Index]] = new HashMap[Exp[Index],Exp[Index]]
   protected val inVector: HashSet[Exp[Index]] = new HashSet[Exp[Index]]
+  protected val unrolledRand= new HashMap[Exp[Index],Map[Seq[Int],Exp[Index]]]
+
+  def unrolledRandomAddresses(access: Access, x: Option[Exp[Index]]): (Map[Seq[Int],Exp[Index]], Int) = {
+    val is = x match {
+      case Some(addr) => iteratorsBetween(ctrlOf(addr), ctrlOf(mem))
+      case None       => iteratorsBetween(access, ctrlOf(mem))
+    }
+    if (x.isDefined && unrolledRand.contains(x.get)) {
+      val map = unrolledRand(x.get)
+      (map, is.length)
+    }
+    else {
+      val ps = is.map{i => parFactorOf(i).toInt }
+      val ndims = is.length
+      val prods = List.tabulate(ndims){i => ps.slice(i+1,ndims).product }
+      val total = ps.product
+      val xs = Seq.tabulate(total){ x =>
+        val id = Seq.tabulate(ndims){ d => (x / prods(d)) % ps(d) }
+        id -> fresh[Index]  // TODO: Annoying to have to call fresh here..
+      }.toMap
+      x.foreach{x => unrolledRand += x -> xs }
+      (xs, is.length)
+    }
+  }
+
+  /**
+    * Convert this compact access matrix to multiple unrolled access matrices
+    * by simulating loop parallelization/unrolling
+    */
+  def unroll(matrix: CompactMatrix, indices: Seq[Exp[Index]]): Seq[AccessMatrix] = {
+    val is = iteratorsBetween(matrix.access, ctrlOf(mem))
+    val ps = is.map{i => parFactorOf(i).toInt }
+
+    val ndims = is.length
+    val prods = List.tabulate(ndims){i => ps.slice(i+1,ndims).product }
+    val total = ps.product
+
+    def expand(vector: AccessVector, id: Seq[Int]): AccessVector = vector match {
+      case RandomVector(_,uroll,len) =>
+        val xp = uroll.apply(id.take(len))
+        RandomVector(Some(xp),uroll,len)
+
+      // Note that there's three sets of iterators here:
+      //  is      - iterators defined between the memory and this access
+      //  inds    - iterators used by this affine access
+      //  indices - iterators used by ALL accesses to this memory
+      case AffineVector(as,inds,b) =>
+        val unrolled = indices.map{i =>
+          val idxAccess = inds.indexOf(i)
+          val idxHierarchy = is.indexOf(i)
+          val a_orig = if (idxAccess >= 0) as(idxAccess) else 0
+          val p = if (idxHierarchy >= 0) ps(idxHierarchy) else 0
+          val n = if (idxHierarchy >= 0) id(idxHierarchy) else 0
+          val a = a_orig*p
+          val b_i = a_orig*n
+          (a, b_i)
+        }
+        val as2 = unrolled.map(_._1).toArray
+        val b2 = unrolled.map(_._2).sum + b
+        AffineVector(as2,inds,b2)
+    }
+
+    // Fake unrolling
+    // e.g. change 2i + 3 with par(i) = 2 into
+    // 4i + 0*2 + 3 = 4i + 3
+    // 4i + 1*2 + 3 = 4i + 5
+    Seq.tabulate(total){x =>
+      val id = Seq.tabulate(ndims){d => (x / prods(d)) % ps(d) }
+      val uvectors = matrix.vectors.map{vector => expand(vector, id) }
+      val unrollId = id ++ matrix.vecId
+      AccessMatrix(uvectors, matrix.access, indices, unrollId)
+    }
+  }
+
 
   def configure(): Unit = {
     dbg("")
@@ -94,9 +168,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Attempt to find the minimum and maximum value for each counter index, allowing
     * for the min/max to be affine functions of other counter values.
     * If the function is not analyzable, assume Int.min or Int.max for min and max, respectively.
+    *
+    * TODO: The bounds logic should eventually be moved elsewhere (to ScalarAnalyzer)?
     */
   def getIterDomain(indices: Seq[Exp[Index]]): Array[(Array[Int],Int)] = indices.zipWithIndex.flatMap{case (i,iIdx) =>
-    def sparseBound(i: Option[IndexPattern], default: Int) = i match {
+    def sparseBound(i: Option[IndexPattern], default: Int): AffineVector = i match {
       case Some(Affine(as,is,b)) => AffineVector(as,is,b).remap(indices)
       case _ => AffineVector(Array.empty,Nil,default).remap(indices)
     }
@@ -111,7 +187,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val minA = min.as.zipWithIndex.map{case (x,d) => if (d == iIdx) 1 else -x}
     val minC = -min.b
     // a0*i0 + ... + aN*iN + b >= iX  |->  a0*i0 + ... + -iX + ... + aN*iN + b >= 0
-    val maxA = max.as.zipWithIndex.map{case (x,d) => if (d == iIdx) -1 else x}
+    val maxA = max.as; maxA(iIdx) = -1
     val maxC = max.b
     Seq((minA, minC), (maxA, maxC))
   }.toArray
@@ -165,32 +241,37 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     reachingWrites
   }
 
-  def indexPatternToAccessVector(addr: Option[Exp[Index]], pattern: IndexPattern, isVecOfs: Boolean): AccessVector = pattern match {
+  /**
+    * Converts a 1-dimensional partial access with optional address `addr` to an AccessVector
+    * Simulates unrolling for random accesses to model each distinct random access as an "iterator"
+    */
+  def indexPatternToAccessVector(access: Access, addr: Option[Exp[Index]], pattern: IndexPattern, isVecOfs: Boolean): AccessVector = pattern match {
     case Affine(as, is, b)  => AffineVector(as, is, b)
     case _ =>
       addr.foreach{a => lastIndex += a -> pattern.lastIndex }
       if (isVecOfs) addr.foreach{a => inVector += a }
-      RandomVector(addr)
+      val (uroll,len) = unrolledRandomAddresses(access, addr)
+      RandomVector(addr,uroll,len)
   }
 
   def accessPatternToCompactMatrix(access: Access, addr: Option[Seq[Exp[Index]]]): Seq[CompactMatrix] = {
     val vectors = accessPatternOf(access.node).zipWithIndex.map { case (pattern, i) =>
-      indexPatternToAccessVector(addr.map(_.apply(i)), pattern, isVecOfs = false)
+      indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = false)
     }
-    Seq(CompactMatrix(vectors.toArray, access))
+    Seq(CompactMatrix(vectors.toArray, access, None))
   }
 
   /**
     * Return the access pattern of this access as one or more CompactMatrices
     */
   def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
-    case Def(d: VectorAccess[_])  => //accessPatternToCompactMatrix(access, d.address, d.dim)
+    case Def(d: VectorAccess[_]) =>
       Seq.tabulate(d.accessWidth){ vecId =>
         val addr = d.address
         val vectors = accessPatternOf(access.node).zipWithIndex.map { case (pattern, i) =>
-          indexPatternToAccessVector(addr.map(_.apply(i)), pattern, isVecOfs = i == d.dim)
+          indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = i == d.dim)
         }
-        CompactMatrix(vectors.toArray, access, vecId)
+        CompactMatrix(vectors.toArray, access, Some(vecId))
       }
 
     case Def(d: EnabledAccess[_]) => accessPatternToCompactMatrix(access, d.address)
@@ -222,7 +303,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         val is = iteratorsBetween(access, (parentOf(mem).get,-1))
         val ps = is.map{i => parFactorOf(i).toInt }
         val as = Array.tabulate(is.length){i => ps.drop(i + 1).product }
-        CompactMatrix(Array(AffineVector(as, is, 0)), access)
+        CompactMatrix(Array(AffineVector(as, is, 0)), access, None)
       }
 
       val readVectors = readers.map(createVector)
@@ -245,8 +326,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val indices = (readDenseVectors ++ writeDenseVectors).flatMap(_.indices).distinct.sortBy{case s:Dyn[_] => s.id}
 
     val domain = getIterDomain(indices)
-    val readMatrices = readDenseVectors.flatMap{_.unroll(mem, indices) }
-    val writeMatrices = writeDenseVectors.flatMap{_.unroll(mem, indices) }
+    val readMatrices = readDenseVectors.flatMap{mat => unroll(mat, indices) }
+    val writeMatrices = writeDenseVectors.flatMap{mat => unroll(mat, indices) }
 
     (readMatrices, writeMatrices, domain)
   }

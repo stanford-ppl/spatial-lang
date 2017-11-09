@@ -54,7 +54,7 @@ trait StreamAnalyzer extends CompilerPass {
       streamParEnqs.foreach { pe => 
         dbg(u"  Attempting to match enq/store $pe (inside ctrl ${parentOf(pe).get} to $candidate)")
         pe match {
-          case Def(ParFIFOEnq(fifo, data, ens)) => 
+          case Def(BankedFIFOEnq(fifo, data, ens)) =>
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(fifo) = List(candidate)
               dbg(u"    It's a match! $fifo fifo to ctrl $candidate")
@@ -64,7 +64,7 @@ trait StreamAnalyzer extends CompilerPass {
               loadCtrlOf(fifo) = List(candidate)
               dbg(u"    It's a match! $fifo fifo to ctrl $candidate")
             }
-          case Def(ParFILOPush(filo, data, ens)) => 
+          case Def(BankedFILOPush(filo, data, ens)) =>
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(filo) = List(candidate)
               dbg(u"    It's a match! $filo filo to ctrl $candidate")
@@ -74,12 +74,12 @@ trait StreamAnalyzer extends CompilerPass {
               loadCtrlOf(filo) = List(candidate)
               dbg(u"    It's a match! $filo filo to ctrl $candidate")
             }
-          case Def(ParSRAMStore(sram,inds,data,ens)) => 
+          case Def(BankedSRAMStore(sram,data,bank,addr,ens)) =>
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(sram) = List(candidate)
               dbg(u"    It's a match! $sram sram to ctrl $candidate")
             }
-          case Def(SRAMStore(sram, dims, is, ofs, v, en)) => 
+          case Def(SRAMStore(sram,data,addr,en)) =>
             if (s"${parentOf(pe).get}" == s"$candidate") {
               loadCtrlOf(sram) = List(candidate)
               dbg(u"    It's a match! $sram sram to ctrl $candidate")
@@ -97,11 +97,11 @@ trait StreamAnalyzer extends CompilerPass {
       streamEnablers.foreach{ deq => // Once fifo ens 
         val fifo = deq match {
             case Def(FIFODeq(stream,en)) => stream
-            case Def(ParFIFODeq(stream,en)) => stream
+            case Def(BankedFIFODeq(stream,en)) => stream
             case Def(FILOPop(stream,en)) => stream
-            case Def(ParFILOPop(stream,en)) => stream
+            case Def(BankedFILOPop(stream,en)) => stream
             case Def(StreamRead(stream,en)) => stream
-            case Def(ParStreamRead(stream,en)) => stream
+            case Def(BankedStreamRead(stream,en)) => stream
             case Def(DecoderTemplateNew(popFrom, _)) => popFrom
             case Def(DMATemplateNew(popFrom, _)) => popFrom
         } 
@@ -123,11 +123,11 @@ trait StreamAnalyzer extends CompilerPass {
       streamHolders.foreach{ enq => // Once fifo ens 
         val fifo = enq match {
             case Def(FIFOEnq(stream,en,_)) => stream
-            case Def(ParFIFOEnq(stream,en,_)) => stream
+            case Def(BankedFIFOEnq(stream,en,_)) => stream
             case Def(FILOPush(stream,en,_)) => stream
-            case Def(ParFILOPush(stream,en,_)) => stream
+            case Def(BankedFILOPush(stream,en,_)) => stream
             case Def(StreamWrite(stream,en,_)) => stream
-            case Def(ParStreamWrite(stream,en,_)) => stream
+            case Def(BankedStreamWrite(stream,en,_)) => stream
             case Def(BufferedOutWrite(buffer,_,_,_)) => buffer
             case Def(DecoderTemplateNew(_, pushTo)) => pushTo
         } 

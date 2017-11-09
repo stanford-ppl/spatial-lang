@@ -80,8 +80,8 @@ trait ScalarAnalyzer extends SpatialTraversal {
     case FixDiv(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a / b + (if ( (a mod b) > 0) 1 else 0))
 
-
     case FixSub(Def(FixAdd(Def(FixConvert(b)), Bounded(x))), a) if a == b => boundOf(lhs) = x
+
     case _ =>
   }
 

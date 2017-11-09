@@ -3,7 +3,7 @@ package spatial.analysis
 import argon.core._
 import argon.traversal.CompilerPass
 import spatial.aliases._
-import spatial.metadata._
+import spatial.banking._
 
 import scala.language.existentials
 
@@ -27,11 +27,9 @@ case class MemoryReporter(var IR: State, localMems: () => Seq[Exp[_]]) extends C
         dbg(c"Duplicates: ${duplicates.length}")
         dbg(c"Area: " + area.toString)
         duplicates.zipWithIndex.foreach{
-          case (BankedMemory(banking, depth, _), i) =>
-            val banks = banking.map(_.banks).mkString(", ")
-            dbg(c"  #$i: Banked. Banks: ($banks), Depth: $depth")
-          case (DiagonalMemory(strides,banks,depth,_), i) =>
-            dbg(c"  #$i: Diagonal. Banks: $banks, Depth: $depth")
+          case (Memory(banking,depth,isAccum),id) =>
+            dbg(c"  #$id: Depth: $depth, isAccum: $isAccum")
+            banking.foreach{bank => dbg(c"    $bank") }
         }
         dbg("")
         dbg("")
