@@ -81,15 +81,15 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
       emitGlobalWire(src"${swap(lhs, Valid)} := ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
-        case Def(e@ParStreamWrite(_, data, ens)) => 
+        case Def(BankedStreamWrite(_, data, ens)) =>
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${ens.length*writersOf(lhs).length}, ${newWire(data.head.tp)}))")
-          emitGlobalWire(src"""val ${lhs} = Vec((0 until ${ens.length}).map{i => 
+          emitGlobalWire(src"""val $lhs = Vec((0 until ${ens.length}).map{i =>
             val ${lhs}_slice_options = (0 until ${writersOf(lhs).length}).map{j => ${swap(lhs, DataOptions)}(i*${writersOf(lhs).length}+j)}
             Mux1H(${swap(lhs, ValidOptions)}, ${lhs}_slice_options)
           }.toList)""")
         case Def(e@StreamWrite(_, data, _)) => 
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))", forceful = true)
-          emitGlobalWire(src"val ${lhs} = Mux1H(${swap(lhs, ValidOptions)}, ${swap(lhs, DataOptions)})", forceful = true)
+          emitGlobalWire(src"val $lhs = Mux1H(${swap(lhs, ValidOptions)}, ${swap(lhs, DataOptions)})", forceful = true)
       }
 
       emitGlobalWireMap(src"${lhs}_ready", "Wire(Bool())", forceful = true)
@@ -184,6 +184,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         }
       }
 
+    // TODO: This can be removed and merged with BankedStreamRead
     case StreamRead(stream, en) =>
       val isAck = stream match {
         case Def(StreamInNew(bus)) => bus match {
@@ -223,6 +224,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         emit(src"""// read is of burstAck on $stream""")
       }
 
+    // TODO: This can be removed and merged with BankedStreamWrite
     case StreamWrite(stream, data, en) =>
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
@@ -238,11 +240,8 @@ trait ChiselGenStream extends ChiselGenSRAM {
               // emit(src"""${stream} := $data""")
               // emit(src"""converted_data := ${stream}""")
               val sources = lhs.collectDeps{case Def(StreamRead(strm,_)) => strm}
-              sources.find{ _ match {
-                case Def(StreamInNew(strm)) => 
-                  strm == VideoCamera
-              }}
-              if (sources.length > 0) {
+              sources.find{case Def(StreamInNew(strm)) => strm == VideoCamera }
+              if (sources.nonEmpty) {
                 emit(src"""stream_out_startofpacket := io.stream_in_startofpacket""")
                 emit(src"""stream_out_endofpacket := io.stream_in_endofpacket""")                
               } else {
@@ -279,24 +278,97 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""io.genericStreams.outs($id).valid := ${swap(stream, Valid)}""")
         }
       }
+
+
+
+    case BankedStreamRead(strm, ens) =>
+      val parent = parentOf(lhs).get
+      emit(src"""val ${lhs}_rId = getStreamInLane("$strm")""")
+      strm match {
+        case Def(StreamInNew(bus)) => bus match {
+          case VideoCamera =>
+            emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
+            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${swap(parent, Retime)}, rr) """)
+          case SliderSwitch =>
+            emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
+          case _ =>
+            val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
+              case Def(StreamInNew(bus)) => bus match {
+                case BurstAckBus => true
+                case ScatterAckBus => true
+                case _ => false
+              }
+              case _ => false
+            }
+            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
+            // if (!isAck) {
+            //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
+            emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
+          // } else {
+          //   emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
+          // }
+
+
+        }
+      }
+
+
+    case BankedStreamWrite(stream, data, ens) =>
+      //val par = ens.length
+      val parent = parentOf(lhs).get
+      val datacsv = data.map{d => src"${d}"}.mkString(",")
+      val en = ens.map(quote).mkString("&")
+
+      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*-*${ens.length}""")
+      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
+      ens.indices.foreach{i => emit(src"""${swap(stream, DataOptions)}(${lhs}_wId + ${i}) := ${data(i)}""")}
+      // emit(src"""${stream} := Vec(List(${datacsv}))""")
+
+      stream match {
+        case Def(StreamOutNew(bus)) => bus match {
+          case VGA =>
+            emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
+            // emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
+            // emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+            emitGlobalWireMap(src"""stream_out_startofpacket""", """Wire(Bool())""")
+            emitGlobalWireMap(src"""stream_out_endofpacket""", """Wire(Bool())""")
+            emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
+            emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
+            emit(src"""// emiiting data for stream ${stream}""")
+          // emit(src"""${stream} := ${data.head}""")
+          // emit(src"""converted_data := ${stream}""")
+          // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})""")
+          case LEDR =>
+          // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+          //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
+          // emit(src"""${stream} := $data""")
+          // emit(src"""io.led_stream_out_data := ${stream}""")
+          case _ =>
+          // val datacsv = data.map{d => src"${d}"}.mkString(",")
+          // val en = ens.map(quote).mkString("&")
+          // emit(src"${stream} := Vec(List(${datacsv}))")
+          // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
+        }
+      }
+
     case _ => super.emitNode(lhs, rhs)
   }
 
   override protected def emitFileFooter() {
 
-    val insList = (0 until streamIns.length).map{ i => s"StreamParInfo(32, 1)" }.mkString(",")
-    val outsList = (0 until streamOuts.length).map{ i => s"StreamParInfo(32, 1)" }.mkString(",")
+    val insList  = streamIns.indices.map{ i => s"StreamParInfo(32, 1)" }.mkString(",")
+    val outsList = streamOuts.indices.map{ i => s"StreamParInfo(32, 1)" }.mkString(",")
 
     withStream(getStream("IOModule")) {
       emit(src"// Non-memory Streams")
-      emit(s"""val io_streamInsInfo = List(${insList})""")
-      emit(s"""val io_streamOutsInfo = List(${outsList})""")
+      emit(s"""val io_streamInsInfo = List($insList)""")
+      emit(s"""val io_streamOutsInfo = List($outsList)""")
     }
 
     withStream(getStream("Instantiator")) {
       emit(src"// Non-memory Streams")
-      emit(s"""val streamInsInfo = List(${insList})""")
-      emit(s"""val streamOutsInfo = List(${outsList})""")
+      emit(s"""val streamInsInfo = List($insList)""")
+      emit(s"""val streamOutsInfo = List($outsList)""")
     }
 
     super.emitFileFooter()

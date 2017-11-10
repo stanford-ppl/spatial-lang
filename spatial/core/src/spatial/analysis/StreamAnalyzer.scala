@@ -10,14 +10,7 @@ import spatial.utils._
 trait StreamAnalyzer extends CompilerPass {
   override val name = "Stream Analyzer"
 
-  protected def getLastChild(lhs: Exp[_]): Exp[_] = {
-    var nextLevel = childrenOf(lhs)
-    if (nextLevel.isEmpty) {
-      lhs
-    } else {
-      getLastChild(nextLevel.last)
-    }
-  }
+  protected def getLastChild(lhs: Exp[_]): Exp[_] = childrenOf(lhs).lastOption.map(getLastChild).getOrElse(lhs)
 
   def streamPipes: Seq[Exp[_]]
   def streamLoadCtrls: Seq[Exp[_]] // List of all FringeDenseLoad nodes

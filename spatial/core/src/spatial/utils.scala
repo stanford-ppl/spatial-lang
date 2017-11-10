@@ -450,9 +450,13 @@ object utils {
   @stateful def hasMultipleReaders(mem: Exp[_]): Boolean = readersOf(mem).length > 1
   @stateful def hasMultipleWriters(mem: Exp[_]): Boolean = writersOf(mem).length > 1
 
-  @stateful def maxAccessWidth(accesses: Seq[Access]): Int = (1 +: accesses.collect{
+  @stateful def accessWidths(accesses: Seq[Access]): Seq[Int] = accesses.collect{
     case (Def(op: EnabledAccess[_]),_) => op.accessWidth
-  }).max
+  }
+  @stateful def readWidths(mem: Exp[_]): Seq[Int] = accessWidths(readersOf(mem))
+  @stateful def writeWidths(mem: Exp[_]): Seq[Int] = accessWidths(writersOf(mem))
+
+  @stateful def maxAccessWidth(accesses: Seq[Access]): Int = (1 +: accessWidths(accesses)).max
   @stateful def maxReadWidth(mem: Exp[_]): Int = maxAccessWidth(readersOf(mem))
   @stateful def maxWriteWidth(mem: Exp[_]): Int = maxAccessWidth(writersOf(mem))
 

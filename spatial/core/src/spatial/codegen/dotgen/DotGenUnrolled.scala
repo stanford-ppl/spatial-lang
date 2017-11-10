@@ -30,17 +30,12 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
 
       case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
 
-      case ParSRAMLoad(sram, inds, ens) => emitMemRead(lhs)
-
-      case ParSRAMStore(sram,inds,data,ens) => emitMemWrite(lhs)
-
-      case ParFIFODeq(fifo, ens) => emitMemRead(lhs)
-
-      case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
-
-      case ParStreamRead(strm, ens) => emitMemRead(lhs)
-
-      case ParStreamWrite(strm, data, ens) => emitMemWrite(lhs)
+      case op: BankedSRAMLoad[_]   => emitMemRead(lhs)
+      case op: BankedSRAMStore[_]  => emitMemWrite(lhs)
+      case op: BankedFIFODeq[_]    => emitMemRead(lhs)
+      case op: BankedFIFOEnq[_]    => emitMemWrite(lhs)
+      case op: BankedStreamRead[_] => emitMemRead(lhs)
+      case op: BankedStreamWrite[_] => emitMemWrite(lhs)
 
       case _ => super.emitNode(lhs, rhs)
     }    
@@ -61,31 +56,32 @@ trait DotGenUnrolled extends DotCodegen with DotGenReg {
           rhs.blocks.foreach(emitBlock) 
         }
 
-      case ParSRAMLoad(sram, inds, ens) => 
+      case BankedSRAMLoad(sram, bank, ofs, ens) =>
         emitVert(lhs)
         emitEdge(sram, lhs)
-        inds.foreach{ ind => ind.foreach{ a => emitEdge(a, sram) }}
-        ens.foreach{ a => emitEn(a,lhs) }
+        bank.foreach{ind => ind.foreach{ a => emitEdge(a, sram) }}
+        ofs.foreach{o => emitEdge(o, sram) }
+        ens.foreach{a => emitEn(a,lhs) }
 
-      case ParSRAMStore(sram,inds,data,ens) => 
+      case BankedSRAMStore(sram,data,bank,ofs,ens) =>
         data.foreach{ a => emitVert(a); emitEdge(a, sram)}
         ens.foreach{ a => emitVert(a); emitEn(a, sram)}
-        inds.foreach{ ind => ind.foreach{ a => emitEdge(a, sram) }}
+        bank.foreach{ind => ind.foreach{ a => emitEdge(a, sram) }}
+        ofs.foreach{o => emitEdge(o,sram) }
 
 
-      case ParFIFODeq(fifo, ens) => 
+      case BankedFIFODeq(fifo, ens) =>
         emitVert(lhs)
         emitEdge(fifo, lhs)
         ens.foreach{ a => emitEn(a,lhs) }
 
-      case ParFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
-        data.foreach{ a => emitVert(a); emitEdge(a, fifo)}
-        ens.foreach{ a => emitVert(a); emitEn(a, lhs)}
+      case BankedFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
+        data.foreach{a => emitVert(a); emitEdge(a, fifo)}
+        ens.foreach{a => emitVert(a); emitEn(a, lhs)}
 
 
-      case ParStreamRead(strm, ens) => emitVert(lhs); emitEdge(strm, lhs); ens.foreach{emitEn(_,strm)}
-
-      case ParStreamWrite(strm, data, ens) => data.foreach{emitEdge(_, strm)}; ens.foreach{emitEn(_,strm)}
+      case BankedStreamRead(strm, ens) => emitVert(lhs); emitEdge(strm, lhs); ens.foreach{emitEn(_,strm)}
+      case BankedStreamWrite(strm, data, ens) => data.foreach{emitEdge(_, strm)}; ens.foreach{emitEn(_,strm)}
 
       case _ => super.emitNode(lhs, rhs)
     }

@@ -25,10 +25,10 @@ trait CppGenUnrolled extends CppGenController {
   override protected def name(s: Dyn[_]): String = s match {
     case Def(_: UnrolledForeach) => s"${s}_unrForeach"
     case Def(_: UnrolledReduce[_,_]) => s"${s}_unrRed"
-    case Def(_: ParSRAMLoad[_]) => s"${s}_parLd"
-    case Def(_: ParSRAMStore[_]) => s"${s}_parSt"
-    case Def(_: ParFIFODeq[_]) => s"${s}_parDeq"
-    case Def(_: ParFIFOEnq[_]) => s"${s}_parEnq"
+    case Def(_: BankedSRAMLoad[_]) => s"${s}_parLd"
+    case Def(_: BankedSRAMStore[_]) => s"${s}_parSt"
+    case Def(_: BankedFIFODeq[_]) => s"${s}_parDeq"
+    case Def(_: BankedFIFOEnq[_]) => s"${s}_parEnq"
     case _ => super.name(s)
   } 
 
@@ -50,13 +50,10 @@ trait CppGenUnrolled extends CppGenController {
       emitBlock(func)
       controllerStack.pop()
 
-    case ParSRAMLoad(sram,inds,ens) =>
-
-    case ParSRAMStore(sram,inds,data,ens) =>
-
-    case ParFIFODeq(fifo, ens) =>
-
-    case ParFIFOEnq(fifo, data, ens) =>
+    case _:BankedSRAMLoad[_] =>
+    case _:BankedSRAMStore[_] =>
+    case _:BankedFIFOEnq[_] =>
+    case _:BankedFIFODeq[_] =>
 
     case _ => super.emitNode(lhs, rhs)
   }

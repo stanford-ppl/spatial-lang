@@ -50,13 +50,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
-      val par = readersOf(dataStream).head.node match {
-        case Def(e@ParStreamRead(strm, ens)) => ens.length
-        case _ => 1
-      }
+      val par = maxReadWidth(dataStream)
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)})" 
+      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, $par, ${transferChannel(parentOf(lhs).get)})"
       loadsList = loadsList :+ dram
 
       // TODO: Investigate this _enq business
@@ -83,10 +80,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     case FringeSparseLoad(dram,addrStream,dataStream) =>
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
-      val par = readersOf(dataStream).head.node match {
-        case Def(e@ParStreamRead(strm, ens)) => ens.length
-        case _ => 1
-      }
+      val par = maxReadWidth(dataStream)
       assert(par == 1, s"Unsupported par '$par' for sparse loads! Must be 1 currently")
 
       val id = loadsList.length
@@ -109,10 +103,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
-      val par = writersOf(dataStream).head.node match {
-        case Def(e@ParStreamWrite(_, _, ens)) => ens.length
-        case _ => 1
-      }
+      val par = maxWriteWidth(dataStream)
 
       val id = storesList.length
       storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)})" 
@@ -141,10 +132,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     case FringeSparseStore(dram,cmdStream,ackStream) =>
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
-      val par = writersOf(cmdStream).head.node match {
-        case Def(e@ParStreamWrite(_, _, ens)) => ens.length
-        case _ => 1
-      }
+      val par = maxWriteWidth(cmdStream)
       Predef.assert(par == 1, s"Unsupported par '$par', only par=1 currently supported")
 
       val id = storesList.length
