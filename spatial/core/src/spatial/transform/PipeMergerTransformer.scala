@@ -156,6 +156,7 @@ case class PipeMergerTransformer(var IR: State) extends ForwardTransformer with 
     result
   }
 
+  // we visit and reflect everything, and any node reflected that is not inside a block is put into the parent block.  This encloses things in a new scope 
   override protected def inlineBlock[T](b: Block[T]): Exp[T] = {
     val doWrap = mergeBlocks.headOption.getOrElse(false)
     if (mergeBlocks.nonEmpty) mergeBlocks = mergeBlocks.drop(1)
