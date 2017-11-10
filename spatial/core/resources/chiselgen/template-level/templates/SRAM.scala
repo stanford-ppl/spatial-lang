@@ -140,21 +140,20 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
   val m = Module(new Mem1D(depth, bitWidth, syncMem))
 
   // Address flattening
-  m.io.w.addr := io.w.addr.zipWithIndex.map{ case (addr, i) =>
+  m.io.w.addr := Utils.getRetimed(io.w.addr.zipWithIndex.map{ case (addr, i) =>
     // FringeGlobals.bigIP.multiply(addr, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0)
    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
-  }.reduce{_+_}
-  m.io.r.addr := io.r.addr.zipWithIndex.map{ case (addr, i) =>
+  }.reduce{_+_}, 0 max Utils.sramstore_latency - 1)
+  m.io.r.addr := Utils.getRetimed(io.r.addr.zipWithIndex.map{ case (addr, i) =>
     // FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 0)
    addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
-  }.reduce{_+_}
-
+  }.reduce{_+_}, 0 max {Utils.sramload_latency - 1}) // Latency set to 2, give 1 cycle for bank to resolve
 
   // Connect the other ports
-  m.io.w.data := io.w.data
-  m.io.w.en := io.w.en & io.wMask
-  m.io.r.en := io.r.en & io.rMask
-  io.output.data := m.io.output.data
+  m.io.w.data := Utils.getRetimed(io.w.data, 0 max Utils.sramstore_latency - 1)
+  m.io.w.en := Utils.getRetimed(io.w.en & io.wMask, 0 max Utils.sramstore_latency - 1)
+  m.io.r.en := Utils.getRetimed(io.r.en & io.rMask, 0 max {Utils.sramload_latency - 1}) // Latency set to 2, give 1 cycle for bank to resolve
+  io.output.data := Utils.getRetimed(m.io.output.data, if (syncMem) 0 else {if (Utils.retime) 1 else 0})
   if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
     // Check if read/write is in bounds
     val rInBound = io.r.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}
@@ -270,7 +269,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedR.addr(i) := calculatedAddr}
     convertedR.en := rbundle.en
-    val syncDelay = if (syncMem) 1 else 0
+    val syncDelay = 0//if (syncMem) 1 else 0
     val flatBankId = bankingMode match {
       case DiagonalMemory => Utils.getRetimed(rbundle.addr.reduce{_+_}, syncDelay) %-% banks.head.U
       case BankedMemory => 
@@ -302,7 +301,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 
   // Connect read data to output
   io.output.data.zip(bankIdR).foreach { case (wire, id) => 
-    val sel = (0 until numMems).map{ i => (id === i.U)}
+    val sel = (0 until numMems).map{ i => (Utils.getRetimed(id, Utils.sramload_latency) === i.U)}
     val datas = m.map{ _.io.output.data }
     val d = chisel3.util.PriorityMux(sel, datas)
     wire := d

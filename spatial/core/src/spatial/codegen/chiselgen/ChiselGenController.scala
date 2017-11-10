@@ -752,9 +752,9 @@ trait ChiselGenController extends ChiselGenCounter{
     val ctrl = usersOf(lhs).head._1
     if (suffix != "") { // emitting for a copied ctr
       emit(src"// this trivial signal will be assigned multiple times but each should be the same")
-      emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
+      emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop === start)}.reduce{_||_}""")
     } else {
-      emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
+      emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop === start)}.reduce{_||_}""")
     }
   }
 

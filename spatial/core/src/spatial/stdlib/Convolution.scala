@@ -142,9 +142,9 @@ object Convolution {
 			val lineout_temps = List.tabulate(filter.length){_ => List.tabulate(channels) {_ => SRAM[T](coltile/colstride)}} // TODO: Fix hardcoded 3
 			val lbs = List.tabulate(channels){_ => LineBuffer.strided[T](filter.head.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
 			val srs = List.tabulate(channels){_ => RegFile[T](filter.head.dim1, filter.head.dim2)} // TODO: Fix hardcoded 3
+			Parallel{
 			lbs.zip(srs).zipWithIndex.foreach{case ((lb, sr), i) =>
 			  lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
-			  Parallel { // why is this here?
 				Foreach(input.dim2 by colstride){j =>
 				  Foreach(filter.head.dim1 by 1 par filter.head.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
 				  lineout_temps.zipWithIndex.foreach{case (lot, p) => 
@@ -155,7 +155,7 @@ object Convolution {
 				    }{_+_}
 				  }
 				}
-			  }
+			}
 			}
 			Foreach(input.dim2 by 1){ j => 
 			  lineout.zip(lineout_temps).zipWithIndex.foreach{case ((lo, lot), i) => 
