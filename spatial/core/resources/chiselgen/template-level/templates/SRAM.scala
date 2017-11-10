@@ -153,7 +153,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
   m.io.w.data := Utils.getRetimed(io.w.data, 0 max Utils.sramstore_latency - 1)
   m.io.w.en := Utils.getRetimed(io.w.en & io.wMask, 0 max Utils.sramstore_latency - 1)
   m.io.r.en := Utils.getRetimed(io.r.en & io.rMask, 0 max {Utils.sramload_latency - 1}) // Latency set to 2, give 1 cycle for bank to resolve
-  io.output.data := Utils.getRetimed(m.io.output.data, if (syncMem) 0 else 1)
+  io.output.data := Utils.getRetimed(m.io.output.data, if (syncMem) 0 else {if (Utils.retime) 1 else 0})
   if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
     // Check if read/write is in bounds
     val rInBound = io.r.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}
