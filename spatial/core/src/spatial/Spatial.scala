@@ -81,7 +81,7 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val reduceAnalyzer = new ReductionAnalyzer { var IR = state }
     lazy val uctrlAnalyzer  = new UnrolledControlAnalyzer { var IR = state }
 
-    lazy val bufferAnalyzer = new BufferAnalyzer { var IR = state; def localMems = uctrlAnalyzer.localMems }
+    lazy val bufferAnalyzer = BufferAnalyzer(state)
     lazy val streamAnalyzer = new StreamAnalyzer {
       var IR = state ;
       def streamPipes = uctrlAnalyzer.streampipes
@@ -96,7 +96,6 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val rotateFixer = RotateTransformer(IR = state)
 
     lazy val lutTransform  = MemoryTransformer(IR = state)
-    lazy val sramTransform = new AffineAccessTransformer { var IR = state }
 
     lazy val pirRetimer = new PIRHackyRetimer { var IR = state }
     lazy val pirTiming  = new PIRHackyLatencyAnalyzer { var IR = state }

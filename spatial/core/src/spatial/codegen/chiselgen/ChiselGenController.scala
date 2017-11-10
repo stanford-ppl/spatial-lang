@@ -356,7 +356,7 @@ trait ChiselGenController extends ChiselGenCounter{
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
             case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(BankedFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
@@ -369,12 +369,12 @@ trait ChiselGenController extends ChiselGenCounter{
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
             case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(BankedFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
             case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(BankedFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo,Ready)}"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
@@ -562,11 +562,11 @@ trait ChiselGenController extends ChiselGenCounter{
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, CtrTrivial)} // Immediate parent has forever counter, so never mask out datapath_en""")    
-    } else if ((isStreamChild(sym) & hasStreamIns & cchain.isDefined)) { // for FSM or hasStreamIns, tie en directly to datapath_en
+    } else if (isStreamChild(sym) & hasStreamIns & cchain.isDefined) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} ${getNowValidLogic(sym)}""")  
     } else if (isFSM) { // for FSM or hasStreamIns, tie en directly to datapath_en
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} & ~${swap(sym, SM)}.io.output.done ${getNowValidLogic(sym)}""")  
-    } else if ((isStreamChild(sym) & hasStreamIns)) { // _done used to be commented out but I'm not sure why
+    } else if (isStreamChild(sym) & hasStreamIns) { // _done used to be commented out but I'm not sure why
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} ${getNowValidLogic(sym)} """)  
     } else {
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, SM)}.io.output.ctr_inc & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)}""")

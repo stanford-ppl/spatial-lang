@@ -55,7 +55,7 @@ case class LineBufferColSlice[T:Type:Bits](
   row:  Exp[Index],
   col:  Exp[Index],
   len:  Int
-)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T,VectorN[T]](buff,addr=Seq(row,col), dim=1,len=len) {
+)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T](buff,addr=Seq(row,col), ax=1,len=len) {
   def mirror(f:Tx) = LineBuffer.col_slice(f(buff),f(row),f(col),len)
   override def aliases = Nil
 }
@@ -65,7 +65,7 @@ case class LineBufferRowSlice[T:Type:Bits](
   row:  Exp[Index],
   col:  Exp[Index],
   len:  Int
-)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T,VectorN[T]](buff, addr=Seq(row,col), dim=0,len=len) {
+)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T](buff, addr=Seq(row,col), ax=0,len=len) {
   def mirror(f:Tx) = LineBuffer.row_slice(f(buff),f(row),f(col),len)
   override def aliases = Nil
 }
@@ -75,7 +75,7 @@ case class LineBufferLoad[T:Type:Bits](
   row:        Exp[Index],
   col:        Exp[Index],
   en:         Exp[Bit]
-) extends LocalReaderOp[T,T](linebuffer, addr=Seq(row,col), en=en) {
+) extends ReaderOp[T,T](linebuffer, addr=Seq(row,col), en=en) {
   def mirror(f:Tx) = LineBuffer.load(f(linebuffer),f(row),f(col),f(en))
   override def aliases = Nil
 }
@@ -84,7 +84,7 @@ case class LineBufferEnq[T:Type:Bits](
   linebuffer: Exp[LineBuffer[T]],
   data:       Exp[T],
   en:         Exp[Bit]
-) extends LocalWriterOp[T](linebuffer,data,en=en) {
+) extends EnqueueLikeOp[T](linebuffer,data,en=en) {
   def mirror(f:Tx) = LineBuffer.enq(f(linebuffer),f(data),f(en))
   override def aliases = Nil
 }
@@ -94,7 +94,7 @@ case class LineBufferRotateEnq[T:Type:Bits](
   data:       Exp[T],
   en:         Exp[Bit],
   row:        Exp[Index]
-) extends LocalWriterOp[T](linebuffer,data,en=en) {
+) extends EnqueueLikeOp[T](linebuffer,data,en=en) {
   def mirror(f:Tx) = LineBuffer.rotateEnq(f(linebuffer),f(data),f(en),f(row))
   override def aliases = Nil
 }
@@ -113,7 +113,7 @@ case class BankedLineBufferEnq[T:Type:Bits](
   buff: Exp[LineBuffer[T]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]]
-) extends BankedWriterOp[T](buff,data, ens=ens) {
+) extends BankedEnqueueLikeOp[T](buff,data, ens=ens) {
   def mirror(f:Tx) = LineBuffer.banked_enq(f(buff),f(data),f(ens))
   override def aliases = Nil
 }
@@ -122,8 +122,8 @@ case class BankedLineBufferRotateEnq[T:Type:Bits](
   buff: Exp[LineBuffer[T]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]],
-  row:  Exp[Index],
-) extends BankedWriterOp(buff,data, ens=ens) {
+  row:  Exp[Index]
+) extends BankedEnqueueLikeOp[T](buff,data, ens=ens) {
   def mirror(f:Tx) = LineBuffer.banked_rotateEnq(f(buff),f(data),f(ens),f(row))
   override def aliases = Nil
 }

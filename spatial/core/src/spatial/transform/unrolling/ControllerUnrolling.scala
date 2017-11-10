@@ -64,10 +64,10 @@ trait ControllerUnrolling extends UnrollingBase {
         }
 
         (regs.map(_.s), writes, reads).zipped.foreach{case (reg, write, read) =>
-          //duplicatesOf(reg) = List(BankedMemory(Seq(NoBanking(1)),1,isAccum = false))
-          dispatchOf((write,Seq(0)), reg) = Set(0)
+          duplicatesOf(reg) = Seq(Memory(RegBank(),1,isAccum = false))
+          //dispatchOf((write,Seq(0)), reg) = Set(0)
           portsOf(write,reg, 0) = Set(0)
-          dispatchOf((read,Seq(0)), reg) = Set(0)
+          //dispatchOf((read,Seq(0)), reg) = Set(0)
           portsOf(read, reg, 0) = Set(0)
         }
 

@@ -47,7 +47,7 @@ case class RegFileLoad[T:Type:Bits](
   reg:  Exp[RegFile[T]],
   inds: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalReaderOp[T,T](reg,addr=inds,en=en) {
+) extends ReaderOp[T,T](reg,addr=inds,en=en) {
   def mirror(f:Tx) = RegFile.load(f(reg),f(inds),f(en))
   override def aliases = Nil
 }
@@ -57,14 +57,14 @@ case class RegFileStore[T:Type:Bits](
   addr: Seq[Exp[Index]],
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp[T](reg,data,addr,en) {
+) extends WriterOp[T](reg,data,addr,en) {
   def mirror(f:Tx) = RegFile.store(f(reg),f(addr),f(data),f(en))
 }
 
 case class RegFileReset[T:Type:Bits](
   rf: Exp[RegFile[T]],
   en: Exp[Bit]
-) extends LocalResetterOp(rf, en) {
+) extends ResetterOp(rf, en) {
   def mirror(f:Tx) = RegFile.reset(f(rf), f(en))
   val mT = typ[T]
   val bT = bits[T]
@@ -72,22 +72,22 @@ case class RegFileReset[T:Type:Bits](
 
 case class RegFileShiftIn[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  addr: Seq[Exp[Index]],
-  dim:  Int,
   data: Exp[T],
-  en:   Exp[Bit]
-) extends LocalWriterOp[T](reg,data,addr,en) {
-  def mirror(f:Tx) = RegFile.shift_in(f(reg),f(addr),dim,f(data),f(en))
+  addr: Seq[Exp[Index]],
+  en:   Exp[Bit],
+  ax:   Int
+) extends EnqueueLikeOp[T](reg,data,addr,en) {
+  def mirror(f:Tx) = RegFile.shift_in(f(reg),f(data),f(addr),f(en),ax)
 }
 
 case class RegFileVectorShiftIn[T:Type:Bits](
   reg:  Exp[RegFile[T]],
-  addr: Seq[Exp[Index]],
-  dim:  Int,
   data: Exp[Vector[T]],
-  en:   Exp[Bit]
-) extends LocalWriterOp[T](reg,data,addr,en) {
-  def mirror(f:Tx) = RegFile.par_shift_in(f(reg),f(addr),dim,f(data),f(en))
+  addr: Seq[Exp[Index]],
+  en:   Exp[Bit],
+  ax:   Int
+) extends VectorEnqueueLikeOp[T](reg,data,addr,en,ax) {
+  def mirror(f:Tx) = RegFile.vector_shift_in(f(reg),f(data),f(addr),f(en),axis)
 }
 
 case class BankedRegFileLoad[T:Type:Bits](

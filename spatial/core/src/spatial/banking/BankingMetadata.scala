@@ -12,8 +12,8 @@ import scala.collection.mutable.HashMap
 object Affine {
   def unapply(pattern: IndexPattern): Option[(Array[Int], Seq[Exp[Index]], Int)] = pattern match {
     case SymbolicAffine(products, offset) =>
-      val asOpt = products.map(p => p.a.getEval{case Exact(c) => c.toInt })
-      val bOpt = offset.getEval{case Exact(c) => c.toInt }
+      val asOpt = products.map(p => p.a.getEval{case Literal(c) => c.toInt })
+      val bOpt = offset.getEval{case Literal(c) => c.toInt }
       if (asOpt.forall(_.isDefined) && bOpt.isDefined) {
         val as = asOpt.map(_.get).toArray
         val b = bOpt.get
@@ -34,6 +34,7 @@ sealed abstract class Banking {
   def stride: Int
   def dims: Seq[Int]
   @internal def bankAddress(ndAddr: Seq[Exp[Index]]): Exp[Index]
+  @internal def constBankAddress(ndAddr: Seq[Int]): Int
 }
 
 /**
@@ -48,7 +49,12 @@ case class ModBanking(N: Int, B: Int, alpha: Seq[Int], dims: Seq[Int]) extends B
     val addr  = (spatial.lang.Math.sumTree(mults) / B) % N
     addr.s
   }
+  @internal def constBankAddress(ndAddr: Seq[Int]): Int = {
+    (alpha.zip(dims).map{case (a,dim) => ndAddr(dim)*a }.sum / B) % N
+  }
 }
+
+object RegBank { def apply(): Seq[ModBanking] = Seq(ModBanking(1, 1, Seq(1), Seq(1))) }
 
 
 /**
@@ -86,10 +92,15 @@ case class Memory(
   depth:   Int,           // Buffer depth
   isAccum: Boolean        // Flags whether this instance is an accumulator
 ) {
+  def nBanks: Seq[Int] = banking.map(_.nBanks)
+  def totalBanks: Int = banking.map(_.nBanks).product
+
+  @internal def bankAddress(addr: Seq[Exp[Index]]): Seq[Exp[Index]] = banking.map(_.bankAddress(addr))
+  @internal def constBankAddress(addr: Seq[Int]): Seq[Int] = banking.map(_.constBankAddress(addr))
+
   @internal def bankOffset(mem: Exp[_], addr: Seq[Exp[Index]]): Exp[Index] = {
     val w = constDimsOf(mem)
     val d = w.length
-
     val n = banking.map(_.nBanks).product
     val b = banking.find(_.dims.contains(d-1)).map(_.stride).getOrElse(1)
 
@@ -99,6 +110,18 @@ case class Memory(
       if (t < d - 1) { xt * (w.slice(t+1,d-2).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
       else           { (xt / (n*b)) * b + xt % b }
     }).s
+  }
+
+  @internal def constBankOffset(mem: Exp[_], addr: Seq[Int]): Int = {
+    val w = constDimsOf(mem)
+    val d = w.length
+    val n = banking.map(_.nBanks).product
+    val b = banking.find(_.dims.contains(d-1)).map(_.stride).getOrElse(1)
+    (0 until d).map{t =>
+      val xt = addr(t)
+      if (t < d - 1) { xt * (w.slice(t+1,d-2).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
+      else           { (xt / (n*b)) * b + xt % b }
+    }.sum
   }
 }
 
@@ -110,6 +133,10 @@ case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirr
 @data object duplicatesOf {
   def apply(mem: Exp[_]): Seq[Memory] = metadata[Duplicates](mem).map(_.dups).getOrElse(Nil)
   def update(mem: Exp[_], dups: Seq[Memory]): Unit = metadata.add(mem, Duplicates(dups))
+}
+
+@data object instanceOf {
+  def apply(mem: Exp[_]): Memory = metadata[Duplicates](mem).map(_.dups).get.head
 }
 
 
@@ -230,28 +257,28 @@ case class PortIndex(mapping: Map[Exp[_], Map[Int, Set[Int]]]) extends Metadata[
   * Metadata for the controller determining the done signal for a buffered read or write
   * Set per memory and per instance index
   */
-case class TopController(mapping: Map[Exp[_], Map[Int,Ctrl]]) extends Metadata[TopController] {
-  def mirror(f:Tx) = TopController(mapping.map{case (mem,ctrls) => f(mem) -> ctrls.map{case (i,ctrl) => i -> mirrorCtrl(ctrl,f) }})
+case class TopController(mapping: Map[Exp[_], Ctrl]) extends Metadata[TopController] {
+  def mirror(f:Tx) = TopController(mapping.map{case (mem,ctrl) => f(mem) -> mirrorCtrl(ctrl,f) })
 }
 @data object topControllerOf {
-  private def get(access: Exp[_]): Option[Map[Exp[_],Map[Int,Ctrl]]] = metadata[TopController](access).map(_.mapping)
+  private def get(access: Exp[_]): Option[Map[Exp[_],Ctrl]] = metadata[TopController](access).map(_.mapping)
 
   // Get the top controller for the given access, memory, and instance index
-  def apply(access: Exp[_], mem: Exp[_], idx: Int): Option[Ctrl] = {
-    topControllerOf.get(access).flatMap(_.get(mem)).flatMap(_.get(idx))
+  def apply(access: Exp[_], mem: Exp[_]): Option[Ctrl] = {
+    topControllerOf.get(access).flatMap(_.get(mem))
   }
 
   // Set top controller for the given access, memory, and instance index
-  def update(access: Exp[_], mem: Exp[_], idx: Int, ctrl: Ctrl): Unit = topControllerOf.get(access) match {
+  def update(access: Exp[_], mem: Exp[_], ctrl: Ctrl): Unit = topControllerOf.get(access) match {
     case Some(map) =>
-      val newMap = map.filterKeys(_ != mem) + (mem -> (map.getOrElse(mem,Map.empty) + (idx -> ctrl)))
+      val newMap = map.filterKeys(_ != mem) + (mem -> ctrl)
       metadata.add(access, TopController(newMap))
     case None =>
-      metadata.add(access, TopController(Map(mem -> Map(idx -> ctrl))))
+      metadata.add(access, TopController(Map(mem -> ctrl)))
   }
 
-  def update(access: Access, mem: Exp[_], idx: Int, ctrl: Ctrl): Unit = { topControllerOf(access.node, mem, idx) = ctrl }
-  def apply(access: Access, mem: Exp[_], idx: Int): Option[Ctrl] = { topControllerOf(access.node, mem, idx) }
+  def update(access: Access, mem: Exp[_], ctrl: Ctrl): Unit = { topControllerOf(access.node, mem) = ctrl }
+  def apply(access: Access, mem: Exp[_]): Option[Ctrl] = { topControllerOf(access.node, mem) }
 }
 
 

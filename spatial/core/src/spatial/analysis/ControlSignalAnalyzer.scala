@@ -134,7 +134,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   /** Helper methods **/
   def appendReader(reader: Exp[_], ctrl: Ctrl) = instrument("appendReader"){
-    val LocalReader(reads) = reader
+    val Reader(reads) = reader
     reads.foreach{case (mem, addr, en) =>
       val access = (reader, ctrl)
 
@@ -153,7 +153,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def appendWriter(writer: Exp[_], ctrl: Ctrl) = instrument("appendWriter"){
-    val LocalWriter(writes) = writer
+    val Writer(writes) = writer
     val Def(writeDef) = writer
     writes.foreach{case (mem,value,addr,en) =>
       writersOf(mem) = (writer,ctrl) +: writersOf(mem)      // (5)
@@ -174,14 +174,13 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     if (isInnerControl(ctrl))
       appendWriter(writer, ctrl)
     else {
-      val mem = LocalWriter.unapply(writer).get.head._1
+      val mem = Writer.unapply(writer).get.head._1
       throw new spatial.ExternalWriteException(mem, writer, ctrl)(writer.ctx, state)
     }
   }
 
   def appendResetter(resetter: Exp[_], ctrl: Ctrl) = instrument("appendResetter"){
-    val LocalResetter(rst) = resetter
-    val (mem,en) = rst
+    val Resetter(mem,en) = resetter
     val access = (resetter, ctrl)
     
     if (!resettersOf(mem).contains(access))

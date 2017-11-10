@@ -59,7 +59,7 @@ object SRAM {
     addr: Seq[Exp[Index]],
     en:   Exp[Bit],
     dim:  Int,
-    len:  Int,
+    len:  Int
   ): Exp[VectorN[T]] = {
     implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](len)
     stage( SRAMLoadVector(sram,addr,en,dim,len))(ctx)

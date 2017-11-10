@@ -35,38 +35,38 @@ case class FIFOEnq[T:Type:Bits](
   fifo: Exp[FIFO[T]],
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp[T](fifo,data,en=en) {
+) extends EnqueueLikeOp[T](fifo,data,en=en) {
   def mirror(f:Tx) = FIFO.enq(f(fifo),f(data),f(en))
 }
 case class FIFODeq[T:Type:Bits](
   fifo: Exp[FIFO[T]],
   en:   Exp[Bit]
-) extends LocalReadModifyOp[T,T](fifo,en=en) {
+) extends DequeueLikeOp[T,T](fifo,en=en) {
   def mirror(f:Tx) = FIFO.deq(f(fifo), f(en))
 }
-case class FIFOPeek[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T,T](fifo) {
+case class FIFOPeek[T:Type:Bits](fifo: Exp[FIFO[T]]) extends StatusReaderOp[T,T](fifo) {
   def mirror(f:Tx) = FIFO.peek(f(fifo))
 }
-case class FIFOEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T,Bit](fifo) {
+case class FIFOEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends StatusReaderOp[T,Bit](fifo) {
   def mirror(f:Tx) = FIFO.is_empty(f(fifo))
 }
-case class FIFOFull[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T,Bit](fifo) {
+case class FIFOFull[T:Type:Bits](fifo: Exp[FIFO[T]]) extends StatusReaderOp[T,Bit](fifo) {
   def mirror(f:Tx) = FIFO.is_full(f(fifo))
 }
-case class FIFOAlmostEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T,Bit](fifo) {
+case class FIFOAlmostEmpty[T:Type:Bits](fifo: Exp[FIFO[T]]) extends StatusReaderOp[T,Bit](fifo) {
   def mirror(f:Tx) = FIFO.is_almost_empty(f(fifo))
 }
-case class FIFOAlmostFull[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T,Bit](fifo) {
+case class FIFOAlmostFull[T:Type:Bits](fifo: Exp[FIFO[T]]) extends StatusReaderOp[T,Bit](fifo) {
   def mirror(f:Tx) = FIFO.is_almost_full(f(fifo))
 }
-case class FIFONumel[T:Type:Bits](fifo: Exp[FIFO[T]]) extends LocalReadStatusOp[T,Index](fifo) {
+case class FIFONumel[T:Type:Bits](fifo: Exp[FIFO[T]]) extends StatusReaderOp[T,Index](fifo) {
   def mirror(f:Tx) = FIFO.numel(f(fifo))
 }
 
 case class BankedFIFODeq[T:Type:Bits](
   fifo: Exp[FIFO[T]],
   ens:  Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends BankedReadModifyOp[T](fifo, ens=ens) {
+)(implicit val vT: Type[VectorN[T]]) extends BankedDequeueLikeOp[T](fifo, ens=ens) {
   def mirror(f:Tx) = FIFO.banked_deq(f(fifo),f(ens))
 }
 
@@ -74,7 +74,7 @@ case class BankedFIFOEnq[T:Type:Bits](
   fifo: Exp[FIFO[T]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]]
-) extends BankedWriterOp[T](fifo,data, ens=ens) {
+) extends BankedEnqueueLikeOp[T](fifo,data, ens=ens) {
   def mirror(f:Tx) = FIFO.banked_enq(f(fifo),f(data),f(ens))
 }
 

@@ -16,7 +16,7 @@ trait DimensionAnalyzer extends SpatialTraversal {
   var offchips = Set[Exp[DRAM[Any]]]()
 
   def isStaticallyKnown(d: Exp[Index]): Boolean = d match {
-    case x if x.dependsOnType{case LocalReader(_) => true} => false
+    case x if x.dependsOnType{case Reader(_) => true} => false
     case Exact(_) => true
     case _ => false
   }

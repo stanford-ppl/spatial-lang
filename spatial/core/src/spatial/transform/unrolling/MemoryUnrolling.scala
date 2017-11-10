@@ -14,17 +14,12 @@ trait MemoryUnrolling extends UnrollingBase {
     addr:   Seq[Seq[Exp[Index]]], // Per-lane ND address (Lanes is outer Seq, ND is inner Seq)
     inst:   Memory,               // Memory instance associated with this access
     lanes:  Unroller              // Unrolling helper function
-  )(implicit ctx: SrcCtx): Seq[Seq[Exp[Index]]] = {
-
-    def address(laneAddr: Seq[Exp[Index]]): Seq[Exp[Index]] = inst.banking.map{_.bankAddress(laneAddr)}
-
-    access match {
-      // LineBuffers are special in that their first dimension is always implicitly fully banked
-      case Def(_:LineBufferLoad[_])     => addr.map{case row::col => row +: address(col) }
-      case Def(_:LineBufferColSlice[_]) => addr.map{case row::col => row +: address(col) }
-      case Def(_:LineBufferRowSlice[_]) => addr.map{case row::col => row +: address(col) }
-      case _ => addr.map{laneAddr => address(laneAddr) }
-    }
+  )(implicit ctx: SrcCtx): Seq[Seq[Exp[Index]]] = access match {
+    // LineBuffers are special in that their first dimension is always implicitly fully banked
+    case Def(_:LineBufferLoad[_])     => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case Def(_:LineBufferColSlice[_]) => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case Def(_:LineBufferRowSlice[_]) => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case _ => addr.map{laneAddr => inst.bankAddress(laneAddr) }
   }
 
   def bankOffset(mem: Exp[_], access: Exp[_], addr: Seq[Seq[Exp[Index]]], inst: Memory, lanes: Unroller): Seq[Exp[Index]] = {
@@ -107,7 +102,7 @@ trait MemoryUnrolling extends UnrollingBase {
 
     mems.flatMap{case (mem2,(dps,lns)) =>
       val ens   = en.map{e => lanes.inLanes(lns){_ => Bit.and(f(e),globalValid()) }}
-      val inst  = duplicatesOf(mem2).head
+      val inst  = instanceOf(mem2)
       val addrOpt = addr.map{a =>
         val a2 = lanes.inLanes(lns){p => (f(a),p) }                   // lanes of ND addresses
         val distinct = a2.groupBy(_._1).mapValues(_.map(_._2)).toSeq  // ND address -> lane IDs
@@ -234,14 +229,14 @@ trait MemoryUnrolling extends UnrollingBase {
     // LineBuffer RotateEnq is special
     case op@LineBufferRotateEnq(lb,data,en,row) => unrollAccess(lhs,lb,Some(data),Some(Seq(row)),Some(en),lanes)(op.mT,op.bT,ctx)
 
-    case LocalReadStatus(mem)   => unrollStatus(lhs,rhs,mem,lanes)
-    case LocalResetter((mem,_)) => unrollResetMemory(lhs,rhs,mem,lanes)
+    case StatusReader(mem)   => unrollStatus(lhs,rhs,mem,lanes)
+    case Resetter((mem,_)) => unrollResetMemory(lhs,rhs,mem,lanes)
 
-    case op:LocalReaderOp[_,_] if op.localReads.length == 1 =>
+    case op:ReaderOp[_,_] if op.localReads.length == 1 =>
       val (mem,addr,en) = op.localReads.head
       unrollAccess(lhs,mem,None,addr,en,lanes)(op.mT,op.bT,ctx)
 
-    case op:LocalWriterOp[_] if op.localWrites.length == 1 =>
+    case op:WriterOp[_] if op.localWrites.length == 1 =>
       val (mem,data,addr,en) = op.localWrites.head
       unrollAccess(lhs,mem,data,addr,en,lanes)(mtyp(op.mT),mbits(op.bT),ctx)
 

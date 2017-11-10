@@ -48,13 +48,13 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   // Memory being read + list of addresses (for N-D access)
   // Have to special case for accesses that read more than one memory
   def readUnapply(x: Exp[_]): Option[(Exp[_], Seq[Exp[Index]])] = x match {
-    case LocalReader(reads) => reads.find(_.addr.isDefined).map{x => (x.mem, x.addr.get) }
+    case Reader(reads) => reads.find(_.addr.isDefined).map{x => (x.mem, x.addr.get) }
     case _ => None
   }
   // Memory being written + list of addresses (for N-D access)
   // Have to special case for accesses that write more than one memory
   def writeUnapply(x: Exp[_]): Option[(Exp[_], Seq[Exp[Index]])] = x match {
-    case LocalWriter(writes) => writes.find(_.addr.isDefined).map{x => (x.mem, x.addr.get) }
+    case Writer(writes) => writes.find(_.addr.isDefined).map{x => (x.mem, x.addr.get) }
     case _ => None
   }
 

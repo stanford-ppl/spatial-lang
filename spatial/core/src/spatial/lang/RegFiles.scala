@@ -77,11 +77,11 @@ object RegFile {
     stageMutable(RegFileNew[T,C](dims, inits))(ctx)
   }
 
-  @internal def load[T:Type:Bits](reg: Exp[RegFile[T]], inds: Seq[Exp[Index]], en: Exp[Bit]) = {
+  @internal def load[T:Type:Bits](reg: Exp[RegFile[T]], inds: Seq[Exp[Index]], en: Exp[Bit]): Exp[T] = {
     stage(RegFileLoad(reg, inds, en))(ctx)
   }
 
-  @internal def store[T:Type:Bits](reg: Exp[RegFile[T]], inds: Seq[Exp[Index]], data: Exp[T], en: Exp[Bit]) = {
+  @internal def store[T:Type:Bits](reg: Exp[RegFile[T]], inds: Seq[Exp[Index]], data: Exp[T], en: Exp[Bit]): Exp[MUnit] = {
     stageWrite(reg)(RegFileStore(reg, inds, data, en))(ctx)
   }
 
@@ -91,40 +91,22 @@ object RegFile {
 
   @internal def shift_in[T:Type:Bits](
     reg:  Exp[RegFile[T]],
-    inds: Seq[Exp[Index]],
-    dim:  Int,
     data: Exp[T],
-    en:   Exp[Bit]
-  ) = {
-    stageWrite(reg)(RegFileShiftIn(reg, inds, dim, data, en))(ctx)
+    addr: Seq[Exp[Index]],
+    en:   Exp[Bit],
+    axis: Int
+  ): Exp[MUnit] = {
+    stageWrite(reg)(RegFileShiftIn(reg, data, addr, en, axis))(ctx)
   }
 
-  @internal def par_shift_in[T:Type:Bits](
+  @internal def vector_shift_in[T:Type:Bits](
     reg:  Exp[RegFile[T]],
-    inds: Seq[Exp[Index]],
-    dim:  Int,
     data: Exp[Vector[T]],
-    en:   Exp[Bit]
-  ) = {
-    stageWrite(reg)(RegFileVectorShiftIn(reg, inds, dim, data, en))(ctx)
-  }
-
-  @internal def par_load[T:Type:Bits](
-    reg:  Exp[RegFile[T]],
-    inds: Seq[Seq[Exp[Index]]],
-    ens:  Seq[Exp[Bit]]
-  ) = {
-    implicit val vT = VectorN.typeFromLen[T](ens.length)
-    stage(ParRegFileLoad(reg, inds, ens))(ctx)
-  }
-
-  @internal def par_store[T:Type:Bits](
-    reg:  Exp[RegFile[T]],
-    inds: Seq[Seq[Exp[Index]]],
-    data: Seq[Exp[T]],
-    ens:  Seq[Exp[Bit]]
-  ) = {
-    stageWrite(reg)(ParRegFileStore(reg, inds, data, ens))(ctx)
+    addr: Seq[Exp[Index]],
+    en:   Exp[Bit],
+    axis: Int
+  ): Exp[MUnit] = {
+    stageWrite(reg)(RegFileVectorShiftIn(reg, data, addr, en, axis))(ctx)
   }
 
   @internal def banked_load[T:Type:Bits](
@@ -156,13 +138,13 @@ case class RegFile1[T:Type:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[
   @api def update(i: Index, data: T): MUnit = MUnit(RegFile.store(s, Seq(i.s), data.s, Bit.const(true)))
 
   /** Shifts in `data` into the first register, shifting all other values over by one position. **/
-  @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, Seq(int32s(0)), 0, data.s, Bit.const(true)))
+  @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, data.s, Seq(int32s(0)), Bit.const(true), 0))
 
   /**
     * Shifts in `data` into the first N registers, where N is the size of the given Vector.
     * All other elements are shifted by N positions.
     */
-  @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.par_shift_in(s, Seq(int32s(0)), 0, data.s, Bit.const(true)))
+  @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.vector_shift_in(s, data.s, Seq(int32s(0)), Bit.const(true), 0))
 
   /** Creates a dense, burst load from the specified region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAM1[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
@@ -233,8 +215,8 @@ object RegFile3 {
   implicit def regfile3IsMemory[T:Type:Bits]: Mem[T,RegFile3] = new RegFileIsMemory[T,RegFile3]
 }
 
-case class RegFileView[T:Type:Bits](s: Exp[RegFile[T]], i: Seq[Index], dim: Int) {
-  @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, unwrap(i), dim, data.s, Bit.const(true)))
-  @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.par_shift_in(s, unwrap(i), dim, data.s, Bit.const(true)))
+case class RegFileView[T:Type:Bits](s: Exp[RegFile[T]], i: Seq[Index], axis: Int) {
+  @api def <<=(data: T): MUnit = wrap(RegFile.shift_in(s, data.s, unwrap(i), Bit.const(true), axis))
+  @api def <<=(data: Vector[T]): MUnit = wrap(RegFile.vector_shift_in(s, data.s, unwrap(i), Bit.const(true), axis))
 }
 

@@ -55,7 +55,7 @@ case class LUTLoad[T:Type:Bits](
   lut:  Exp[LUT[T]],
   inds: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalReaderOp[T,T](lut,addr=inds,en=en) {
+) extends ReaderOp[T,T](lut,addr=inds,en=en) {
   def mirror(f:Tx) = LUT.load(f(lut),f(inds),f(en))
   override def aliases = Nil
 }

@@ -31,41 +31,41 @@ case class FILOPush[T:Type:Bits](
   filo: Exp[FILO[T]],
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp[T](filo,data,en=en) {
+) extends EnqueueLikeOp[T](filo,data,en=en) {
   def mirror(f:Tx) = FILO.push(f(filo),f(data),f(en))
 }
-case class FILOPop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bit]) extends LocalReadModifyOp[T,T](filo,en=en) {
+case class FILOPop[T:Type:Bits](filo: Exp[FILO[T]], en: Exp[Bit]) extends DequeueLikeOp[T,T](filo,en=en) {
   def mirror(f:Tx) = FILO.pop(f(filo), f(en))
 }
-case class FILOPeek[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T,T](filo) {
+case class FILOPeek[T:Type:Bits](filo: Exp[FILO[T]]) extends StatusReaderOp[T,T](filo) {
   def mirror(f:Tx) = FILO.peek(f(filo))
 }
-case class FILOEmpty[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T,Bit](filo) {
+case class FILOEmpty[T:Type:Bits](filo: Exp[FILO[T]]) extends StatusReaderOp[T,Bit](filo) {
   def mirror(f:Tx) = FILO.is_empty(f(filo))
 }
-case class FILOFull[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T,Bit](filo) {
+case class FILOFull[T:Type:Bits](filo: Exp[FILO[T]]) extends StatusReaderOp[T,Bit](filo) {
   def mirror(f:Tx) = FILO.is_full(f(filo))
 }
-case class FILOAlmostEmpty[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T,Bit](filo) {
+case class FILOAlmostEmpty[T:Type:Bits](filo: Exp[FILO[T]]) extends StatusReaderOp[T,Bit](filo) {
   def mirror(f:Tx) = FILO.is_almost_empty(f(filo))
 }
-case class FILOAlmostFull[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T,Bit](filo) {
+case class FILOAlmostFull[T:Type:Bits](filo: Exp[FILO[T]]) extends StatusReaderOp[T,Bit](filo) {
   def mirror(f:Tx) = FILO.is_almost_full(f(filo))
 }
-case class FILONumel[T:Type:Bits](filo: Exp[FILO[T]]) extends LocalReadStatusOp[T,Index](filo) {
+case class FILONumel[T:Type:Bits](filo: Exp[FILO[T]]) extends StatusReaderOp[T,Index](filo) {
   def mirror(f:Tx) = FILO.numel(f(filo))
 }
 
 case class BankedFILOPop[T:Type:Bits](
   filo: Exp[FILO[T]],
   ens:  Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends BankedReadModifyOp[T](filo, ens=ens) {
+)(implicit val vT: Type[VectorN[T]]) extends BankedDequeueLikeOp[T](filo, ens=ens) {
   def mirror(f:Tx) = FILO.banked_pop(f(filo),f(ens))
 }
 case class BankedFILOPush[T:Type:Bits](
   filo: Exp[FILO[T]],
   data: Seq[Exp[T]],
   ens:  Seq[Exp[Bit]]
-) extends BankedWriterOp[T](filo,data, ens=ens) {
+) extends BankedEnqueueLikeOp[T](filo,data, ens=ens) {
   def mirror(f:Tx) = FILO.banked_push(f(filo),f(data),f(ens))
 }

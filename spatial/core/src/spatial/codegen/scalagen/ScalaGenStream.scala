@@ -3,6 +3,7 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import spatial.banking._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -21,7 +22,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
   override protected def emitControlDone(ctrl: Exp[_]): Unit = {
     super.emitControlDone(ctrl)
 
-    val written = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem,0).exists(_.node == ctrl) } }
+    val written = localMems.filter{mem => writersOf(mem).exists{wr => topControllerOf(wr.node,mem).exists(_.node == ctrl) } }
     val bufferedOuts = written.filter(isBufferedOut)
     if (bufferedOuts.nonEmpty) {
       emit("/** Dump BufferedOuts **/")
@@ -131,7 +132,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
     case op@StreamWrite(strm, data, en) => emit(src"val $lhs = if ($en) $strm.enqueue($data)")
     case op@StreamRead(strm, en) => emit(src"val $lhs = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
 
-    case op@ParStreamRead(strm, ens) =>
+    case op@BankedStreamRead(strm, ens) =>
       open(src"val $lhs = {")
       ens.zipWithIndex.foreach{case (en,i) =>
         emit(src"val a$i = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
@@ -139,7 +140,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
       emit(src"Array[${op.mT}](" + ens.indices.map{i => src"a$i"}.mkString(", ") + ")")
       close("}")
 
-    case ParStreamWrite(strm, data, ens) =>
+    case BankedStreamWrite(strm, data, ens) =>
       open(src"val $lhs = {")
       ens.zipWithIndex.foreach{case (en,i) =>
         emit(src"if ($en) $strm.enqueue(${data(i)})")

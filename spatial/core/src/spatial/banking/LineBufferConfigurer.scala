@@ -7,7 +7,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-class LineBufferConfigurer(override val mem: Exp[_], override val strategy: BankingStrategy) extends MemoryConfigurer(mem,strategy) {
+class LineBufferConfigurer(override val mem: Exp[_], override val strategy: BankingStrategy)(override implicit val IR: State) extends MemoryConfigurer(mem,strategy)(IR) {
 
   override def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
     case Def(LineBufferColSlice(_, row, col, len)) => accessPatternOf(access.node).last match {
@@ -21,11 +21,8 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
           CompactMatrix(Array(AffineVector(Array(1), Seq(col), c)), access)
         }
     }
-    case _ => accessPatternOf(access.node).last match {
-      case Affine(as, is, b) =>
-        val matrix = CompactMatrix(Array(AffineVector(as,is,b)), access)
-        Seq(matrix)
-      case _ => Seq(CompactMatrix(Array(RandomVector), access))
+    case _ => super.getAccessVector(access).map{case CompactMatrix(vecs,_,vecId) =>
+      CompactMatrix(Array(vecs.last),access,vecId)
     }
   }
 

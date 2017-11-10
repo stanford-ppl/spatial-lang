@@ -1,9 +1,7 @@
 package spatial.codegen.pirgen
 
 import argon.core._
-import spatial.metadata._
-
-import scala.collection.mutable
+import spatial.banking._
 
 class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   override val name = "PIR Area Model Hack"
@@ -15,7 +13,7 @@ class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   var largestMem = 0.0
   var nPMUs = 0
 
-  override protected def postprocess[A:Type](b: Block[A]) = {
+  override protected def postprocess[A:Type](b: Block[A]): Block[A] = {
     report("Estimated ASIC area: " + totalArea)
     report("Estimated ASIC mem area: " + totalMemArea)
     report(s"PMUs: $nPMUs x $largestMem")
@@ -107,7 +105,7 @@ class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
     var buffers = 1.0
     try {
-      buffers = duplicatesOf(sram.mem).head.depth.toDouble
+      buffers = instanceOf(sram.mem).depth.toDouble
     } catch { case _:Throwable => }
 
     val area = buffers * (if (sram.size > 8) {

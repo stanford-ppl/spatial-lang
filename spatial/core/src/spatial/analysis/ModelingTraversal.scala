@@ -79,8 +79,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty, verbose: Boolean = true): (Map[Exp[_],Long], Set[Cycle]) = {
     val knownCycles = mutable.HashMap[Exp[_],Set[(Exp[_],Exp[_])]]()
 
-    val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
-    val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem }
+    val localReads  = scope.collect{case reader @ Reader(reads) => reader -> reads.head.mem }
+    val localWrites = scope.collect{case writer @ Writer(writes) => writer -> writes.head.mem }
 
     val localAccums = localWrites.flatMap{case (writer,writtenMem) =>
       localReads.flatMap{case (reader,readMem) =>

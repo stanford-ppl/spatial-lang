@@ -144,11 +144,7 @@ trait StreamAnalyzer extends CompilerPass {
             }
         }
       }
-
-
     }
-    
-
 
     block
   }

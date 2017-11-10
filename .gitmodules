@@ -7,3 +7,6 @@
 [submodule "apps"]
 	path = apps
 	url = https://github.com/stanford-ppl/spatial-apps.git 
+[submodule "isl"]
+	path = isl
+	url = http://repo.or.cz/isl.git

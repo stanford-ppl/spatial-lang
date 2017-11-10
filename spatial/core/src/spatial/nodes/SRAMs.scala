@@ -63,7 +63,7 @@ case class SRAMLoad[T:Type:Bits](
   mem:  Exp[SRAM[T]],
   addr: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalReaderOp[T,T](mem,addr,en) {
+) extends ReaderOp[T,T](mem,addr,en) {
   def mirror(f:Tx) = SRAM.load(f(mem), f(addr), f(en))
 }
 
@@ -72,7 +72,7 @@ case class SRAMStore[T:Type:Bits](
   data: Exp[T],
   addr: Seq[Exp[Index]],
   en:   Exp[Bit]
-) extends LocalWriterOp[T](mem,data,addr,en) {
+) extends WriterOp[T](mem,data,addr,en) {
   def mirror(f:Tx) = SRAM.store(f(mem), f(data), f(addr), f(en))
 }
 
@@ -82,7 +82,7 @@ case class SRAMLoadVector[T:Type:Bits](
   en:   Exp[Bit],
   dim:  Int,
   len:  Int
-)(implicit vT: Type[VectorN[T]]) extends VectorReaderOp[T,VectorN[T]](mem,addr,en,dim=dim,len=len) {
+)(implicit vT: Type[VectorN[T]]) extends VectorReaderOp[T](mem,addr,en,dim=dim,len=len) {
   def mirror(f:Tx) = SRAM.load_vector(f(mem),f(addr),f(en),dim,len)
 }
 

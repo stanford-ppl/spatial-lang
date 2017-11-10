@@ -48,8 +48,8 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
       val (latNextState, iiNextState) = latencyAndInterval(nextState)
       val (actionLats, actionCycles) = latenciesAndCycles(action)
 
-      val actionWritten = blockNestedContents(action).flatMap(_.lhs).flatMap{case LocalWriter(writers) => writers.map(_.mem); case _ => Nil }.toSet
-      val nextStateRead = blockNestedContents(nextState).flatMap(_.lhs).flatMap{case LocalReader(readers) => readers.map(_.mem); case _ => Nil }.toSet
+      val actionWritten = blockNestedContents(action).flatMap(_.lhs).flatMap{case Writer(writers) => writers.map(_.mem); case _ => Nil }.toSet
+      val nextStateRead = blockNestedContents(nextState).flatMap(_.lhs).flatMap{case Reader(readers) => readers.map(_.mem); case _ => Nil }.toSet
       val dependencies  = nextStateRead intersect actionWritten
 
       val writeLatency = if (!spatialConfig.enableRetiming || latencyModel.requiresRegisters(nextState.result, inReduce = true)) 1L else 0L

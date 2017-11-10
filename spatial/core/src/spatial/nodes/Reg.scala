@@ -42,7 +42,7 @@ case class HostIONew[T:Type:Bits](init: Exp[T]) extends Alloc[Reg[T]] {
   val bT = bits[T]
 }
 
-case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends LocalReaderOp[T,T](reg) {
+case class RegRead[T:Type:Bits](reg: Exp[Reg[T]]) extends ReaderOp[T,T](reg) {
   def mirror(f:Tx) = Reg.read(f(reg))
   override def aliases = Nil
 
@@ -57,12 +57,12 @@ case class RegWrite[T:Type:Bits](
   reg:  Exp[Reg[T]],
   data: Exp[T],
   en:   Exp[Bit]
-) extends LocalWriterOp[T](reg,data,en=en)
+) extends WriterOp[T](reg,data,en=en)
 {
   def mirror(f:Tx) = Reg.write(f(reg),f(data), f(en))
 }
 
-case class RegReset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bit]) extends LocalResetterOp(reg,en) {
+case class RegReset[T:Type:Bits](reg: Exp[Reg[T]], en: Exp[Bit]) extends ResetterOp(reg,en) {
   def mirror(f:Tx) = Reg.reset(f(reg), f(en))
   val mT = typ[T]
   val bT = bits[T]

@@ -16,7 +16,7 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
     csedDuplicates += reg -> (dups ++ csedDuplicates.getOrElse(reg, Set.empty))
   }
 
-  override protected def postprocess[T:Type](block: Block[T]): Block[T] = {
+  /*override protected def postprocess[T:Type](block: Block[T]): Block[T] = {
     // Remove CSE'd register duplicates from the metadata
     /*for ((k,v) <- subst) {
       dbg(c"$k -> $v")
@@ -49,7 +49,7 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
     }
 
     super.postprocess(block)
-  }
+  }*/
 
   var inInnerCtrl: Boolean = false
   def inInner[A](x: => A): A = {
@@ -84,12 +84,12 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
 
       symsWithSameEffects match {
         case Some(lhs2) =>
-          lhs2.addCtx(ctx)
+          /*lhs2.addCtx(ctx)
           // Dispatch doesn't necessarily need to be defined yet
           dispatchOf.get(lhs,reg) match {
             case Some(dups) => removeDuplicates(f(reg), dups diff dispatchOf(lhs2, f(reg)))
             case None => // No action
-          }
+          }*/
           lhs2.asInstanceOf[Exp[T]]
 
         case None =>

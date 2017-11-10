@@ -7,6 +7,7 @@ all: spatial
 
 spatial:
 	$(info $$BRANCH is [${BRANCH}])
+	bash bin/make-isl.sh
 	sbt spatial/compile
 
 apps:

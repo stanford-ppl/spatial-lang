@@ -16,10 +16,15 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case None | Some(Const(1)) =>
       case _ => error(ctx, "Unsupported stride in vectorized LineBuffer read")
     }
-
+    val len = cols.length.s match {
+      case Final(c) => c.toInt
+      case _ =>
+        error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
+        0
+    }
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](len)
     val start  = cols.start.map(_.s).getOrElse(int32s(0))
-    val length = cols.length
-    val exp = LineBuffer.col_slice(s, row.s, start, length.s)
+    val exp = LineBuffer.col_slice(s, row.s, start, len)
     exp.tp.wrapped(exp)
   }
   /** Creates a vectorized load port to this LineBuffer at the given `rows` and `col`. **/
@@ -29,16 +34,15 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
       case None | Some(Const(1)) =>
       case _ => error(ctx, "Unsupported stride in vectorized LineBuffer read")
     }
-    implicit val vT: Type[VectorN[T]] = length match {
-      case Final(c) => VectorN.typeFromLen[T](c.toInt)
+    val len = rows.length.s match {
+      case Final(c) => c.toInt
       case _ =>
         error(ctx, "Cannot create parametrized or dynamically sized line buffer slice")
-        VectorN.typeFromLen[T](0)
+        0
     }
-
+    implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](len)
     val start = rows.start.map(_.s).getOrElse(int32s(0))
-    val length = rows.length
-    val exp = LineBuffer.row_slice(s, start, length.s, col.s)
+    val exp = LineBuffer.row_slice(s, start, col.s, len)
     exp.tp.wrapped(exp)
   }
 
@@ -86,7 +90,7 @@ object LineBuffer {
     row:  Exp[Index],
     col:  Exp[Index],
     len:  Int
-  ): Exp[VectorN[T]] = {
+  )(implicit vT: Type[VectorN[T]]): Exp[VectorN[T]] = {
     stageUnique(LineBufferColSlice(buff, row, col, len))(ctx)
   }
 
@@ -95,7 +99,7 @@ object LineBuffer {
     row:  Exp[Index],
     col:  Exp[Index],
     len:  Int
-  ): Exp[VectorN[T]] = {
+  )(implicit vT: Type[VectorN[T]]): Exp[VectorN[T]] = {
     stageUnique(LineBufferRowSlice(buff, row, col, len))(ctx)
   }
 
@@ -118,9 +122,9 @@ object LineBuffer {
 
   @internal def rotateEnq[T:Type:Bits](
     buff: Exp[LineBuffer[T]],
-    data:       Exp[T],
-    en:         Exp[Bit],
-    row:        Exp[Index]
+    data: Exp[T],
+    en:   Exp[Bit],
+    row:  Exp[Index]
   ): Exp[MUnit] = {
     stageWrite(buff)(LineBufferRotateEnq(buff,data,en,row))(ctx)
   }
@@ -147,7 +151,7 @@ object LineBuffer {
     buff: Exp[LineBuffer[T]],
     data: Seq[Exp[T]],
     ens:  Seq[Exp[Bit]],
-    row:  Exp[Index],
+    row:  Exp[Index]
   ): Exp[MUnit] = {
     stageWrite(buff)(BankedLineBufferRotateEnq(buff,data,ens,row))(ctx)
   }

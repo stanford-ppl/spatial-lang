@@ -36,7 +36,7 @@ case class StreamOutNew[T:Type:Bits](bus: Bus) extends Alloc[StreamOut[T]] {
   val mT = typ[T]
 }
 
-case class StreamRead[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]) extends LocalReaderOp[T,T](stream,en=en) {
+case class StreamRead[T:Type:Bits](stream: Exp[StreamIn[T]], en: Exp[Bit]) extends DequeueLikeOp[T,T](stream,en=en) {
   def mirror(f:Tx) = StreamIn.read(f(stream), f(en))
 }
 
@@ -44,7 +44,7 @@ case class StreamWrite[T:Type:Bits](
   stream: Exp[StreamOut[T]],
   data:   Exp[T],
   en:     Exp[Bit]
-) extends LocalWriterOp[T](stream,data,en=en) {
+) extends EnqueueLikeOp[T](stream,data,en=en) {
   def mirror(f:Tx) = StreamOut.write(f(stream), f(data), f(en))
 }
 
@@ -58,7 +58,7 @@ case class BufferedOutWrite[T:Type:Bits](
   data:   Exp[T],
   addr:   Seq[Exp[Index]],
   en:     Exp[Bit]
-) extends LocalWriterOp[T](buffer,data,addr,en) {
+) extends WriterOp[T](buffer,data,addr,en) {
   def mirror(f:Tx) = BufferedOut.write[T](f(buffer),f(data),f(addr),f(en))
 }
 
@@ -75,7 +75,7 @@ case class BankedBufferedOutWrite[T:Type:Bits](
 case class BankedStreamRead[T:Type:Bits](
   stream: Exp[StreamIn[T]],
   ens:    Seq[Exp[Bit]]
-)(implicit val vT: Type[VectorN[T]]) extends BankedReaderOp[T](stream, ens=ens) {
+)(implicit val vT: Type[VectorN[T]]) extends BankedDequeueLikeOp[T](stream, ens=ens) {
   def mirror(f:Tx) = StreamIn.banked_read(f(stream),f(ens))
 }
 
@@ -83,6 +83,6 @@ case class BankedStreamWrite[T:Type:Bits](
   stream: Exp[StreamOut[T]],
   data:   Seq[Exp[T]],
   ens:    Seq[Exp[Bit]]
-) extends BankedWriterOp[T](stream,data, ens=ens) {
+) extends BankedEnqueueLikeOp[T](stream,data, ens=ens) {
   def mirror(f:Tx) = StreamOut.banked_write(f(stream),f(data),f(ens))
 }

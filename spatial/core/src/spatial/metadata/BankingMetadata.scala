@@ -94,5 +94,5 @@ case class Banks(banks: Seq[List[Int]]) extends Metadata[Banks] { def mirror(f:T
   def update(access: Exp[_], mem: Exp[_], idx: Int, banks:Seq[List[Int]]) = {
     metadata.add(access, Banks(banks)) //TODO: fix this
   }
-}*
+}*/
 

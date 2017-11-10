@@ -16,7 +16,7 @@ trait DotGenReg extends DotCodegen {
   }
 
   def emitMemRead(reader:Sym[_]) = {
-    val LocalReader(reads) = reader
+    val Reader(reads) = reader
     reads.foreach { case (mem, ind, en) =>
       readersOf(mem).foreach { case read =>
         if (read.node==reader) {
@@ -37,7 +37,7 @@ trait DotGenReg extends DotCodegen {
   }
 
   def emitMemWrite(writer:Sym[_]) = {
-    val LocalWriter(writes) = writer
+    val Writer(writes) = writer
     writes.foreach { case (mem, value, _, _) =>
       writersOf(mem).foreach { case write =>
         if (write.node==writer) {

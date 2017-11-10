@@ -17,6 +17,14 @@ object utils {
     */
   def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
 
+  def multiLoop(dims: Seq[Int]): Iterator[Seq[Int]] = {
+    val ndims = dims.length
+    val prods = List.tabulate(ndims) { i => dims.slice(i + 1, ndims).product }
+    val total = dims.product
+    (0 until total).iterator.map{x => Seq.tabulate(ndims){d => (x / prods(d)) % dims(d) } }
+  }
+  def multiLoopWithIndex(dims: Seq[Int]): Iterator[(Seq[Int],Int)] = multiLoop(dims).zipWithIndex
+
   /**
     * Least common multiple of two integers (smallest integer which has integer divisors a and b)
     */
@@ -427,20 +435,26 @@ object utils {
            .mapValues{ms => ms.flatMap{case (ctrl,a1,a2) => Seq(a1,a2) }.distinct }
   }
 
-  @internal def getConcurrentReaders(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+  @stateful def getConcurrentReaders(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
     findAccesses(readersOf(mem)){(a,b) => areConcurrent(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def getConcurrentWriters(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+  @stateful def getConcurrentWriters(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
     findAccesses(writersOf(mem)){(a,b) => areConcurrent(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def getMetaPipelinedReaders(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+  @stateful def getMetaPipelinedReaders(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
     findAccesses(readersOf(mem)){(a,b) => areMetaPipelined(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def getMetaPipelinedWriters(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
+  @stateful def getMetaPipelinedWriters(mem: Exp[_])(ignore: (Access,Access) => Boolean): Map[Ctrl,Seq[Access]] = {
     findAccesses(writersOf(mem)){(a,b) => areMetaPipelined(a,b).filterNot(_ => ignore(a,b)) }
   }
-  @internal def hasMultipleReaders(mem: Exp[_]): Boolean = readersOf(mem).length > 1
-  @internal def hasMultipleWriters(mem: Exp[_]): Boolean = writersOf(mem).length > 1
+  @stateful def hasMultipleReaders(mem: Exp[_]): Boolean = readersOf(mem).length > 1
+  @stateful def hasMultipleWriters(mem: Exp[_]): Boolean = writersOf(mem).length > 1
+
+  @stateful def maxAccessWidth(accesses: Seq[Access]): Int = (1 +: accesses.collect{
+    case (Def(op: EnabledAccess[_]),_) => op.accessWidth
+  }).max
+  @stateful def maxReadWidth(mem: Exp[_]): Int = maxAccessWidth(readersOf(mem))
+  @stateful def maxWriteWidth(mem: Exp[_]): Int = maxAccessWidth(writersOf(mem))
 
   /*def checkConcurrentReadWrite(mem: Exp[_]): Boolean = {
     val hasConcurrent = writersOf(mem).exists{writer =>
@@ -839,23 +853,23 @@ object utils {
   }
 
   @stateful def isParEnq(e: Exp[_]): Boolean = e match {
-    case Def(_:ParFIFOEnq[_]) => true
-    case Def(_:ParFILOPush[_]) => true
-    case Def(_:ParSRAMStore[_]) => true
+    case Def(_:BankedFIFOEnq[_]) => true
+    case Def(_:BankedFILOPush[_]) => true
+    case Def(_:BankedSRAMStore[_]) => true
     case Def(_:FIFOEnq[_]) => true
     case Def(_:FILOPush[_]) => true
     case Def(_:SRAMStore[_]) => true
-    case Def(_:ParLineBufferEnq[_]) => true
+    case Def(_:BankedLineBufferEnq[_]) => true
     case _ => false
   }
 
   @stateful def isStreamStageEnabler(e: Exp[_]): Boolean = e match {
     case Def(_:FIFODeq[_]) => true
-    case Def(_:ParFIFODeq[_]) => true
+    case Def(_:BankedFIFODeq[_]) => true
     case Def(_:FILOPop[_]) => true
-    case Def(_:ParFILOPop[_]) => true
+    case Def(_:BankedFILOPop[_]) => true
     case Def(_:StreamRead[_]) => true
-    case Def(_:ParStreamRead[_]) => true
+    case Def(_:BankedStreamRead[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case Def(_:DMATemplateNew[_]) => true
     case _ => false
@@ -863,11 +877,11 @@ object utils {
 
   @stateful def isStreamStageHolder(e: Exp[_]): Boolean = e match {
     case Def(_:FIFOEnq[_]) => true
-    case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:BankedFIFOEnq[_]) => true
     case Def(_:FILOPush[_]) => true
-    case Def(_:ParFILOPush[_]) => true
+    case Def(_:BankedFILOPush[_]) => true
     case Def(_:StreamWrite[_]) => true
-    case Def(_:ParStreamWrite[_]) => true
+    case Def(_:BankedStreamWrite[_]) => true
     case Def(_:BufferedOutWrite[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case _ => false
@@ -1135,24 +1149,24 @@ object utils {
 
   @stateful def isAccess(x: Exp[_]): Boolean = isReader(x) || isWriter(x)
 
-  @stateful def isReader(x: Exp[_]): Boolean = LocalReader.unapply(x).isDefined
-  def isReader(d: Def): Boolean = LocalReader.unapply(d).isDefined
+  @stateful def isReader(x: Exp[_]): Boolean = Reader.unapply(x).isDefined
+  def isReader(d: Def): Boolean = Reader.unapply(d).isDefined
 
-  @stateful def isWriter(x: Exp[_]): Boolean = LocalWriter.unapply(x).isDefined
-  def isWriter(d: Def): Boolean = LocalWriter.unapply(d).isDefined
+  @stateful def isWriter(x: Exp[_]): Boolean = Writer.unapply(x).isDefined
+  def isWriter(d: Def): Boolean = Writer.unapply(d).isDefined
 
-  @stateful def isReadModify(x: Exp[_]): Boolean = LocalReadModify.unapply(x).isDefined
-  def isReadModify(d: Def): Boolean = LocalReadModify.unapply(d).isDefined
+  @stateful def isReadModify(x: Exp[_]): Boolean = DequeueLike.unapply(x).isDefined
+  def isReadModify(d: Def): Boolean = DequeueLike.unapply(d).isDefined
 
-  @stateful def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
-  def isResetter(d: Def): Boolean = LocalResetter.unapply(d).isDefined
+  @stateful def isResetter(x: Exp[_]): Boolean = Resetter.unapply(x).isDefined
+  def isResetter(d: Def): Boolean = Resetter.unapply(d).isDefined
 
   @stateful def isAccessWithoutAddress(e: Access): Boolean = isAccessWithoutAddress(e.node)
   @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {
-    case LocalReader(reads) => reads.exists(_.addr.isEmpty)
-    case LocalWriter(write) => write.exists(_.addr.isEmpty)
-    case ParLocalReader(reads) => reads.exists(_.addrs.isEmpty)
-    case ParLocalWriter(write) => write.exists(_.addrs.isEmpty)
+    case Reader(reads) => reads.exists(_.addr.isEmpty)
+    case Writer(write) => write.exists(_.addr.isEmpty)
+    case BankedReader(reads) => reads.exists(_.addrs.isEmpty)
+    case BankedWriter(write) => write.exists(_.addrs.isEmpty)
     case _ => false
   }
 

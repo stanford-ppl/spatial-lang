@@ -510,6 +510,7 @@ case class InitialData(data: Seq[Exp[_]]) extends Metadata[InitialData] {
   def mirror(f:Tx) = InitialData(f.tx(data))
 }
 @data object initialDataOf {
-  def apply(e: Exp[_]): Seq[Exp[_]] = metadata[InitialData](e).map(_.data).getOrElse(Nil)
+  def get(e: Exp[_]): Option[Seq[Exp[_]]] = metadata[InitialData](e).map(_.data)
+  def apply(e: Exp[_]): Seq[Exp[_]] = initialDataOf.get(e).getOrElse(Nil)
   def update(e: Exp[_], data: Seq[Exp[_]]): Unit = metadata.add(e, InitialData(data))
 }

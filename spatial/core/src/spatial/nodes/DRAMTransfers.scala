@@ -16,7 +16,7 @@ case class DenseTransfer[T,C[T]](
   isLoad: Boolean,
   iters:  List[Bound[Index]]
 )(implicit val mem: Mem[T,C], val mT: Type[T], val bT: Bits[T], val mC: Type[C[T]], mD: Type[DRAM[T]])
-  extends DRAMTransfer with LocalReader[MUnit] with LocalWriter[MUnit]
+  extends DRAMTransfer with Reader[MUnit] with Writer[MUnit]
 {
   def isStore: Boolean = !isLoad
 
@@ -44,7 +44,7 @@ case class SparseTransfer[T:Type:Bits](
   p:      Const[Index],
   isLoad: Boolean,
   i:      Bound[Index]
-)(implicit mD: Type[DRAM[T]]) extends DRAMTransfer with LocalReader[MUnit] with LocalWriter[MUnit] {
+)(implicit mD: Type[DRAM[T]]) extends DRAMTransfer with Reader[MUnit] with Writer[MUnit] {
   def isStore: Boolean = !isLoad
 
   override def localReads: Seq[LocalRead] = if (isLoad) LocalRead(addrs) else LocalRead(local) ++ LocalRead(addrs)
@@ -79,7 +79,7 @@ case class SparseTransferMem[T,C[T],A[_]](
   val memA: Mem[Index,A],
   val mA:   Type[A[Index]],
   val mD:   Type[DRAM[T]]
-) extends DRAMTransfer with LocalReader[MUnit] with LocalWriter[MUnit] {
+) extends DRAMTransfer with Reader[MUnit] with Writer[MUnit] {
   def isStore: Boolean = !isLoad
 
   override def localReads: Seq[LocalRead] = if (isLoad) LocalRead(addrs) else LocalRead(local) ++ LocalRead(addrs)

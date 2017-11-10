@@ -6,13 +6,14 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
+import org.virtualized.SourceContext
 
 import scala.collection.mutable.{ArrayBuffer,HashMap,HashSet}
 
 /**
   * Helper class for configuring banking and buffering of an addressable memory
   */
-class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit state: State) extends MemoryChecks {
+class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit val IR: State) extends MemoryChecks {
   protected val dims: Seq[Int] = constDimsOf(mem)
   protected val lastIndex: HashMap[Exp[Index],Exp[Index]] = new HashMap[Exp[Index],Exp[Index]]
   protected val inVector: HashSet[Exp[Index]] = new HashSet[Exp[Index]]
@@ -29,13 +30,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     }
     else {
       val ps = is.map{i => parFactorOf(i).toInt }
-      val ndims = is.length
-      val prods = List.tabulate(ndims){i => ps.slice(i+1,ndims).product }
-      val total = ps.product
-      val xs = Seq.tabulate(total){ x =>
-        val id = Seq.tabulate(ndims){ d => (x / prods(d)) % ps(d) }
-        id -> fresh[Index]  // TODO: Annoying to have to call fresh here..
-      }.toMap
+      // TODO: Annoying to have to call fresh here..
+      val xs = multiLoop(ps).map{id => id -> fresh[Index]}.toMap
       x.foreach{x => unrolledRand += x -> xs }
       (xs, is.length)
     }
@@ -48,10 +44,6 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   def unroll(matrix: CompactMatrix, indices: Seq[Exp[Index]]): Seq[AccessMatrix] = {
     val is = iteratorsBetween(matrix.access, ctrlOf(mem))
     val ps = is.map{i => parFactorOf(i).toInt }
-
-    val ndims = is.length
-    val prods = List.tabulate(ndims){i => ps.slice(i+1,ndims).product }
-    val total = ps.product
 
     def expand(vector: AccessVector, id: Seq[Int]): AccessVector = vector match {
       case RandomVector(_,uroll,len) =>
@@ -82,12 +74,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     // e.g. change 2i + 3 with par(i) = 2 into
     // 4i + 0*2 + 3 = 4i + 3
     // 4i + 1*2 + 3 = 4i + 5
-    Seq.tabulate(total){x =>
-      val id = Seq.tabulate(ndims){d => (x / prods(d)) % ps(d) }
+    multiLoop(ps).map{id =>
       val uvectors = matrix.vectors.map{vector => expand(vector, id) }
       val unrollId = id ++ matrix.vecId
       AccessMatrix(uvectors, matrix.access, indices, unrollId)
-    }
+    }.toSeq
   }
 
 
@@ -269,7 +260,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       Seq.tabulate(d.accessWidth){ vecId =>
         val addr = d.address
         val vectors = accessPatternOf(access.node).zipWithIndex.map { case (pattern, i) =>
-          indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = i == d.dim)
+          indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = i == d.axis)
         }
         CompactMatrix(vectors.toArray, access, Some(vecId))
       }

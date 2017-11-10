@@ -7,6 +7,7 @@ import spatial.utils._
 
 
 trait MemoryChecks { this: MemoryConfigurer =>
+  implicit val IR: State
 
   protected def testMultipleReaders: Boolean = false
   protected def testMultipleWriters: Boolean = false
@@ -39,34 +40,34 @@ trait MemoryChecks { this: MemoryConfigurer =>
       warn(mem.ctx)
     }
     if (testMultipleReaders && hasMultipleReaders(mem)) {
-      error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has multiple readers. ")
+      error(mem.ctx, u"${mem.tp} defined here has multiple readers. ")
       error("This is disallowed for this memory type.")
       error(mem.ctx)
       readers.foreach { read =>
-        error(read.node.ctxOrElse(ctx), u"  Read defined here", noError = true)
-        error(read.node.ctxOrElse(ctx))
+        error(read.node.ctx, u"  Read defined here", noError = true)
+        error(read.node.ctx)
       }
     }
     if (testMultipleWriters && hasMultipleWriters(mem)) {
-      error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has multiple writers: ")
+      error(mem.ctx, u"${mem.tp} defined here has multiple writers: ")
       error("This is disallowed for this memory type.")
       error(mem.ctx)
       writers.foreach { write =>
-        error(write.node.ctxOrElse(ctx), u"  Write defined here", noError = true)
-        error(write.node.ctxOrElse(ctx))
+        error(write.node.ctx, u"  Write defined here", noError = true)
+        error(write.node.ctx)
       }
     }
     if (testConcurrentReaders) {
       val sets = getConcurrentReaders(mem) { (a, b) => allowConcurrentReaders(a, b) }
       if (sets.nonEmpty) {
         sets.foreach { case (ctrl, accs) =>
-          error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent readers: ")
+          error(mem.ctx, u"${mem.tp} defined here has illegal concurrent readers: ")
           error(mem.ctx)
           error(ctrl.node.ctx, "in the loop defined here: ", noError = true)
           error(ctrl.node.ctx)
           accs.foreach { a =>
-            error(a.node.ctxOrElse(ctx), u"  Illegal concurrent read occurs here", noError = true)
-            error(a.node.ctxOrElse(ctx))
+            error(a.node.ctx, u"  Illegal concurrent read occurs here", noError = true)
+            error(a.node.ctx)
           }
         }
       }
@@ -75,13 +76,13 @@ trait MemoryChecks { this: MemoryConfigurer =>
       val sets = getConcurrentWriters(mem) { (a, b) => allowConcurrentWriters(a, b) }
       if (sets.nonEmpty) {
         sets.foreach { case (ctrl, accs) =>
-          error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal concurrent writers: ")
+          error(mem.ctx, u"${mem.tp} defined here has illegal concurrent writers: ")
           error(mem.ctx)
           error(ctrl.node.ctx, "in the loop defined here: ", noError = true)
           error(ctrl.node.ctx)
           accs.foreach { a =>
-            error(a.node.ctxOrElse(ctx), u"  Illegal concurrent write occurs here", noError = true)
-            error(a.node.ctxOrElse(ctx))
+            error(a.node.ctx, u"  Illegal concurrent write occurs here", noError = true)
+            error(a.node.ctx)
           }
         }
       }
@@ -89,13 +90,13 @@ trait MemoryChecks { this: MemoryConfigurer =>
     if (testMetaPipelinedReaders) {
       val sets = getMetaPipelinedReaders(mem) { (a, b) => allowMetaPipelinedReaders(a, b) }
       sets.foreach { case (ctrl, accs) =>
-        error(mem.ctxOrElse(ctx), u"${mem.tp} defined here has illegal coarse-grain pipelined readers: ")
+        error(mem.ctx, u"${mem.tp} defined here has illegal coarse-grain pipelined readers: ")
         error(mem.ctx)
         error(ctrl.node.ctx, "in the loop defined here: ", noError = true)
         error(ctrl.node.ctx)
         accs.foreach { a =>
-          error(a.node.ctxOrElse(ctx), u"  Illegal pipelined read occurs here", noError = true)
-          error(a.node.ctxOrElse(ctx))
+          error(a.node.ctx, u"  Illegal pipelined read occurs here", noError = true)
+          error(a.node.ctx)
         }
       }
     }
@@ -111,8 +112,8 @@ trait MemoryChecks { this: MemoryConfigurer =>
         error(ctrl.node.ctx, "These writes occur in the loop defined here", noError = true)
         error(ctrl.node.ctx)
         accs.foreach { a =>
-          error(a.node.ctxOrElse(ctx), u"  Illegal pipelined write occurs here", noError = true)
-          error(a.node.ctxOrElse(ctx))
+          error(a.node.ctx, u"  Illegal pipelined write occurs here", noError = true)
+          error(a.node.ctx)
         }
       }
     }

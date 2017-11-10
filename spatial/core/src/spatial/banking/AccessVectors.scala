@@ -24,7 +24,7 @@ case class AffineVector(as: Array[Int], is: Seq[Exp[Index]], b: Int) extends Acc
   }
 }
 
-case class CompactMatrix(vectors: Array[AccessVector], access: Access, vecId: Option[Int]) {
+case class CompactMatrix(vectors: Array[AccessVector], access: Access, vecId: Option[Int] = None) {
   def indices: Seq[Exp[Index]] = vectors.flatMap(_.is)
 }
 
@@ -54,25 +54,26 @@ case class AccessMatrix(
     else None
   }
 
+  // TODO
   /**
     * Returns true if the space of addresses in a is statically known to include all of the addresses in b
     */
   def containsSpace(b: AccessMatrix): Boolean = {
-
+    false
   }
 
   /**
     * Returns true if the space of addresses in a and b may have at least one element in common
     */
   def intersectsSpace(b: AccessMatrix): Boolean = {
-
+    true
   }
 
   /**
     * Returns true if there exists a reachable multi-dimensional index I such that addr_a(I) = addr_b(I)
     */
   def intersects(b: AccessMatrix): Boolean = {
-
+    true
   }
 
 }
