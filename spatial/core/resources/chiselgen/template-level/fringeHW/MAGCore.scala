@@ -17,14 +17,15 @@ class MAGCore(
   val storeStreamInfo: List[StreamParInfo],
   val numOutstandingBursts: Int,
   val burstSizeBytes: Int,
-  val blockingDRAMIssue: Boolean = false
+  val blockingDRAMIssue: Boolean = false,
+  val isDebugChannel: Boolean = false
 ) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
 
   val numRdataDebug = 2
   val numRdataWordsDebug = 16
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 224
+  val numDebugs = 232
 
   // The data bus width to DRAM is 1-burst wide
   // While it should be possible in the future to add a write combining buffer
@@ -50,7 +51,7 @@ class MAGCore(
     // Debug
     val enable = Input(Bool())
 
-    val dbg = new DebugSignals
+    // val dbg = new DebugSignals
     val debugSignals = Output(Vec(numDebugs, (UInt(w.W))))
 
 //    val app = Vec(numStreams, new MemoryStream(w, v))
@@ -488,7 +489,7 @@ class MAGCore(
     connectDbgSignal(getCounter(dramCmdValid & dramReady & (tagOut.streamTag === i.U)), signal)
   }
 
-  // Count number of load commands issued from accel per stream
+  // Count number of load commands issued from accel per p
   io.app.loads.zipWithIndex.foreach { case (load, i) =>
     val loadCounter = getCounter(io.enable & load.cmd.valid)
     val loadCounterHandshake = getCounter(io.enable & load.cmd.valid & load.cmd.ready)
@@ -555,20 +556,22 @@ class MAGCore(
 //  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued), "wvalid & wready & ~issued")
 //  connectDbgSignal(getCounter(wdataValid & wdataReady & issued), "wvalid & wready & issued")
 
-  // Print all debugging signals into a header file
-  val debugFileName = "cpp/generated_debugRegs.h"
-  val debugPW = new PrintWriter(new File(debugFileName))
-  debugPW.println(s"""
-#ifndef __DEBUG_REGS_H__
-#define __DEBUG_REGS_H__
+  if (isDebugChannel) {
+    // Print all debugging signals into a header file
+    val debugFileName = "cpp/generated_debugRegs.h"
+    val debugPW = new PrintWriter(new File(debugFileName))
+    debugPW.println(s"""
+  #ifndef __DEBUG_REGS_H__
+  #define __DEBUG_REGS_H__
 
-#define NUM_DEBUG_SIGNALS ${signalLabels.size}
+  #define NUM_DEBUG_SIGNALS ${signalLabels.size}
 
-const char *signalLabels[] = {
-""")
+  const char *signalLabels[] = {
+  """)
 
-  debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
-  debugPW.println("};")
-  debugPW.println("#endif // __DEBUG_REGS_H__")
-  debugPW.close
+    debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
+    debugPW.println("};")
+    debugPW.println("#endif // __DEBUG_REGS_H__")
+    debugPW.close
+  }
 }
