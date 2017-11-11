@@ -3,6 +3,7 @@ package spatial.codegen.pirgen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import spatial.banking._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -119,30 +120,32 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     mutable.Set(cu)
   }}.head
 
-  def allocateMemoryCU(dsram:Expr):List[CU] = {
+  def allocateMemoryCU(dsram: Expr): List[CU] = {
     val cus = mappingOf.getOrElseUpdate(dsram) { 
       val sram = compose(dsram)
       val parentCU = parentOf(sram).map(allocateCU)
       val writers = getWriters(sram)
       dbgblk(s"Allocating memory cu for ${qdef(sram)}, writers:$writers") {
+        val m = instanceOf(sram)
+        dbgs(s"BankedMemory # banks:${m.banking.map{
+          case ModBanking(n,b,alpha,dims) => s"(stride=$b, banks=$n)"
+        }.mkString(",")}")
+        val outerDims = getOuterDims(sram, m.banking)
+        val totalOuterBanks = outerDims.map{_.nBanks}.product
+        dbgs(s"totalOuterBanks=$totalOuterBanks")
+        List.tabulate(totalOuterBanks) { bank =>
+          val cu = ComputeUnit(s"${quote(dsram)}_bank${bank}", MemoryCU)
+          dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}")
+          cu.parent = parentCU
+          val psram = createSRAM(dsram, m, cu)
+          bankOf(psram) = bank
+          instOf(psram) = i
+          cu
+        }
         mutable.Set() ++ duplicatesOf(sram).zipWithIndex.flatten { case (m, i) =>
           m match {
             case m@BankedMemory(dims, depth, isAccum) =>
-              dbgs(s"BankedMemory # banks:${dims.map { 
-                case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
-              }.mkString(",")}")
-              val outerDims = getOuterDims(sram, dims) 
-              val totalOuterBanks = outerDims.map{_.banks}.product
-              dbgs(s"totalOuterBanks=$totalOuterBanks")
-              List.tabulate(totalOuterBanks) { bank =>
-                val cu = ComputeUnit(s"${quote(dsram)}_dsp${i}_bank${bank}", MemoryCU)
-                dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}, duplicateId=$i")
-                cu.parent = parentCU
-                val psram = createSRAM(dsram, m, i, cu)
-                bankOf(psram) = bank
-                instOf(psram) = i
-                cu
-              }
+
             case DiagonalMemory(strides, banks, depth, isAccum) =>
               throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
           }
@@ -219,7 +222,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def createSRAM(dmem:Expr, inst:Memory, i:Int, cu:CU):CUMemory = getOrElseUpdate(cu.memMap, dmem, {
+  def createSRAM(dmem:Expr, inst:Memory, cu:CU):CUMemory = getOrElseUpdate(cu.memMap, dmem, {
     val mem = compose(dmem)
     val cuMem = CUMemory(quote(dmem), dmem, cu)
     cuMem.mode = SRAMMode

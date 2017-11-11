@@ -1,9 +1,11 @@
 package spatial.codegen
 
+import argon.analysis._
 import argon.core._
 import argon.nodes._
 import forge._
 import spatial.aliases._
+import spatial.banking._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -11,7 +13,7 @@ import org.virtualized.SourceContext
 
 import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
-import scala.reflect.runtime.universe.{Block => _, Type => _, _}
+import scala.reflect.runtime.universe.TypeTag
 
 package object pirgen {
   type Expr = Exp[_]
@@ -29,7 +31,7 @@ package object pirgen {
 
   @stateful def qdef(lhs:Any):String = {
     val rhs = lhs match {
-      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
+      case lhs: Expr if composed.contains(lhs) => s"-> ${qdef(compose(lhs))}"
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case Def(e:UnrolledReduce[_,_]) => 
@@ -40,7 +42,7 @@ package object pirgen {
       case lhs => s"$lhs"
     }
     val name = lhs match {
-      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case lhs: Expr => compose(lhs).name.fold("") { n => s" ($n)" }
       case _ => ""
     }
     s"$lhs = $rhs$name"
@@ -48,9 +50,9 @@ package object pirgen {
 
 
   @stateful def isConstant(x: Expr):Boolean = x match {
-    case Const(c) => true
-    case Param(c) => true
-    case Final(c) => true
+    case Const(_) => true
+    case Param(_) => true
+    case Final(_) => true
     case _ => false
   }
 
@@ -215,18 +217,18 @@ package object pirgen {
   @stateful def isLocalMemReadAccess(acc: Expr) = acc match {
     case Def(_:RegRead[_]) => true
     case Def(_:FIFODeq[_]) => true
-    case Def(_:ParFIFODeq[_]) => true
+    case Def(_:BankedFIFODeq[_]) => true
     case Def(_:StreamWrite[_]) => true
-    case Def(_:ParStreamWrite[_]) => true
+    case Def(_:BankedStreamWrite[_]) => true
     case _ => false
   }
 
   @stateful def isLocalMemWriteAccess(acc: Expr) = acc match {
     case Def(_:RegWrite[_]) => true
     case Def(_:FIFOEnq[_]) => true
-    case Def(_:ParFIFOEnq[_]) => true
+    case Def(_:BankedFIFOEnq[_]) => true
     case Def(_:StreamRead[_]) => true
-    case Def(_:ParStreamRead[_]) => true
+    case Def(_:BankedStreamRead[_]) => true
     case _ => false
   }
 
@@ -234,9 +236,9 @@ package object pirgen {
 
   @stateful def isRemoteMemAccess(acc:Expr) = acc match {
     case Def(_:SRAMLoad[_]) => true
-    case Def(_:ParSRAMLoad[_]) => true
+    case Def(_:BankedSRAMLoad[_]) => true
     case Def(_:SRAMStore[_]) => true
-    case Def(_:ParSRAMStore[_]) => true
+    case Def(_:BankedSRAMStore[_]) => true
     case _ => false
   }
 
@@ -348,28 +350,33 @@ package object pirgen {
   }
 
   // HACK Not used
-  @stateful def bank(mem: Expr, access: Expr) = {
+  @stateful def bank(mem: Expr, access: Expr): SRAMBanking = {
     val pattern = accessPatternOf(access).last
-    val stride  = 1
 
     val pipe = parentOf(access).get
     val bankFactor = getInnerPar(pipe)
 
     // TODO: Distinguish isInner?
-    val banking = pattern match {
-      case AffineAccess(Exact(a),i,b) => Banking(a.toInt, bankFactor, true)
-      case StridedAccess(Exact(a), i) => Banking(a.toInt, bankFactor, true)
-      case OffsetAccess(i, b)         => Banking(1, bankFactor, true)
-      case LinearAccess(i)            => Banking(1, bankFactor, true)
-      case InvariantAccess(b)         => NoBanking(1)
-      case RandomAccess               => NoBanking(1)
+    pattern match {
+      case Affine(as,is,c) if as.length == 1 =>
+        if (bankFactor > 1) Strided(as.head, 16)
+        else NoBanks
+
+      case _ if bankFactor == 1 => NoBanks
+      case _ => Duplicated
+      //case AffineAccess(Exact(a),i,b) => Banking(a.toInt, bankFactor, true)
+      //case StridedAccess(Exact(a), i) => Banking(a.toInt, bankFactor, true)
+      //case OffsetAccess(i, b)         => Banking(1, bankFactor, true)
+      //case LinearAccess(i)            => Banking(1, bankFactor, true)
+      //case InvariantAccess(b)         => NoBanking(1)
+      //case RandomAccess(_)              => ModBanking(1)
     }
-    banking match {
+    /*banking match {
       case Banking(stride,f,_) if f > 1  => Strided(stride, 16)
       case Banking(stride,f,_) if f == 1 => NoBanks
       case NoBanking(_) if bankFactor==1 => NoBanks
       case NoBanking(_)                  => Duplicated
-    }
+    }*/
   }
 
   /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
@@ -408,7 +415,7 @@ package object pirgen {
       }
     }
   }*/
-  def mergeBanking(bank1: SRAMBanking, bank2: SRAMBanking) = (bank1,bank2) match {
+  def mergeBanking(bank1: SRAMBanking, bank2: SRAMBanking): SRAMBanking = (bank1,bank2) match {
     case (Strided(s1, b1),Strided(s2, b2)) if s1 == s2 && b1 == b2 => Strided(s1, b1)
     case (Strided(s1, b1),Strided(s2, b2)) => Diagonal(s1, s2)
     case (Duplicated, _) => Duplicated
@@ -428,18 +435,18 @@ package object pirgen {
     case Def(FringeDenseStore(dram, _, dataStream, _)) => getInnerPar(dataStream)
     case Def(FringeSparseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
     case Def(FringeSparseStore(dram, cmdStream, _)) => getInnerPar(cmdStream)
-    case Def(Switch(body, selects, cases)) => 1 // Outer Controller
-    case Def(SwitchCase(body)) => 1 
-    case Def(d:StreamInNew[_]) => getInnerPar(readersOf(n).head.node)
-    case Def(d:StreamOutNew[_]) => getInnerPar(writersOf(n).head.node)
-    case Def(d:ParSRAMStore[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParSRAMLoad[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParFIFOEnq[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParFIFODeq[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParStreamRead[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParStreamWrite[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParFILOPush[_]) => getInnerPar(parentOf(n).get)
-    case Def(d:ParFILOPop[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:Switch[_]) => 1 // Outer Controller
+    case Def(_:SwitchCase[_]) => 1
+    case Def(_:StreamInNew[_]) => getInnerPar(readersOf(n).head.node)
+    case Def(_:StreamOutNew[_]) => getInnerPar(writersOf(n).head.node)
+    case Def(_:BankedSRAMStore[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedSRAMLoad[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedFIFOEnq[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedFIFODeq[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedStreamRead[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedStreamWrite[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedFILOPush[_]) => getInnerPar(parentOf(n).get)
+    case Def(_:BankedFILOPop[_]) => getInnerPar(parentOf(n).get)
     case Def(_:SRAMLoad[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
     case Def(_:SRAMStore[_]) => 1 
@@ -455,8 +462,8 @@ package object pirgen {
     case n => throw new Exception(s"Undefined getInnerPar for ${qdef(n)}")
   }
 
-  def getOuterDims[T](dmem:Expr, list:Seq[T]):Seq[T] = {
-    list.zipWithIndex.filterNot { case (ele, dim) => Some(dim) == innerDimOf.get(compose(dmem)) }.map { _._1 }
+  def getOuterDims[T](dmem: Expr, list: Seq[T]): Seq[T] = {
+    list.zipWithIndex.filterNot{case (ele, dim) => innerDimOf.get(compose(dmem)).contains(dim) }.map { _._1 }
   }
 
   @stateful def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
@@ -477,7 +484,7 @@ package object pirgen {
       loopIters.fold(1L){_*_}
   }
 
-  def nIters(x:CUCounter, ignorePar:Boolean) = {
+  def nIters(x:CUCounter, ignorePar:Boolean): Long = {
     val CUCounter(ConstReg(start:Int), ConstReg(end:Int), ConstReg(stride:Int), par) = x
     val iters = Math.ceil((end - start)/stride)
     if (ignorePar) iters.toLong else Math.ceil(iters/par).toLong
@@ -506,7 +513,7 @@ package object pirgen {
       Right(decomposed.getOrElseUpdate(exp) {
         fields.map { f => 
           val (field, dexp) = f match {
-            case field:String => (field, fresh[Int32]) 
+            case field:String => (field, fresh[Index])
             case (field:String, dexp:Expr) => (field, dexp)
           }
           // Special case where if dexp is constant, it can map to 
@@ -535,17 +542,13 @@ package object pirgen {
       decomposeWithFields(exp, fields)
     case Const(a:WrappedArray[_]) => decomposeWithFields(exp, a.toSeq) 
     case mem if isMem(mem) => 
-      val fields =  mem.tp.typeArguments(0) match {
+      val fields =  mem.tp.typeArguments.head match {
         case s:StructType[_] => s.fields.map(_._1)
         case _ => Seq()
       }
       decomposeWithFields(mem, fields)
-    case ParLocalReader(reads) => 
-      val (mem, _, _) = reads.head
-      decomposeWithFields(exp, getFields(mem))
-    case ParLocalWriter(writes) =>
-      val (mem, _, _, _) = writes.head
-      decomposeWithFields(exp, getFields(mem))
+    case BankedReader(reads)  => decomposeWithFields(exp, getFields(reads.head.mem))
+    case BankedWriter(writes) => decomposeWithFields(exp, getFields(writes.head.mem))
     case _ => 
       decomposed.get(exp).map(fs => Right(fs)).getOrElse(Left(exp))
   }
@@ -562,7 +565,7 @@ package object pirgen {
     //case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
     case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data"))
     case ScatterAckBus => decomposeWithFields(mem, Seq("ack")) 
-    case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
+    case _ => throw new Exception(s"Don't know how to decompose bus $bus")
   }
 
   @stateful def decompose[T](exp: Expr, fields: Seq[T])(implicit ev: TypeTag[T]): Seq[Expr] = {
@@ -589,7 +592,7 @@ package object pirgen {
   @stateful def getField(dexp: Expr): Option[String] = {
     decomposeWithFields(compose(dexp)) match {
       case Left(e) => None 
-      case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
+      case Right(seq) => Some(seq.find(_._2==dexp).map(_._1).getOrElse(
         throw new Exception(s"composed $dexp=${compose(dexp)}doesn't contain $dexp. seq=$seq")
         ))
     }
