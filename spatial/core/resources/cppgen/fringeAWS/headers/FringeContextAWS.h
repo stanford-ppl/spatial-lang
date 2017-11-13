@@ -25,6 +25,7 @@
   #include <fpga_pci.h>
   #include <fpga_mgmt.h>
   #include <utils/lcd.h>
+  #include <time.h>
   
   #define MEM_16G (1ULL << 34)
   static uint16_t pci_vendor_id = 0x1D0F; /* Amazon PCI Vendor ID */
@@ -308,15 +309,20 @@ public:
 
   // set enable high in app and poll until done is high
   virtual void run() {
+    printf("[run] Begin\n");
 #ifdef SIM
     // These may not be needed anymore
-    printf("[run] Begin\n");
     aws_poke(BASE_ADDR_A + ATG, 0x00000001);
     aws_poke(BASE_ADDR_B + ATG, 0x00000001);
     aws_poke(BASE_ADDR_C + ATG, 0x00000001);
     aws_poke(BASE_ADDR_D + ATG, 0x00000001);
 #else // F1
     assert(fsync(fd) == 0); // TODO: Is this needed?
+    double startTime = 0.0;
+    struct timespec ts1;
+    clock_gettime (CLOCK_MONOTONIC, &ts1);
+    startTime = (double) (ts1.tv_sec);
+    startTime = (double) (startTime * 1000 + (double)(ts1.tv_nsec) / 1000000) ;
 #endif // F1
     // aws_poke(BASE_ADDR + NUM_INST, 0x00000000);	// TODO: Move outside run()?
     uint32_t status;
@@ -331,15 +337,21 @@ public:
     aws_poke(BASE_ADDR_B + ATG, 0x00000000);
     aws_poke(BASE_ADDR_C + ATG, 0x00000000);
     aws_poke(BASE_ADDR_D + ATG, 0x00000000);
-    printf("[run] Done\n");
 #else // F1
-    /*
+    double endTime = 0.0;
+    struct timespec ts2;
+    clock_gettime (CLOCK_MONOTONIC, &ts2);
+    endTime = (double) (ts2.tv_sec);
+    endTime = (double) (endTime * 1000 + (double)(ts2.tv_nsec) / 1000000) ;
+    printf("Design ran for %lf ms\n", endTime - startTime);
+    // /*
     uint32_t total_cycles;
     aws_peek(SCALAR_CMD_BASE_ADDR + PERF_COUNTER, &total_cycles);
     printf("Total cycles = %d\n", total_cycles);
-    */
+    // */
     assert(fsync(fd) == 0); // TODO: Is this needed?
 #endif // F1
+    printf("[run] Done\n");
   }
 
 
