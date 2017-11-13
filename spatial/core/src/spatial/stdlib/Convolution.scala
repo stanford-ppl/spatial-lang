@@ -116,7 +116,7 @@ object Convolution {
 			  Parallel {  // why is this here?
 			    Foreach(input.dim2 by colstride){j =>
 			      Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
-			      lo(j) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
+			      lo(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
 			        val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
 			        img * filter(i,ii,jj)
 			      }{_+_}
@@ -129,7 +129,7 @@ object Convolution {
 	}
 
 
-	// Multichannel, multifilter
+	// Multichannel, multifilter, assume coltile fits all columns
 	@virtualize
 	def MCMFConvolutionSlide[T:Type:Num](output: DRAM3[T], 
 	                    input: DRAM3[T],
@@ -147,7 +147,7 @@ object Convolution {
 				Foreach(input.dim2 by colstride){j =>
 				  Foreach(filter.head.dim1 by 1 par filter.head.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
 				  lineout_temps.zipWithIndex.foreach{case (lot, p) => 
-				    lot(i)(j) = Reduce(Reg[T](0.to[T]))(filter.head.dim1 by 1, filter.head.dim2 by 1){(ii,jj) => 
+				    lot(i)(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.head.dim1 by 1, filter.head.dim2 by 1){(ii,jj) => 
 			          val img = if ((row.to[Int]+rowstride-1) - (filter.head.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.head.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.head.dim2 - 1 - jj)
 			          val f = filter(p).apply(i,ii,jj)
 			          img * f
@@ -155,7 +155,7 @@ object Convolution {
 				  }
 				}
 			}
-			Foreach(input.dim2 by 1){ j => 
+			Foreach(output.dim2 by 1){ j => 
 			  lineout.zip(lineout_temps).zipWithIndex.foreach{case ((lo, lot), i) => 
 			    lo(j) = lot.map{t => t(j)}.reduce{_+_}
 			  }
@@ -163,6 +163,46 @@ object Convolution {
 			Parallel{
 			  lineout.zipWithIndex.foreach{case (lo, p) => 
 			  	output(p, row/rowstride, 0::output.dim2 par store_par) store lo
+			  }
+			}
+		  }
+	}
+
+
+	// Multichannel, multifilter, assume coltile fits all columns
+	@virtualize
+	def MCMFConvolutionSlideCheap[T:Type:Num](output: DRAM3[T], 
+	                    input: DRAM3[T],
+	                    filter: List[LUT3[T]],
+	                    colstride: scala.Int, rowstride: scala.Int,
+	                	load_par: Index, store_par: Index, channels: scala.Int)(implicit state: State): Unit = {
+
+		  Foreach(input.dim1 by rowstride){row =>
+		  	val lineout = List.tabulate(filter.length) {_ => SRAM[T](coltile/colstride)}
+			val lineout_temps = List.tabulate(filter.length){_ => List.tabulate(channels) {_ => SRAM[T](coltile/colstride)}} // TODO: Fix hardcoded 3
+			val lbs = List.tabulate(channels){_ => LineBuffer.strided[T](filter.head.dim1, coltile, rowstride)} // TODO: Fix hardcoded 3
+			val srs = List.tabulate(channels){_ => RegFile[T](filter.head.dim1, filter.head.dim2)} // TODO: Fix hardcoded 3
+			lbs.zip(srs).zipWithIndex.foreach{case ((lb, sr), i) =>
+			  lb load input(i, row::row+rowstride, 0::input.dim2 par 1)
+				Foreach(input.dim2 by colstride){j =>
+				  Foreach(filter.head.dim1 by 1 par 1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
+				  lineout_temps.zipWithIndex.foreach{case (lot, p) => 
+				    lot(i)(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.head.dim1 by 1, filter.head.dim2 by 1){(ii,jj) => 
+			          val img = if ((row.to[Int]+rowstride-1) - (filter.head.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.head.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.head.dim2 - 1 - jj)
+			          val f = filter(p).apply(i,ii,jj)
+			          img * f
+				    }{_+_}
+				  }
+				}
+			}
+			Foreach(output.dim2 by 1){ j => 
+			  lineout.zip(lineout_temps).zipWithIndex.foreach{case ((lo, lot), i) => 
+			    lo(j) = lot.map{t => t(j)}.reduce{_+_}
+			  }
+			}
+			Parallel{
+			  lineout.zipWithIndex.foreach{case (lo, p) => 
+			  	output(p, row/rowstride, 0::output.dim2 par 1) store lo
 			  }
 			}
 		  }
