@@ -52,7 +52,7 @@ trait PIRLogger extends SpatialTraversal {
     }
     dbgblk(s"mems: ") {
       for (mem <- cu.mems) {
-        dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem})""") {
+        dbgl(s"""$mem [${mem.tpe}] (exp: ${mem.mem})""") {
           dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
           dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
           dbgs(s"""readPort    = ${mem.readPort.map(_.toString).mkString(",")}""")

@@ -162,7 +162,8 @@ case class UnitCChain(override val name: String) extends CUCChain(name) {
 
 // --- Compute unit memories
 case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
-  var mode: LocalMemoryMode = _ 
+  var tpe: LocalMemoryType = _ 
+  var mode:LocalMemoryMode = _ 
   var bufferDepth: Option[Int] = None
   var banking: Option[SRAMBanking] = None
   var size = 1
@@ -176,13 +177,13 @@ case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
 
   override def toString = name
 
-  def isSRAM = mode == SRAMMode
-  def isLocalMem = mode match {
-    case SRAMMode => false
+  def isSRAM = tpe == SRAMType
+  def isLocalMem = tpe match {
+    case SRAMType => false
     case _ => true
   }
-  def isRemoteMem = mode match {
-    case SRAMMode => true
+  def isRemoteMem = tpe match {
+    case SRAMType => true
     case _ => false
   }
 }
@@ -238,8 +239,8 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
   def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
 
   def mems:Set[CUMemory] = memMap.values.toSet
-  def srams:Set[CUMemory] = mems.filter {_.mode==SRAMMode}
-  def fifos:Set[CUMemory] = mems.filter { mem => mem.mode==VectorFIFOMode || mem.mode==ScalarFIFOMode}
+  def srams:Set[CUMemory] = mems.filter {_.tpe==SRAMType}
+  def fifos:Set[CUMemory] = mems.filter { mem => mem.tpe==VectorFIFOType || mem.tpe==ScalarFIFOType}
   def remoteMems:Set[CUMemory] = mems.filter { _.isRemoteMem }
   def localMems:Set[CUMemory] = mems.filter { _.isLocalMem }
 
@@ -287,7 +288,7 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
 
   def sram = {
     assert(style == MemoryCU, s"Only MemoryCU has sram. cu:$this")
-    val srams = mems.filter{ _.mode == SRAMMode }
+    val srams = mems.filter{ _.tpe == SRAMType }
     assert(srams.size==1, s"Each MemoryCU should only has one sram, srams:[${srams.mkString(",")}]")
     srams.head
   }
@@ -335,10 +336,10 @@ abstract class CUContext(val cu: ComputeUnit) {
       /*debug(s"Referencing SRAM $sram in stage $stage")
       debug(s"  Previous stage: $prevStage")
       debug(s"  SRAM read addr: ${sram.readAddr}")*/
-      if (prevStage.isEmpty || sram.mode == VectorFIFOMode || sram.mode == ScalarFIFOMode )
+      if (prevStage.isEmpty || sram.tpe == VectorFIFOType || sram.tpe == ScalarFIFOType )
         LocalRef(-1, reg)
       else {
-        if (sram.mode != VectorFIFOMode && sram.mode!= ScalarFIFOMode) {
+        if (sram.tpe != VectorFIFOType && sram.tpe!= ScalarFIFOType) {
           LocalRef(stage-1,reg)
         }
         else

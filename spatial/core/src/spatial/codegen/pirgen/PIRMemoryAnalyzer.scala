@@ -23,20 +23,15 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    rhs match {
-      case SRAMNew(dims) =>
+    lhs match {
+      case lhs if isRemoteMem(lhs) =>
         dbgblk(s"${qdef(lhs)}") {
-          dbgs(s"dims = ${dims}")
-          (readersOf(lhs) ++ writersOf(lhs)).map(_.node).foreach { access =>
-            markInnerDim(lhs, access)
-          }
-          setOuterDims(lhs, dims.size)
+          markInnerDim(lhs)
+          setOuterDims(lhs)
           setNumOuterBanks(lhs)
-          (readersOf(lhs) ++ writersOf(lhs)).map(_.node).foreach { access =>
-            setStaticBank(lhs, access)
-          }
+          setStaticBank(lhs)
         }
-      case _ => 
+      case _ =>
     }
     super.visit(lhs, rhs)
   }
@@ -60,20 +55,34 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case _ => Nil
   }
 
-  def markInnerDim(mem:Expr, access:Expr) = dbgblk(s"markInnerDim(access=$access)") {
-    val inds:Seq[Expr] = access match {
-      case Def(ParLocalReader((mem, Some(inds::_), _)::_)) => inds 
-      case Def(ParLocalWriter((mem, _, Some(inds::_), _)::_)) => inds
-    }
-    inds.zipWithIndex.foreach { case (ind, dim) =>
-      if (containsInnerInd(ind)) {
-        dbgs(s"innerDim = $dim")
-        innerDimOf(mem) = dim
+  def markInnerDim(mem:Expr) = {
+    (readersOf(mem) ++ writersOf(mem)).map(_.node).foreach { access =>
+      dbgblk(s"markInnerDim(access=$access)") {
+        val inds:Seq[Expr] = access match {
+          case Def(ParLocalReader((mem, Some(inds::_), _)::_)) => inds 
+          case Def(ParLocalWriter((mem, _, Some(inds::_), _)::_)) => inds
+          case Def(ParLocalReader((mem, None, _)::_)) => Nil
+          case Def(ParLocalWriter((mem, _, None, _)::_)) => Nil
+        }
+        if (inds.isEmpty) { //FIFO
+          innerDimOf(mem) = 0
+          dbgs(s"innerDim = 0")
+        }
+        inds.zipWithIndex.foreach { case (ind, dim) =>
+          if (containsInnerInd(ind)) {
+            dbgs(s"innerDim = $dim")
+            innerDimOf(mem) = dim
+          }
+        }
       }
     }
   }
 
-  def setOuterDims(mem:Expr, numDim:Int) = dbgblk(s"setOuterDims") {
+  def setOuterDims(mem:Expr) = dbgblk(s"setOuterDims") {
+    val numDim = mem match {
+      case Def(SRAMNew(dims)) => dims.size
+      case Def(FIFONew(size)) => 1
+    }
     outerDimsOf(mem) = (0 until numDim).toSeq.filterNot { _ == innerDimOf(mem) }
   }
 
@@ -92,7 +101,14 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def setStaticBank(mem:Expr, access:Expr) = staticBanksOf(access) = dbgblk(s"setStaticBankOf($mem, $access)") {
+  def setStaticBank(mem:Expr):Unit = {
+    (readersOf(mem) ++ writersOf(mem)).map(_.node).foreach { access =>
+      if (isFIFO(mem)) staticBanksOf(access) = Seq(0)
+      else setStaticBank(mem, access)
+    }
+  }
+
+  def setStaticBank(mem:Expr, access:Expr):Unit = staticBanksOf(access) = dbgblk(s"setStaticBankOf($mem, $access)") {
     val instIds = getDispatches(mem, access)
     val insts = duplicatesOf(mem).zipWithIndex.filter { case (inst, instId) =>
       instIds.contains(instId)
