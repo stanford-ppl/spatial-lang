@@ -8,8 +8,7 @@ case class DSEWriterThread(
   spaceSize: BigInt,
   filename:  String,
   header:    String,
-  workQueue: BlockingQueue[Array[String]],
-  doneQueue: BlockingQueue[Int]
+  workQueue: BlockingQueue[Array[String]]
 ) extends Runnable {
 
   private var isAlive: Boolean = true
@@ -49,7 +48,6 @@ case class DSEWriterThread(
     }
 
     data.close()
-    doneQueue.put(threadId)
     hasTerminated = true
   }
 }

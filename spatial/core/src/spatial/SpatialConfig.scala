@@ -50,6 +50,7 @@ class SpatialConfig extends argon.core.Config {
   var enableDSE: Boolean = _
   var heuristicDSE: Boolean = true
   var bruteForceDSE: Boolean = false
+  var hyperMapperDSE: Boolean = false
   var experimentDSE: Boolean = false
 
   var enableDot: Boolean = _
@@ -64,6 +65,8 @@ class SpatialConfig extends argon.core.Config {
   var enablePIRSim: Boolean = false
   lazy val PIR_HOME: String = sys.env.getOrElse("PIR_HOME", {Report.error("Please set the PIR_HOME environment variable."); sys.exit()})
   var pirsrc: String = s"$PIR_HOME/pir/apps/src"
+
+  lazy val HYPERMAPPER: String = sys.env.getOrElse("HYPERMAPPER_HOME", {Report.error("Please set the HYPERMAPPER_HOME environment variable."); sys.exit() })
 
   var enableRetiming: Boolean = _
 

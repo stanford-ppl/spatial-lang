@@ -8,16 +8,15 @@ import java.util.concurrent.BlockingQueue
 
 import spatial.models._
 
-case class DSEThread(
+case class HyperMapperThread(
   threadId:  Int,
   origState: State,
-  params:    Seq[Exp[_]],
   space:     Seq[Domain[Int]],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[Seq[BigInt]],
-  outQueue:  BlockingQueue[Array[String]]
+  workQueue: BlockingQueue[Seq[Int]],
+  outQueue:  BlockingQueue[String]
 ) extends Runnable { thread =>
   // --- Thread stuff
   private var isAlive: Boolean = true
@@ -25,7 +24,7 @@ case class DSEThread(
   def requestStop(): Unit = { isAlive = false }
 
   // --- Profiling
-  private final val PROFILING = true
+  private final val PROFILING = false
   private var clockRef = 0L
   private def resetClock() { clockRef = System.currentTimeMillis }
 
@@ -48,10 +47,6 @@ case class DSEThread(
   private val target = spatialConfig.target
   private val capacity: Area = target.capacity
   val areaHeading: Seq[String] = capacity.nonZeroFields
-  private val indexedSpace = space.zipWithIndex
-  private val N = space.length
-  private val dims = space.map{d => BigInt(d.len) }
-  private val prods = List.tabulate(N){i => dims.slice(i+1,N).product }
 
   private lazy val scalarAnalyzer = new ScalarAnalyzer { var IR: State = state }
   private lazy val memoryAnalyzer = new MemoryAnalyzer {
@@ -102,29 +97,18 @@ case class DSEThread(
         requestStop()
       } // Somebody poisoned the work queue!
     }
-
-    // println(s"#$threadId: Ending now!")
     hasTerminated = true
   }
 
-  def run(requests: Seq[BigInt]): Array[String] = {
-    val array = new Array[String](requests.size)
-    var i: Int = 0
-    requests.foreach{pt =>
-      state.resetErrors()
-      indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
+  def run(request: Seq[Int]): String = {
+    state.resetErrors()
+    request.indices.foreach{i => space(i).setValue(request(i)) }
 
-      //println(params.map{case p @ Bound(c) => p.name.getOrElse(p.toString) + s": $c" }.mkString(", "))
+    val (area, runtime) = evaluate()
+    val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
 
-      val (area, runtime) = evaluate()
-      val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
-
-      // Only report the area resources that the target gives maximum capacities for
-      array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
-
-      i += 1
-    }
-    array
+    // Only report the area resources that the target gives maximum capacities for
+    space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
   }
 
   private def evaluate(): (Area, Long) = {
@@ -146,3 +130,4 @@ case class DSEThread(
   }
 
 }
+
