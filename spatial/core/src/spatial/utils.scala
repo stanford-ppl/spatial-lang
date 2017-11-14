@@ -48,21 +48,23 @@ object utils {
   /**
     * Same as allParents, specifically for controllers
     */
-  def allCtrlParents(x: Ctrl): List[Ctrl] = allParents(x, {c:Ctrl => parentOf(c)}).flatten
+  @stateful def allCtrlParents(x: Ctrl): List[Ctrl] = allParents(x, {c:Ctrl => parentOf(c)}).flatten
 
   /**
     * Returns a list of controllers between the given access's parent (inclusive) and the end controller (non-inclusive)
     * Access's parent is last in the list
     */
-  def ctrlBetween(start: Ctrl, end: Ctrl): List[Ctrl] = allParents[Ctrl](start, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
-  def ctrlBetween(x: Access, end: Ctrl): List[Ctrl] = ctrlBetween(x.ctrl, end)
+  @stateful def ctrlBetween(start: Ctrl, end: Ctrl): List[Ctrl] = {
+    allParents[Ctrl](start, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
+  }
 
   /**
     * Returns a list of loop iterators between the given access's parent (inclusive) and the end controller (non-inclusive)
     * Innermost iterator is last, outermost is first
     */
-  def iteratorsBetween(start: Ctrl, end: Ctrl): Seq[Bound[Index]] = ctrlBetween(start,end).flatMap(loopIterators)
-  def iteratorsBetween(x: Access, end: Ctrl): Seq[Bound[Index]] = iteratorsBetween(x.ctrl,end)
+  @stateful def iteratorsBetween(start: Ctrl, end: Ctrl): Seq[Bound[Index]] = {
+    ctrlBetween(start,end).flatMap(loopIterators).distinct
+  }
 
   /**
     * This function generates all possible partitions of the given set.
@@ -132,12 +134,12 @@ object utils {
     List.tabulate(allStrides.length-1){i => allStrides(i)/allStrides(i+ 1) }
   }
 
-  @stateful def remapDispatches(access: Exp[_], mem: Exp[_], mapping: Map[Int,Int]): Unit = {
+  /*@stateful def remapDispatches(access: Exp[_], mem: Exp[_], mapping: Map[Int,Int]): Unit = {
     dispatchOf(access, mem) = dispatchOf(access, mem).flatMap { o => mapping.get(o) }
     portsOf.set(access, mem, {
       portsOf(access, mem).flatMap { case (i, ps) => mapping.get(i).map { i2 => i2 -> ps } }
     })
-  }
+  }*/
 
 
   // TODO: This uses the pointer-chasing version of scheduling - could possibly make faster?
@@ -303,7 +305,6 @@ object utils {
     *
     * @return The LCA of a and b and the coarse-grained pipeline distance
     **/
-  @stateful def lcaWithCoarseDistance(a: Access, b: Access): (Ctrl, Int) = lcaWithCoarseDistance(a.ctrl,b.ctrl)
   @stateful def lcaWithCoarseDistance(a: Ctrl, b: Ctrl): (Ctrl, Int) = {
     val (lca, dist) = lcaWithDistance(a, b)
     val coarseDistance = if (isMetaPipe(lca) || isStreamPipe(lca)) dist else 0
@@ -336,7 +337,7 @@ object utils {
 
     val lcas = accesses.indices.flatMap{i =>
       (i + 1 until accesses.length).map{j =>
-        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+        val (lca,dist) = lcaWithCoarseDistance(accesses(i).ctrl, accesses(j).ctrl)
         (lca,dist,(accesses(i),accesses(j)))
       }
     }
@@ -383,7 +384,7 @@ object utils {
       val mpgroup = metapipeLCAs(metapipe.get)
       val anchor = mpgroup.head._1
       val dists = accesses.map{access =>
-        val (lca,dist) = lcaWithCoarseDistance(anchor, access)
+        val (lca,dist) = lcaWithCoarseDistance(anchor.ctrl, access.ctrl)
         dbg(c"LCA of $anchor and $access: $lca")
         // Time multiplexed actually becomes ALL ports
         if (lca == metapipe.get || access == anchor) access -> dist else access -> 0
@@ -540,13 +541,17 @@ object utils {
   }
 
   /** Control Nodes **/
-  def loopIterators(x: Ctrl): Seq[Bound[Index]] = x.node match {
+  @stateful def loopIterators(x: Ctrl): Seq[Bound[Index]] = x.node match {
     case Def(op:OpReduce[_])      => op.iters
     case Def(op:OpForeach)        => op.iters
     case Def(op:OpMemReduce[_,_]) => if (x.block == 0) op.itersMap else op.itersMap ++ op.itersRed
 
     case Def(op:UnrolledReduce[_,_]) => op.iters.flatten
     case Def(op:UnrolledForeach)     => op.iters.flatten
+    case Def(op:DenseTransfer[_,_])  => op.iters
+    case Def(op:SparseTransfer[_])   => Seq(op.i)
+    case Def(op:SparseTransferMem[_,_,_]) => Seq(op.i)
+    case _ => Nil
   }
 
 
@@ -554,11 +559,11 @@ object utils {
     def node: Exp[_] = if (x == null) null else x._1
     def block: Int = if (x == null) -1 else x._2
     @stateful def isInner: Boolean = if (x == null || block < 0) false else node match {
-      case Op(OpReduce(_,_,_,map,ld,reduce,store,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpReduce[_]) if isInnerControl(node) => true
       case Op(_:OpReduce[_]) if isOuterControl(node) => true
-      case Op(OpMemReduce(_,_,_,_,map,ldRes,ldAcc,reduce,stAcc,_,_,_,_,_)) if isInnerControl(node) => true
+      case Op(_:OpMemReduce[_,_]) if isInnerControl(node) => true
       case Op(_:OpMemReduce[_,_]) if isOuterControl(node) => block == 0
-      case Op(StateMachine(_,_,notdone,action,nextState,_)) if isInnerControl(node) => true
+      case Op(_:StateMachine[_]) if isInnerControl(node) => true
       case Op(_:StateMachine[_]) => block == 0 || block == 1
       case _ => isInnerControl(node)
     }
@@ -674,7 +679,6 @@ object utils {
 
   @stateful def isInLoop(e: Exp[_]): Boolean = isLoop(e) || parentOf(e).exists(isLoop)
   @stateful def isInLoop(ctrl: Ctrl): Boolean = isInLoop(ctrl.node)
-  @stateful def isInLoop(a: Access): Boolean = isInLoop(a.ctrl)
 
   /** Determines if a given controller is forever or has any children that are **/
   @stateful def willRunForever(e: Exp[_]): Boolean = getDef(e).exists(isForever) || childrenOf(e).exists(willRunForever)
@@ -701,21 +705,21 @@ object utils {
 
   /** Counters **/
   @stateful def counterStart(x: Exp[Counter]): Exp[Index] = x match {
-    case Op(CounterNew(start,_,_,_)) => start
+    case Op(op: CounterNew) => op.start
     case Op(Forever()) =>
       implicit val ctx: SrcCtx = x.ctx
       int32s(0)
     case _ => throw new Exception(s"Cannot get start of symbol $x")
   }
   @stateful def counterStride(x: Exp[Counter]): Exp[Index] = x match {
-    case Op(CounterNew(_,_,step,_)) => step
+    case Op(op: CounterNew) => op.step
     case Op(Forever()) =>
       implicit val ctx: SrcCtx = x.ctx
       int32s(1)
     case _ => throw new Exception(s"Cannot get stride of symbol $x")
   }
   @stateful def counterEnd(x: Exp[Counter]): Exp[Index] = x match {
-    case Op(CounterNew(_,_,_,end)) => end
+    case Op(op: CounterNew) => op.end
     case Op(Forever()) =>
       implicit val ctx: SrcCtx = x.ctx
       int32s(2) // FIXME: What is the end of a forever counter?
@@ -789,6 +793,12 @@ object utils {
     case Def(RegFileNew(dims,_)) => dims
     case Def(FIFONew(size)) => Seq(size)
     case Def(FILONew(size)) => Seq(size)
+    case Def(StreamInNew(_)) =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
+    case Def(StreamOutNew(_)) =>
+      implicit val ctx: SrcCtx = x.ctx
+      Seq(int32s(1))
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 
@@ -981,7 +991,7 @@ object utils {
     /**
       * Returns true if an execution of access a may occur before one of access b
       */
-    def mayPrecede(b: Access): Boolean = {
+    @stateful def mayPrecede(b: Access): Boolean = {
       val (ctrl,dist) = lcaWithDistance(b.ctrl, a.ctrl)
       dist < 0 || (dist > 0 && isInLoop(ctrl.node))
     }
@@ -989,7 +999,7 @@ object utils {
     /**
       * Returns true if an execution of access a may occur after one of access b
       */
-    def mayFollow(b: Access): Boolean = {
+    @stateful def mayFollow(b: Access): Boolean = {
       val (ctrl,dist) = lcaWithDistance(b.ctrl, a.ctrl)
       dist > 0 || (dist < 0) && isInLoop(ctrl.node)
     }
@@ -997,7 +1007,7 @@ object utils {
     /**
       * Returns the sequence of enables associated with this access
       */
-    def enables: Seq[Exp[Bit]] = a.node match {
+    @stateful def enables: Seq[Exp[Bit]] = a.node match {
       case Def(d:EnabledOp[_]) => d.enables
       case _ => Nil
     }
@@ -1009,7 +1019,7 @@ object utils {
       *
       * NOTE: Usable only before unrolling (so enables will not yet include boundary conditions)
       */
-    def mustOccurWithin(ctrl: Ctrl): Boolean = {
+    @stateful def mustOccurWithin(ctrl: Ctrl): Boolean = {
       val parents = allParents(a.ctrl, {c: Ctrl => parentOf(c)})
       val innerParents: Seq[Ctrl] = parents.take(parents.indexOf(Some(ctrl))).flatten
       val switches = innerParents.filter{p => isSwitch(p.node)}
@@ -1028,7 +1038,7 @@ object utils {
       *   4. a p b - true if in a loop and b does not occur within a switch
       *   5. p b a - true if b does not occur within a switch
       */
-    def mustFollow(b: Access, p: Access): Boolean = {
+    @stateful def mustFollow(b: Access, p: Access): Boolean = {
       val (ctrlA,distA) = lcaWithDistance(a.ctrl, p.ctrl) // Positive if a p, negative otherwise
       val (ctrlB,distB) = lcaWithDistance(b.ctrl, p.ctrl) // Positive if b p, negative otherwise
       val ctrlAB = lca(a.ctrl,b.ctrl).get
@@ -1169,8 +1179,8 @@ object utils {
   @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {
     case Reader(reads) => reads.exists(_.addr.isEmpty)
     case Writer(write) => write.exists(_.addr.isEmpty)
-    case BankedReader(reads) => reads.exists(_.addrs.isEmpty)
-    case BankedWriter(write) => write.exists(_.addrs.isEmpty)
+    case BankedReader(reads) => reads.exists(_.bank.isEmpty)
+    case BankedWriter(write) => write.exists(_.bank.isEmpty)
     case _ => false
   }
 

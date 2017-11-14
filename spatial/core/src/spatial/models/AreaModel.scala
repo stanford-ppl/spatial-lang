@@ -4,6 +4,7 @@ import argon.core._
 import argon.nodes._
 import forge._
 import spatial.aliases._
+import spatial.banking._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -119,46 +120,28 @@ abstract class AreaModel {
     dbg(s"Total elements: $totalElements")
 
     // TODO: This seems suspicious - check later
-    instance match {
-      case DiagonalMemory(strides, banks, _, isAccum) =>
-        val depth = Math.ceil(totalElements.toDouble/banks).toInt
-        dbg(s"Word width:       $nbits")
-        dbg(s"# of banks:       $banks")
-        dbg(s"Elements / Bank:  $depth")
-        dbg(s"# of buffers:     $bufferDepth")
+    val banks = instance.nBanks.product
+    val depth = Math.ceil(totalElements.toDouble/banks).toInt
 
-        val memResourcesPerBank = SRAMArea(width = nbits, depth)
-        val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank) * banks
+    dbg(s"Word width:       $nbits")
+    dbg(s"# of banks:       $banks")
+    dbg(s"Elements / Bank:  $depth")
+    dbg(s"# of buffers:     $bufferDepth")
 
-        dbg(s"Resources / Bank: $memResourcesPerBank")
-        dbg(s"Buffer resources: $resourcesPerBuffer")
+    val memResourcesPerBank = SRAMArea(width = nbits, depth)
+    val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank) * banks
 
-        resourcesPerBuffer * bufferDepth
+    dbg(s"Resources / Bank: $memResourcesPerBank")
+    dbg(s"Buffer resources: $resourcesPerBuffer")
 
-      case BankedMemory(banking,_,isAccum) =>
-        val banks  = banking.map(_.banks)
-        val nBanks = banks.product
-        val bankDepth = dims.zip(banks).map{case (dim,bank) => Math.ceil(dim.toDouble/bank).toInt }.product
-
-        dbg(s"Word width:       $nbits")
-        dbg(s"# of banks:       $nBanks")
-        dbg(s"Elements / Bank:  $bankDepth")
-        dbg(s"# of buffers:     $bufferDepth")
-
-        val memResourcesPerBank = SRAMArea(width = nbits, bankDepth)
-        val resourcesPerBuffer = (memResourcesPerBank + controlResourcesPerBank) * nBanks
-
-        dbg(s"Resources / Bank: $memResourcesPerBank")
-        dbg(s"Buffer resources: $resourcesPerBuffer")
-
-        resourcesPerBuffer * bufferDepth
-    }
+    resourcesPerBuffer * bufferDepth
   }
 
   @stateful protected def areaOfSRAM(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = {
     instances.map{instance => areaOfMemory(nbits, dims, instance) }.fold(NoArea){_+_}
   }
-  @stateful def areaOfAccess(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = {
+  @stateful def areaOfAccess(nbits: Int, dims: Seq[Int], instances: Seq[Memory]): Area = NoArea
+  /*{
     val addrSize = dims.map{d => log2(d) + (if (isPow2(d)) 1 else 0) }.max
     val multiplier = model("FixMulBig")("b"->18) //if (addrSize < DSP_CUTOFF) model("FixMulSmall")("b"->addrSize) else model("FixMulBig")("b"->addrSize)
     val adder = model("FixAdd")("b"->addrSize)
@@ -178,8 +161,8 @@ abstract class AreaModel {
     dbg(c"Mod area:     $mod")
     dbg(c"Flatten area: $flattenCost")
     dbg(c"Banking area: $bankAddrCost")
-    flattenCost + bankAddrCost
-  }
+    flattenCost
+  }*/
 
   @stateful def nDups(e: Exp[_]): Int = duplicatesOf(e).length
   @stateful def nStages(e: Exp[_]): Int = childrenOf((e,-1)).length
@@ -250,9 +233,9 @@ abstract class AreaModel {
     //case _:StreamInNew[_]       => NoArea
     //case _:StreamOutNew[_]      => NoArea
     case _:StreamRead[_]        => NoArea
-    case _:ParStreamRead[_]     => NoArea
+    case _:BankedStreamRead[_]  => NoArea
     case _:StreamWrite[_]       => NoArea
-    case _:ParStreamWrite[_]    => NoArea
+    case _:BankedStreamWrite[_] => NoArea
     case _:BufferedOutWrite[_]  => NoArea
 
     // TODO: Account for compressing data when this is supported
@@ -265,9 +248,9 @@ abstract class AreaModel {
     }.fold(NoArea){_+_}*/
     case _:FIFOPeek[_]        => NoArea
     case _:FIFOEnq[_]         => NoArea
-    case _:ParFIFOEnq[_]      => NoArea
+    case _:BankedFIFOEnq[_]   => NoArea
     case _:FIFODeq[_]         => NoArea
-    case _:ParFIFODeq[_]      => NoArea
+    case _:BankedFIFODeq[_]   => NoArea
     case _:FIFONumel[_]       => NoArea
     case _:FIFOAlmostEmpty[_] => NoArea
     case _:FIFOAlmostFull[_]  => NoArea
@@ -283,9 +266,9 @@ abstract class AreaModel {
     }.fold(NoArea){_+_}*/
     case _:FILOPeek[_]        => NoArea
     case _:FILOPush[_]        => NoArea
-    case _:ParFILOPush[_]     => NoArea
+    case _:BankedFILOPush[_]  => NoArea
     case _:FILOPop[_]         => NoArea
-    case _:ParFILOPop[_]      => NoArea
+    case _:BankedFILOPop[_]   => NoArea
     case _:FILONumel[_]       => NoArea
     case _:FILOAlmostEmpty[_] => NoArea
     case _:FILOAlmostFull[_]  => NoArea
@@ -294,23 +277,27 @@ abstract class AreaModel {
 
     // SRAMs
     case op:SRAMNew[_,_]   => areaOfSRAM(op.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
-    case op@SRAMLoad(mem,_,is,_,en)    => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
-    case op@ParSRAMLoad(mem,is,en)     => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+
+    case _: SRAMLoad[_]       => NoArea
+    case _: BankedSRAMLoad[_] => NoArea
+    case _: SRAMStore[_]      => NoArea
+    case _: BankedSRAMStore[_] => NoArea
+    /*case op@SRAMLoad(mem,addr,en) => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@BankedSRAMLoad(mem,bank,ofs,en) //=> areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
     case op@SRAMStore(mem,_,is,_,_,en) => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
-    case op@ParSRAMStore(mem,is,_,en)  => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))
+    case op@ParSRAMStore(mem,is,_,en)  => areaOfAccess(op.bT.length, constDimsOf(mem), duplicatesOf(mem).zipWithIndex.filter{case (dup,i) => dispatchOf(lhs,mem).contains(i) }.map(_._1))*/
 
     // LineBuffer
     // TODO: Confirm this model for SRAM, or change
-    case op:LineBufferNew[_]    => areaOfSRAM(op.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
-    case _:LineBufferEnq[_]     => NoArea
-    case _:ParLineBufferEnq[_]  => NoArea
-    case _:LineBufferLoad[_]    => NoArea
-    case _:ParLineBufferLoad[_] => NoArea
+    case op:LineBufferNew[_]       => areaOfSRAM(op.bT.length,constDimsOf(lhs),duplicatesOf(lhs))
+    case _:LineBufferEnq[_]        => NoArea
+    case _:BankedLineBufferEnq[_]  => NoArea
+    case _:LineBufferLoad[_]       => NoArea
+    case _:BankedLineBufferLoad[_] => NoArea
 
     // Regs
-    case reg:RegNew[_] => duplicatesOf(lhs).map{
-      case BankedMemory(_,depth,isAccum) => model("Reg")("d" -> depth, "b" -> reg.bT.length)
-      case _ => NoArea
+    case reg:RegNew[_] => duplicatesOf(lhs).map{case Memory(_,depth,isAccum) =>
+      model("Reg")("d" -> depth, "b" -> reg.bT.length)
     }.fold(NoArea){_+_}
     case _:RegRead[_]  => NoArea
     case _:RegWrite[_] => NoArea
@@ -321,8 +308,8 @@ abstract class AreaModel {
       val rank = constDimsOf(lhs).length
       val size = constDimsOf(lhs).product
       duplicatesOf(lhs).map{
-        case BankedMemory(_,depth,isAccum) if rank == 1 => model("RegFile1D")("b" -> rf.bT.length, "d" -> depth, "c" -> size)
-        case BankedMemory(_,depth,isAccum) if rank == 2 =>
+        case Memory(_,depth,isAccum) if rank == 1 => model("RegFile1D")("b" -> rf.bT.length, "d" -> depth, "c" -> size)
+        case Memory(_,depth,isAccum) if rank == 2 =>
           val r = constDimsOf(lhs).head
           var c = constDimsOf(lhs).apply(1)
           model("RegFile2D")("b" -> rf.bT.length, "d" -> depth, "r" -> r, "c" -> c)
@@ -331,11 +318,11 @@ abstract class AreaModel {
           NoArea
       }.fold(NoArea){_+_}
 
-    case _:RegFileLoad[_]       => NoArea
-    case _:ParRegFileLoad[_]    => NoArea
-    case _:RegFileStore[_]      => NoArea
-    case _:ParRegFileStore[_]   => NoArea
-    case _:RegFileShiftIn[_]    => NoArea
+    case _:RegFileLoad[_]        => NoArea
+    case _:BankedRegFileLoad[_]  => NoArea
+    case _:RegFileStore[_]       => NoArea
+    case _:BankedRegFileStore[_] => NoArea
+    case _:RegFileShiftIn[_]     => NoArea
     case _:RegFileVectorShiftIn[_] => NoArea
 
     /** Primitives **/
@@ -509,7 +496,7 @@ abstract class AreaModel {
     val nregs = width*length
     // TODO: Should fix this cutoff point to something more real
     val area = if (nregs < 256) RegArea(length, width)*par
-    else areaOfSRAM(width*par, List(length), List(BankedMemory(Seq(NoBanking(1)),1,false)))
+    else areaOfSRAM(width*par, List(length), List(Memory(RegBank(),1,isAccum = false)))
 
     dbg(s"Delay line (w x l): $width x $length (${width*length}) [par = $par]")
     dbg(s"  $area")

@@ -9,9 +9,11 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
+import org.virtualized.SourceContext
+
 trait ControllerUnrolling extends UnrollingBase {
 
-  override def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = {
+  override def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = rhs match {
     case e: Switch[_]        => duplicateSwitch(lhs, e, lanes)
     case e: OpForeach        => duplicateController(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => duplicateController(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }

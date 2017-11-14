@@ -85,7 +85,7 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def mapNodeToStage(lhs: Expr, rhs: Def, ctx: CUContext) = rhs match {
     // --- Reads
-    case ParLocalReader(reads) =>
+    case BankedReader(_) =>
       if (usersOf(lhs).nonEmpty) {
         decompose(lhs).foreach { dreader =>
           assert(ctx.getReg(dreader).nonEmpty, s"reader: ${qdef(dreader)} was not allocated in ${ctx.cu} during allocation")
@@ -94,9 +94,9 @@ class PIRScheduler(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
     case GetDRAMAddress(dram) => // equivalent to RegRead 
 
-    case ParLocalWriter(writes) =>
-      val (mem, value, addrs, ens) = writes.head 
-      value.map(_.head).foreach { data =>
+    case BankedWriter(writes) =>
+      val (mem, data, banks, ofs, ens) = writes.head
+      data.map(_.head).foreach { data =>
         dbgs(s"data:$data ddata:[${decompose(data).mkString(",")}] writer:$lhs dwriters:[${decompose(lhs).mkString(",")}]")
         decompose(data).zip(decompose(lhs)).foreach { case (ddata, dwriter) =>
           if (getRemoteReaders(mem, lhs).nonEmpty || isArgOut(mem)) {

@@ -212,6 +212,7 @@ case class IndexController(ctrl: Ctrl) extends Metadata[IndexController] {
   override def ignoreOnTransform: Boolean = true
 }
 @data object ctrlOf {
+  def get(x: Exp[_]): Option[Ctrl] = metadata[IndexController](x).map(_.ctrl)
   def apply(x: Exp[_]): Ctrl = metadata[IndexController](x).map(_.ctrl).get
   def update(x: Exp[_], ctrl: Ctrl): Unit = metadata.add(x, IndexController(ctrl))
 }

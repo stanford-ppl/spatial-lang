@@ -7,6 +7,8 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
+import org.virtualized.SourceContext
+
 trait UnrollingBase extends ForwardTransformer {
   /**
     * Valid bits - tracks all valid bits associated with the current scope to handle edge cases

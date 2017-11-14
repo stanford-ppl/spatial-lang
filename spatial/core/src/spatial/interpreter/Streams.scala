@@ -61,7 +61,7 @@ trait Streams extends AInterpreter {
 
       }
 
-    case ParStreamRead(strm, ens) =>
+    case BankedStreamRead(strm, ens) =>
       val q = eval[Queue[Any]](strm)
       val vs = ens.map(eval[Boolean]).map(x => {
         if (x)
@@ -72,9 +72,9 @@ trait Streams extends AInterpreter {
       vs
       
 
-    case ParStreamWrite(strm, data, ens) =>
+    case BankedStreamWrite(strm, data, ens) =>
       val q = eval[Queue[Any]](strm)       
-      ens.indices.map(i => {
+      ens.indices.foreach(i => {
         if (eval[Boolean](ens(i)))
           q.put(eval[Any](data(i)))        
       })

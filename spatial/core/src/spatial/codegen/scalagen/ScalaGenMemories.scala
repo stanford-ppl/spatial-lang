@@ -65,6 +65,8 @@ trait ScalaGenMemories extends ScalaGenBits {
   def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = if (globalMems) emit(src"val $mem") else {
     val inst = instanceOf(mem)
     val dims = constDimsOf(mem)
+    implicit val ctx: SrcCtx = mem.ctx
+
     val data = init match {
       case Some(elems) =>
         val nBanks = inst.nBanks.product
@@ -91,7 +93,7 @@ trait ScalaGenMemories extends ScalaGenBits {
       val bankAddrFunc = stageBlock{
         val bank = inst.bankAddress(addr)
         implicit val vT: Type[VectorN[Index]] = VectorN.typeFromLen[Index](bank.length)
-        Vector.fromseq[Index,VectorN[Index]](bank)
+        Vector.fromseq[Index,VectorN](bank)
       }
       val offsetFunc = stageBlock { inst.bankOffset(mem,addr) }
 

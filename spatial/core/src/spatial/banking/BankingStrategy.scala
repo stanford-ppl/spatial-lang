@@ -9,7 +9,7 @@ trait BankingStrategy {
     mem:    Exp[_],                   // Memory to be banked
     reads:  Set[AccessMatrix],        // Reads to this banked memory
     writes: Set[AccessMatrix],        // Writes to this banked memory
-    domain: Array[(Array[Int],Int)]   // Iteration domain
+    domain: Domain                    // Iteration domain
   ): Seq[ModBanking]
 
 }

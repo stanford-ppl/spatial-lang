@@ -120,10 +120,10 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     banking
   }
 
-  def bankAccesses(mem: Exp[_], reads: Set[AccessMatrix], writes: Set[AccessMatrix], domain: Array[(Array[Int],Int)]): Seq[ModBanking] = {
-    val cyclicIndexBounds = domain.map{case (a, c) => Constraint(1, Vector(a ++ Array(0, c))) }
-    val blockCyclicIndexBounds = domain.map{case (a,c) => Constraint(1, Vector(a ++ Array(0, 0, c))) }
-    val nIters = domain.headOption.map(_._1.length).getOrElse(0)
+  def bankAccesses(mem: Exp[_], reads: Set[AccessMatrix], writes: Set[AccessMatrix], domain: Domain): Seq[ModBanking] = {
+    val cyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, a.last))) }
+    val blockCyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, 0, a.last))) }
+    val nIters = domain.headOption.map(_.length - 1).getOrElse(0)
 
     val cyclicIndexStr = cyclicIndexBounds.map(_.toString).mkString("\n")
     val dC = s"${cyclicIndexBounds.length+1} ${nIters + 3}\n$cyclicIndexStr\n"
@@ -133,6 +133,12 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
 
     val accessGrps: Seq[Set[AccessMatrix]] = reads.groupBy(_.access.ctrl).toSeq.map(_._2) ++
                                              writes.groupBy(_.access.ctrl).toSeq.map(_._2)
+
+    dbg("  Attempting to find banking with access matrix groups: ")
+    accessGrps.zipWithIndex.foreach{case (grp,i) =>
+      dbg(s"    Group #$i: ")
+      grp.foreach{m => m.printWithTab("      ") }
+    }
 
     val dims = constDimsOf(mem)
     val dimIndices = dims.indices

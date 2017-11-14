@@ -70,7 +70,7 @@ object MemReduce extends MemReduceClass(MetaPipe) {
     val rBlk  = stageColdLambda2(rV._1,rV._2){ reduce(wrap(rV._1), wrap(rV._2)).s }
     val ldResBlk = stageColdLambda1(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
     val ldAccBlk = stageColdLambda1(accum.s) { mem.load(accum, wrap(itersRed), true).s }
-    val stAccBlk = stageColdLambda2(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
+    val stAccBlk = stageColdLambda2(accum.s, rBlk.result){ mem.store(accum, wrap(rBlk.result), wrap(itersRed), true).s }
 
     val cchainMap = CounterChain(domain: _*)
     val cchainRed = CounterChain(ctrsRed: _*)

@@ -24,17 +24,13 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
     rhs match {
-      case ParLocalReader(reads)  =>
-        val (mem, addrs, _) = reads.head
-        addrs.foreach { addrs => 
-          markInnerDim(mem, addrs.head)
-        }
+      case BankedReader(reads)  =>
+        val (mem, banks,ofs,_) = reads.head
+        banks.foreach {bank => markInnerDim(mem, bank.head) }
 
-      case ParLocalWriter(writes)  => 
-        val (mem, value, addrs, ens) = writes.head
-        addrs.foreach { addrs => 
-          markInnerDim(mem, addrs.head)
-        }
+      case BankedWriter(writes)  =>
+        val (mem, data, banks, ofs, ens) = writes.head
+        banks.foreach{bank => markInnerDim(mem, bank.head) }
 
       case _ => 
     }
@@ -44,7 +40,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   def containsInnerInd(ind:Expr):Boolean = {
     ind match {
       case b:Bound[_] => 
-        val ctrl = ctrlOf(ind).get.node
+        val ctrl = ctrlOf(ind).node
         extractInnerBounds(ctrl).contains(b)
       case e:Sym[_] => e.dependents.exists(containsInnerInd)
       case e => false

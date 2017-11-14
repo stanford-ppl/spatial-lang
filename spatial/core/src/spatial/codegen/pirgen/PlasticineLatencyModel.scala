@@ -25,36 +25,36 @@ trait PlasticineLatencyModel extends LatencyModel {
     case _:RegWrite[_] => 0
 
     // Register File
-    case _:RegFileLoad[_]       => 0
-    case _:ParRegFileLoad[_]    => 0
-    case _:RegFileStore[_]      => 0
-    case _:ParRegFileStore[_]   => 0
-    case _:RegFileShiftIn[_]    => 0
+    case _:RegFileLoad[_]          => 0
+    case _:BankedRegFileLoad[_]    => 0
+    case _:RegFileStore[_]         => 0
+    case _:BankedRegFileStore[_]   => 0
+    case _:RegFileShiftIn[_]       => 0
     case _:RegFileVectorShiftIn[_] => 0
 
     // Streams
-    case _:StreamRead[_]     => 0
-    case _:ParStreamRead[_]  => 0
-    case _:StreamWrite[_]    => 0
-    case _:ParStreamWrite[_] => 0
+    case _:StreamRead[_]        => 0
+    case _:BankedStreamRead[_]  => 0
+    case _:StreamWrite[_]       => 0
+    case _:BankedStreamWrite[_] => 0
 
     // FIFOs
-    case _:FIFOEnq[_]    => 0
-    case _:ParFIFOEnq[_] => 0
-    case _:FIFODeq[_]    => 0
-    case _:ParFIFODeq[_] => 0
+    case _:FIFOEnq[_]       => 0
+    case _:BankedFIFOEnq[_] => 0
+    case _:FIFODeq[_]       => 0
+    case _:BankedFIFODeq[_] => 0
 
     // SRAMs
-    case _:SRAMLoad[_]     => 0
-    case _:ParSRAMLoad[_]  => 0
-    case _:SRAMStore[_]    => 0
-    case _:ParSRAMStore[_] => 0
+    case _:SRAMLoad[_]        => 0
+    case _:BankedSRAMLoad[_]  => 0
+    case _:SRAMStore[_]       => 0
+    case _:BankedSRAMStore[_] => 0
 
     // LineBuffer
-    case _:LineBufferEnq[_]     => 0
-    case _:ParLineBufferEnq[_]  => 0
-    case _:LineBufferLoad[_]    => 0
-    case _:ParLineBufferLoad[_] => 0
+    case _:LineBufferEnq[_]        => 0
+    case _:BankedLineBufferEnq[_]  => 0
+    case _:LineBufferLoad[_]       => 0
+    case _:BankedLineBufferLoad[_] => 0
 
     // Shift Register
     case DelayLine(size, data) => 0 // wrong but it works???

@@ -3,6 +3,7 @@ package spatial.interpreter
 import argon.core._
 import argon.nodes._
 import spatial.nodes._
+import spatial.utils._
 import argon.interpreter.{Interpreter => AInterpreter}
 
 
@@ -30,26 +31,27 @@ trait SRAMs extends AInterpreter {
   
   override def matchNode(lhs: Sym[_])  = super.matchNode(lhs).orElse {
     case SRAMNew(SeqEI(size)) =>
-      variables.get(lhs).getOrElse {
+      variables.get(lhs).getOrElse{
         new ISRAM(size, Array.fill[Any](size.product)(null))
       }
 
-    case SRAMStore(ESRAM(sram), SeqEI(dims), SeqEI(is), EInt(ofs), EAny(v), EBoolean(en)) =>
+    case SRAMStore(mem@ESRAM(sram), EAny(data), SeqEI(addr), EBoolean(en)) =>
       if (en) {
-        val i = sram.index(dims, is, ofs)
-        sram.v(i) = v
+        val dims = constDimsOf(mem)
+        val i = sram.index(dims, addr, 0)
+        sram.v(i) = data
       }
 
-    case ParSRAMStore(ESRAM(sram), inds, SeqE(data), SeqEB(ens)) =>
-      inds.zipWithIndex.foreach { case (ind, i: Int)  => {
+    case BankedSRAMStore(ESRAM(sram), SeqE(data), bank, ofs, SeqEB(ens)) =>
+      bank.zipWithIndex.foreach { case (ind, i: Int)  => {
         if (ens(i)) {
           val indV = sram.index(sram.dims, SeqEI.unapply(ind).get, 0)
           sram.v(indV) = data(i)
         }
       }}
  
-    case ParSRAMLoad(ESRAM(sram), inds, SeqEB(ens)) =>
-      inds.zipWithIndex.map { case (ind, i: Int)  => {
+    case BankedSRAMLoad(ESRAM(sram), bank, ofs, SeqEB(ens)) =>
+      bank.zipWithIndex.map { case (ind, i: Int)  =>
         if (ens(i)) {
           val indV = sram.index(sram.dims, SeqEI.unapply(ind).get, 0)
           sram.v(indV) 
@@ -57,13 +59,14 @@ trait SRAMs extends AInterpreter {
         else {
           null
         }
-      }}.toSeq
+      }
      
       
 
-    case SRAMLoad(ESRAM(sram), SeqEI(dims), SeqEI(is), EInt(ofs), EBoolean(en)) =>
+    case SRAMLoad(mem@ESRAM(sram), SeqEI(addr), EBoolean(en)) =>
       if (en) {
-        val i = sram.index(dims, is, ofs)
+        val dims = constDimsOf(mem)
+        val i = sram.index(dims, addr, 0)
         sram.v(i)
       }
 

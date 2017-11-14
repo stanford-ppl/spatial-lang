@@ -57,11 +57,6 @@ case class ConstraintMatrix(
     }
     r = newRows
   }
-
-
-  def isEmptyPolytope: Boolean = {
-
-  }
 }
 
 

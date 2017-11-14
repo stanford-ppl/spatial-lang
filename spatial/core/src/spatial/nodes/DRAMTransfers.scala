@@ -22,6 +22,7 @@ case class DenseTransfer[T,C[T]](
 
   override def localReads: Seq[LocalRead] = if (isStore) LocalRead(local,addr=iters) else Nil
   override def localWrites: Seq[LocalWrite] = if (isLoad) LocalWrite(local,addr=iters) else Nil
+  override def address = Some(iters)
 
   var isAlign = false
 
@@ -49,6 +50,7 @@ case class SparseTransfer[T:Type:Bits](
 
   override def localReads: Seq[LocalRead] = if (isLoad) LocalRead(addrs) else LocalRead(local) ++ LocalRead(addrs)
   override def localWrites: Seq[LocalWrite] = if (isLoad) LocalWrite(local) else Nil
+  override def address = None
 
   def mirror(f:Tx) = DRAMTransfers.op_sparse_transfer(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
 
@@ -84,6 +86,7 @@ case class SparseTransferMem[T,C[T],A[_]](
 
   override def localReads: Seq[LocalRead] = if (isLoad) LocalRead(addrs) else LocalRead(local) ++ LocalRead(addrs)
   override def localWrites: Seq[LocalWrite] = if (isLoad) LocalWrite(local) else Nil
+  override def address = None
 
   def mirror(f:Tx) = DRAMTransfers.op_sparse_transfer_mem(f(dram),f(local),f(addrs),f(size),p,isLoad,i)
 

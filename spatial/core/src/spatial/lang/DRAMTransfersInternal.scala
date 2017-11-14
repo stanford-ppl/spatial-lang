@@ -249,7 +249,7 @@ object DRAMTransfersInternal {
       Foreach(requestLength par p){i =>
         val data = dataStream.value()
         val addr = onchipAddr(i)
-        mem.store(local, addr, data, true)
+        mem.store(local, data, addr, true)
       }
       // }
     }
@@ -286,7 +286,7 @@ object DRAMTransfersInternal {
           val en = i >= start && i < end
           val addr = onchipAddr(i - start)
           val data = dataStream.value()
-          mem.store(local, addr, data, en)
+          mem.store(local, data, addr, en)
         }
       }
     }
@@ -335,7 +335,7 @@ object DRAMTransfersInternal {
         // Receive
         Foreach(iters par p){i =>
           val data = dataBus.value()
-          SRAM.store(local.s, stagedDimsOf(local.s), Seq(i.s), i.s/*notused*/, unwrap(data), (i < requestLength).s)
+          SRAM.store(local.s, unwrap(data), Seq(i.s), (i < requestLength).s)
           ()
           // local(i) = data
         }
@@ -420,7 +420,7 @@ object DRAMTransfersInternal {
         // Receive
         Foreach(iters par p){i =>
           val data = dataBus.value()
-          memC.store(local, Seq(i), data, i < requestLength)
+          memC.store(local, data, Seq(i), i < requestLength)
         }
       }
       // Scatter

@@ -33,9 +33,9 @@ trait HostTransferApi { this: SpatialApi =>
   }
 
   /** Transfers the given @Matrix of `data` from the host's memory to `dram`'s region of accelerator DRAM. **/
-  @api def setMem[T:Type:Bits](dram: DRAM[T], data: Matrix[T]): MUnit = setMem(dram, data.data)
+  @api def setMem[T:Type:Bits](dram: DRAM[T], data: MMatrix[T]): MUnit = setMem(dram, data.data)
   /** Transfers `dram`'s region of accelerator DRAM to the host's memory and returns the result as a @Matrix. **/
-  @api def getMatrix[T:Type:Bits](dram: DRAM2[T])(implicit ctx: SrcCtx): Matrix[T] = {
+  @api def getMatrix[T:Type:Bits](dram: DRAM2[T])(implicit ctx: SrcCtx): MMatrix[T] = {
     val dims = stagedDimsOf(dram.s)
     val data = getMem(dram)
     matrix(data, wrap(dims(0)), wrap(dims(1)))

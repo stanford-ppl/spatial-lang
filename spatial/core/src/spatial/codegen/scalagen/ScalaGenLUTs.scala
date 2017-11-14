@@ -11,7 +11,7 @@ trait ScalaGenLUTs extends ScalaGenMemories {
     case _ => super.remap(tp)
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@LUTNew(_,elems) => emitBankedInitMem(lhs,elems)(op.mT)
+    case op@LUTNew(_,elems) => emitBankedInitMem(lhs,Some(elems))(op.mT)
 
     case _: LUTLoad[_] => throw new Exception(s"Cannot generate unbanked LUT load.\n${str(lhs)}")
 

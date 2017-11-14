@@ -80,10 +80,10 @@ case class SRAMLoadVector[T:Type:Bits](
   mem:  Exp[SRAM[T]],
   addr: Seq[Exp[Index]],
   en:   Exp[Bit],
-  dim:  Int,
+  ax:   Int,
   len:  Int
-)(implicit vT: Type[VectorN[T]]) extends VectorReaderOp[T](mem,addr,en,dim=dim,len=len) {
-  def mirror(f:Tx) = SRAM.load_vector(f(mem),f(addr),f(en),dim,len)
+)(implicit vT: Type[VectorN[T]]) extends VectorReaderOp[T](mem,addr,en,ax=ax,len=len) {
+  def mirror(f:Tx) = SRAM.load_vector(f(mem),f(addr),f(en),ax,len)
 }
 
 case class SRAMStoreVector[T:Type:Bits](
@@ -91,28 +91,28 @@ case class SRAMStoreVector[T:Type:Bits](
   data: Exp[VectorN[T]],
   addr: Seq[Exp[Index]],
   en:   Exp[Bit],
-  dim:  Int,
+  ax:   Int,
   len:  Int
-) extends VectorWriterOp[T](mem,data,addr,en,dim=dim,len=len) {
-  def mirror(f:Tx) = SRAM.store_vector(f(mem),f(data),f(addr),f(en),dim,len)
+) extends VectorWriterOp[T](mem,data,addr,en,ax=ax,len=len) {
+  def mirror(f:Tx) = SRAM.store_vector(f(mem),f(data),f(addr),f(en),ax,len)
 }
 
 
 case class BankedSRAMLoad[T:Type:Bits](
-  sram: Exp[SRAM[T]],         // SRAM
+  mem:  Exp[SRAM[T]],         // SRAM
   bank: Seq[Seq[Exp[Index]]], // Vector of multi-dimensional bank addresses
   addr: Seq[Exp[Index]],      // Vector of bank offsets
   ens:  Seq[Exp[Bit]]         // Enables
-)(implicit val vT: Type[VectorN[T]]) extends BankedReaderOp[T](sram, bank, addr, ens) {
-  def mirror(f:Tx) = SRAM.banked_load(f(sram),bank.map{a => f(a)}, f(addr), f(ens))
+)(implicit val vT: Type[VectorN[T]]) extends BankedReaderOp[T](mem, bank, addr, ens) {
+  def mirror(f:Tx) = SRAM.banked_load(f(mem),bank.map{a => f(a)}, f(addr), f(ens))
 }
 
 case class BankedSRAMStore[T:Type:Bits](
-  sram: Exp[SRAM[T]],         // SRAM
+  mem:  Exp[SRAM[T]],         // SRAM
   data: Seq[Exp[T]],          // Write data
   bank: Seq[Seq[Exp[Index]]], // Vector of multi-dimensional bank addresses
   addr: Seq[Exp[Index]],      // Vector of bank offsets
   ens:  Seq[Exp[Bit]]         // Enables
-) extends BankedWriterOp[T](sram, data, bank, addr, ens) {
-  def mirror(f:Tx) = SRAM.banked_store(f(sram), f(data), bank.map{a => f(a)}, f(addr), f(ens))
+) extends BankedWriterOp[T](mem, data, bank, addr, ens) {
+  def mirror(f:Tx) = SRAM.banked_store(f(mem), f(data), bank.map{a => f(a)}, f(addr), f(ens))
 }

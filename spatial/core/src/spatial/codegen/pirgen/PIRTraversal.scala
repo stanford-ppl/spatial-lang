@@ -4,6 +4,7 @@ import argon.core._
 import argon.nodes._
 import spatial.analysis.SpatialTraversal
 import spatial.aliases._
+import spatial.banking._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
@@ -112,7 +113,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   /*
    * Returns a single id for reader
    * */
-  def getDispatches(dmem:Expr, daccess:Expr) = {
+  /*def getDispatches(dmem:Expr, daccess:Expr) = {
     val mem = compose(dmem)
     val access = compose(daccess)
     val instIds = if (isStreamOut(mem) || isArgOut(mem) || isGetDRAMAddress(mem) || isArgIn(mem) || isStreamIn(mem)) {
@@ -125,12 +126,18 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
         s"number of dispatch = ${instIds.size} for reader $access but expected to be 1")
     }
     instIds
+  }*/
+  def getDispatches(dmem: Expr, daccess: Expr): List[Int] = {
+    val mem = compose(dmem)
+    val access = compose(daccess)
+    List(0)
   }
+  def getDuplicate(dmem: Expr, daccess: Expr): Memory = instanceOf(compose(dmem))
 
   /*
    * Returns a single duplicate for reader
    * */
-  def getDuplicates(dmem:Expr, access:Expr):List[Memory] = {
+  /*def getDuplicates(dmem:Expr, access:Expr):List[Memory] = {
     val instIds = getDispatches(dmem, access)
     val insts = duplicatesOf(compose(dmem))
     instIds.map{ id => insts(id) }
@@ -139,13 +146,13 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   def getDuplicate(dmem:Expr, id:Int):Memory = {
     val insts = duplicatesOf(compose(dmem))
     insts(id)
-  }
+  }*/
 
-  def getWritersForInst(dmem:Expr, inst:Memory):List[Expr] = {
+  def getWritersForInst(dmem: Expr, inst: Memory): List[Expr] = {
     val mem = compose(dmem)
-    val insts = duplicatesOf(mem)
-    val instId = insts.indexOf(inst)
-    writersOf(mem).filter { writer => getDispatches(mem, writer.node).contains(instId) }.map{_.node}
+    //val insts = duplicatesOf(mem)
+    //val instId = insts.indexOf(inst)
+    writersOf(mem).map(_.node) //.filter { writer => getDispatches(mem, writer.node).contains(instId) }.map{_.node}
   }
 
   //def getInnerDimension(dmem:Expr, instId:Int):Option[Int] = {
@@ -261,20 +268,20 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
    *   (used by stms that produces results or effectful) 
    * */
   def mysyms(lhs: Any): Seq[Expr] = lhs match {
-    case Def(d) => mysyms(d) 
-    case SRAMStore(sram,dims,is,ofs,data,en)  => syms(sram) ++ syms(data) //++ syms(es)
-    case ParSRAMStore(sram,addr,data,ens)     => syms(sram) ++ syms(data) //++ syms(es)
-    case FIFOEnq(fifo, data, en)              => syms(fifo) ++ syms(data)
-    case ParFIFOEnq(fifo, data, ens)          => syms(fifo) ++ syms(data)
-    case FIFODeq(fifo, en)                    => syms(fifo)
-    case ParFIFODeq(fifo, ens)                => syms(fifo)
-    case StreamWrite(stream, data, en)        => syms(stream) ++ syms(data)
-    case ParStreamWrite(stream, data, ens)    => syms(stream) ++ syms(data)
-    case StreamRead(stream, ens)              => syms(stream)
-    case ParStreamRead(stream, ens)           => syms(stream)
-    case Switch(body, selects, cases)         => syms(cases) ++ syms(selects)
-    case SwitchCase(body)                     => syms(body)
-    case d: Def => d.allInputs //syms(d)
+    case Def(d) => mysyms(d)
+    case op: SRAMStore[_]          => syms(op.mem) ++ syms(op.data) //++ syms(es)
+    case op: BankedSRAMStore[_]    => syms(op.mem) ++ syms(op.data) //++ syms(es)
+    case op: FIFOEnq[_]            => syms(op.fifo) ++ syms(op.data)
+    case op: BankedFIFOEnq[_]      => syms(op.fifo) ++ syms(op.data)
+    case op: FIFODeq[_]            => syms(op.fifo)
+    case op: BankedFIFODeq[_]      => syms(op.fifo)
+    case op: StreamWrite[_]        => syms(op.stream) ++ syms(op.data)
+    case op: BankedStreamWrite[_]  => syms(op.stream) ++ syms(op.data)
+    case op: StreamRead[_]         => syms(op.stream)
+    case op: BankedStreamRead[_]   => syms(op.stream)
+    case Switch(_, selects, cases) => syms(cases) ++ syms(selects)
+    case SwitchCase(body)          => syms(body)
+    case d: Def => d.allInputs
     case _ => syms(lhs)
   }
 
@@ -305,20 +312,20 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   def getStms(pipe: Expr):Seq[Stm] = pipe match {
     case Def(Hwblock(func,_)) if isInnerControl(pipe) => blockNestedContents(func)
     case Def(Hwblock(func,_)) => blockContents(func)
-    case Def(UnitPipe(en, func)) if isInnerControl(pipe) => blockNestedContents(func)
-    case Def(UnitPipe(en, func)) => blockContents(func)
-    case Def(UnrolledForeach(en, cchain, func, iters, valids)) if isInnerControl(pipe) => blockNestedContents(func)
-    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => blockContents(func)
-    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) if isInnerControl(pipe) => blockNestedContents(func)
-    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => blockContents(func)
-    case Def(op@Switch(body, selects, cases)) => cases.flatMap(getStms)
-    case Def(op@SwitchCase(body)) => blockNestedContents(body)
+    case Def(op: UnitPipe) if isInnerControl(pipe) => blockNestedContents(op.func)
+    case Def(op: UnitPipe) => blockContents(op.func)
+    case Def(op: UnrolledForeach) if isInnerControl(pipe) => blockNestedContents(op.func)
+    case Def(op: UnrolledForeach) => blockContents(op.func)
+    case Def(op: UnrolledReduce[_,_]) if isInnerControl(pipe) => blockNestedContents(op.func)
+    case Def(op: UnrolledReduce[_,_]) => blockContents(op.func)
+    case Def(op: Switch[_]) => op.cases.flatMap(getStms)
+    case Def(op: SwitchCase[_]) => blockNestedContents(op.body)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
   }
 
   def itersOf(pipe:Expr):Option[Seq[Seq[Expr]]] = pipe match {
-    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some(iters)
-    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => Some(iters)
+    case Def(op: UnrolledForeach)     => Some(op.iters)
+    case Def(op: UnrolledReduce[_,_]) => Some(op.iters)
     case _ => None
   }
 

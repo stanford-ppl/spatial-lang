@@ -32,7 +32,7 @@ trait FIFOs extends AInterpreter {
     case FIFONew(EInt(size)) =>
       variables.get(lhs).getOrElse(new IFIFO(size, new collection.mutable.Queue[Any]()))
 
-    case ParFIFOEnq(EFIFO(fifo), SeqE(data), SeqEB(ens)) =>
+    case BankedFIFOEnq(EFIFO(fifo), SeqE(data), SeqEB(ens)) =>
       ens.zip(data).foreach { case (en, v) =>
         if (en)
           fifo.enq(v)

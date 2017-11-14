@@ -3,6 +3,7 @@ package spatial.dse
 import argon.core._
 import spatial.aliases._
 import spatial.analysis._
+import spatial.banking._
 import spatial.metadata._
 import java.util.concurrent.BlockingQueue
 
@@ -55,10 +56,7 @@ case class DSEThread(
   private val prods = List.tabulate(N){i => dims.slice(i+1,N).product }
 
   private lazy val scalarAnalyzer = new ScalarAnalyzer { var IR: State = state }
-  private lazy val memoryAnalyzer = new MemoryAnalyzer {
-    def localMems: Seq[Exp[_]] = thread.localMems
-    var IR: State = state
-  }
+  private lazy val memoryAnalyzer = MemoryAnalyzer(state)
   private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state; def top = accel }
   private lazy val areaAnalyzer  = target.areaAnalyzer(state)
   private lazy val cycleAnalyzer = target.cycleAnalyzer(state)

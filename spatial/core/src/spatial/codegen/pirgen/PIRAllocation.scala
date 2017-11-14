@@ -133,22 +133,14 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         val outerDims = getOuterDims(sram, m.banking)
         val totalOuterBanks = outerDims.map{_.nBanks}.product
         dbgs(s"totalOuterBanks=$totalOuterBanks")
-        List.tabulate(totalOuterBanks) { bank =>
-          val cu = ComputeUnit(s"${quote(dsram)}_bank${bank}", MemoryCU)
+        mutable.Set() ++ Seq.tabulate[CU](totalOuterBanks) { bank =>
+          val cu = ComputeUnit(s"${quote(dsram)}_bank$bank", MemoryCU)
           dbgs(s"Allocating MCU duplicates $cu for ${quote(dsram)}")
           cu.parent = parentCU
           val psram = createSRAM(dsram, m, cu)
           bankOf(psram) = bank
-          instOf(psram) = i
+          instOf(psram) = 0 //i
           cu
-        }
-        mutable.Set() ++ duplicatesOf(sram).zipWithIndex.flatten { case (m, i) =>
-          m match {
-            case m@BankedMemory(dims, depth, isAccum) =>
-
-            case DiagonalMemory(strides, banks, depth, isAccum) =>
-              throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
-          }
         }
       }
     }
@@ -227,24 +219,17 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     val cuMem = CUMemory(quote(dmem), dmem, cu)
     cuMem.mode = SRAMMode
     cuMem.size = constDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
-    inst match {
-      case BankedMemory(dims, depth, isAccum) =>
-        innerDimOf.get(mem).fold {
-          cuMem.banking = Some(NoBanks)
-        } { dim =>
-          dims(dim) match { case Banking(stride, banks, _) =>
-            // Inner loop dimension 
-            if (banks > 1) {
-              assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
-              cuMem.banking = Some(Strided(stride, banks)) 
-            } else {
-              dbgs(s"createSRAM bank=1 stride=${stride}")
-              cuMem.banking = Some(NoBanks)
-            }
-          }
+
+    innerDimOf.get(mem).map(dim => inst.banking(dim)) match {
+      case Some(ModBanking(banks,stride,_,_)) if banks > 1 =>
+        if (banks > 16) {
+          bug(dmem.ctx, s"The banking for $dmem called for $banks banks.")
+          bug(s"Plasticine only supports banking <= 16 within PMUs.")
+          bug(dmem.ctx)
         }
-      case DiagonalMemory(strides, banks, depth, isAccum) =>
-        throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+        cuMem.banking = Some(Strided(stride, banks))
+
+      case _ => cuMem.banking = Some(NoBanks)
     }
     cuMem.bufferDepth = Some(inst.depth)
     dbgs(s"Add sram=$cuMem to cu=$cu")
@@ -273,7 +258,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         case mem if isReg(mem) => //TODO: Consider initValue of Reg?
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
-          cuMem.bufferDepth = Some(getDuplicates(dmem, dreader).head.depth)
+          cuMem.bufferDepth = Some(instanceOf(dmem).depth)
         case mem if isGetDRAMAddress(mem) =>
           cuMem.size = 1
           cuMem.mode = ScalarBufferMode
@@ -361,12 +346,12 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           }
           dbgl(s"$pipe's stms:") { stms.foreach { stm => dbgs(s"$stm") } }
           stms.foreach {
-            case TP(s, d@ParLocalReader(reads)) =>
-              val (mem, inds, _) = reads.head
-              addParentCU(s, d, mem, inds.map{_.head})
-            case TP(s, d@ParLocalWriter(writes)) =>
-              val (mem, _, inds, _) = writes.head
-              addParentCU(s, d, mem, inds.map{_.head})
+            case TP(s, d@BankedReader(reads)) =>
+              val (mem, bank, ofs, _) = reads.head
+              addParentCU(s, d, mem, bank.map{_.head})
+            case TP(s, d@BankedWriter(writes)) =>
+              val (mem, data, bank, ofs, _) = writes.head
+              addParentCU(s, d, mem, bank.map{_.head})
             case TP(s@Def(_:CounterNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
             case TP(s@Def(_:CounterChainNew), d) if d.allInputs.contains(reader) => readerCUs ++= getReaderCUs(s)
             case TP(s, d) if d.allInputs.contains(reader) & isControlNode(s) => readerCUs += allocateCU(s)
@@ -405,26 +390,27 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }.map { _._1 }
     cus = cus.filter { _.srams.exists { sram => instIds.contains(instOf(sram)) } }
     val addr = access match {
-      case ParLocalReader(List((_, Some(addr), _))) => addr
-      case ParLocalWriter(List((_, _, Some(addr), _))) => addr
+      case BankedReader(List((_, Some(bank),Some(ofs),_))) => bank
+      case BankedWriter(List((_, _, Some(bank),Some(ofs),_))) => bank
     }
     val banks = insts.flatMap { inst =>
       inst match {
-        case m@BankedMemory(dims, depth, isAccum) =>
-          val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
+        // FIXME: Needs to be fixed after banking updates
+        case m@Memory(hierarchy, depth, isAccum) =>
+          val inds = Seq.tabulate(hierarchy.size) { i => addr.map { _(i) } }
           dbgs(s"addr=$addr inds=$inds")
-          dbgs(s"BankedMemory # banks:${dims.map { 
-            case Banking(strides, banks, _) => s"(strides=$strides, banks=$banks)"
+          dbgs(s"BankedMemory # banks:${hierarchy.map {
+            case ModBanking(n,stride,_,_) => s"(strides=$stride, banks=$n)"
           }.mkString(",")}")
-          val bankInds = getOuterDims(mem, inds.zip(dims).zipWithIndex).map { 
-            case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size>1 =>
+          val bankInds = getOuterDims(mem, inds.zip(hierarchy).zipWithIndex).map {
+            case ((vinds, ModBanking(banks,stride,_,_)), dim) if vinds.toSet.size>1 =>
               dbgs(s"dim=$dim vinds=${vinds} all banks=${banks}")
               (0 until banks).map { b => (b, banks)}.toList
-            case ((vinds, Banking(stride, banks, _)), dim) if vinds.toSet.size==1 =>
+            case ((vinds, ModBanking(banks,stride,_,_)), dim) if vinds.toSet.size==1 =>
               val vind = vinds.head
               dbgs(s"ctrlOf($vind)=${ctrlOf(vind)}")
-              val bankInds = ctrlOf(vind) match {
-                case Some((ctrl, _)) => 
+              val bankInds = ctrlOf.get(vind) match {
+                case Some((ctrl, _)) =>
                   val parIdxs = itersOf(ctrl).get.map { iters => 
                     (iters.indexOf(vind), iters.size)
                   }.filter { _._1 >= 0 }
@@ -446,7 +432,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           def indComb(inds:List[List[(Int, Int)]], prevDims:List[(Int, Int)]):List[Int] = { 
             if (inds.isEmpty) {
               val (inds, banks) = prevDims.unzip
-              List(flattenND(inds, banks)); 
+              List(flattenND(inds, banks))
             } else {
               val headDim::restDims = inds 
               headDim.flatMap { bank => indComb(restDims, prevDims :+ bank) }
@@ -455,8 +441,6 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           val banks = indComb(bankInds.toList, Nil)
           dbgs(s"access=$access uses banks=$banks for inst=$inst")
           banks
-        case DiagonalMemory(strides, banks, depth, isAccum) =>
-          throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
       }
     }
     
@@ -477,7 +461,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           } else {
             val lmem = readerCU.memMap(dmem)
             readerCU.addReg(dreader, MemLoad(lmem))
-            getTopController(mem, reader, instOf(lmem)).foreach { consumer =>
+            getTopController(mem, reader).foreach { consumer =>
               consumerOf(lmem) = (readerCU, consumer)
               dbgs(s"readerCU=$readerCU")
               dbgs(s"consumer=$consumer")
@@ -522,7 +506,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
               if (!locallyWritten) {
                 dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
                 lmem.writePort += bus
-                getTopController(mem, writer, instOf(lmem)).foreach { producer =>
+                getTopController(mem, writer).foreach { producer =>
                   producerOf(lmem) = (writerCU, producer)
                   dbgs(s"writerCU=$writerCU")
                   dbgs(s"producer=$producer")
@@ -540,8 +524,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     val pipe = parentOf(access).get
     val stms = getStms(pipe)
     val addr = access match {
-      case ParLocalReader((_, addrs, _)::_) => addrs.get.head // Assume SIMD
-      case ParLocalWriter((_, _, addrs, _)::_) => addrs.get.head // addrs Option[LANE[DIM[]]]
+      case BankedReader((_, bank,ofs, _)::_) => bank.get.head // Assume SIMD
+      case BankedWriter((_, _, bank,ofs, _)::_) => bank.get.head // addrs Option[LANE[DIM[]]]
     }
 
     val indexExps = expsUsedInCalcExps(stms)(Seq(), addr)
@@ -580,8 +564,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     (bus, flatAddr)
   }
 
-  def getTopController(mem:Expr, access:Expr, instId:Int) = {
-    topControllerOf(access, mem, instId).map { case (ctrl, _) => allocateCU(ctrl) }
+  def getTopController(mem:Expr, access:Expr) = {
+    topControllerOf(access, mem).map { case (ctrl, _) => allocateCU(ctrl) }
   }
 
   def prescheduleRemoteMemRead(mem: Expr, reader:Expr) = {
@@ -607,7 +591,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           // Wire up readPort
           sram.readPort = Some(dataBus)
           dbgs(s"sram=$sram readPort=$dataBus readAddr=$addrBus")
-          getTopController(mem, reader, instOf(sramCU.srams.head)).foreach { consumer =>
+          getTopController(mem, reader).foreach { consumer =>
             consumerOf(sram) = (addrCU, consumer)
             dbgs(s"addrCU=${addrCU}")
             dbgs(s"consumer=$consumer")
@@ -658,7 +642,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           dataFifo.writePort += dataBus
           sram.writePort += MemLoad(dataFifo)
           dbgs(s"sram=$sram writePort=$dataFifo dataBus=$dataBus writeAddr=$addrBus")
-          getTopController(mem, writer, instOf(sramCU.srams.head)).foreach { producer =>
+          getTopController(mem, writer).foreach { producer =>
             producerOf(sram) = (writerCU, producer)
             dbgs(s"writerCU=$writerCU")
             dbgs(s"producer=$producer")
@@ -746,16 +730,16 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           
         case SimpleStruct(_) => decompose(lhs)
 
-        case ParLocalReader(reads)  =>
-          val (mem, _, _) = reads.head
+        case BankedReader(reads) =>
+          val mem = reads.head.mem
           if (isLocalMemAccess(lhs)) { // RegRead, FIFODeq, StreamDeq
             prescheduleLocalMemRead(mem, lhs)
           } else { // SRAMLoad
             prescheduleRemoteMemRead(mem, lhs)
           }
 
-        case ParLocalWriter(writes)  => 
-          val (mem, value, addrs, ens) = writes.head
+        case BankedWriter(writes) =>
+          val mem = writes.head.mem
           if (isLocalMemAccess(lhs)) { // RegWrite, FIFOEnq, StreamEnq
             prescheduleLocalMemWrite(mem, lhs)
           } else { // SRAMStore

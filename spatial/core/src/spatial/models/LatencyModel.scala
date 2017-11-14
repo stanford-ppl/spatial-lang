@@ -146,33 +146,30 @@ trait LatencyModel {
   }
 
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
-    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("SRAMLoad")()("RequiresInReduce") > 0
-    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("ParSRAMLoad")()("RequiresInReduce") > 0
+    case _:SRAMLoad[_]       => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("SRAMLoad")()("RequiresInReduce") > 0
+    case _:BankedSRAMLoad[_] => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("ParSRAMLoad")()("RequiresInReduce") > 0
     case FixMul(_,_) => model("FixMul")()("RequiresInReduce") > 0
     case d => latencyOfNodeInReduce(s,d) > 0
   }
 
   @stateful protected def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
     // Register File
-    case _:RegFileLoad[_]    => model("RegFileLoad")()("RequiresRegs") > 0
-    case _:ParRegFileLoad[_] => model("ParRegFileLoad")()("RequiresRegs") > 0
+    case _:RegFileLoad[_]       => model("RegFileLoad")()("RequiresRegs") > 0
+    case _:BankedRegFileLoad[_] => model("ParRegFileLoad")()("RequiresRegs") > 0
     // Streams
 
     // FIFOs
-    case _:FIFODeq[_]    => model("FIFODeq")()("RequiresRegs") > 0
-    case _:ParFIFODeq[_] => model("ParFIFODeq")()("RequiresRegs") > 0
+    case _:FIFODeq[_]       => model("FIFODeq")()("RequiresRegs") > 0
+    case _:BankedFIFODeq[_] => model("ParFIFODeq")()("RequiresRegs") > 0
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresRegs") > 0 else model("SRAMLoad")()("RequiresRegs") > 0
-    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresRegs") > 0 else model("ParSRAMLoad")()("RequiresRegs") > 0
+    case _:SRAMLoad[_]       => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresRegs") > 0 else model("SRAMLoad")()("RequiresRegs") > 0
+    case _:BankedSRAMLoad[_] => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresRegs") > 0 else model("ParSRAMLoad")()("RequiresRegs") > 0
 
     // LineBuffer
-    case _:LineBufferLoad[_]    => model("LineBufferLoad")()("RequiresRegs") > 0
-    case _:ParLineBufferLoad[_] => model("ParLineBufferLoad")()("RequiresRegs") > 0
-
-    // Shift Register
-    // None
+    case _:LineBufferLoad[_]       => model("LineBufferLoad")()("RequiresRegs") > 0
+    case _:BankedLineBufferLoad[_] => model("ParLineBufferLoad")()("RequiresRegs") > 0
 
     case Not(_)     => model("Not")()("RequiresRegs") > 0
     case And(_,_)   => model("And")()("RequiresRegs") > 0
@@ -235,26 +232,26 @@ trait LatencyModel {
     case _:RegReset[_] => model("RegReset")()("LatencyOf").toLong
 
     // Register File
-    case _:RegFileLoad[_]       => model("RegFileLoad")()("LatencyOf").toLong
-    case _:ParRegFileLoad[_]    => model("ParRegFileLoad")()("LatencyOf").toLong
-    case _:RegFileStore[_]      => model("RegFileStore")()("LatencyOf").toLong
-    case _:ParRegFileStore[_]   => model("ParRegFileStore")()("LatencyOf").toLong
-    case _:RegFileShiftIn[_]    => model("RegFileShiftIn")()("LatencyOf").toLong
+    case _:RegFileLoad[_]          => model("RegFileLoad")()("LatencyOf").toLong
+    case _:BankedRegFileLoad[_]    => model("ParRegFileLoad")()("LatencyOf").toLong
+    case _:RegFileStore[_]         => model("RegFileStore")()("LatencyOf").toLong
+    case _:BankedRegFileStore[_]   => model("ParRegFileStore")()("LatencyOf").toLong
+    case _:RegFileShiftIn[_]       => model("RegFileShiftIn")()("LatencyOf").toLong
     case _:RegFileVectorShiftIn[_] => model("ParRegFileShiftIn")()("LatencyOf").toLong
 
     // Streams
     case _:StreamRead[_]        => model("StreamRead")()("LatencyOf").toLong
-    case _:ParStreamRead[_]     => model("ParStreamRead")()("LatencyOf").toLong
+    case _:BankedStreamRead[_]  => model("ParStreamRead")()("LatencyOf").toLong
     case _:StreamWrite[_]       => model("StreamWrite")()("LatencyOf").toLong
-    case _:ParStreamWrite[_]    => model("ParStreamWrite")()("LatencyOf").toLong
+    case _:BankedStreamWrite[_] => model("ParStreamWrite")()("LatencyOf").toLong
     case _:BufferedOutWrite[_]  => model("BufferedOutWrite")()("LatencyOf").toLong
 
     // FIFOs
-    case _:FIFOEnq[_]    => model("FIFOEnq")()("LatencyOf").toLong
-    case _:ParFIFOEnq[_] => model("ParFIFOEnq")()("LatencyOf").toLong
-    case _:FIFODeq[_]    => model("FIFODeq")()("LatencyOf").toLong
-    case _:ParFIFODeq[_] => model("ParFIFODeq")()("LatencyOf").toLong
-    case _:FIFONumel[_]  => model("FIFONumel")()("LatencyOf").toLong
+    case _:FIFOEnq[_]         => model("FIFOEnq")()("LatencyOf").toLong
+    case _:BankedFIFOEnq[_]   => model("ParFIFOEnq")()("LatencyOf").toLong
+    case _:FIFODeq[_]         => model("FIFODeq")()("LatencyOf").toLong
+    case _:BankedFIFODeq[_]   => model("ParFIFODeq")()("LatencyOf").toLong
+    case _:FIFONumel[_]       => model("FIFONumel")()("LatencyOf").toLong
     case _:FIFOAlmostEmpty[_] => model("FIFOAlmostEmpty")()("LatencyOf").toLong
     case _:FIFOAlmostFull[_]  => model("FIFOAlmostFull")()("LatencyOf").toLong
     case _:FIFOEmpty[_]       => model("FIFOEmpty")()("LatencyOf").toLong
@@ -262,16 +259,16 @@ trait LatencyModel {
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("LatencyOf").toLong else model("SRAMLoad")()("LatencyOf").toLong
-    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("LatencyOf").toLong else model("ParSRAMLoad")()("LatencyOf").toLong
-    case _:SRAMStore[_]    => model("SRAMStore")()("LatencyOf").toLong
-    case _:ParSRAMStore[_] => model("ParSRAMStore")()("LatencyOf").toLong
+    case _:SRAMLoad[_]        => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("LatencyOf").toLong else model("SRAMLoad")()("LatencyOf").toLong
+    case _:BankedSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("LatencyOf").toLong else model("ParSRAMLoad")()("LatencyOf").toLong
+    case _:SRAMStore[_]       => model("SRAMStore")()("LatencyOf").toLong
+    case _:BankedSRAMStore[_] => model("ParSRAMStore")()("LatencyOf").toLong
 
     // LineBuffer
-    case _:LineBufferEnq[_]     => model("LineBufferEnq")()("LatencyOf").toLong
-    case _:ParLineBufferEnq[_]  => model("ParLineBufferEnq")()("LatencyOf").toLong
-    case _:LineBufferLoad[_]    => model("LineBufferLoad")()("LatencyOf").toLong
-    case _:ParLineBufferLoad[_] => model("ParLineBufferLoad")()("LatencyOf").toLong
+    case _:LineBufferEnq[_]        => model("LineBufferEnq")()("LatencyOf").toLong
+    case _:BankedLineBufferEnq[_]  => model("ParLineBufferEnq")()("LatencyOf").toLong
+    case _:LineBufferLoad[_]       => model("LineBufferLoad")()("LatencyOf").toLong
+    case _:BankedLineBufferLoad[_] => model("ParLineBufferLoad")()("LatencyOf").toLong
 
     // Shift Register
     case DelayLine(size, data) => model("DelayLine")()("LatencyOf").toLong // TODO: Should use different model once these are added?

@@ -22,7 +22,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   def unrolledRandomAddresses(access: Access, x: Option[Exp[Index]]): (Map[Seq[Int],Exp[Index]], Int) = {
     val is = x match {
       case Some(addr) => iteratorsBetween(ctrlOf(addr), ctrlOf(mem))
-      case None       => iteratorsBetween(access, ctrlOf(mem))
+      case None       => iteratorsBetween(access.ctrl, ctrlOf(mem))
     }
     if (x.isDefined && unrolledRand.contains(x.get)) {
       val map = unrolledRand(x.get)
@@ -42,8 +42,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * by simulating loop parallelization/unrolling
     */
   def unroll(matrix: CompactMatrix, indices: Seq[Exp[Index]]): Seq[AccessMatrix] = {
-    val is = iteratorsBetween(matrix.access, ctrlOf(mem))
+    val is = iteratorsBetween(matrix.access.ctrl, ctrlOf(mem))
     val ps = is.map{i => parFactorOf(i).toInt }
+    dbg("")
+    dbg(s"  Simulating unrolling of access ${matrix.access}")
+    dbg(s"  Iterators between access and memory: " + is.zip(ps).map{case (i,p) => c"$i ($p)"}.mkString(", "))
 
     def expand(vector: AccessVector, id: Seq[Int]): AccessVector = vector match {
       case RandomVector(_,uroll,len) =>
@@ -67,7 +70,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         }
         val as2 = unrolled.map(_._1).toArray
         val b2 = unrolled.map(_._2).sum + b
-        AffineVector(as2,inds,b2)
+        val uvec = AffineVector(as2,indices,b2)
+        uvec
     }
 
     // Fake unrolling
@@ -75,6 +79,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     // 4i + 0*2 + 3 = 4i + 3
     // 4i + 1*2 + 3 = 4i + 5
     multiLoop(ps).map{id =>
+      dbg(s"  Unroll: " + is.zip(id).map{case (i,xid) => c"$i [$xid]" }.mkString(", "))
       val uvectors = matrix.vectors.map{vector => expand(vector, id) }
       val unrollId = id ++ matrix.vecId
       AccessMatrix(uvectors, matrix.access, indices, unrollId)
@@ -103,7 +108,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     */
   def bank(readers: Seq[Access], writers: Seq[Access]): Seq[MemoryInstance] = {
     val (readMatrices, writeMatrices, domain) = createAccessMatrices(readers, writers)
-    val readGroups = createReadGroups(readMatrices)
+    val readGroups = createReadGroups(readMatrices, domain)
     val instances = mergeReadGroups(readGroups.map(_.toSet), writeMatrices, domain)
     instances.map(instanceGroupToMemoryInstance)
   }
@@ -162,7 +167,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     *
     * TODO: The bounds logic should eventually be moved elsewhere (to ScalarAnalyzer)?
     */
-  def getIterDomain(indices: Seq[Exp[Index]]): Array[(Array[Int],Int)] = indices.zipWithIndex.flatMap{case (i,iIdx) =>
+  def getIterDomain(indices: Seq[Exp[Index]]): Domain = indices.zipWithIndex.flatMap{case (i,iIdx) =>
     def sparseBound(i: Option[IndexPattern], default: Int): AffineVector = i match {
       case Some(Affine(as,is,b)) => AffineVector(as,is,b).remap(indices)
       case _ => AffineVector(Array.empty,Nil,default).remap(indices)
@@ -180,7 +185,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     // a0*i0 + ... + aN*iN + b >= iX  |->  a0*i0 + ... + -iX + ... + aN*iN + b >= 0
     val maxA = max.as; maxA(iIdx) = -1
     val maxC = max.b
-    Seq((minA, minC), (maxA, maxC))
+    Seq(minA :+ minC, maxA :+ maxC)
   }.toArray
 
 
@@ -197,9 +202,9 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     *
     * TODO: Should factor in branches of switches being mutually exclusive here
     */
-  def precedingWrites(reader: AccessMatrix, writers: Set[AccessMatrix]): (Seq[AccessMatrix], Seq[AccessMatrix]) = {
+  def precedingWrites(reader: AccessMatrix, writers: Set[AccessMatrix], domain: Domain): (Seq[AccessMatrix], Seq[AccessMatrix]) = {
     val (before, after) =
-      writers.filter{writer => reader.intersectsSpace(writer) && writer.access.mayPrecede(reader.access) }
+      writers.filter{writer => reader.intersectsSpace(writer,domain) && writer.access.mayPrecede(reader.access) }
              .partition{writer => !writer.access.mayFollow(reader.access) }
 
     (before.toSeq, after.toSeq)
@@ -210,21 +215,21 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     *
     * This occurs when another write w MUST follow that write and w contains ALL of the addresses in the original write
     */
-  def isKilled(write: AccessMatrix, others: Seq[AccessMatrix], reader: AccessMatrix): Boolean = {
-    others.exists{w => w.access.mustFollow(write.access, reader.access) && w.containsSpace(write) }
+  def isKilled(write: AccessMatrix, others: Seq[AccessMatrix], reader: AccessMatrix, domain: Domain): Boolean = {
+    others.exists{w => w.access.mustFollow(write.access, reader.access) && w.containsSpace(write,domain) }
   }
 
   /**
     * Returns the subset of writers which may be visible to this set of readers
     */
-  def reachingWrites(readers: Set[AccessMatrix], writers: Seq[AccessMatrix]): Set[AccessMatrix] = {
+  def reachingWrites(readers: Set[AccessMatrix], writers: Seq[AccessMatrix], domain: Domain): Set[AccessMatrix] = {
     var remainingWrites: Set[AccessMatrix] = writers.toSet
     var reachingWrites: Set[AccessMatrix] = Set.empty
     readers.foreach{reader =>
-      val (before, after) = precedingWrites(reader, remainingWrites)
+      val (before, after) = precedingWrites(reader, remainingWrites, domain)
 
-      val reachingBefore = before.zipWithIndex.filterNot{case (wr,i) => isKilled(wr, before.drop(i+1), reader) }.map(_._1)
-      val reachingAfter  = after.zipWithIndex.filterNot{case (wr,i) => isKilled(wr, after.drop(i+1) ++ before, reader) }.map(_._1)
+      val reachingBefore = before.zipWithIndex.filterNot{case (wr,i) => isKilled(wr, before.drop(i+1), reader, domain) }.map(_._1)
+      val reachingAfter  = after.zipWithIndex.filterNot{case (wr,i) => isKilled(wr, after.drop(i+1) ++ before, reader, domain) }.map(_._1)
       val reaching = reachingBefore ++ reachingAfter
       remainingWrites --= reaching
       reachingWrites ++= reaching
@@ -249,6 +254,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val vectors = accessPatternOf(access.node).zipWithIndex.map { case (pattern, i) =>
       indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = false)
     }
+    dbg(s"  ${str(access.node)}: Found ${vectors.length} vectors: ")
+    vectors.foreach{v => dbg("    " + v.toString) }
     Seq(CompactMatrix(vectors.toArray, access, None))
   }
 
@@ -291,7 +298,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
           *   Foreach(M par 6){j =>
           *     x(6i + j) --> 24i + 6j + [0,24)
           */
-        val is = iteratorsBetween(access, (parentOf(mem).get,-1))
+        val is = iteratorsBetween(access.ctrl, ctrlOf(mem))
         val ps = is.map{i => parFactorOf(i).toInt }
         val as = Array.tabulate(is.length){i => ps.drop(i + 1).product }
         CompactMatrix(Array(AffineVector(as, is, 0)), access, None)
@@ -307,27 +314,48 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   /**
     * Convert read and write accesses to AccessMatrices by simulating unrolling of parallel loops
     */
-  def createAccessMatrices(readers: Seq[Access], writers: Seq[Access]): (Seq[AccessMatrix],Seq[AccessMatrix],Array[(Array[Int],Int)]) = {
-    val (addrReaders,streamReaders) = readers.partition(rd => isAccessWithoutAddress(rd.node))
-    val (addrWriters,streamWriters) = writers.partition(wr => isAccessWithoutAddress(wr.node))
+  def createAccessMatrices(readers: Seq[Access], writers: Seq[Access]): (Seq[AccessMatrix],Seq[AccessMatrix],Domain) = {
+    val (addrReaders,streamReaders) = readers.partition(rd => !isAccessWithoutAddress(rd.node))
+    val (addrWriters,streamWriters) = writers.partition(wr => !isAccessWithoutAddress(wr.node))
     val (streamReadVectors, streamWriteVectors) = getStreamingAccessVectors(streamReaders,streamWriters)
 
-    val readDenseVectors = addrReaders.flatMap(getAccessVector) ++ streamReadVectors
-    val writeDenseVectors = addrWriters.flatMap(getAccessVector) ++ streamWriteVectors
-    val indices = (readDenseVectors ++ writeDenseVectors).flatMap(_.indices).distinct.sortBy{case s:Dyn[_] => s.id}
+    val readDenseMatrices = addrReaders.flatMap(getAccessVector) ++ streamReadVectors
+    val writeDenseMatrices = addrWriters.flatMap(getAccessVector) ++ streamWriteVectors
+    val indices = (readDenseMatrices ++ writeDenseMatrices).flatMap(_.indices).distinct.sortBy{case s:Dyn[_] => s.id; case _ => 0}
+
+    dbg(s"  Found the following compact access matrices: ")
+    dbg(s"  Reads: ")
+    readDenseMatrices.foreach{m =>
+      m.printWithTab("    ")
+      accessPatternOf.get(m.access.node).foreach{a => a.zipWithIndex.foreach{case (p,i) => dbg(s"     $i: $p") }}
+    }
+    dbg("")
+    dbg(s"  Writes: ")
+    writeDenseMatrices.foreach{m =>
+      m.printWithTab("    ")
+      accessPatternOf.get(m.access.node).foreach{a => a.zipWithIndex.foreach{case (p,i) => dbg(s"     $i: $p") }}
+    }
+    dbg("")
 
     val domain = getIterDomain(indices)
-    val readMatrices = readDenseVectors.flatMap{mat => unroll(mat, indices) }
-    val writeMatrices = writeDenseVectors.flatMap{mat => unroll(mat, indices) }
+    val readMatrices = readDenseMatrices.flatMap{mat => unroll(mat, indices) }
+    val writeMatrices = writeDenseMatrices.flatMap{mat => unroll(mat, indices) }
+
+    dbg(s"  Pseudo-unrolling resulted in the following access matrices: ")
+    dbg(s"  Reads: ")
+    readMatrices.foreach{m => m.printWithTab("    ") }
+    dbg("")
+    dbg(s"  Writes:")
+    writeMatrices.foreach{m => m.printWithTab("     ") }
 
     (readMatrices, writeMatrices, domain)
   }
 
-  protected def createReadGroups(readers: Seq[AccessMatrix]): Seq[Set[AccessMatrix]] = {
-    readers.groupBy(_.access.ctrl).toSeq.flatMap{case (ctrl,reads) =>
+  protected def createReadGroups(readers: Seq[AccessMatrix], domain: Domain): Seq[Set[AccessMatrix]] = {
+    readers.groupBy(_.access.ctrl).toSeq.flatMap{case (_,reads) =>
       val groups = ArrayBuffer[ArrayBuffer[AccessMatrix]]()
       reads.foreach{read =>
-        val grpId = groups.indexWhere{grp => grp.forall{r => !read.intersects(r) } }
+        val grpId = groups.indexWhere{grp => grp.forall{r => !read.intersects(r, domain) } }
         if (grpId != -1) groups(grpId) += read  else groups += ArrayBuffer(read)
       }
       groups
@@ -388,12 +416,12 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     *
     * TODO: Add exhaustive implementation after pruning?
     */
-  protected def mergeReadGroups(readGroups: Seq[Set[AccessMatrix]], writeMatrices: Seq[AccessMatrix], domain: Array[(Array[Int],Int)]): Seq[InstanceGroup] = {
+  protected def mergeReadGroups(readGroups: Seq[Set[AccessMatrix]], writeMatrices: Seq[AccessMatrix], domain: Domain): Seq[InstanceGroup] = {
     val instances = ArrayBuffer[InstanceGroup]()
 
     readGroups.foreach{group =>
       val groupCtrls = group.map(_.access.ctrl)
-      val groupWrites = reachingWrites(group, writeMatrices)
+      val groupWrites = reachingWrites(group, writeMatrices, domain)
       val groupBanking = strategy.bankAccesses(mem, group, groupWrites, domain)
       // TODO: Multiple metapipe parents should cause backtrack eventually
       val (groupMetapipe, groupPorts) = findMetaPipe(mem,group.map(_.access).toSeq, groupWrites.map(_.access).toSeq)
@@ -407,7 +435,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         val commonCtrls = instance.ctrls.exists{x => groupCtrls.contains(x) }
         if (!commonCtrls) {
           val reads  = group ++ instance.reads
-          val writes = reachingWrites(reads, writeMatrices)
+          val writes = reachingWrites(reads, writeMatrices, domain)
           val ctrls  = instance.ctrls ++ groupCtrls
           val metapipeLCAs = findAllCtrlMetaPipes(mem, ctrls)
           if (metapipeLCAs.size <= 1) {

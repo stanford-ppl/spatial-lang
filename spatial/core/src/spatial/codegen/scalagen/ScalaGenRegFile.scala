@@ -36,9 +36,11 @@ trait ScalaGenRegFile extends ScalaGenMemories {
     case _: RegFileStore[_] => throw new Exception(s"Cannot generate unbanked RegFile store.\n${str(lhs)}")
     case RegFileReset(rf, en) => emit(src"val $lhs = if ($en) $rf.reset()")
 
-    case RegFileShiftIn(rf,i,d,data,en) =>
-      emit(src"val $lhs = $rf.shiftIn(${lhs.ctx}, ")
-    case RegFileVectorShiftIn(rf,i,d,data,en)        => shiftIn(lhs, rf, i, d, data, isVec = true, en)
+    case RegFileShiftIn(rf,data,addr,en,axis) =>
+      emit(src"val $lhs = if ($en) $rf.shiftIn(${lhs.ctx}, Seq($addr), $axis, $data)")
+    case RegFileVectorShiftIn(rf,data,addr,en,axis) =>
+      emit(src"val $lhs = if ($en) $rf.shiftInVec(${lhs.ctx}, Seq($addr), $axis, $data)")
+
     case op@BankedRegFileLoad(rf,bank,ofs,ens)       => emitBankedLoad(lhs,rf,bank,ofs,ens)(op.mT)
     case op@BankedRegFileStore(rf,data,bank,ofs,ens) => emitBankedStore(lhs,rf,data,bank,ofs,ens)(op.mT)
     case _ => super.emitNode(lhs, rhs)

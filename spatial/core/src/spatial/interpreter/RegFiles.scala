@@ -57,7 +57,7 @@ trait RegFiles extends AInterpreter {
         regf.v(i)
       }
 
-    case ParRegFileLoad(ERegFile(regf), inds, SeqEB(ens)) =>
+    /*case BankedRegFileLoad(ERegFile(regf), inds, SeqEB(ens)) =>
       inds.zipWithIndex.map { case (ind, i: Int)  => {
         if (ens(i)) {
           val indV = regf.index(SeqEI.unapply(ind).get)
@@ -65,15 +65,15 @@ trait RegFiles extends AInterpreter {
         }
         else
           null
-      }}.toSeq
+      }}.toSeq*/
 
-    case ParRegFileStore(ERegFile(regf), inds, SeqE(datas), SeqEB(ens)) =>
-      inds.zipWithIndex.foreach { case (ind, i: Int)  => {
+    //case BankedRegFileStore(ERegFile(regf), SeqE(datas), SeqEI(bank), SeqEI(ofs), SeqEB(ens)) =>
+      /*bank.zipWithIndex.foreach { case (ind, i: Int)  => {
         if (ens(i)) {
           val indV = regf.index(SeqEI.unapply(ind).get)
           regf.v(indV) = datas(i)
         }
-      }}
+      }}*/
       
 
 

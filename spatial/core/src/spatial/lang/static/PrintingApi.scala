@@ -16,7 +16,7 @@ trait PrintingApi { this: SpatialApi =>
 
   /** Prints the given Matrix to the console, preceded by an optional heading. **/
   @virtualize
-  @api def printMatrix[T:Type](matrix: Matrix[T], heading: MString = opt[MString]): MUnit = {
+  @api def printMatrix[T:Type](matrix: MMatrix[T], heading: MString = opt[MString]): MUnit = {
     val header = heading.getOrElseCreate("")
     println(header)
     (0 until matrix.rows) foreach { i =>

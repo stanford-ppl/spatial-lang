@@ -9,7 +9,7 @@ trait MatrixApi { this: SpatialApi =>
   implicit class VectorReshaper[T<:MetaAny[T]:Type:Num](a: MArray[T]) {
     /** Returns an immutable view of the data in this Array as a @Matrix with given `rows` and `cols`. **/
     @virtualize
-    @api def reshape(rows: Index, cols: Index): Matrix[T] = {
+    @api def reshape(rows: Index, cols: Index): MMatrix[T] = {
       assert(rows*cols == a.length, "Number of elements in vector ("+a.length.toText+") must match number of elements in matrix ("+rows.toText+"x"+cols.toText+")")
       matrix(a, rows, cols)
     }
@@ -32,7 +32,7 @@ trait MatrixApi { this: SpatialApi =>
       tensor5(a, dim0, dim1, dim2, dim3, dim4)
     }
     @virtualize
-    @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index): Matrix[T] = {
+    @api def toeplitz(filterdim0: Index, filterdim1: Index, imgdim0: Index, imgdim1: Index, stride0: Index, stride1: Index): MMatrix[T] = {
       // TODO: Incorporate stride
       val pad0 = filterdim0 - 1 - (stride0-1)
       val pad1 = filterdim1 - 1 - (stride1-1)
@@ -73,11 +73,11 @@ trait MatrixApi { this: SpatialApi =>
   }
 
   implicit class MatrixConstructor(ranges: (MRange, MRange) ) {
-    @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): Matrix[T] = {
+    @api def apply[A,T](func: (Index,Index) => A)(implicit lft: Lift[A,T]): MMatrix[T] = {
       implicit val mT: Type[T] = lft.staged
       val rows = ranges._1.length
       val cols = ranges._2.length
-      Matrix.tabulate(rows, cols){(i,j) => lft(func(ranges._1(i), ranges._2(j))) }
+      MMatrix.tabulate(rows, cols){(i,j) => lft(func(ranges._1(i), ranges._2(j))) }
     }
   }
 
@@ -118,8 +118,8 @@ trait MatrixApi { this: SpatialApi =>
     }
   }
 
-  @internal def matrix[T:Type](data: MArray[T], rows: Index, cols: Index): Matrix[T] = {
-    struct[Matrix[T]]("data" -> data.s, "rows" -> rows.s, "cols" -> cols.s)
+  @internal def matrix[T:Type](data: MArray[T], rows: Index, cols: Index): MMatrix[T] = {
+    struct[MMatrix[T]]("data" -> data.s, "rows" -> rows.s, "cols" -> cols.s)
   }
   @internal def tensor3[T:Type](data: MArray[T], dim0: Index, dim1: Index, dim2: Index): Tensor3[T] = {
     struct[Tensor3[T]]("data" -> data.s, "dim0" -> dim0.s, "dim1" -> dim1.s, "dim2" -> dim2.s)

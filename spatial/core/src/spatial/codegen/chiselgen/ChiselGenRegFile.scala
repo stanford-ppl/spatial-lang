@@ -156,11 +156,8 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(src"""$rf.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf, 0)})) """)
 
     case op@LUTNew(dims, init) =>
-      val width = bitWidth(lhs.tp.typeArguments.head)
-      val f = op.mT match {
-        case a: FixPtType[_,_,_] => a.fracBits
-        case _ => 0
-      }
+      val width = bitWidth(op.mT)
+      val f = fracBits(op.mT)
       val lut_consts = getConstValues(init).toList.map{a => src"${a}d"}.mkString(",")
       val numReaders = readersOf(lhs).length
       emitGlobalModule(src"""val $lhs = Module(new LUT(List($dims), List($lut_consts), $numReaders, $width, $f))""")

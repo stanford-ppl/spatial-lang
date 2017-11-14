@@ -4,10 +4,10 @@ import argon.core._
 import argon.nodes._
 import spatial.aliases._
 
-case class MatrixType[T](child: Type[T]) extends StructType[Matrix[T]] {
-  override def wrapped(x: Exp[Matrix[T]]) = new Matrix(x)(child)
-  override def unwrapped(x: Matrix[T]) = x.s
-  override def stagedClass = classOf[Matrix[T]]
+case class MatrixType[T](child: Type[T]) extends StructType[MMatrix[T]] {
+  override def wrapped(x: Exp[MMatrix[T]]) = new MMatrix(x)(child)
+  override def unwrapped(x: MMatrix[T]) = x.s
+  override def stagedClass = classOf[MMatrix[T]]
   override def typeArguments = List(child)
   override def fields = Seq("data" -> ArrayType(child), "rows" -> IntType, "cols" -> IntType)
 }

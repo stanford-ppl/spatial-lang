@@ -16,16 +16,22 @@ trait MemoryUnrolling extends UnrollingBase {
     lanes:  Unroller              // Unrolling helper function
   )(implicit ctx: SrcCtx): Seq[Seq[Exp[Index]]] = access match {
     // LineBuffers are special in that their first dimension is always implicitly fully banked
-    case Def(_:LineBufferLoad[_])     => addr.map{case row::col => row +: inst.bankAddress(col) }
-    case Def(_:LineBufferColSlice[_]) => addr.map{case row::col => row +: inst.bankAddress(col) }
-    case Def(_:LineBufferRowSlice[_]) => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case Def(_:LineBufferLoad[_])      => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case Def(_:LineBufferColSlice[_])  => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case Def(_:LineBufferRowSlice[_])  => addr.map{case row::col => row +: inst.bankAddress(col) }
+    case Def(_:LineBufferRotateEnq[_]) => addr
     case _ => addr.map{laneAddr => inst.bankAddress(laneAddr) }
   }
 
-  def bankOffset(mem: Exp[_], access: Exp[_], addr: Seq[Seq[Exp[Index]]], inst: Memory, lanes: Unroller): Seq[Exp[Index]] = {
-    access match {
-      case _ => addr.map{laneAddr => inst.bankOffset(mem, laneAddr) }
-    }
+  def bankOffset(
+    mem: Exp[_],
+    access: Exp[_],
+    addr: Seq[Seq[Exp[Index]]],
+    inst: Memory,
+    lanes: Unroller
+  )(implicit ctx: SrcCtx): Seq[Exp[Index]] = access match {
+    case Def(_:LineBufferRotateEnq[_]) => Nil
+    case _ => addr.map{laneAddr => inst.bankOffset(mem, laneAddr) }
   }
 
   def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean): List[(Exp[_], (List[Int],List[Int]))] = {
@@ -78,7 +84,7 @@ trait MemoryUnrolling extends UnrollingBase {
 
     // Special case rotateEnq because I'm lazy and don't want to duplicate unrolling code just for this one node
     case Def(_:LineBufferRotateEnq[_]) =>
-      val rows = addr.get.flatten.distinct
+      val rows = bank.get.flatten.distinct
       if (rows.length > 1) {
         bug(s"Conflicting rows in banked LineBuffer rotate enqueue: " + rows.mkString(", "))
         bug(access.ctx)
@@ -91,7 +97,7 @@ trait MemoryUnrolling extends UnrollingBase {
   def unrollAccess[T:Type:Bits](
     access: Exp[_],
     mem:    Exp[_],
-    data:   Option[Exp[T]],
+    data:   Option[Exp[_]],
     addr:   Option[Seq[Exp[Index]]],
     en:     Option[Exp[Bit]],
     lanes:  Unroller
@@ -128,7 +134,7 @@ trait MemoryUnrolling extends UnrollingBase {
       val ofs   = addr2.map{a => bankOffset(mem,access,a,inst,lanes) }
       val ports = dps.flatMap{d => portsOf(access, mem, d) }.toSet
 
-      val banked = bankedAccess[T](access,mem,data2,bank,ofs,ens)
+      val banked = bankedAccess[T](access,mem,data2.asInstanceOf[Option[Seq[Exp[T]]]],bank,ofs,ens)
 
       portsOf(banked.s,mem2,0) = ports
 
@@ -219,12 +225,11 @@ trait MemoryUnrolling extends UnrollingBase {
   override def unroll[T](lhs: Sym[T], rhs: Op[T], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = rhs match {
     case _:FIFONew[_]       => unrollMemory(lhs,lanes)
     case _:FILONew[_]       => unrollMemory(lhs,lanes)
-    case _:LUTNew[_,_]      => unrollMemory(lhs,lanes)   // TODO: Duplication of LUTs??
+    case _:LUTNew[_,_]      => unrollMemory(lhs,lanes) // TODO: Duplication of LUTs?
     case _:LineBufferNew[_] => unrollMemory(lhs,lanes)
-    case _:RegNew[_]        => unrollMemory(lhs,lanes)
+    case _:RegNew[_]        => unrollMemory(lhs,lanes) // TODO: Should we explicitly duplicate Regs?
     case _:RegFileNew[_,_]  => unrollMemory(lhs,lanes)
     case _:SRAMNew[_,_]     => unrollMemory(lhs,lanes)
-    case _:RegNew[_]        => unrollMemory(lhs,lanes)   // TODO: Should we explicitly duplicate Regs?
 
     // LineBuffer RotateEnq is special
     case op@LineBufferRotateEnq(lb,data,en,row) => unrollAccess(lhs,lb,Some(data),Some(Seq(row)),Some(en),lanes)(op.mT,op.bT,ctx)

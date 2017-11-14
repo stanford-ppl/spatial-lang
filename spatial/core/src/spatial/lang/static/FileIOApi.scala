@@ -18,7 +18,7 @@ trait FileIOApi { this: SpatialApi =>
 
   // FIXME: This will not work if delim2 is not \n, so we need to have a read_tokens take multiple delimiters
   /** Loads the CSV at `filename`as a @Matrix, using the supplied element delimeter and linebreaks across rows. **/
-  @api def loadCSV2D[T:Type](filename: MString, delim1: MString = opt[MString], delim2: MString = opt[MString])(implicit cast: Cast[MString,T]): Matrix[T] = {
+  @api def loadCSV2D[T:Type](filename: MString, delim1: MString = opt[MString], delim2: MString = opt[MString])(implicit cast: Cast[MString,T]): MMatrix[T] = {
     val del1 = delim1.getOrElseCreate(",")
     val del2 = delim2.getOrElseCreate("\n")
     val file = open_file(filename.s, write = false)
@@ -47,7 +47,7 @@ trait FileIOApi { this: SpatialApi =>
     * If no element delimiter is given, defaults to comma.
     **/
   @virtualize
-  @api def writeCSV2D[T:Type](matrix: Matrix[T], filename: MString, delim1: MString = opt[MString], delim2: MString = opt[MString]): MUnit = {
+  @api def writeCSV2D[T:Type](matrix: MMatrix[T], filename: MString, delim1: MString = opt[MString], delim2: MString = opt[MString]): MUnit = {
     val del1 = delim1.getOrElseCreate(",")
     val del2 = delim2.getOrElseCreate("\n")
     val file = open_file(filename.s, write = true)
