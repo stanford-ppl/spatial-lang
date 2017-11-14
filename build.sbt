@@ -17,7 +17,6 @@ val assemblySettings = Seq(
 val commonSettings = assemblySettings ++ Seq(
   incOptions := incOptions.value.withRecompileOnMacroDef(false),
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
-  incOptions := incOptions.value.withRecompileOnMacroDef(false),
 
   scalacOptions ++= Seq("-language:implicitConversions", "-language:higherKinds"),
   scalacOptions ++= Seq("-explaintypes", "-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),
@@ -54,7 +53,7 @@ lazy val spatial = (project in file("spatial/core"))
 
 lazy val apps = project
   .dependsOn(spatial, virtualized)
-  .settings(assemblySettings)
+  .settings(commonSettings)
   .settings(assemblyJarName in assembly := "apps.jar")
 
 val pirApps = List("DotProduct", "OuterProduct", "GEMM_Blocked", "SPMV_CRS", "PageRank_plasticine", "BlackScholes", 

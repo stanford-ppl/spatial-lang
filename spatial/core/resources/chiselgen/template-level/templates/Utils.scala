@@ -530,6 +530,8 @@ object Utils {
   var fixsub_latency = 1
   var fixmod_latency = 16
   var fixeql_latency = 1
+  var sramload_latency = 0
+  var sramstore_latency = 0
   var SramThreshold = 4 // Threshold between turning Mem1D into register array vs real memory
   var mux_latency = 1
   var retime = false

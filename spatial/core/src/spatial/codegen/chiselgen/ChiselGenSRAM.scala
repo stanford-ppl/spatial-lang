@@ -557,6 +557,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"Utils.fixmod_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMod")()("LatencyOf").toInt else 0}")
       emit(s"Utils.fixeql_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixEql")()("LatencyOf").toInt else 0}")
       emit(s"Utils.mux_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("Mux")()("LatencyOf").toInt    else 0}")
+      emit(s"Utils.sramload_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMLoad")()("LatencyOf").toInt    else 0}")
+      emit(s"Utils.sramstore_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMStore")()("LatencyOf").toInt    else 0}")
       emit(s"Utils.SramThreshold = 4")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
