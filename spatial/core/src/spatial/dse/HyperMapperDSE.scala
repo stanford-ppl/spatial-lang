@@ -28,7 +28,7 @@ trait HyperMapperDSE { this: DSE =>
     val workQueue = new LinkedBlockingQueue[Seq[Int]](5000)  // Max capacity specified here
     val fileQueue = new LinkedBlockingQueue[String](5000)
 
-    val workerIds = (0 until T - 1).toList
+    val workerIds = (0 until T).toList
 
     val pool = Executors.newFixedThreadPool(T)
     val workers = workerIds.map{id =>
