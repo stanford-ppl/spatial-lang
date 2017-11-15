@@ -110,12 +110,12 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       println(s"Legal space size is $legalSize (elapsed time: ${legalCalcTime/1000} seconds)")
       println("")
 
-      val nTrials = 10
+      val nTrials = 5
 
       if (EXPERIMENT) {
         val times = new PrintWriter(config.name + "_times.log")
-        val last = if (legalSize < 100000 && legalSize != 500 && legalSize % 1000 != 0) Seq(legalSize) else Nil
-        val sizes = (500 +: (1000 to 100000 by 1000)) ++ last
+        val last = if (legalSize < 100000) Seq(legalSize) else Nil
+        val sizes = List(500, 1000, 5000, 10000, 20000, 50000, 75000, 100000) ++ last
         sizes.filter(_ <= legalSize).foreach{size =>
           (0 until nTrials).foreach{i =>
             val points = scala.util.Random.shuffle(legalPoints).take(size)
