@@ -110,16 +110,14 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       println(s"Legal space size is $legalSize (elapsed time: ${legalCalcTime/1000} seconds)")
       println("")
 
-      val nTrials = 5
+      val nTrials = 10
 
       if (EXPERIMENT) {
         val times = new PrintWriter(config.name + "_times.log")
         val last = if (legalSize < 100000 && legalSize != 500 && legalSize % 1000 != 0) Seq(legalSize) else Nil
         val sizes = (500 +: (1000 to 100000 by 1000)) ++ last
         sizes.filter(_ <= legalSize).foreach{size =>
-          var avgTime: Long = 0L
           (0 until nTrials).foreach{i =>
-
             val points = scala.util.Random.shuffle(legalPoints).take(size)
             val filename = s"${config.name}_size_${size}_exp_$i.csv"
 
@@ -134,9 +132,9 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
             }
 
             val endTime = System.currentTimeMillis()
-            avgTime += (endTime - startTime)
+            val totalTime = (endTime - startTime)
+            times.println(s"${config.name} ${size} ${i} $totalTime")
           }
-          times.println(s"${config.name}_size_$size: ${avgTime.toDouble/nTrials}")
         }
         times.close()
         println("All experiments completed. Exiting.")
