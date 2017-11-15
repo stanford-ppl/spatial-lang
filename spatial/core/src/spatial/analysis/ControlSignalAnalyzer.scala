@@ -36,6 +36,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var inInnerLoop: Boolean = false                        // Is the innermost loop iterator an inner controller?
 
   var localMems: List[Exp[_]] = Nil
+  private var localReads: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
   var streampipes: List[Exp[_]] = Nil
   var streamLoadCtrls: List[Exp[_]] = Nil // Pops
@@ -142,6 +143,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def addReader(reader: Exp[_], ctrl: Ctrl) = instrument("addReader"){
+    localReads ::= reader
     if (isInnerControl(ctrl))
       appendReader(reader, ctrl)
     else
@@ -291,6 +293,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     getDef(node).foreach{d =>
       val inputs = d.expInputs
       memDepsOf(node) = (inputs intersect localMems).toSet ++ inputs.flatMap(in => memDepsOf(in))
+      readDepsOf(node) = (inputs intersect localReads).toSet ++ inputs.flatMap{in => readDepsOf(in)}
       dbgs(s"memory dependencies of $node: " + memDepsOf(node).mkString(","))
     }
   }

@@ -502,6 +502,15 @@ case class MemoryDependencies(mems: Set[Exp[_]]) extends Metadata[MemoryDependen
   def update(e: Exp[_], deps: Set[Exp[_]]): Unit = if (deps.nonEmpty) metadata.add(e, MemoryDependencies(deps))
 }
 
+case class ReadDependencies(reads: Set[Exp[_]]) extends Metadata[ReadDependencies] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object readDepsOf {
+  def apply(e: Exp[_]): Set[Exp[_]] = metadata[ReadDependencies](e).map(_.reads).getOrElse(Set.empty)
+  def update(e: Exp[_], deps: Set[Exp[_]]): Unit = if (deps.nonEmpty) metadata.add(e, ReadDependencies(deps))
+}
+
 
 /**
   * Data to be preloaded into SRAM

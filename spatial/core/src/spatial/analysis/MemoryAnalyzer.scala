@@ -15,6 +15,8 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
 
   def localMems: Seq[Exp[_]]
 
+  val instrument = new argon.util.NoInstrument("total")
+
   type Channels = (Memory, Int)
   implicit class ChannelOps(x: Channels) {
     def memory = x._1
@@ -22,7 +24,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     def toList: List[Memory] = List.fill(duplicates)(memory)
   }
 
-  def mergeBanking(mem: Exp[_], a: Banking, b: Banking, d: Int): Banking = (a,b) match {
+  def mergeBanking(mem: Exp[_], a: Banking, b: Banking, d: Int): Banking = instrument("mergeBanking") { (a,b) match {
     case (Banking(s1,p,o1), Banking(s2,q,o2)) if s1 == s2 => Banking(s1, Math.min(lcm(p,q),d), o1 || o2)
     case (NoBanking(s1), Banking(s2,_,_)) if s1 == s2 => b
     case (Banking(s1,_,_), NoBanking(s2)) if s1 == s2 => a
@@ -30,9 +32,9 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       warn(mem.ctx, u"${mem.tp}, defined here, appears to be addressed with mismatched strides")
       warn(mem.ctx)
       NoBanking(1) // TODO
-  }
+  }}
 
-  def mergeChannels(mem: Exp[_], a: Channels, b: Channels): Channels = {
+  def mergeChannels(mem: Exp[_], a: Channels, b: Channels): Channels = instrument("mergeChannels") {
     val memA = a.memory
     val memB = b.memory
     val dupA = a.duplicates
@@ -113,7 +115,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     var id = 0
   }
 
-  def printGroup(mem: Exp[_], group: InstanceGroup, showErrors: Boolean = false): Unit = {
+  def printGroup(mem: Exp[_], group: InstanceGroup, showErrors: Boolean = false): Unit = instrument("printGroup") {
     val writers = writersOf(mem)
     val readers = readersOf(mem)
     dbg("")
@@ -152,7 +154,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     }
   }
 
-  def invertPorts(accesses: Iterable[Access], ports: Map[Access, Set[Int]]): Array[Set[Access]] = {
+  def invertPorts(accesses: Iterable[Access], ports: Map[Access, Set[Int]]): Array[Set[Access]] = instrument("invertPorts"){
     val depth = if (ports.values.isEmpty) 1 else ports.values.map(_.max).max + 1
     Array.tabulate(depth){port =>
       accesses.filter{a => ports(a).contains(port) }.toSet
@@ -165,7 +167,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     writers: Seq[Access],
     reader:  Option[Access],
     bankAccess: (Exp[_], Exp[_]) => Channels
-  ): InstanceGroup = {
+  ): InstanceGroup = instrument("bankAccessGroup") {
     dbg(c"  Banking group: ")
     dbg(c"    Reader: $reader")
     dbg(c"    Writers: $writers")
@@ -175,8 +177,8 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val group = {
       if (accesses.isEmpty) new InstanceGroup(None, Nil, (BankedMemory(Nil,1,false), 1), Map.empty, Map.empty)
       else {
-        val bankings = accesses.map{a => bankAccess(mem, a.node) }
-        val channels = bankings.reduce{(a,b) => mergeChannels(mem, a, b) }
+        val bankings = instrument("bankAccesses"){ accesses.map{a => bankAccess(mem, a.node) } }
+        val channels = instrument("mergeChannels"){ bankings.reduce{(a,b) => mergeChannels(mem, a, b) } }
 
         if (writers.isEmpty && reader.isDefined) {
           new InstanceGroup(None, accesses, channels, Map(reader.get -> Set(0)), Map.empty)
@@ -185,16 +187,24 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
           // TODO: A memory is an accumulator if a writer depends on a reader in the same pipe
           // or if this memory is used as an accumulator by a Reduce or MemReduce
           // and at least one of the writers is in the same control node as the reader
-          val isAccum = reader.exists{read => writers.exists(_.node.dependsOn(read.node)) } || (mem match {
-            case s: Dyn[_] => s.dependents.exists{
-              case Def(e: OpReduce[_])      => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
-              case Def(e: OpMemReduce[_,_]) => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
-              case _ => false
-            }
-            case _ => false
-          })
+          /*reader.exists{read => writers.exists(_.node.dependsOn(read.node)) }*/
 
-          val (metapipe, ports) = findMetaPipe(mem, reader.toList, writers)
+          val isAccum = instrument("isAccum"){
+
+            val hasAccumulatingWrite = reader.exists{read => writers.exists{w => readDepsOf(w.node).contains(read.node) }}
+
+            hasAccumulatingWrite || (mem match {
+              case s: Dyn[_] => s.dependents.exists{
+                case Def(e: OpReduce[_])      => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
+                case Def(e: OpMemReduce[_,_]) => e.accum == s && reader.exists{read => writers.exists(_.ctrl == read.ctrl)}
+                case _ => false
+              }
+              case _ => false
+            })
+
+          }
+
+          val (metapipe, ports) = instrument("findMetaPipe"){ findMetaPipe(mem, reader.toList, writers) }
           val depth = ports.values.max + 1
           // Update memory instance with correct depth
           val bufferedMemory = channels.memory match {
@@ -203,7 +213,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
           }
           val bufferedChannels = (bufferedMemory, channels.duplicates)
 
-          metapipe match {
+          val ig = instrument("bufferCalc"){ metapipe match {
             // Metapipelined case: partition accesses based on whether they're n-buffered or time multiplexed w/ buffer
             case Some(parent) =>
               val (nbuf, tmux) = accesses.partition{access => lca(access.ctrl, parent).get == parent }
@@ -217,12 +227,13 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
             case None =>
               val muxPorts = ports.map{case (key, port) => key -> Set(port)}
               new InstanceGroup(None, accesses, bufferedChannels, muxPorts, Map.empty)
-          }
+          }}
+          ig
         }
       }
     }
 
-    printGroup(mem, group)
+    //printGroup(mem, group)
     group
   }
 
@@ -362,9 +373,9 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
           val part = proposed.map(merge)
           val cost = costOf(part)
 
-          dbg("  Proposed partitioning: ")
-          part.foreach(part => printGroup(mem, part))
-          dbg(s"  Cost: $cost")
+          //dbg("  Proposed partitioning: ")
+          //part.foreach(part => printGroup(mem, part))
+          //dbg(s"  Cost: $cost")
 
           if (cost < bestCost) {
             best = part
@@ -381,13 +392,13 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     instances.groupBy(_.metapipe).toList.flatMap{
       // Merging for buffered memories
       case (Some(metapipe), instances) =>
-        val insts = greedyBufferMerge(instances.toSet)
+        val insts = instrument("greedyMerge") { greedyBufferMerge(instances.toSet) }
 
-        dbg(c"After greedy: ")
-        insts.foreach(inst => printGroup(mem, inst))
+        //dbg(c"After greedy: ")
+        //insts.foreach(inst => printGroup(mem, inst))
 
         // 2. Coalesce remaining instance groups based on brute force search, if it's feasible
-        exhaustiveBufferMerge(insts).toList
+        instrument("exhaustiveMerge"){ exhaustiveBufferMerge(insts).toList }
 
       // TODO: Merging for time multiplexed?
       case (None, instances) => instances
@@ -420,15 +431,16 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       warn(mem.ctx, u"${mem.tp} $mem defined here has no readers.")
       warn(mem.ctx)
     }
+    instrument("checks") {
+      if (!settings.allowMultipleReaders) checkMultipleReaders(mem)
+      if (!settings.allowMultipleWriters) checkMultipleWriters(mem)
+      if (!settings.allowConcurrentReaders) checkConcurrentReaders(mem)
+      if (!settings.allowConcurrentWriters) checkConcurrentWriters(mem)
+      if (!settings.allowPipelinedReaders) checkPipelinedReaders(mem)
+      if (!settings.allowPipelinedWriters) checkPipelinedWriters(mem)
+    }
 
-    if (!settings.allowMultipleReaders)   checkMultipleReaders(mem)
-    if (!settings.allowMultipleWriters)   checkMultipleWriters(mem)
-    if (!settings.allowConcurrentReaders) checkConcurrentReaders(mem)
-    if (!settings.allowConcurrentWriters) checkConcurrentWriters(mem)
-    if (!settings.allowPipelinedReaders)  checkPipelinedReaders(mem)
-    if (!settings.allowPipelinedWriters)  checkPipelinedWriters(mem)
-
-    val instanceGroups = if (readers.isEmpty) {
+    val instanceGroups = instrument("bankAccessGroups") { if (readers.isEmpty) {
       List(bankAccessGroup(mem, writers, None, bankAccess))
     }
     else {
@@ -436,34 +448,37 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
         val reaching = reachingWrites(mem, reader)
         bankAccessGroup(mem, reaching, Some(reader), bankAccess)
       }
+    }}
+
+    val coalescedGroups = instrument("coalescing") {
+      if (spatialConfig.enableBufferCoalescing) coalesceMemories(mem, instanceGroups) else instanceGroups
     }
 
-    val coalescedGroups = if (spatialConfig.enableBufferCoalescing) coalesceMemories(mem, instanceGroups) else instanceGroups
+    instrument("summary") {
+      dbg("")
+      dbg("")
+      dbg(u"  SUMMARY for memory $mem:")
+      var i = 0
+      coalescedGroups.zipWithIndex.foreach { case (grp, x) =>
+        printGroup(mem, grp, showErrors = x == 0)
 
-    dbg("")
-    dbg("")
-    dbg(u"  SUMMARY for memory $mem:")
-    var i = 0
-    coalescedGroups.zipWithIndex.foreach{case (grp,x) =>
-      printGroup(mem, grp, showErrors = x == 0)
-
-      grp.accesses.foreach{access =>
-        if (writers.contains(access)) {
-          for (j <- i until i+grp.channels.duplicates) {
-            dispatchOf.add(access, mem, j)
-            portsOf(access, mem, j) = grp.ports(access)
+        grp.accesses.foreach { access =>
+          if (writers.contains(access)) {
+            for (j <- i until i + grp.channels.duplicates) {
+              dispatchOf.add(access, mem, j)
+              portsOf(access, mem, j) = grp.ports(access)
+            }
+          }
+          else {
+            dispatchOf.add(access, mem, i)
+            portsOf(access, mem, i) = grp.ports(access)
           }
         }
-        else {
-          dispatchOf.add(access, mem, i)
-          portsOf(access, mem, i) = grp.ports(access)
-        }
+
+        i += grp.channels.duplicates
       }
-
-      i += grp.channels.duplicates
+      duplicatesOf(mem) = coalescedGroups.flatMap { grp => grp.channels.toList }
     }
-
-    duplicatesOf(mem) = coalescedGroups.flatMap{grp => grp.channels.toList }
   }
 
 
@@ -519,7 +534,9 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       case tp => throw new spatial.UndefinedBankingException(tp)(mem.ctx, state)
     }}
 
-    if (config.verbosity > 0) {
+    instrument.dump(s"#${state.pass-1} $name: ")
+
+    /*if (config.verbosity > 0) {
       import scala.language.existentials
       val target = spatialConfig.target
       val areaModel = target.areaModel
@@ -546,7 +563,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
           dbg("")
         }
       }
-    }
+    }*/
   }
 
 
