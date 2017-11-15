@@ -11,7 +11,7 @@ import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 
-trait PIRLogger extends SpatialTraversal {
+trait PIRLogger extends SpatialTraversal with PIRStruct {
 
   var listing = false
   var listingSaved = false
@@ -48,7 +48,7 @@ trait PIRLogger extends SpatialTraversal {
   }
   def dbgcu(cu:ComputeUnit):Unit = dbgblk(s"Generated CU: $cu") {
     dbgblk(s"cchains: ") {
-      cu.cchains.foreach{cchain => dbgs(s"${cchain.longString}") }
+      cu.cchains.foreach{cchain => dbgs(s"${quote(cchain)}") }
     }
     dbgblk(s"mems: ") {
       for (mem <- cu.mems) {
@@ -74,7 +74,7 @@ trait PIRLogger extends SpatialTraversal {
       cu.computeStages.foreach(stage => dbgs(quote(stage)))
     }
     dbgl(s"CU global inputs:") {
-      globalInputs(cu).foreach{in => dbgs(s"$in") }
+      collectInput[GlobalBus](cu).foreach{in => dbgs(s"$in") }
     }
     dbgl(s"regTable:") {
       cu.regTable.foreach { case (exp, comp) => 
@@ -82,5 +82,35 @@ trait PIRLogger extends SpatialTraversal {
       }
     }
   }
+
+  def quote(n:Any):String = n match {
+    case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
+    case n:CUCounter => s"ctr(start=${n.start}, end=${n.end}, stride=${n.stride}, par=${n.par})"
+    case n:CChainInstance =>  s"${n.name} (${n.counters.map(quote).mkString(",")})"
+    case n: UnitCChain => s"${n} [unit]"
+    case DefStage(exp, isReduce) => s"DefStage(${qdef(exp)}, isReduce=$isReduce)"
+    case x:Iterable[_] => x.map(quote).toString
+    case n => n.toString
+  }
+
+  def qdef(lhs:Any):String = {
+    val rhs = lhs match {
+      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
+      case Def(e:UnrolledForeach) => 
+        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(e:UnrolledReduce[_,_]) => 
+        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case Op(rhs) => s"$rhs"
+      case Def(rhs) => s"$rhs"
+      case lhs => s"$lhs"
+    }
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
+    }
+    s"$lhs = $rhs$name"
+  }
+
 
 }

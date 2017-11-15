@@ -137,27 +137,18 @@ case class VectorOut(bus: VectorBus) extends LocalPort[VectorOut] {
 // --- Counter chains
 case class CUCounter(var start: LocalComponent, var end: LocalComponent, var stride: LocalComponent, var par:Int) extends PIR {
   val name = s"ctr${CUCounter.nextId()}"
-  def longString = s"ctr(${start}, ${end}${end.getClass.getSimpleName}, ${stride}, $par)"
 }
 object CUCounter {
   var id: Int = 0
   def nextId(): Int = {id += 1; id}
 }
 
-sealed abstract class CUCChain(val name: String) extends PIR { def longString: String } 
-case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
-  override def toString = name
-  def longString: String = s"$name (${counters.map(_.longString).mkString(",")})"
-}
+sealed abstract class CUCChain(val name: String) extends PIR
+case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name)
 case class CChainCopy(override val name: String, inst: CUCChain, var owner: CU) extends CUCChain(name) {
-  override def toString = s"$owner.copy($name)"
-  def longString: String = this.toString
   val iterIndices = mutable.Map[Int, Int]() // CtrIdx -> IterIdx
 }
-case class UnitCChain(override val name: String) extends CUCChain(name) {
-  override def toString = name
-  def longString: String = this.toString + " [unit]"
-}
+case class UnitCChain(override val name: String) extends CUCChain(name)
 
 
 // --- Compute unit memories

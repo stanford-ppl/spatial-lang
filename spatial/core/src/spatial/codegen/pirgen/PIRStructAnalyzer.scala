@@ -47,11 +47,9 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
           case _ => Seq()
         }
         createStruct(mem, fields)
-      case ParLocalReader(reads) => 
-        val (mem, _, _) = reads.head
+      case ParLocalReader((mem,_,_)::_) => 
         createStruct(exp, getFields(mem))
-      case ParLocalWriter(writes) =>
-        val (mem, _, _, _) = writes.head
+      case ParLocalWriter((mem,_,_,_)::_) =>
         createStruct(exp, getFields(mem))
       case _ => Left(exp)
     }
@@ -99,10 +97,43 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
   }
 
+}
+
+trait PIRStruct {
+  // Struct handling
+  def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
+
+  def decompose(exp: Expr): Seq[Expr] = decomposed(exp) match {
+    case Left(exp) => Seq(exp)
+    case Right(seq) => seq.map(_._2)
+  }
+
   def getFields(exp: Expr): Seq[String] = {
     decomposed(exp) match {
       case Left(e) => Seq()
       case Right(seq) => seq.map(_._1)
+    }
+  }
+
+  def getField(dexp: Expr): Option[String] = {
+    decomposed(compose(dexp)) match {
+      case Left(e) => None 
+      case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
+        throw new Exception(s"composed $dexp=${compose(dexp)}doesn't contain $dexp. seq=$seq")
+        ))
+    }
+  }
+
+  def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
+    decomposed(exp) match {
+      case Left(exp) => None
+      case Right(fs) => 
+        val matches = fs.filter(_._1==fieldName)
+        assert(matches.size<=1, s"$exp has struct type with duplicated field name: [${fs.mkString(",")}]")
+        if (matches.nonEmpty)
+          Some(matches.head._2)
+        else
+          None
     }
   }
 

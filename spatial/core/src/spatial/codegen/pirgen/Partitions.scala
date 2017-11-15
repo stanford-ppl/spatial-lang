@@ -77,7 +77,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
 
   def recomputeOwnedCChains(p: Partition, ctrl: Option[CUCChain], isEdge: Boolean): Unit = {
-    p.cchains = usedCChains(p.allStages)
+    p.cchains = collectInput[CUCChain](p.allStages)
 
     if (isEdge && ctrl.isDefined) p.cchains += ctrl.get
   }
@@ -175,7 +175,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
 
     dbgl(s"CChains: ") {
-      p.cchains.foreach{cc => dbgs(s"    $cc :: " + globalInputs(cc).mkString(", ")) }
+      p.cchains.foreach{cc => dbgs(s"    $cc :: " + collectInput[GlobalBus](cc).mkString(", ")) }
     }
 
     val remote = all diff local
@@ -190,20 +190,20 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     dbgs(s"Read Mems: " + readMems.mkString(", "))
 
     // --- CU inputs and outputs
-    val cuInBuses = globalInputs(localIns) ++ globalInputs(p.cchains) ++ globalInputs(readMems)
-    val cuOutBuses = globalOutputs(localOuts)
+    val cuInBuses = collectInput[GlobalBus](localIns) ++ collectInput[GlobalBus](p.cchains) ++ collectInput[GlobalBus](readMems)
+    val cuOutBuses = collectOutput[GlobalBus](localOuts)
 
-    var vIns: Int   = vectorInputs(cuInBuses).size
-    var vOuts: Int  = vectorOutputs(cuOutBuses).size 
-    var sIns:Int = scalarInputs(cuInBuses).size
-    var sOuts: Int = scalarOutputs(cuOutBuses).size 
+    var vIns: Int   = collectInput[VectorBus](cuInBuses).size
+    var vOuts: Int  = collectOutput[VectorBus](cuOutBuses).size 
+    var sIns:Int = collectInput[ScalarBus](cuInBuses).size
+    var sOuts: Int = collectOutput[ScalarBus](cuOutBuses).size 
 
     // --- Registers
 
-    dbgs(s"Scalar ins: " + scalarInputs(cuInBuses).mkString(", "))
-    dbgs(s"Vector ins: " + vectorInputs(cuInBuses).mkString(", "))
-    dbgs(s"Scalar outs: " + scalarOutputs(cuOutBuses).mkString(", "))
-    dbgs(s"Vector outs: " + vectorOutputs(cuOutBuses).mkString(", "))
+    dbgs(s"Scalar ins: " + collectInput[ScalarBus](cuInBuses).mkString(", "))
+    dbgs(s"Vector ins: " + collectInput[VectorBus](cuInBuses).mkString(", "))
+    dbgs(s"Scalar outs: " + collectOutput[ScalarBus](cuOutBuses).mkString(", "))
+    dbgs(s"Vector outs: " + collectOutput[VectorBus](cuOutBuses).mkString(", "))
 
     // Live inputs from other partitions
     val liveIns  = localIns intersect remoteOuts
@@ -392,10 +392,10 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
   }
 
-  def nScalarIn(cu: CU): Int = scalarInputs(cu).size
-  def nScalarOut(cu: CU): Int = scalarOutputs(cu).size
-  def nVectorIns(cu: CU): Int = vectorInputs(cu).size
-  def nVectorOuts(cu: CU): Int = vectorOutputs(cu).size
+  def nScalarIn(cu: CU): Int = collectInput[ScalarBus](cu).size
+  def nScalarOut(cu: CU): Int = collectOutput[ScalarBus](cu).size
+  def nVectorIns(cu: CU): Int = collectInput[VectorBus](cu).size
+  def nVectorOuts(cu: CU): Int = collectOutput[VectorBus](cu).size
 
   def reportUtil(stats: Utilization) {
     val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut, regsMax, regsUse) = stats

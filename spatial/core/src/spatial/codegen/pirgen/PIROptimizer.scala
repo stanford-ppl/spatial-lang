@@ -89,7 +89,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def removeUnusedCChainCopy(cu: CU) = dbgblk(s"removeUnusedCChainCopy(${cu.name})") {
     // Remove unused counterchain copies
-    val usedCCs = usedCChains(cu)
+    val usedCCs = collectInput[CUCChain](cu)
     dbgs(s"usedCCs=$usedCCs")
     val unusedCopies = cu.cchains.collect{case cc:CChainCopy if !usedCCs.contains(cc) => cc}
 
@@ -101,7 +101,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def removeUnusedMems(cu: CU) = dbgblk(s"removeUnusedMems(${cu.name})") {
-    var refMems = usedMem(cu) 
+    var refMems = collectInput[CUMemory](cu) 
     val unusedMems = cu.mems.filterNot{ mem => refMems.contains(mem) }
     if (unusedMems.nonEmpty) {
       dbgs(s"Removing unused mems from $cu: [${unusedMems.mkString(",")}]")
@@ -112,7 +112,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def removeUnusedGlobalBuses() = dbgblk(s"removeUnusedGlobalBuses") {
     val buses = globals.collect{case bus:GlobalBus if isInterCU(bus) => bus}
-    val inputs = cus.flatMap{cu => globalInputs(cu) }.toSet
+    val inputs = cus.flatMap{cu => collectInput[GlobalBus](cu) }.toSet
 
     dbgs(s"Buses: ")
     buses.foreach{bus => dbgs(s"  $bus")}
@@ -221,8 +221,9 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       } 
     }
 
-    val noOutput = globalOutputs(cu).isEmpty
-    dbgs(s"$cu globalOutputs=${globalOutputs(cu)} ${cu.mems.map{m => m.readPort.map(globalOutputs)}}")
+    val globalOutputs = collectOutput[GlobalBus](cu)
+    dbgs(s"$cu globalOutputs=${globalOutputs}")
+    val noOutput = globalOutputs.isEmpty
 
     if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
         && !isCopied && noOutput && cu.switchTable.isEmpty) {

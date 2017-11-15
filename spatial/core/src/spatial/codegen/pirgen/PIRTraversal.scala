@@ -12,7 +12,7 @@ import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 
-trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
+trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger with PIRStruct {
 
   implicit val self:PIRTraversal = this
 

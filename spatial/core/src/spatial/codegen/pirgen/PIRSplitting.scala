@@ -129,7 +129,7 @@ trait PIRSplitting extends PIRTraversal {
       mappingOf(exp) = parent
       parent.parent = cu.parent
       parent.cchains ++= cu.cchains
-      parent.memMap ++= cu.memMap.filter { case (e, m) => usedMem(cu.cchains).contains(m) } 
+      parent.memMap ++= cu.memMap.filter { case (e, m) => collectInput[CUMemory](cu.cchains).contains(m) } 
       Some(parent)
     }
     else None
@@ -159,6 +159,7 @@ trait PIRSplitting extends PIRTraversal {
     val isUnit = orig.lanes == 1
 
     val cu = ComputeUnit(orig.name+"_"+i, orig.style)
+    dbgs(s"Creating $cu")
     mappingOf(mappingOf(orig)) = cu
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
@@ -167,10 +168,11 @@ trait PIRSplitting extends PIRTraversal {
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
 
-    val localIns  = local.flatMap(_.inputMems).toSet ++ cu.cchains.flatMap(localInputs)
+    val localIns  = local.flatMap(_.inputMems).toSet
     val localOuts = local.flatMap(_.outputMems).toSet
+    dbgs(s"localIns=${local.flatMap(_.inputMems).toSet}")
 
-    val readMems = localIns.collect{case MemLoad(mem) => mem }
+    val readMems = collectInput[CUMemory](localIns, logger=Some(this))
     orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
     val remoteIns = remote.flatMap(_.inputMems).toSet

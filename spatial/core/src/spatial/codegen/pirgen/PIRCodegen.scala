@@ -67,7 +67,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
 
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
   override protected def quoteConst(c: Const[_]): String = s"Const($c)"
-  override protected def quote(x: Exp[_]): String = spatial.codegen.pirgen.quote(x) 
+  override protected def quote(x: Exp[_]): String = super.quote(x) 
 
   def emitCU(lhs: Exp[_], cu: CU): Unit
 
