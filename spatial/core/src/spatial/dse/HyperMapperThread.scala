@@ -10,14 +10,13 @@ import spatial.models._
 
 case class HyperMapperThread(
   threadId:  Int,
-  origState: State,
   space:     Seq[Domain[Int]],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
   workQueue: BlockingQueue[Seq[Int]],
   outQueue:  BlockingQueue[String]
-) extends Runnable { thread =>
+)(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
   private var isAlive: Boolean = true
   private var hasTerminated: Boolean = false
@@ -42,8 +41,6 @@ case class HyperMapperThread(
   private def resetAllTimers() { memTime = 0; bndTime = 0; conTime = 0; areaTime = 0; cyclTime = 0 }
 
   // --- Space Stuff
-  private implicit val state: State = new State
-
   private val target = spatialConfig.target
   private val capacity: Area = target.capacity
   val areaHeading: Seq[String] = capacity.nonZeroFields
@@ -58,7 +55,6 @@ case class HyperMapperThread(
   private lazy val cycleAnalyzer = target.cycleAnalyzer(state)
 
   def init(): Unit = {
-    origState.copyTo(state)
     areaAnalyzer.init()
     cycleAnalyzer.init()
     scalarAnalyzer.init()

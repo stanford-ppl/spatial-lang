@@ -10,7 +10,6 @@ import spatial.models._
 
 case class DSEThread(
   threadId:  Int,
-  origState: State,
   params:    Seq[Exp[_]],
   space:     Seq[Domain[Int]],
   accel:     Exp[_],
@@ -18,7 +17,7 @@ case class DSEThread(
   localMems: Seq[Exp[_]],
   workQueue: BlockingQueue[Seq[BigInt]],
   outQueue:  BlockingQueue[Array[String]]
-) extends Runnable { thread =>
+)(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
   private var isAlive: Boolean = true
   private var hasTerminated: Boolean = false
@@ -43,7 +42,6 @@ case class DSEThread(
   private def resetAllTimers() { memTime = 0; bndTime = 0; conTime = 0; areaTime = 0; cyclTime = 0 }
 
   // --- Space Stuff
-  private implicit val state: State = new State
 
   private val target = spatialConfig.target
   private val capacity: Area = target.capacity
@@ -63,7 +61,6 @@ case class DSEThread(
   private lazy val cycleAnalyzer = target.cycleAnalyzer(state)
 
   def init(): Unit = {
-    origState.copyTo(state)
     areaAnalyzer.init()
     cycleAnalyzer.init()
     scalarAnalyzer.init()
@@ -80,30 +77,32 @@ case class DSEThread(
   }
 
   def run(): Unit = {
+    println(s"[$threadId] Started.")
+
     while(isAlive) {
       val requests = workQueue.take() // Blocking dequeue
 
       if (requests.nonEmpty) {
-        // println(s"#$threadId: Received batch of $len. Working...")
+        println(s"[$threadId] Received batch of ${requests.length}. Working...")
         try {
           val result = run(requests)
-          // println(s"#$threadId: Completed batch of $len. ${workQueue.size()} items remain in the queue")
+          println(s"[$threadId] Completed batch of ${requests.length}. ${workQueue.size()} items remain in the queue")
           outQueue.put(result) // Blocking enqueue
         }
         catch {case e: Throwable =>
-          // println(s"#$threadId: Encountered error while running: ")
+          println(s"[$threadId] Encountered error while running: ")
           println(e.getMessage)
           e.getStackTrace.foreach{line => println(line) }
           isAlive = false
         }
       }
       else {
-        // println(s"#$threadId: Received kill signal, terminating!")
+        println(s"[$threadId] Received kill signal, terminating!")
         requestStop()
       } // Somebody poisoned the work queue!
     }
 
-    // println(s"#$threadId: Ending now!")
+    println(s"[$threadId] Ending now!")
     hasTerminated = true
   }
 

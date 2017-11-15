@@ -32,16 +32,17 @@ trait HyperMapperDSE { this: DSE =>
 
     val pool = Executors.newFixedThreadPool(T)
     val workers = workerIds.map{id =>
+      val threadState = new State
+      state.copyTo(threadState)
       HyperMapperThread(
         threadId  = id,
-        origState = state,
         space     = space,
         accel     = top,
         program   = program,
         localMems = localMems,
         workQueue = workQueue,
         outQueue  = fileQueue
-      )
+      )(state)
     }
 
     report("Initializing models...")
@@ -92,6 +93,7 @@ trait HyperMapperDSE { this: DSE =>
     workerIds.foreach{_ => workQueue.put(Seq.empty[Int]) }
 
     println("Waiting for workers to complete...")
+    pool.shutdown()
     pool.awaitTermination(10L, TimeUnit.HOURS)
 
     val endTime = System.currentTimeMillis()

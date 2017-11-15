@@ -88,6 +88,35 @@ class SpatialConfig extends argon.core.Config {
 
   var threads: Int = 8
 
+  override def createInstance(): argon.core.Config = new SpatialConfig()
+
+  override def createClone(): argon.core.Config = {
+    val cfg = super.createClone().asInstanceOf[SpatialConfig]
+    cfg.useBasicBlocks = this.useBasicBlocks
+    cfg.targetName = this.targetName
+    cfg.target = this.target
+    cfg.enableDot = this.enableDSE
+    cfg.enableDSE = this.enableDSE
+    cfg.heuristicDSE = this.heuristicDSE
+    cfg.bruteForceDSE = this.bruteForceDSE
+    cfg.hyperMapperDSE = this.hyperMapperDSE
+    cfg.experimentDSE = this.experimentDSE
+    cfg.enableDot = this.enableDot
+    cfg.enableSim = this.enableSim
+    cfg.enableSynth = this.enableSynth
+    cfg.enablePIR = this.enablePIR
+    cfg.enablePIRSim = this.enablePIRSim
+    cfg.enableRetiming = this.enableRetiming
+    cfg.enableSplitting = this.enableSplitting
+    cfg.enableArchDSE = this.enableArchDSE
+    cfg.enableSyncMem = this.enableSyncMem
+    cfg.enableInstrumentation = this.enableInstrumentation
+    cfg.useCheapFifos = this.useCheapFifos
+    cfg.enableTree = this.enableTree
+    cfg.threads = this.threads
+    cfg
+  }
+
   override def printer():String = {
     val vars = this.getClass.getDeclaredFields
     var cmd = ""

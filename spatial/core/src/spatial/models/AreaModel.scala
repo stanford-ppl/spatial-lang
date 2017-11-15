@@ -337,6 +337,7 @@ abstract class AreaModel {
     case _:ParRegFileStore[_]   => NoArea
     case _:RegFileShiftIn[_]    => NoArea
     case _:ParRegFileShiftIn[_] => NoArea
+    case _:RegFileReset[_]      => NoArea
 
     /** Primitives **/
     // Bit
@@ -460,7 +461,7 @@ abstract class AreaModel {
         NoArea
     }
     case DelayLine(depth, _)   => areaOfDelayLine(depth,nbits(lhs),1)
-
+    case Char2Int(_) => NoArea
 
     /** Control Structures **/
     case _:Hwblock             => areaOfControl(lhs)
@@ -471,6 +472,7 @@ abstract class AreaModel {
     case _:OpMemReduce[_,_]    => areaOfControl(lhs)
     case _:UnrolledForeach     => areaOfControl(lhs)
     case _:UnrolledReduce[_,_] => areaOfControl(lhs)
+    case _:StateMachine[_]     => areaOfControl(lhs)
     case s:Switch[_] => lhs.tp match {
       case Bits(bt) => model("SwitchMux")("n" -> s.cases.length, "b" -> bt.length)
       case _        => model("Switch")("n" -> s.cases.length)

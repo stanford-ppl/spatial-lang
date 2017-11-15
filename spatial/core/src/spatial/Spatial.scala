@@ -144,16 +144,16 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += sanityCheck        // Check that illegal host values are not used in the accel block
 
     // --- Pre-DSE Analysis
+    passes += ctrlAnalyzer      // Control signal analysis
     passes += scalarAnalyzer    // Bounds / global analysis
     passes += affineAnalyzer    // Memory access patterns
-    passes += ctrlAnalyzer      // Control signal analysis
     passes += printer
     passes += memAnalyzer       // Memory banking/buffering
 
     passes += printer
-    // passes += areaAnalyzer
-    // passes += contentionAnalyzer
-    // passes += latencyAnalyzer
+    passes += areaAnalyzer
+    passes += contentionAnalyzer
+    passes += latencyAnalyzer
 
     // --- DSE
     if (spatialConfig.enableDSE) {

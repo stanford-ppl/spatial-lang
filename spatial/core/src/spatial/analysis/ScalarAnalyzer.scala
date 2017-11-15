@@ -38,6 +38,19 @@ trait ScalarAnalyzer extends SpatialTraversal {
         isGlobal(lhs) = true
   }
 
+  object IterMin {
+    def unapply(x: Exp[_]): Option[BigInt] = ctrOf(x) match {
+      case Some(Def(CounterNew(start,end,Exact(step),_))) => if (step > 0) boundOf.get(start) else boundOf.get(end)
+      case _ => None
+    }
+  }
+  object IterMax {
+    def unapply(x: Exp[_]): Option[BigInt] = ctrOf(x) match {
+      case Some(Def(CounterNew(start,end,Exact(step),_))) => if (step > 0) boundOf.get(end) else boundOf.get(start)
+      case _ => None
+    }
+  }
+
   /**
     * Propagates symbol maximum bounds. Generally assumes non-negative values, e.g. for index calculation
     */
@@ -49,10 +62,10 @@ trait ScalarAnalyzer extends SpatialTraversal {
     case RegRead(reg) =>
       dbgs(s"Register read of $reg")
 
-    case RegWrite(reg@Bounded(b1), Bounded(b2), _) if !insideLoop && !isHostIO(reg) =>
+    case RegWrite(reg@Bounded(b1), Bounded(b2), _) if !isAccum(lhs) && !isHostIO(reg) =>
       dbgs(s"Reg write outside loop")
       boundOf(reg) = Bound((b1 meet b2).bound)
-    case RegWrite(reg, Bounded(b), _) if !insideLoop && !isHostIO(reg) =>
+    case RegWrite(reg, Bounded(b), _) if !isAccum(lhs) && !isHostIO(reg) =>
       dbgs(s"Reg write outside loop")
       boundOf(reg) = Bound(b.bound)
 
@@ -64,22 +77,52 @@ trait ScalarAnalyzer extends SpatialTraversal {
       case _ => // No bound defined otherwise
     }
 
+    case FixNeg(Final(a)) => boundOf(lhs) = Final(-a)
+    case FixNeg(Exact(a)) => boundOf(lhs) = Exact(-a)
+    case FixNeg(Bound(a)) => boundOf(lhs) = Bound(-a) // TODO: Not really correct
+
     case FixAdd(Final(a),Final(b)) => boundOf(lhs) = Final(a + b)
     case FixAdd(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a + b)
     case FixAdd(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a + b)
+    case FixAdd(Bound(a), IterMax(i)) => boundOf(lhs) = Bound(a + i)
+    case FixAdd(IterMax(i),Bound(a)) => boundOf(lhs) = Bound(a + i)
+    case FixAdd(IterMax(i),IterMax(j)) => boundOf(lhs) = Bound(i + j)
 
     case FixSub(Final(a),Final(b)) => boundOf(lhs) = Final(a - b)
     case FixSub(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a - b)
     case FixSub(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a - b)
+    case FixSub(Bound(a),IterMin(i)) => boundOf(lhs) = Bound(a - i)
+    case FixSub(IterMax(i),Bound(a)) => boundOf(lhs) = Bound(i - a)
+    case FixSub(IterMax(i),IterMin(j)) => boundOf(lhs) = Bound(i - j)
 
     case FixMul(Final(a),Final(b)) => boundOf(lhs) = Final(a * b)
     case FixMul(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a * b)
     case FixMul(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a * b)
+    case FixMul(Bound(a),IterMax(i)) => boundOf(lhs) = Bound(a * i)
+    case FixMul(IterMax(i),Bound(a)) => boundOf(lhs) = Bound(i * a)
+    case FixMul(IterMax(i),IterMax(j)) => boundOf(lhs) = Bound(i * j)
 
     case FixDiv(Final(a),Final(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Exact(a),Exact(b)) => boundOf(lhs) = Exact(a / b + (if ( (a mod b) > 0) 1 else 0))
     case FixDiv(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a / b + (if ( (a mod b) > 0) 1 else 0))
+    case FixMod(_, Bound(b)) => boundOf(lhs) = Bound(b - 1)
 
+    case Min(Final(a),Final(b)) => boundOf(lhs) = Final(a min b)
+    case Min(Exact(a),Exact(b)) => boundOf(lhs) = Bound(a min b)
+    case Min(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a min b)
+    case Min(Bound(a),IterMax(i)) => boundOf(lhs) = Bound(a min i)
+    case Min(IterMax(i),Bound(a)) => boundOf(lhs) = Bound(i min a)
+    case Min(IterMax(i),IterMax(j)) => boundOf(lhs) = Bound(i min j)
+
+    case Max(Final(a),Final(b)) => boundOf(lhs) = Final(a max b)
+    case Max(Exact(a),Exact(b)) => boundOf(lhs) = Bound(a max b)
+    case Max(Bound(a),Bound(b)) => boundOf(lhs) = Bound(a max b)
+    case Max(Bound(a),IterMax(i)) => boundOf(lhs) = Bound(a max i)
+    case Max(IterMax(i),Bound(a)) => boundOf(lhs) = Bound(i max a)
+    case Max(IterMax(i),IterMax(j)) => boundOf(lhs) = Bound(i max j)
+
+    case FIFONumel(fifo) => boundOf(lhs) = Bound(constSizeOf(fifo))
+    case FILONumel(filo) => boundOf(lhs) = Bound(constSizeOf(filo))
 
     case FixSub(Def(FixAdd(Def(FixConvert(b)), Bounded(x))), a) if a == b => boundOf(lhs) = x
     case _ =>

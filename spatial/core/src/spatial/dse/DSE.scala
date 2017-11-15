@@ -14,7 +14,6 @@ import scala.collection.mutable.ArrayBuffer
 trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   override val name = "Design Space Exploration"
   final val PROFILING = true
-  final val BLOCK_SIZE = 500
 
   /*abstract class SearchMode
   case object BruteForceSearch extends SearchMode
@@ -77,6 +76,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     }
     val indexedSpace = prunedSpace.zipWithIndex
     val N = prunedSpace.length
+    val T = spatialConfig.threads
     val dims = prunedSpace.map{d => BigInt(d.len) }
     val prods = List.tabulate(N){i => dims.slice(i+1,N).product }
     val NPts = dims.product
@@ -110,33 +110,41 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       println(s"Legal space size is $legalSize (elapsed time: ${legalCalcTime/1000} seconds)")
       println("")
 
+      val nTrials = 5
 
       if (EXPERIMENT) {
-        val times = new PrintWriter("times.log")
-
-        val sizes = List(500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000)
+        val times = new PrintWriter(config.name + "_times.log")
+        val last = if (legalSize < 100000 && legalSize != 500 && legalSize % 1000 != 0) Seq(legalSize) else Nil
+        val sizes = (500 +: (1000 to 100000 by 1000)) ++ last
         sizes.filter(_ <= legalSize).foreach{size =>
-          (0 until 10).foreach{i =>
+          var avgTime: Long = 0L
+          (0 until nTrials).foreach{i =>
 
             val points = scala.util.Random.shuffle(legalPoints).take(size)
             val filename = s"${config.name}_size_${size}_exp_$i.csv"
 
             val startTime = System.currentTimeMillis()
+            val BLOCK_SIZE = Math.min(Math.ceil(size.toDouble / T).toInt, 500)
 
             threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
               points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
+                println(s"[Master] Submitting block of length ${block.length} to work queue")
                 queue.put(block)
               }
             }
 
             val endTime = System.currentTimeMillis()
-            times.println(s"$filename: ${endTime - startTime}")
+            avgTime += (endTime - startTime)
           }
+          times.println(s"${config.name}_size_$size: ${avgTime.toDouble/nTrials}")
         }
         times.close()
+        println("All experiments completed. Exiting.")
+        sys.exit(0)
       }
       else {
         val points = scala.util.Random.shuffle(legalPoints).take(75000)
+        val BLOCK_SIZE = Math.min(Math.ceil(points.size.toDouble / T).toInt, 500)
 
         threadBasedDSE(points.length, params, prunedSpace, program) { queue =>
           points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
@@ -157,6 +165,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     val T = spatialConfig.threads
     val dir =  config.cwd + "/results/"
     val filename = dir + file
+    val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)
 
     new java.io.File(dir).mkdirs()
 
@@ -175,10 +184,12 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
 
     val pool = Executors.newFixedThreadPool(T-1)
     val writePool = Executors.newFixedThreadPool(1)
+
     val workers = workerIds.map{id =>
+      val threadState = new State
+      state.copyTo(threadState)
       DSEThread(
         threadId  = id,
-        origState = state,
         params    = params,
         space     = space,
         accel     = top,
@@ -186,7 +197,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
         localMems = localMems,
         workQueue = workQueue,
         outQueue  = fileQueue
-      )
+      )(threadState)
     }
     report("Initializing models...")
 
@@ -222,29 +233,33 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       i += BLOCK_SIZE
     }*/
 
-    println("Ending work queue.")
+    println("[Master] Ending work queue.")
 
     // Poison the work queue (make sure to use enough to kill them all!)
     workerIds.foreach{_ => workQueue.put(Seq.empty[BigInt]) }
 
-    println("Waiting for workers to complete...")
+    println("[Master] Waiting for workers to complete...")
 
     // Wait for all the workers to die (this is a fun metaphor)
+    pool.shutdown()
     pool.awaitTermination(10L, TimeUnit.HOURS)
-    println("Waiting for file writing to complete...")
+    println("[Master] Waiting for file writing to complete...")
 
     // Poison the file queue too and wait for the file writer to die
     fileQueue.put(Array.empty[String])
+    writePool.shutdown()
     writePool.awaitTermination(10L, TimeUnit.HOURS)
 
     val endTime = System.currentTimeMillis()
     val totalTime = (endTime - startTime)/1000.0
 
-    println(s"Completed space search in $totalTime seconds.")
+    println(s"[Master] Completed space search in $totalTime seconds.")
   }
 
   def bruteForceDSE(params: Seq[Exp[_]], space: Seq[Domain[Int]], program: Block[_]): Unit = {
     val P = space.map{d => BigInt(d.len) }.product
+    val T = spatialConfig.threads
+    val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)
 
     threadBasedDSE(P, params, space, program){queue =>
       var i = BigInt(0)
