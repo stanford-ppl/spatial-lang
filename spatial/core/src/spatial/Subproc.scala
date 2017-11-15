@@ -2,8 +2,9 @@ package spatial
 
 import java.io._
 
-/** TODO: Asynchronous error response **/
-case class Subproc(args: String*)(react: String => Option[String]) {
+// TODO: Asynchronous error response
+// TODO: Should give an iterator rather than the reader directly
+case class Subproc(args: String*)(react: (String,BufferedReader) => Option[String]) {
   private var reader: BufferedReader = _
   private var writer: BufferedWriter = _
   private var logger: BufferedReader = _
@@ -32,7 +33,7 @@ case class Subproc(args: String*)(react: String => Option[String]) {
       // Otherwise react to the stdout of the subprocess
       val input = reader.readLine()
       if (input ne null) {
-        val response = react(input)
+        val response = react(input,reader)
         response.foreach{r => println(r) }
       }
     }

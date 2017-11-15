@@ -46,30 +46,32 @@ trait HyperMapperDSE { this: DSE =>
 
     report("Initializing models...")
     val pcsFile = config.name + ".pcs"
+    val workDir = "dse_hm"
     val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ", Cycles, Valid"
 
-    withLog("dse", pcsFile){
+    withLog(workDir, pcsFile){
       space.foreach{domain =>
         msg(s"""${domain.name} ${domain.tp} {${domain.options.mkString(", ")}}""", 100)
       }
     }
-    val hm = Subproc("hypermapper", pcsFile) { input =>
-      val lines = input.split("\n")
-      val command = lines.head
-      val header  = lines(1).split(",").map(_.trim)
-      val points  = lines.drop(2)
+    val hm = Subproc(spatialConfig.HYPERMAPPER + "/hypermapper", pcsFile) { (cmd,reader) =>
+      val parts = cmd.split(",").map(_.trim)
+      val command = parts.head
+      val nPoints = parts.last.toInt
+      val header  = reader.readLine().split(",").map(_.trim)
       val order   = space.map{d => header.indexOf(d.name) }
+      val points  = (0 until nPoints).map{_ => reader.readLine() }
 
       command match {
         case "Request" =>
-          points.drop(1).foreach {request =>
-            val values = request.split(",").map(_.trim.toInt)
+          points.foreach{point =>
+            val values = point.split(",").map(_.trim.toInt)
             workQueue.put(order.map{i => values(i) })
           }
           Some(HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n"))
 
         case "Pareto" =>
-          val data = new PrintStream(config.name + "_data.csv")
+          val data = new PrintStream(config.name + "_hm_data.csv")
           data.println(HEADER)
           points.foreach{pt => data.println(pt) }
           data.close()
@@ -82,7 +84,7 @@ trait HyperMapperDSE { this: DSE =>
     workers.foreach{worker => pool.submit(worker) }
 
     val startTime = System.currentTimeMillis
-    hm.block(Some("dse"))
+    hm.block(Some(workDir))
 
     println("Ending work queue.")
 
