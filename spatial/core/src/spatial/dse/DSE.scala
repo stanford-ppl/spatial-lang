@@ -124,7 +124,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
             val filename = s"${config.name}_size_${size}_exp_$i.csv"
 
             val startTime = System.currentTimeMillis()
-            val BLOCK_SIZE = Math.min(Math.ceil(size.toDouble / T).toInt, 500)
+            val BLOCK_SIZE = Math.min(Math.ceil(size.toDouble / (T-1)).toInt, 500)
 
             threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
               points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
@@ -165,7 +165,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     val T = spatialConfig.threads
     val dir =  config.cwd + "/results/"
     val filename = dir + file
-    val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)
+    val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / (T-1)).toInt, 500)
 
     new java.io.File(dir).mkdirs()
 
@@ -259,7 +259,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   def bruteForceDSE(params: Seq[Exp[_]], space: Seq[Domain[Int]], program: Block[_]): Unit = {
     val P = space.map{d => BigInt(d.len) }.product
     val T = spatialConfig.threads
-    val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)
+    val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / (T-1)).toInt, 500)
 
     threadBasedDSE(P, params, space, program){queue =>
       var i = BigInt(0)
