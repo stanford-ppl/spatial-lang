@@ -13,7 +13,7 @@ trait MetadataMaps extends MMap {
   // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
 object decomposed extends MOneToOneMap with MetadataMaps {
   type K = Expr
-  type V = Seq[(String, Expr)]
+  type V = Either[Expr, Seq[(String, Expr)]]
 }
 
   // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]

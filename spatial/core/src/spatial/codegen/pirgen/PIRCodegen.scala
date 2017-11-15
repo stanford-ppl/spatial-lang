@@ -16,6 +16,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
 
   implicit def codegen:PIRCodegen = this
 
+  lazy val structAnalyzer = new PIRStructAnalyzer
   lazy val memoryAnalyzer = new PIRMemoryAnalyzer
   lazy val allocater      = new PIRAllocation
   lazy val scheduler      = new PIRScheduler
@@ -36,6 +37,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     reset
     
+    preprocessPasses += structAnalyzer
     preprocessPasses += memoryAnalyzer
     preprocessPasses += allocater
     preprocessPasses += scheduler

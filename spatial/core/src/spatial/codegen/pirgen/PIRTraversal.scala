@@ -63,19 +63,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     isLocal
   }
 
-  def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
-    decomposeWithFields(exp) match {
-      case Left(exp) => None
-      case Right(fs) => 
-        val matches = fs.filter(_._1==fieldName)
-        assert(matches.size<=1, s"$exp has struct type with duplicated field name: [${fs.mkString(",")}]")
-        if (matches.nonEmpty)
-          Some(matches.head._2)
-        else
-          None
-    }
-  }
-
   /*
    * @return readers of dmem that are remotely read 
    * */
@@ -182,13 +169,13 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     compose(dx) match {
       case c if isConstant(c) => extractConstant(dx)
       case Def(FIFONumel(fifo)) => 
-        val dfifo = decomposeWithFields(fifo) match {
+        val dfifo = decomposed(fifo) match {
           case Left(exp) => exp
           case Right(seq) => seq.filter{ case (field, exp) => field == getField(dx).get }.head
         }
         MemNumel(cu.memMap(dfifo))
       case Def(RegNew(init)) =>
-        val dinit = decomposeWithFields(init)
+        val dinit = decomposed(init)
         val initExp = dinit match {
           case Left(dinit) => dinit
           case Right(seq) =>

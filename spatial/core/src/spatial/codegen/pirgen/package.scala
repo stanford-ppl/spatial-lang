@@ -481,102 +481,20 @@ package object pirgen {
   // Struct handling
   def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
 
-  @stateful def decomposeWithFields[T](exp: Expr, fields: Seq[T]): Either[Expr, Seq[(String, Expr)]] = {
-    if (fields.size < 1) {
-      Left(exp)
-    }
-    else if (fields.size == 1) {
-      Right(fields.map {
-        case field:String => (field, exp)
-        case (field:String, dexp:Expr) => (field, exp)
-      })
-    }
-    else {
-      Right(decomposed.getOrElseUpdate(exp) {
-        fields.map { f => 
-          val (field, dexp) = f match {
-            case field:String => (field, fresh[Int32]) 
-            case (field:String, dexp:Expr) => (field, dexp)
-          }
-          // Special case where if dexp is constant, it can map to 
-          // multiple exp but doesn't matter is the mapping is incorrect
-          if (!isConstant(dexp) || !composed.contains(dexp)) {
-            composed(dexp) = exp
-          }
-          (field, dexp)
-        }
-      })
-    }
-  }
-
-  @stateful def decomposeWithFields[T](exp:Expr)(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = exp match {
-    case Def(StreamInNew(bus)) => decomposeBus(bus, exp) 
-    case Def(StreamOutNew(bus)) => decomposeBus(bus, exp)
-    case Def(SimpleStruct(elems)) => decomposeWithFields(exp, elems)
-    case Def(VectorApply(vec, idx)) => decomposeWithFields(exp, getFields(vec))
-    case Def(ListVector(elems)) => decomposeWithFields(exp, elems.flatMap(ele => getFields(ele)))
-    case Def(GetDRAMAddress(dram)) => Left(exp) //TODO: consider the case where dram is composed
-    case Def(RegNew(init)) => 
-      val fields = decomposeWithFields(init) match {
-        case Left(init) => Seq() 
-        case Right(seq) => seq.map{ case (f, e) => f }
-      }
-      decomposeWithFields(exp, fields)
-    case Const(a:WrappedArray[_]) => decomposeWithFields(exp, a.toSeq) 
-    case mem if isMem(mem) => 
-      val fields =  mem.tp.typeArguments(0) match {
-        case s:StructType[_] => s.fields.map(_._1)
-        case _ => Seq()
-      }
-      decomposeWithFields(mem, fields)
-    case ParLocalReader(reads) => 
-      val (mem, _, _) = reads.head
-      decomposeWithFields(exp, getFields(mem))
-    case ParLocalWriter(writes) =>
-      val (mem, _, _, _) = writes.head
-      decomposeWithFields(exp, getFields(mem))
-    case _ => 
-      decomposed.get(exp).map(fs => Right(fs)).getOrElse(Left(exp))
-  }
-
-  @stateful def decomposeBus(bus:Bus, mem:Expr) = bus match {
-    //case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size", "isLoad"))
-    case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size")) // throw away isLoad bit
-    case BurstAckBus => decomposeWithFields(mem, Seq("ack")) 
-    case bus:BurstDataBus[_] => decomposeWithFields(mem, Seq("data")) 
-    //case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
-    case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data"))
-    case GatherAddrBus => decomposeWithFields(mem, Seq("addr"))
-    case bus:GatherDataBus[_] => decomposeWithFields(mem, Seq("data"))
-    //case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
-    case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data"))
-    case ScatterAckBus => decomposeWithFields(mem, Seq("ack")) 
-    case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
-  }
-
-  @stateful def decompose[T](exp: Expr, fields: Seq[T])(implicit ev: TypeTag[T]): Seq[Expr] = {
-    decomposeWithFields(exp, fields) match {
-      case Left(e) => Seq(e)
-      case Right(seq) => seq.map(_._2)
-    }
-  }
-
-  @stateful def decompose(exp: Expr): Seq[Expr] = {
-    decomposeWithFields(exp) match {
-      case Left(e) => Seq(e)
-      case Right(seq) => seq.map(_._2)
-    }
+  def decompose(exp: Expr): Seq[Expr] = decomposed(exp) match {
+    case Left(exp) => Seq(exp)
+    case Right(seq) => seq.map(_._2)
   }
 
   @stateful def getFields(exp: Expr): Seq[String] = {
-    decomposeWithFields(exp) match {
+    decomposed(exp) match {
       case Left(e) => Seq()
       case Right(seq) => seq.map(_._1)
     }
   }
 
   @stateful def getField(dexp: Expr): Option[String] = {
-    decomposeWithFields(compose(dexp)) match {
+    decomposed(compose(dexp)) match {
       case Left(e) => None 
       case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
         throw new Exception(s"composed $dexp=${compose(dexp)}doesn't contain $dexp. seq=$seq")
@@ -584,10 +502,17 @@ package object pirgen {
     }
   }
 
-  @stateful def getMatchedDecomposed(dele:Expr, ele:Expr):Expr = {
-    val i = decompose(compose(dele)).indexOf(dele)
-    val seq = decompose(ele)
-    seq(i)
+  @stateful def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
+    decomposed(exp) match {
+      case Left(exp) => None
+      case Right(fs) => 
+        val matches = fs.filter(_._1==fieldName)
+        assert(matches.size<=1, s"$exp has struct type with duplicated field name: [${fs.mkString(",")}]")
+        if (matches.nonEmpty)
+          Some(matches.head._2)
+        else
+          None
+    }
   }
 
   def getWriterCU(bus:GlobalBus):CU = {

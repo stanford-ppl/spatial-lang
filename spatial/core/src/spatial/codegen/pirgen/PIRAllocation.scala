@@ -124,7 +124,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val mem = compose(dmem)
       val parentCU = parentOf(mem).map(allocateCU)
       val writers = getWriters(mem)
-      dbgblk(s"allocateMemoryCU ${qdef(mem)}") {
+      dbgblk(s"allocateMemoryCU dmem=$dmem ${qdef(mem)}") {
         dbgs(s"writers=${writers}")
         dbgs(s"duplicates=${duplicatesOf(mem)}")
         mutable.Set() ++ 
@@ -582,7 +582,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
                         else        CUVector(s"${quote(dmem)}_${sramCU.name}_data", readerPar)
 
           // Set up PMUs connections
-          val sram = sramCU.memMap(mem)
+          val sram = sramCU.memMap(dmem)
           val addrPort = flatAddr.map { flatAddr => 
             addrBus.fold {
               sramCU.get(flatAddr).get
@@ -629,7 +629,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         // Setup PMUs connections
         val sramCUs = getPMUforAccess(dmem, dwriter) 
         sramCUs.foreach { sramCU =>
-          val sram = sramCU.memMap(mem)
+          val sram = sramCU.memMap(dmem)
           val addrPort = flatAddr.map { flatAddr =>
             addrBus.fold {
               sramCU.get(flatAddr).get
@@ -656,7 +656,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     streamIns.foreach { streamIn =>
       val readers = readersOf(streamIn)
       val readerCUs = readers.map(_.node).flatMap(getReaderCUs)
-      val dmems = decomposeWithFields(streamIn) match {
+      val dmems = decomposed(streamIn) match {
         case Right(dmems) if dmems.size==1 => dmems
         case Right(dmems) => throw new Exception(s"PIR don't support struct load/gather ${qdef(fringe)}") 
       }
