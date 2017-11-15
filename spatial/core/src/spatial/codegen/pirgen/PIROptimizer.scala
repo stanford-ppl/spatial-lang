@@ -153,7 +153,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         PIRBypass, 
         List(LocalRef(_,MemLoad(mem:CUMemory))), 
         List(LocalRef(_,VectorOut(out: VectorBus)))
-      ) if mem.writePort.size==1 & mem.mode==VectorFIFOMode =>
+      ) if mem.writePort.size==1 & mem.tpe==VectorFIFOType =>
         val (in:GlobalBus, _, _) = mem.writePort.head
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")
@@ -166,7 +166,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         PIRBypass, 
         List(LocalRef(_,MemLoad(mem:CUMemory))), 
         List(LocalRef(_,ScalarOut(out: OutputArg)))
-      ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+      ) if mem.writePort.size==1 & (mem.tpe==ScalarFIFOType | mem.tpe==ScalarBufferType)=>
         val (in:GlobalBus, _, _) = mem.writePort.head
         dbgs(s"Found route-thru: $in -> $out")
         swapBus(cus, orig=in, swap=out)
@@ -176,7 +176,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         PIRBypass, 
         List(LocalRef(_,MemLoad(mem:CUMemory))), 
         List(LocalRef(_,ScalarOut(out: ScalarBus)))
-      ) if mem.writePort.size==1 & (mem.mode==ScalarFIFOMode | mem.mode==ScalarBufferMode)=>
+      ) if mem.writePort.size==1 & (mem.tpe==ScalarFIFOType | mem.tpe==ScalarBufferType)=>
         val (in:GlobalBus, _, _) = mem.writePort.head
         if (isInterCU(out)) {
           dbgs(s"Found route-thru: $in -> $out")

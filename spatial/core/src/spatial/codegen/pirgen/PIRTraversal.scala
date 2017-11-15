@@ -148,24 +148,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     writersOf(mem).filter { writer => getDispatches(mem, writer.node).contains(instId) }.map{_.node}
   }
 
-  //def getInnerDimension(dmem:Expr, instId:Int):Option[Int] = {
-    //val mem = compose(dmem)
-    //readersOf(mem).filter { reader => dispatchOf(reader, mem).contains(instId) }
-  //}
-
-  //def writerOf(mem:Expr): Access = {
-    //val writers = writersOf(mem)
-    //if (writers.size > 1) {
-      //error(u"Memory $mem has multiple writers: ")
-      //error(mem.ctx)
-      //writers.foreach{writer => error(writer.node.ctx, showCaret = true) }
-      //error("Plasticine currently only supports 1 writer per memory")
-      //sys.exit(-1)
-    //}
-    ////assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
-    //writers.head
-  //}
-
   def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:CU):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
     //Probably LocalComponent should keep a copy of sym at allocation time?
@@ -173,11 +155,11 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     val mem = CUMemory(s"$reg", memSym, cu)
     bus match {
       case bus:ControlBus =>
-        mem.mode = ControlFIFOMode
+        mem.tpe = ControlFIFOType
       case bus:ScalarBus =>
-        mem.mode = ScalarFIFOMode
+        mem.tpe = ScalarFIFOType
       case bus:VectorBus =>
-        mem.mode = VectorFIFOMode
+        mem.tpe = VectorFIFOType
     }
     mem.size = 1
     mem.writePort += ((bus, None, None))

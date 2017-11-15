@@ -38,7 +38,8 @@ trait PIRFileGen extends FileGen {
     //TODO: Cannot treat this as a dependency because postprocess is called before stream is closed
     if (sys.env.get("PIR_HOME").isDefined && sys.env("PIR_HOME") != "") {
       // what should be the cleaner way of doing this?
-      val dir = spatialConfig.pirsrc 
+      val PIR_HOME = sys.env("PIR_HOME")
+      val dir = spatialConfig.pirsrc.getOrElse(s"$PIR_HOME/pir/apps/src")
       var cmd = s"mkdir -p $dir"
       info(cmd)
       cmd.!

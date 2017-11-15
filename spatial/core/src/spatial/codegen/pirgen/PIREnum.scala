@@ -34,12 +34,16 @@ case object MemoryCU extends CUStyle
 case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
 
 // --- Local memory modes
+sealed abstract class LocalMemoryType
+case object SRAMType extends LocalMemoryType
+case object ControlFIFOType extends LocalMemoryType
+case object ScalarFIFOType extends LocalMemoryType
+case object VectorFIFOType extends LocalMemoryType
+case object ScalarBufferType extends LocalMemoryType
+
 sealed abstract class LocalMemoryMode
-case object SRAMMode extends LocalMemoryMode
-case object ControlFIFOMode extends LocalMemoryMode
-case object ScalarFIFOMode extends LocalMemoryMode
-case object VectorFIFOMode extends LocalMemoryMode
-case object ScalarBufferMode extends LocalMemoryMode
+case object SRAMMode extends LocalMemoryMode { override def toString = "SramMode" }
+case object FIFOMode extends LocalMemoryMode { override def toString = "FifoMode" }
 
 sealed abstract class PIROp
 case object PIRALUMux  extends PIROp { override def toString = "MuxOp"    }

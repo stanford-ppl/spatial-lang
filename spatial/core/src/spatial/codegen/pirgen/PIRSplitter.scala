@@ -139,8 +139,8 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
 
     //def swapAccess(mem:CUMemory) = {
       //consumerOf(mem) = consumerOf(mem).map { case (reader, consumer) => 
-        ////val newReaders = mem.mode match {
-          ////case SRAMMode =>
+        ////val newReaders = mem.tpe match {
+          ////case SRAMType =>
             ////val addrInputs = globalInputs(mem.readAddr)
             ////dbgs(s"addrInputs($mem) = $addrInputs")
             ////splittingMap.get(reader).fold(List(reader)) { splits =>

@@ -151,7 +151,7 @@ package object pirgen {
     def rec(x:Any) = usedMem(x, logger)
     def f = x match {
       case MemLoad(mem) => Set(mem)
-      case x:CUMemory if x.mode == SRAMMode => 
+      case x:CUMemory if x.tpe == SRAMType => 
         x.readPort.flatMap { case (_, addr, _) => rec(addr) }.toSet ++
         x.writePort.flatMap { case (data, addr, _) => rec(addr) ++ rec(data) } + x
       case x:CUMemory => Set(x)
@@ -218,38 +218,23 @@ package object pirgen {
     case _ => false
   }
 
-  @stateful def isLocalMem(mem: Expr): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+  @stateful def isLocalMem(mem: Expr): Boolean = {
+    var cond = isReg(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+    //cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
+    cond
+  }
 
-  def isRemoteMem(mem: Expr): Boolean = isSRAM(mem)
+  def isRemoteMem(mem: Expr): Boolean = {
+    var cond = isSRAM(mem)
+    cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
+    cond
+  }
 
   @stateful def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e)
 
-  @stateful def isLocalMemReadAccess(acc: Expr) = acc match {
-    case Def(_:RegRead[_]) => true
-    case Def(_:FIFODeq[_]) => true
-    case Def(_:ParFIFODeq[_]) => true
-    case Def(_:StreamWrite[_]) => true
-    case Def(_:ParStreamWrite[_]) => true
-    case _ => false
-  }
-
-  @stateful def isLocalMemWriteAccess(acc: Expr) = acc match {
-    case Def(_:RegWrite[_]) => true
-    case Def(_:FIFOEnq[_]) => true
-    case Def(_:ParFIFOEnq[_]) => true
-    case Def(_:StreamRead[_]) => true
-    case Def(_:ParStreamRead[_]) => true
-    case _ => false
-  }
-
-  @stateful def isLocalMemAccess(acc: Expr) = isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
-
-  @stateful def isRemoteMemAccess(acc:Expr) = acc match {
-    case Def(_:SRAMLoad[_]) => true
-    case Def(_:ParSRAMLoad[_]) => true
-    case Def(_:SRAMStore[_]) => true
-    case Def(_:ParSRAMStore[_]) => true
-    case _ => false
+  @stateful def getMem(access:Expr) = access match {
+    case ParLocalReader((mem, _, _)::_) => mem 
+    case ParLocalWriter((mem, _, _, _)::_) => mem 
   }
 
   def isStage(d: Def): Boolean = d match {
