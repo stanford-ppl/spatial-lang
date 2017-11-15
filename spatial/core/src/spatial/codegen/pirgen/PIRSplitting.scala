@@ -34,9 +34,9 @@ trait PIRSplitting extends PIRTraversal {
 
   // TODO: PMU splitting. For now just throws an exception if it doesn't fit the specified constraints
   def splitPMU(cu: CU, archMU: MUCost, others: Seq[CU]): List[CU] = {
-    if (cu.lanes > LANES) {
+    if (cu.lanes > spec.lanes) {
       var errReport = s"Failed splitting in PMU $cu"
-      errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed $LANES"
+      errReport += s"\nCU had ${cu.lanes} lanes, greater than allowed ${spec.lanes}"
       throw new SplitException(errReport) with NoStackTrace
     }
 
@@ -103,14 +103,14 @@ trait PIRSplitting extends PIRTraversal {
         // Find first SRAM owner which can still be spliced
         var errReport = s"Failed splitting in CU $cu"
         errReport += s"\nCompute stages: "
-        remote.cstages.foreach{stage => errReport += s"\n  $stage" }
+        remote.cstages.foreach{stage => errReport += s"\n  $stage\n" }
 
-        errReport += "\nCost for last split option: "
+        errReport += "Cost for last split option: "
         current addTail remote.popHead()
-        current.cstages.foreach{stage => errReport += s"\n  $stage"}
+        current.cstages.foreach{stage => errReport += s"\n  $stage\n"}
         val cost = getCost(current)
-        errReport += s"Arch: \n$arch"
-        errReport += s"Cost: \n$cost"
+        errReport += s"Arch: \n$arch\n"
+        errReport += s"Cost: \n$cost\n"
         throw new SplitException(errReport) with NoStackTrace
       } else {
         dbgs(s"Partition ${partitions.length}")
@@ -129,8 +129,7 @@ trait PIRSplitting extends PIRTraversal {
       mappingOf(exp) = parent
       parent.parent = cu.parent
       parent.cchains ++= cu.cchains
-      val mems = usedMem(cu.cchains)
-      parent.memMap ++= cu.memMap.filter { case (e, m) => mems.contains(m) } 
+      parent.memMap ++= cu.memMap.filter { case (e, m) => usedMem(cu.cchains).contains(m) } 
       Some(parent)
     }
     else None
@@ -187,10 +186,10 @@ trait PIRSplitting extends PIRTraversal {
         case VectorOut(bus) => bus
         case ControlIn(bus) => bus
         case ControlOut(bus) => bus
-        case MemLoad(mem) if List(SRAMMode, VectorFIFOMode).contains(mem.mode) =>
+        case MemLoad(mem) if List(SRAMType, VectorFIFOType).contains(mem.tpe) =>
           val bus = CUVector(mem.name+"_vdata", cu.innerPar)
           bus
-        case MemLoad(mem) if List(ScalarFIFOMode, ScalarBufferMode).contains(mem.mode) =>
+        case MemLoad(mem) if List(ScalarFIFOType, ScalarBufferType).contains(mem.tpe) =>
           val bus = CUScalar(mem.name+"_sdata")
           bus
         case WriteAddrWire(mem) =>
@@ -363,8 +362,10 @@ trait PIRSplitting extends PIRTraversal {
         case _ =>
       }
       cu.mems.foreach{sram =>
-        sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
-        sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
+        //sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
+        //sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
+        sram.readPort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
+        sram.writePort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
       }
     }
 

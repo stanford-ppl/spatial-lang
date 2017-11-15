@@ -137,6 +137,7 @@ case class VectorOut(bus: VectorBus) extends LocalPort[VectorOut] {
 // --- Counter chains
 case class CUCounter(var start: LocalComponent, var end: LocalComponent, var stride: LocalComponent, var par:Int) extends PIR {
   val name = s"ctr${CUCounter.nextId()}"
+  def longString = s"ctr(${start}, ${end}${end.getClass.getSimpleName}, ${stride}, $par)"
 }
 object CUCounter {
   var id: Int = 0
@@ -146,7 +147,7 @@ object CUCounter {
 sealed abstract class CUCChain(val name: String) extends PIR { def longString: String } 
 case class CChainInstance(override val name: String, counters: Seq[CUCounter]) extends CUCChain(name) {
   override def toString = name
-  def longString: String = s"$name (" + counters.mkString(", ") + ")"
+  def longString: String = s"$name (${counters.map(_.longString).mkString(",")})"
 }
 case class CChainCopy(override val name: String, inst: CUCChain, var owner: CU) extends CUCChain(name) {
   override def toString = s"$owner.copy($name)"
@@ -161,27 +162,28 @@ case class UnitCChain(override val name: String) extends CUCChain(name) {
 
 // --- Compute unit memories
 case class CUMemory(name: String, mem: Expr, cu:CU) extends PIR {
-  var mode: LocalMemoryMode = _ 
+  var tpe: LocalMemoryType = _ 
+  var mode:LocalMemoryMode = _ 
   var bufferDepth: Option[Int] = None
   var banking: Option[SRAMBanking] = None
   var size = 1
 
   // writePort either from bus or for sram can be from a vector FIFO
   //val writePort = mutable.ListBuffer[GlobalBus]()
-  var writePort = mutable.ListBuffer[Component]()
-  var readPort: Option[Component] = None
-  var readAddr = mutable.ListBuffer[LocalComponent]()
-  var writeAddr = mutable.ListBuffer[LocalComponent]()
+  val writePort = mutable.ListBuffer[(Component, Option[LocalComponent], Option[CU])]() // (data, addr, producer/consumer)
+  val readPort = mutable.ListBuffer[(Component, Option[LocalComponent], Option[CU])]()
+  //var readAddr = mutable.ListBuffer[LocalComponent]()
+  //var writeAddr = mutable.ListBuffer[LocalComponent]()
 
   override def toString = name
 
-  def isSRAM = mode == SRAMMode
-  def isLocalMem = mode match {
-    case SRAMMode => false
+  def isSRAM = tpe == SRAMType
+  def isLocalMem = tpe match {
+    case SRAMType => false
     case _ => true
   }
-  def isRemoteMem = mode match {
-    case SRAMMode => true
+  def isRemoteMem = tpe match {
+    case SRAMType => true
     case _ => false
   }
 }
@@ -237,8 +239,8 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
   def valids    = regTable.iterator.collect{case (exp, reg: ValidReg) => (exp,reg) }
 
   def mems:Set[CUMemory] = memMap.values.toSet
-  def srams:Set[CUMemory] = mems.filter {_.mode==SRAMMode}
-  def fifos:Set[CUMemory] = mems.filter { mem => mem.mode==VectorFIFOMode || mem.mode==ScalarFIFOMode}
+  def srams:Set[CUMemory] = mems.filter {_.tpe==SRAMType}
+  def fifos:Set[CUMemory] = mems.filter { mem => mem.tpe==VectorFIFOType || mem.tpe==ScalarFIFOType}
   def remoteMems:Set[CUMemory] = mems.filter { _.isRemoteMem }
   def localMems:Set[CUMemory] = mems.filter { _.isLocalMem }
 
@@ -286,7 +288,7 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
 
   def sram = {
     assert(style == MemoryCU, s"Only MemoryCU has sram. cu:$this")
-    val srams = mems.filter{ _.mode == SRAMMode }
+    val srams = mems.filter{ _.tpe == SRAMType }
     assert(srams.size==1, s"Each MemoryCU should only has one sram, srams:[${srams.mkString(",")}]")
     srams.head
   }
@@ -334,10 +336,10 @@ abstract class CUContext(val cu: ComputeUnit) {
       /*debug(s"Referencing SRAM $sram in stage $stage")
       debug(s"  Previous stage: $prevStage")
       debug(s"  SRAM read addr: ${sram.readAddr}")*/
-      if (prevStage.isEmpty || sram.mode == VectorFIFOMode || sram.mode == ScalarFIFOMode )
+      if (prevStage.isEmpty || sram.tpe == VectorFIFOType || sram.tpe == ScalarFIFOType )
         LocalRef(-1, reg)
       else {
-        if (sram.mode != VectorFIFOMode && sram.mode!= ScalarFIFOMode) {
+        if (sram.tpe != VectorFIFOType && sram.tpe!= ScalarFIFOType) {
           LocalRef(stage-1,reg)
         }
         else
