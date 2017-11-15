@@ -5,5 +5,5 @@ benchmarks=("BlackScholes" "DotProduct" "GDA" "Kmeans" "MatMult_outer"  "OuterPr
 for benchmark in "${benchmarks[@]}"
 do
     echo "bin/spatial ${benchmark} --experiment --t 4"
-    bin/spatial ${benchmark} --experiment --t 16 2>&1 | tee ${benchmark}.log
+    bin/spatial ${benchmark} --hypermapper --t 16 2>&1 | tee ${benchmark}.log
 done
