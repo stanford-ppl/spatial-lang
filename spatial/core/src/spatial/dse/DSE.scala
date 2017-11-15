@@ -182,7 +182,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
 
     val workerIds = (0 until T).toList
 
-    val pool = Executors.newFixedThreadPool(T-1)
+    val pool = Executors.newFixedThreadPool(T)
     val writePool = Executors.newFixedThreadPool(1)
 
     val workers = workerIds.map{id =>
@@ -252,6 +252,22 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
 
     val endTime = System.currentTimeMillis()
     val totalTime = (endTime - startTime)/1000.0
+
+    if (PROFILING) {
+      val bndTime = workers.map(_.bndTime).sum
+      val memTime = workers.map(_.memTime).sum
+      val conTime = workers.map(_.conTime).sum
+      val areaTime = workers.map(_.areaTime).sum
+      val cyclTime = workers.map(_.cyclTime).sum
+      val total = bndTime + memTime + conTime + areaTime + cyclTime
+      println("Profiling results: ")
+      println(s"Combined runtime: $total")
+      println(s"Scalar analysis:     $bndTime"  + " (%.3f)".format(100*bndTime.toDouble/total) + "%")
+      println(s"Memory analysis:     $memTime"  + " (%.3f)".format(100*memTime.toDouble/total) + "%")
+      println(s"Contention analysis: $conTime"  + " (%.3f)".format(100*conTime.toDouble/total) + "%")
+      println(s"Area analysis:       $areaTime" + " (%.3f)".format(100*areaTime.toDouble/total) + "%")
+      println(s"Runtime analysis:    $cyclTime" + " (%.3f)".format(100*cyclTime.toDouble/total) + "%")
+    }
 
     println(s"[Master] Completed space search in $totalTime seconds.")
   }
