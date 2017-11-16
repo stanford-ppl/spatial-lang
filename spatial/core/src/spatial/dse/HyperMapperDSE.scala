@@ -111,6 +111,7 @@ trait HyperMapperDSE { this: DSE =>
     val totalTime = (endTime - startTime)/1000.0
 
     println(s"Completed space search in $totalTime seconds.")
+    sys.exit(0) // Bail for now
   }
 
 }
