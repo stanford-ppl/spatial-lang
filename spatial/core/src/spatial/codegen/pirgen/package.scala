@@ -53,54 +53,56 @@ package object pirgen {
     logger.fold(f) { _.dbgblk(msg) { f } }
   }
 
-  private def collectDown[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeGlobals.values)
+  private def visitDown(a: Any): Set[Any] = a match {
+    case cu: ComputeUnit => (cu.allStages ++ cu.cchains ++ cu.mems ++ cu.fringeGlobals.values).toSet
 
-    case cchain: CChainInstance => func(cchain.counters)
-    case cchain: CChainCopy => func(cchain.inst)
+    case cchain: CChainInstance => cchain.counters.toSet
+    case cchain: CChainCopy => Set(cchain.inst)
     case cchain: UnitCChain => Set.empty
 
-    case MemLoad(mem) => func(mem)
-    case CounterReg(counter, _, _) => func(counter)
-    case ControlIn(in) => func(in)
-    case ScalarIn(in) => func(in)
-    case VectorIn(in) => func(in)
-    case ControlOut(out) => func(out)
-    case ScalarOut(out) => func(out)
-    case VectorOut(out) => func(out)
-    case LocalRef(stage, reg) => func(reg)
+    case MemLoad(mem) => Set(mem)
+    case CounterReg(counter, _, _) => Set(counter)
+    case ControlIn(in) => Set(in)
+    case ScalarIn(in) => Set(in)
+    case VectorIn(in) => Set(in)
+    case ControlOut(out) => Set(out)
+    case ScalarOut(out) => Set(out)
+    case VectorOut(out) => Set(out)
+    case LocalRef(stage, reg) => Set(reg)
 
-    case Some(x) => func(x)
-    case iter: Iterator[_] => iter.flatMap(func).toSet
-    case iter: Iterable[_] => func(iter.iterator)
-    case (data,addr,_) => func(data) ++ func(addr)
+    case Some(x) => Set(x)
+    case (data,addr,_) => Set(data, addr)
     case _ => Set.empty
   }
 
-  private def collectIn[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case counter: CUCounter => func(List(counter.start, counter.end, counter.stride))
-    case mem: CUMemory => func(mem.writePort ++ mem.readPort.map { case (data, addr, _) => addr})
-    case stage: Stage => func(stage.inputMems)
-    case a => collectDown[T](a)(func)
+  def visitIn(a: Any): Set[Any] = a match {
+    case counter: CUCounter => Set(counter.start, counter.end, counter.stride)
+    case mem: CUMemory => (mem.writePort ++ mem.readPort.map { case (data, addr, _) => addr}).toSet
+    case stage: Stage => stage.inputMems.toSet
+    case a => visitDown(a)
   }
 
-  private def collectOut[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case stage: Stage => func(stage.outputMems)
-    case mem: CUMemory => func(mem.readPort.map { case (data, addr, _) => data})
-    case a => collectDown[T](a)(func)
+  def visitOut(a: Any): Set[Any] = a match {
+    case stage: Stage => stage.outputMems.toSet
+    case mem: CUMemory => mem.readPort.map { case (data, addr, _) => data}.toSet
+    case a => visitDown(a)
   }
 
   def collectInput[T:ClassTag](x:Any, logger:Option[PIRLogger]=None):Set[T] = log(s"collectInput($x, ${x.getClass.getSimpleName})", logger) {
     x match {
       case m:T => Set(m)
-      case _ => collectIn[T](x)(x => collectInput(x, logger))
+      case iter: Iterator[_] => iter.flatMap(x => collectInput[T](x, logger)).toSet
+      case iter: Iterable[_] => iter.flatMap(x => collectInput[T](x, logger)).toSet
+      case _ => visitIn(x).flatMap(x => collectInput[T](x, logger))
     }
   }
 
   def collectOutput[T:ClassTag](x:Any, logger:Option[PIRLogger]=None):Set[T] = log(s"collectOutput($x, ${x.getClass.getSimpleName})", logger) {
     x match {
       case m:T => Set(m)
-      case _ => collectOut[T](x)(x => collectOutput(x, logger))
+      case iter: Iterator[_] => iter.flatMap(x => collectOutput[T](x, logger)).toSet
+      case iter: Iterable[_] => iter.flatMap(x => collectOutput[T](x, logger)).toSet
+      case _ => visitOut(x).flatMap(x => collectOutput[T](x, logger))
     }
   }
 

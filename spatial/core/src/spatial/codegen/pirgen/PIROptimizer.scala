@@ -101,10 +101,11 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def removeUnusedMems(cu: CU) = dbgblk(s"removeUnusedMems(${cu.name})") {
-    var refMems = collectInput[CUMemory](cu.allStages ++ cu.cchains) 
-    val unusedMems = cu.mems.filterNot{ mem => refMems.contains(mem) }
+    val globalMems = cu.mems.filter { mem => collectOutput[GlobalBus](mem).nonEmpty }
+    var refMems = collectInput[CUMemory](cu.allStages ++ cu.cchains ++ globalMems.map(visitIn)) ++ globalMems
+    val unusedMems = if (cu.style.isInstanceOf[FringeCU]) Set[CUMemory]() else cu.mems.filterNot{ mem => refMems.contains(mem) }
     if (unusedMems.nonEmpty) {
-      dbgs(s"Removing unused mems from $cu: [${unusedMems.mkString(",")}]")
+      dbgs(s"Removing unused mems from $cu: ${unusedMems.mkString(",")}")
       cu.memMap.retain { case (e, m) => !unusedMems.contains(m) }
     }
   }
@@ -206,30 +207,32 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
 
-  def removeEmptyCUs(cus: List[CU]) = cus.foreach {cu =>
-    // 1. This CU has no children, no write stages, and no compute stages
-    // 2. This CU has a sibling (same parent) CU or no counterchain instances
-    // 3. This is not a FingeCU
-    // 4. No other CU is making copy of current CU's cchain
-    val children = cus.filter{c => c.parent.contains(cu) }
-    val isFringe = cu.style.isInstanceOf[FringeCU]
+  def removeEmptyCUs(cus: List[CU]) = dbgblk(s"removeEmptyCUs") { cus.foreach { cu =>
+    dbgblk(s"$cu") {
+      // 1. This CU has no children, no write stages, and no compute stages
+      // 2. This CU has a sibling (same parent) CU or no counterchain instances
+      // 3. This is not a FingeCU
+      // 4. No other CU is making copy of current CU's cchain
+      val children = cus.filter{c => c.parent.contains(cu) }
+      val isFringe = cu.style.isInstanceOf[FringeCU]
 
-    val isCopied = cus.exists { other => 
-      other.cchains.exists { 
-        case copy@CChainCopy(_, inst, owner) if owner == cu => true
-        case _ => false
-      } 
+      val isCopied = cus.exists { other => 
+        other.cchains.exists { 
+          case copy@CChainCopy(_, inst, owner) if owner == cu => true
+          case _ => false
+        } 
+      }
+
+      val globalOutputs = collectOutput[GlobalBus](cu)
+      dbgs(s"globalOutputs=${globalOutputs}")
+      val noOutput = globalOutputs.isEmpty
+
+      if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
+          && !isCopied && noOutput && cu.switchTable.isEmpty) {
+        dbgs(s"Removing empty CU $cu")
+        mappingOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
+      }
     }
-
-    val globalOutputs = collectOutput[GlobalBus](cu)
-    dbgs(s"$cu globalOutputs=${globalOutputs}")
-    val noOutput = globalOutputs.isEmpty
-
-    if (cu.computeStages.isEmpty && children.isEmpty && !isFringe 
-        && !isCopied && noOutput && cu.switchTable.isEmpty) {
-      dbgs(s"Removing empty CU $cu")
-      mappingOf.transform{ case (pipe, cus) => cus.filterNot{ _ == cu} }.retain{ case (pipe, cus) => cus.nonEmpty }
-    }
-  }
+  } }
 
 }

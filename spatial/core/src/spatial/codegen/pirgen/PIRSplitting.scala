@@ -228,7 +228,7 @@ trait PIRSplitting extends PIRTraversal {
         case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg)
         case MemLoad(mem) => 
           assert(localIns.contains(reg), s"localIns=$localIns doesn't contains $reg")
-          assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} doesn't contains $mem")
+          assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} cu=${cu.name} doesn't contains $mem")
           reg
         case _ if !remoteOuts.contains(reg) | cu.regs.contains(reg) => reg 
         case _ if remoteOuts.contains(reg) & !cu.regs.contains(reg) => portIn(reg)
