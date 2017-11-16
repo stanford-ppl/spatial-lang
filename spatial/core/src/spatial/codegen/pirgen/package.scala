@@ -387,4 +387,26 @@ package object pirgen {
     writers.head
   }
 
+  val times = scala.collection.mutable.Stack[Long]()
+  def tic = {
+    times.push(System.nanoTime())
+  }
+  def toc(unit:String):Double = {
+    val startTime = times.pop()
+    val endTime = System.nanoTime()
+    val timeUnit = unit match {
+      case "ns" => 1
+      case "us" => 1000
+      case "ms" => 1000000
+      case "s" => 1000000000
+      case _ => throw new Exception(s"Unknown time unit!")
+    }
+    (endTime - startTime) * 1.0 / timeUnit
+  }
+
+  def toc(info:String, unit:String):Unit = {
+    val time = toc(unit)
+    println(s"$info elapsed time: ${f"$time%1.3f"}$unit")
+  }
+
 }

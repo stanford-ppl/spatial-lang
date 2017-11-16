@@ -89,7 +89,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def removeUnusedCChainCopy(cu: CU) = dbgblk(s"removeUnusedCChainCopy(${cu.name})") {
     // Remove unused counterchain copies
-    val usedCCs = collectInput[CUCChain](cu)
+    val usedCCs = collectInput[CUCChain](cu.allStages ++ cu.mems)
     dbgs(s"usedCCs=$usedCCs")
     val unusedCopies = cu.cchains.collect{case cc:CChainCopy if !usedCCs.contains(cc) => cc}
 
@@ -101,7 +101,7 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def removeUnusedMems(cu: CU) = dbgblk(s"removeUnusedMems(${cu.name})") {
-    var refMems = collectInput[CUMemory](cu) 
+    var refMems = collectInput[CUMemory](cu.allStages ++ cu.cchains) 
     val unusedMems = cu.mems.filterNot{ mem => refMems.contains(mem) }
     if (unusedMems.nonEmpty) {
       dbgs(s"Removing unused mems from $cu: [${unusedMems.mkString(",")}]")

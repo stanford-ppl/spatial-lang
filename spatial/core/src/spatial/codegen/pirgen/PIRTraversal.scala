@@ -426,11 +426,14 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger with 
   }
 
   def runAll[S:Type](b: Block[S]): Block[S] = {
+    tic
     init()
     var block = b
     block = preprocess(block)
     block = run(block)
     block = postprocess(block)
+    val time = toc("s")
+    dbgs(s"===== Pass ${this.name} finished in ${time}s =====")
     block
   }
 

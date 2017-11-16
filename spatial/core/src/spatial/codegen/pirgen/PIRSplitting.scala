@@ -172,7 +172,7 @@ trait PIRSplitting extends PIRTraversal {
     val localOuts = local.flatMap(_.outputMems).toSet
     dbgs(s"localIns=${local.flatMap(_.inputMems).toSet}")
 
-    val readMems = collectInput[CUMemory](localIns, logger=Some(this))
+    val readMems = collectInput[CUMemory](localIns)
     orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
     val remoteIns = remote.flatMap(_.inputMems).toSet
@@ -363,9 +363,12 @@ trait PIRSplitting extends PIRTraversal {
         case stage@MapStage(_,ins,_) => stage.ins = ins.map{in => swap_cchains_Ref(in) }
         case _ =>
       }
+
+      val readMems = collectInput[CUMemory](cu.cchains)
+      dbgs(s"cu.cchains=${cu.cchains}")
+      dbgs(s"readMems of cchains = ${readMems}")
+      orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
       cu.mems.foreach{sram =>
-        //sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
-        //sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
         sram.readPort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
         sram.writePort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
       }

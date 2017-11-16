@@ -61,8 +61,9 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  override protected def visit(lhs: Sym[_], rhs: Op[_]) {
+  override def process[S:Type](b: Block[S]): Block[S] = {
     cus.foreach(printCU)
+    b
   }
 
 }
