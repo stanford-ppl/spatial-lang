@@ -55,6 +55,7 @@ trait HyperMapperDSE { this: DSE =>
         msg(s"""${domain.name} ${domain.tp} {${domain.options.mkString(", ")}}""", 100)
       }
     }
+    sys.exit(0)
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/hypermapper.py", pcsFile) { (cmd,reader) =>
       if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
         println(s"[Master] Received Line: $cmd")

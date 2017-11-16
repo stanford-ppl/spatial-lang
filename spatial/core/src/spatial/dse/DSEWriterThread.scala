@@ -17,7 +17,7 @@ case class DSEWriterThread(
 
   def run(): Unit = {
     val data = new PrintStream(filename)
-    data.println(header)
+    data.println(header + ",Timestamp")
 
     val P = BigDecimal(spaceSize)
     var N = BigDecimal(0)

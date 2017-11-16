@@ -110,33 +110,34 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       println(s"Legal space size is $legalSize (elapsed time: ${legalCalcTime/1000} seconds)")
       println("")
 
-      val nTrials = 5
+      val nTrials = 10
 
       if (EXPERIMENT) {
-        val times = new PrintWriter(config.name + "_times.log")
-        val last = if (legalSize < 100000) Seq(legalSize) else Nil
-        val sizes = List(500, 1000, 5000, 10000, 20000, 50000, 75000, 100000) ++ last
-        sizes.filter(_ <= legalSize).foreach{size =>
-          (0 until nTrials).foreach{i =>
-            val points = scala.util.Random.shuffle(legalPoints).take(size)
-            val filename = s"${config.name}_size_${size}_exp_$i.csv"
+        //val times = new PrintWriter(config.name + "_times.log")
+        //val last = if (legalSize < 100000) Seq(legalSize) else Nil
+        //val sizes = List(500, 1000, 5000, 10000, 20000, 50000, 75000, 100000) ++ last
+        //sizes.filter(_ <= legalSize).foreach{size =>
+        val size = Math.min(legalSize, 100000)
+        (0 until nTrials).foreach{i =>
+          val points = scala.util.Random.shuffle(legalPoints).take(size)
+          val filename = s"${config.name}_trial_$i.csv"
 
-            val startTime = System.currentTimeMillis()
-            val BLOCK_SIZE = Math.min(Math.ceil(size.toDouble / T).toInt, 500)
+          val startTime = System.currentTimeMillis()
+          val BLOCK_SIZE = Math.min(Math.ceil(size.toDouble / T).toInt, 500)
 
-            threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
-              points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
-                println(s"[Master] Submitting block of length ${block.length} to work queue")
-                queue.put(block)
-              }
+          threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
+            points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
+              //println(s"[Master] Submitting block of length ${block.length} to work queue")
+              queue.put(block)
             }
-
-            val endTime = System.currentTimeMillis()
-            val totalTime = (endTime - startTime)
-            times.println(s"${config.name} ${size} ${i} $totalTime")
           }
+
+          val endTime = System.currentTimeMillis()
+          val totalTime = (endTime - startTime)
+          println(s"${config.name} ${i}: $totalTime")
         }
-        times.close()
+        //}
+        //times.close()
         println("All experiments completed. Exiting.")
         sys.exit(0)
       }
@@ -222,6 +223,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     // Submit all the work to be done
     // Work queue blocks this thread when it's full (since we'll definitely be faster than the worker threads)
     val startTime = System.currentTimeMillis
+    workers.foreach{worker => worker.START = startTime }
 
     pointGen(workQueue)
     /*var i = BigInt(0)

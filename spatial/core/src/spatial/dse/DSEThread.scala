@@ -22,9 +22,10 @@ case class DSEThread(
   private var isAlive: Boolean = true
   private var hasTerminated: Boolean = false
   def requestStop(): Unit = { isAlive = false }
+  var START: Long = 0
 
   // --- Profiling
-  private final val PROFILING = true
+  private final val PROFILING = false
   private var clockRef = 0L
   private def resetClock() { clockRef = System.currentTimeMillis }
 
@@ -77,16 +78,16 @@ case class DSEThread(
   }
 
   def run(): Unit = {
-    println(s"[$threadId] Started.")
+    //println(s"[$threadId] Started.")
 
     while(isAlive) {
       val requests = workQueue.take() // Blocking dequeue
 
       if (requests.nonEmpty) {
-        println(s"[$threadId] Received batch of ${requests.length}. Working...")
+        //println(s"[$threadId] Received batch of ${requests.length}. Working...")
         try {
           val result = run(requests)
-          println(s"[$threadId] Completed batch of ${requests.length}. ${workQueue.size()} items remain in the queue")
+          //println(s"[$threadId] Completed batch of ${requests.length}. ${workQueue.size()} items remain in the queue")
           outQueue.put(result) // Blocking enqueue
         }
         catch {case e: Throwable =>
@@ -97,12 +98,12 @@ case class DSEThread(
         }
       }
       else {
-        println(s"[$threadId] Received kill signal, terminating!")
+        //println(s"[$threadId] Received kill signal, terminating!")
         requestStop()
       } // Somebody poisoned the work queue!
     }
 
-    println(s"[$threadId] Ending now!")
+    //println(s"[$threadId] Ending now!")
     hasTerminated = true
   }
 
@@ -117,9 +118,10 @@ case class DSEThread(
 
       val (area, runtime) = evaluate()
       val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
+      val time = System.currentTimeMillis() - START
 
       // Only report the area resources that the target gives maximum capacities for
-      array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
+      array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid + "," + time
 
       i += 1
     }
