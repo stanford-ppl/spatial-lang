@@ -71,7 +71,10 @@ trait HyperMapperDSE { this: DSE =>
             val values = point.split(",").map(_.trim.toInt)
             workQueue.put(order.map{i => values(i) })
           }
-          Some(HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n"))
+          val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")
+          println("[Master] Sending back:")
+          println(result)
+          Some(result)
 
         case "Pareto" =>
           val data = new PrintStream(config.name + "_hm_data.csv")
