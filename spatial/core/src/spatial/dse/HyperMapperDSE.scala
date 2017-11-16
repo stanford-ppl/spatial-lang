@@ -56,6 +56,8 @@ trait HyperMapperDSE { this: DSE =>
       }
     }
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/hypermapper.py", pcsFile) { (cmd,reader) =>
+      println(s"[Master] Received Line: $cmd")
+
       val parts = cmd.split(",").map(_.trim)
       val command = parts.head
       val nPoints = parts.last.toInt
