@@ -41,7 +41,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream))
     logger = new BufferedReader(new InputStreamReader(p.getErrorStream))
 
-    pool.submit(new ExceptionWatcher(reader))
+    pool.submit(new ExceptionWatcher(logger))
   } else {
     throw new Exception(s"Cannot run process $args while it is already running.")
   }
