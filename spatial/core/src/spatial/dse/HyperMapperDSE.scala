@@ -47,7 +47,7 @@ trait HyperMapperDSE { this: DSE =>
 
     val pcsFile = config.name + ".pcs"
     val workDir = "dse_hm"
-    val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ", Cycles, Valid"
+    val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid"
 
     println("Creating PCS file")
     withLog(workDir, pcsFile){
