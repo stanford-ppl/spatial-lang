@@ -7,9 +7,14 @@ import java.util.concurrent.Executors
 // TODO: Should give an iterator rather than the reader directly
 
 class ExceptionWatcher(reader: BufferedReader) extends Runnable {
-  def run(): Unit = {
-    val line = reader.readLine()
-    println("[Subproc] " + line)
+  //val log = new PrintStream("subproc.log")
+  var isRunning = true
+
+  def run(): Unit = while (isRunning) {
+    val g = reader.readLine()
+    //log.print(g)
+    //log.flush()
+    println("[Subproc] " + g)
     /*if (lines.contains("Traceback")) {
       Thread.sleep(1000)
       while (reader.ready()) {
@@ -26,6 +31,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
   private var logger: BufferedReader = _
   private var p: Process = _
   private val pool = Executors.newFixedThreadPool(1)
+  private var watcher: ExceptionWatcher = _
 
   private def println(x: String): Unit = {
     writer.write(x)
@@ -40,8 +46,8 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     reader = new BufferedReader(new InputStreamReader(p.getInputStream))
     writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream))
     logger = new BufferedReader(new InputStreamReader(p.getErrorStream))
-
-    pool.submit(new ExceptionWatcher(logger))
+    watcher = new ExceptionWatcher(logger)
+    pool.submit(watcher)
   } else {
     throw new Exception(s"Cannot run process $args while it is already running.")
   }
@@ -56,6 +62,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
         response.foreach{r => println(r) }
       }
     }
+    watcher.isRunning = false
     pool.shutdownNow()
     p.exitValue()
   }
