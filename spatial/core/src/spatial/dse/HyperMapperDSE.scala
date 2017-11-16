@@ -49,7 +49,7 @@ trait HyperMapperDSE { this: DSE =>
     val workDir = "dse_hm"
     val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ", Cycles, Valid"
 
-    report("Creating PCS file")
+    println("Creating PCS file")
     withLog(workDir, pcsFile){
       space.foreach{domain =>
         msg(s"""${domain.name} ${domain.tp} {${domain.options.mkString(", ")}}""", 100)
@@ -81,12 +81,13 @@ trait HyperMapperDSE { this: DSE =>
     }
 
     // Initializiation may not be threadsafe - only creates 1 area model shared across all workers
-    report("Initializing models...")
+    println("Initializing models...")
     workers.foreach{worker => worker.init() }
-    report("Starting up workers...")
+    println("Starting up workers...")
     workers.foreach{worker => pool.submit(worker) }
 
     val startTime = System.currentTimeMillis
+    println("Starting up HyperMapper...")
     hm.block(Some(workDir))
 
     println("Ending work queue.")
