@@ -94,7 +94,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       val legalStart = System.currentTimeMillis
       println(s"Enumerating ALL legal points...")
       val startTime = System.currentTimeMillis
-      var nextNotify = 0.0; val notifyStep = 20000
+      var nextNotify = 0.0; val notifyStep = NPts.toInt/10
       for (i <- 0 until NPts.toInt) {
         indexedSpace.foreach{case (domain,d) => domain.set( ((i / prods(d)) % dims(d)).toInt ) }
         if (isLegalSpace()) legalPoints += i
@@ -125,7 +125,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
           val startTime = System.currentTimeMillis()
           val BLOCK_SIZE = Math.min(Math.ceil(size.toDouble / T).toInt, 500)
 
-          threadBasedDSE(points.length, params, prunedSpace, program, file = filename) { queue =>
+          threadBasedDSE(points.length, params, prunedSpace, program, file = filename, overhead = legalCalcTime) { queue =>
             points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
               //println(s"[Master] Submitting block of length ${block.length} to work queue")
               queue.put(block)
@@ -158,7 +158,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   }
 
   // P: Total space size
-  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[Int]], program: Block[_], file: String = config.name+"_data.csv")(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
+  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[Int]], program: Block[_], file: String = config.name+"_data.csv", overhead: Long = 0L)(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
     val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val T = spatialConfig.threads
@@ -223,7 +223,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     // Submit all the work to be done
     // Work queue blocks this thread when it's full (since we'll definitely be faster than the worker threads)
     val startTime = System.currentTimeMillis
-    workers.foreach{worker => worker.START = startTime }
+    workers.foreach{worker => worker.START = startTime - overhead }
 
     pointGen(workQueue)
     /*var i = BigInt(0)
