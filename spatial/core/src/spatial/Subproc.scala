@@ -14,7 +14,7 @@ class ExceptionWatcher(reader: BufferedReader) extends Runnable {
     val g = reader.readLine()
     //log.print(g)
     //log.flush()
-    println("[Subproc] " + g)
+    if (g ne null) println("[Subproc] " + g)
     /*if (lines.contains("Traceback")) {
       Thread.sleep(1000)
       while (reader.ready()) {
@@ -54,12 +54,16 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
 
   def block(dir: Option[String] = None): Int = {
     if (p eq null) run(dir)
-    while (true) {
+    var isConnected = true
+    while (isConnected) {
       // Otherwise react to the stdout of the subprocess
       val input = reader.readLine()
       if (input ne null) {
         val response = react(input,reader)
         response.foreach{r => println(r) }
+      }
+      else {
+        isConnected = false // Process ended (TODO: unexpectedly?)
       }
     }
     watcher.isRunning = false
