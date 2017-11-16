@@ -55,7 +55,7 @@ trait HyperMapperDSE { this: DSE =>
         msg(s"""${domain.name} ${domain.tp} {${domain.options.mkString(", ")}}""", 100)
       }
     }
-    val hm = Subproc(spatialConfig.HYPERMAPPER + "/hypermapper", pcsFile) { (cmd,reader) =>
+    val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/hypermapper.py", pcsFile) { (cmd,reader) =>
       val parts = cmd.split(",").map(_.trim)
       val command = parts.head
       val nPoints = parts.last.toInt
