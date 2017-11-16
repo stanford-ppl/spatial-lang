@@ -56,7 +56,7 @@ trait HyperMapperDSE { this: DSE =>
       }
     }
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/hypermapper.py", pcsFile) { (cmd,reader) =>
-      if (cmd ne null) {
+      if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
         println(s"[Master] Received Line: $cmd")
 
         val parts = cmd.split(" ").map(_.trim)
