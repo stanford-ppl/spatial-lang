@@ -9,8 +9,6 @@ import org.virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 
-import scala.collection.mutable.ArrayBuffer
-
 trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   override val name = "Design Space Exploration"
   final val PROFILING = true
@@ -89,13 +87,13 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     def isLegalSpace(): Boolean = restricts.forall(_.evaluate())
 
     if (NPts < Int.MaxValue) {
-      val legalPoints = ArrayBuffer[BigInt]()
+      //val legalPoints = ArrayBuffer[BigInt]()
 
       val legalStart = System.currentTimeMillis
       println(s"Enumerating ALL legal points...")
-      val startTime = System.currentTimeMillis
-      var nextNotify = 0.0; val notifyStep = NPts.toInt/10
-      for (i <- 0 until NPts.toInt) {
+      //val startTime = System.currentTimeMillis
+      //var nextNotify = 0.0; val notifyStep = NPts.toInt/10
+      /*for (i <- 0 until NPts.toInt) {
         indexedSpace.foreach{case (domain,d) => domain.set( ((i / prods(d)) % dims(d)).toInt ) }
         if (isLegalSpace()) legalPoints += i
 
@@ -104,7 +102,37 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
           println("%.4f".format(100*(i/NPts.toFloat)) + s"% ($i / $NPts) Complete after ${time/1000} seconds (${legalPoints.size} / $i valid so far)")
           nextNotify += notifyStep
         }
+      }*/
+
+      val workerIds = (0 until T).toList
+      val pool = Executors.newFixedThreadPool(T)
+      val results = new LinkedBlockingQueue[Seq[Int]](T)
+      val BLOCK_SIZE = Math.ceil(NPts.toDouble / T).toInt
+      println(s"Number of candidate points is: ${NPts}")
+      report(s"Using $T threads with block size of $BLOCK_SIZE")
+
+      workerIds.foreach{i =>
+        val start = i * BLOCK_SIZE
+        val size = Math.min(NPts.toInt - BLOCK_SIZE, BLOCK_SIZE)
+        val threadState = new State
+        state.copyTo(threadState)
+        val worker = PruneWorker(
+          start,
+          size,
+          prods,
+          dims,
+          indexedSpace,
+          restricts,
+          results
+        )(threadState)
+        pool.submit(worker)
       }
+
+      pool.shutdown()
+      pool.awaitTermination(10L, TimeUnit.HOURS)
+
+      val legalPoints = workerIds.flatMap{_ => results.take() }.map{i => BigInt(i)}
+
       val legalCalcTime = System.currentTimeMillis - legalStart
       val legalSize = legalPoints.length
       println(s"Legal space size is $legalSize (elapsed time: ${legalCalcTime/1000} seconds)")
@@ -203,15 +231,15 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     // Initializiation may not be threadsafe - only creates 1 area model shared across all workers
     workers.foreach{worker => worker.init() }
 
-    val superHeader = List.tabulate(names.length){i => if (i == 0) "INPUTS" else "" }.mkString(",") + "," +
-      List.tabulate(workers.head.areaHeading.length){i => if (i == 0) "OUTPUTS" else "" }.mkString(",") + ", ,"
+    //val superHeader = List.tabulate(names.length){i => if (i == 0) "INPUTS" else "" }.mkString(",") + "," +
+    //  List.tabulate(workers.head.areaHeading.length){i => if (i == 0) "OUTPUTS" else "" }.mkString(",") + ", ,"
     val header = names.mkString(",") + "," + workers.head.areaHeading.mkString(",") + ", Cycles, Valid"
 
     val writer = DSEWriterThread(
       threadId  = T,
       spaceSize = P,
       filename  = filename,
-      header    = superHeader + "\n" + header,
+      header    = header,
       workQueue = fileQueue
     )
 
