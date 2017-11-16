@@ -77,10 +77,11 @@ trait HyperMapperDSE { this: DSE =>
           Some(result)
 
         case "Pareto" =>
-          val data = new PrintStream(config.name + "_hm_data.csv")
-          data.println(HEADER)
-          points.foreach{pt => data.println(pt) }
-          data.close()
+          // TODO: Do something with the pareto
+          //val data = new PrintStream(config.name + "_hm_data.csv")
+          //data.println(HEADER)
+          //points.foreach{pt => data.println(pt) }
+          //data.close()
           None
       }
     }
