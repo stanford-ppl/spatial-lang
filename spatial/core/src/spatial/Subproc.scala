@@ -1,14 +1,31 @@
 package spatial
 
 import java.io._
+import java.util.concurrent.Executors
 
 // TODO: Asynchronous error response
 // TODO: Should give an iterator rather than the reader directly
+
+class ExceptionWatcher(reader: BufferedReader) extends Runnable {
+  def run(): Unit = {
+    val line = reader.readLine()
+    println("[Subproc] " + line)
+    /*if (lines.contains("Traceback")) {
+      Thread.sleep(1000)
+      while (reader.ready()) {
+        println(reader.readLine())
+      }
+      throw new Exception("Child process failed")
+    }*/
+  }
+}
+
 case class Subproc(args: String*)(react: (String,BufferedReader) => Option[String]) {
   private var reader: BufferedReader = _
   private var writer: BufferedWriter = _
   private var logger: BufferedReader = _
   private var p: Process = _
+  private val pool = Executors.newFixedThreadPool(1)
 
   private def println(x: String): Unit = {
     writer.write(x)
@@ -23,6 +40,8 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     reader = new BufferedReader(new InputStreamReader(p.getInputStream))
     writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream))
     logger = new BufferedReader(new InputStreamReader(p.getErrorStream))
+
+    pool.submit(new ExceptionWatcher(reader))
   } else {
     throw new Exception(s"Cannot run process $args while it is already running.")
   }
@@ -37,6 +56,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
         response.foreach{r => println(r) }
       }
     }
+    pool.shutdownNow()
     p.exitValue()
   }
 
