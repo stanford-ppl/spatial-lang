@@ -60,7 +60,7 @@ case class REqualOrOne(ps: Seq[Param[Index]]) extends Restrict {
 
 sealed trait SpaceType
 case object Ordinal extends SpaceType { override def toString = "ordinal" }
-case object Categorical extends SpaceType { override def toString = "categorical" }
+case object Categorical extends SpaceType { override def toString = "ordinal" } // TODO
 
 case class Domain[T](name: String, options: Seq[T], setter: (T,State) => Unit, getter: State => T, tp: SpaceType) {
   def apply(i: Int): T = options(i)
