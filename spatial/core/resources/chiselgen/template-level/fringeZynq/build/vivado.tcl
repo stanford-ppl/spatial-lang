@@ -28,7 +28,7 @@ switch $TARGET {
   "ZCU102" {
     import_ip -files [list \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_zynq_ultra_ps_e_0_0/design_1_zynq_ultra_ps_e_0_0.xci                  \
-      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps8_0_99M_0/design_1_rst_ps8_0_${RST_FREQ}M_0.xci  \
+      ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_rst_ps8_0_${RST_FREQ}M_0/design_1_rst_ps8_0_${RST_FREQ}M_0.xci  \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_auto_pc_0/design_1_auto_pc_0.xci                                            \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_0_0/design_1_axi_dwidth_converter_0_0.xci              \
       ./bd_project/bd_project.srcs/sources_1/bd/design_1/ip/design_1_axi_dwidth_converter_1_0/design_1_axi_dwidth_converter_1_0.xci              \
