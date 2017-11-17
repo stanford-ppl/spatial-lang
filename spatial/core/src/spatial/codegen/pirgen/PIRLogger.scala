@@ -27,10 +27,10 @@ trait PIRLogger extends SpatialTraversal {
     val res = block
     res match {
       case res:Iterable[_] => 
-        dbgl(s"res:") { res.foreach { res => dbgs(s"$res")} }
+        dbgl(s"$s res:") { res.foreach { res => dbgs(s"$res")} }
       case _:Unit =>
       case _ =>
-        dbgs(s"res=$res")
+        dbgs(s"$s res=$res")
     }
     tablevel -=1
     dbgs(s"}")
@@ -48,24 +48,22 @@ trait PIRLogger extends SpatialTraversal {
   }
   def dbgcu(cu:ComputeUnit):Unit = dbgblk(s"Generated CU: $cu") {
     dbgblk(s"cchains: ") {
-      cu.cchains.foreach{cchain => dbgs(s"$cchain") }
+      cu.cchains.foreach{cchain => dbgs(s"${cchain.longString}") }
     }
-    if (cu.mems.nonEmpty) {
-      dbgblk(s"mems: ") {
-        for (mem <- cu.mems) {
-          dbgl(s"""$mem [${mem.mode}] (exp: ${mem.mem})""") {
-            dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
-            dbgs(s"""readPort    = ${mem.readPort.map(_.toString).getOrElse("N/A")}""")
-            dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
-            dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
-            producerOf.get(mem).foreach { _.foreach { case (writer, producer) =>
-              dbgs(s"writer=$writer, producer=$producer")
-            } }
-            consumerOf.get(mem).foreach { _.foreach { case (reader, consumer) =>
-              dbgs(s"reader=$reader, consumer=$consumer")
-            } }
-          }
+    dbgblk(s"mems: ") {
+      for (mem <- cu.mems) {
+        dbgl(s"""$mem [${mem.tpe}] (exp: ${mem.mem})""") {
+          dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
+          dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
+          dbgs(s"""readPort    = ${mem.readPort.map(_.toString).mkString(",")}""")
+          //dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
+          //dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
+          producerOf.get(mem).foreach { _.foreach { case (writer, producer) =>
+            dbgs(s"writer=$writer, producer=$producer")
+          } }
+          consumerOf.get(mem).foreach { _.foreach { case (reader, consumer) =>
+            dbgs(s"reader=$reader, consumer=$consumer")
+          } }
         }
       }
     }
@@ -80,7 +78,7 @@ trait PIRLogger extends SpatialTraversal {
     }
     dbgl(s"regTable:") {
       cu.regTable.foreach { case (exp, comp) => 
-        dbgs(s"$exp -> $comp")
+        dbgs(s"$exp -> $comp [${comp.getClass.getSimpleName}]")
       }
     }
   }

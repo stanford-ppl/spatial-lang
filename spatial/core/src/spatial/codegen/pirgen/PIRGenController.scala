@@ -58,7 +58,7 @@ trait PIRGenController extends PIRCodegen {
   }
 
   def preallocateRegisters(cu: CU) = cu.regs.foreach{
-    case reg:TempReg        => emit(s"val ${quote(reg)} = CU.temp(${reg.init})")
+    case reg:TempReg        => emit(s"""val ${quote(reg)} = CU.temp(${reg.init}).name("${quote(reg)}")""")
     //case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
     case reg:ControlReg if genControlLogic => emit(s"val ${quote(reg)} = CU.ctrl")
     case _ => // No preallocation
@@ -116,50 +116,39 @@ trait PIRGenController extends PIRCodegen {
 
     case mem: CUMemory =>
       dbgs(s"Emitting mem:$mem")
-      val decl = mutable.ListBuffer[String]()
-      val lhs = s"val ${mem.name} =" 
-      if (mem.mode!=ScalarBufferMode) {
-        decl += s"""size=${mem.size}"""
+      var attrs = mutable.ListBuffer[String]()
+      if (mem.tpe!=ScalarBufferType) {
+        attrs += s".size(${mem.size})"
       }
+      if (mem.tpe == SRAMType) {
+        attrs += s".mode(${mem.mode})"
+      }
+
       if (mem.cu.style.isInstanceOf[FringeCU]) {
-        decl += s"""name="${getField(mem.mem).get}""""
+        attrs += s""".name("${getField(mem.mem).get}")"""
       } else {
-        decl += s"""name="${mem.name}""""
+        attrs += s""".name("${mem.name}")"""
       }
 
       mem.banking match {
-        case Some(banking) if mem.isSRAM => decl += s"banking = $banking"
+        case Some(banking) if mem.isSRAM => attrs += s".banking($banking)"
         case Some(_) =>
         case None => //ScalarBuffer doesn't have banking
       }
-
-      var attrs = ""
       
       mem.bufferDepth.foreach { depth => attrs += s".buffering($depth)" }
 
-      mem.writePort.foreach { vec => attrs += s""".wtPort(${quote(vec)})""" }
-      mem.readPort.foreach { vec => attrs += s""".rdPort(${quote(vec)})""" }
-
-      mem.readAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoad) => attrs += s""".rdAddr(${quote(a)})"""
-        case _ =>
+      mem.writePort.foreach { case (data, addr, top) => 
+        attrs += s""".store(${quote(data)}, ${addr.map(quote)}, ${top.map(t => s""""${t.name}"""")})"""
       }
-      mem.writeAddr.foreach {
-        case a@(_:CounterReg | _:ConstReg[_] | _:MemLoad) => attrs += s""".wtAddr(${quote(a)})"""
-        case _ =>
+      mem.readPort.foreach { case (data, addr, top) =>
+        attrs += s""".load(${quote(data)}, ${addr.map(quote)}, ${top.map(t => s""""${t.name}"""")})"""
       }
 
-      consumerOf(mem).foreach { case (reader, consumer) => 
-        attrs += s""".consumer("${reader.name}", "${consumer.name}")"""
-      }
+      emit(s"""val ${mem.name} = new ${quote(mem.tpe)}()""")
+      attrs.foreach { attr => emit(s"  $attr") }
 
-      producerOf(mem).foreach { case (writer, producer) => 
-        attrs += s""".producer("${writer.name}", "${producer.name}")"""
-      }
-
-      emit(s"""$lhs ${quote(mem.mode)}(${decl.mkString(",")})$attrs""")
-
-    //case mc@MemoryController(name,region,mode,parent) =>
+    //case mc@MemoryController(name,region,tpe,parent) =>
       //emit(s"""val ${quote(mc)} = MemoryController($mode, ${quote(region)}).parent("${cus(parent).head.head.name}")""")
 
     case mem: OffChip   => emit(s"""val ${quote(mem)} = OffChip("${mem.name}")""")
@@ -182,12 +171,12 @@ trait PIRGenController extends PIRCodegen {
     }
   }
 
-  def quote(mode: LocalMemoryMode): String = mode match {
-    case SRAMMode => "SRAM"
-    case ControlFIFOMode => "ControlFIFO"
-    case ScalarFIFOMode => "ScalarFIFO"
-    case VectorFIFOMode => "VectorFIFO"
-    case ScalarBufferMode => "ScalarBuffer"
+  def quote(tpe: LocalMemoryType): String = tpe match {
+    case SRAMType => "SRAM"
+    case ControlFIFOType => "ControlFIFO"
+    case ScalarFIFOType => "ScalarFIFO"
+    case VectorFIFOType => "VectorFIFO"
+    case ScalarBufferType => "ScalarBuffer"
   }
 
   def quote(mem: CUMemory): String = mem.name
@@ -198,7 +187,7 @@ trait PIRGenController extends PIRCodegen {
     case MetaPipeCU   => "MetaPipeline"
     case SequentialCU => "Sequential"
     case MemoryCU     => "MemoryPipeline"
-    case FringeCU(dram, mode)     => "MemoryController"
+    case FringeCU(dram, tpe)     => "MemoryController"
   }
 
   def quote(x:Component):String = x match {
@@ -235,7 +224,7 @@ trait PIRGenController extends PIRCodegen {
 
   def quote(ref: LocalRef): String = ref match {
     case LocalRef(stage, reg: ConstReg[_])   => quote(reg)
-    case LocalRef(stage, reg: CounterReg) => s"CU.ctr(${quote(reg)})"
+    case LocalRef(stage, reg: CounterReg) => s"${quote(reg)}"
     case LocalRef(stage, reg: ValidReg)   => quote(reg)
 
     case LocalRef(stage, wire: WriteAddrWire)  => quote(wire)
@@ -243,10 +232,10 @@ trait PIRGenController extends PIRCodegen {
 
     case LocalRef(stage, reg: ReduceReg) if allocatedReduce.contains(reg) => quote(reg)
     case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce"
-    case LocalRef(stage, reg: AccumReg)    => s"CU.accum(${quote(reg)})"
+    case LocalRef(stage, reg: AccumReg)    => s"${quote(reg)}"
     case LocalRef(stage, reg: TempReg)     => s"${quote(reg)}"
-    case LocalRef(stage, reg: ControlReg)  => s"CU.ctrl(${quote(reg)})"
-    case LocalRef(stage, reg@MemLoad(mem)) => s"CU.load(${quote(mem)})"
+    case LocalRef(stage, reg: ControlReg)  => s"${quote(reg)}"
+    case LocalRef(stage, reg@MemLoad(mem)) => s"${quote(mem)}"
 
     case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(${quote(reg)})"
     case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(${quote(reg)})"
