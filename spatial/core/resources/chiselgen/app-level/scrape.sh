@@ -5,6 +5,8 @@
 # get tid
 if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
+elif [[ $1 = "ZCU" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
 elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/aws"
 fi
@@ -18,6 +20,12 @@ if [[ $1 = "Zynq" ]]; then
 	word="Slice"
 	f1=3
 	f2=6
+elif [[ $1 = "ZCU" ]]; then
+    par_util=`pwd`/verilog-zcu/par_utilization.rpt
+    par_tmg=`pwd`/verilog-zcu/par_timing_summary.rpt
+    word="CLB"
+    f1=3
+    f2=6
 elif [[ $1 = "AWS" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
 	par_tmg=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/timing_summary_route_design.rpt

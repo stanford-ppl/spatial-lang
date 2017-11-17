@@ -31,6 +31,9 @@ gc = gspread.authorize(credentials)
 if (sys.argv[12] == "Zynq"):
 	sh = gc.open("Zynq Regression") # Open by name
 	word="Slice"
+elif (sys.argv[12] == "ZCU"):
+	sh = gc.open("ZCU Regression") # Open by name
+	word="CLB"
 elif (sys.argv[12] == "AWS"):
 	sh = gc.open("AWS Regression") # Open by name
 	word="CLB"

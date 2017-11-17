@@ -26,22 +26,17 @@ create_bd_design "design_1"
 update_compile_order -fileset sources_1
 switch $TARGET {
   "ZCU102" {
+    set RST_FREQ [expr $CLOCK_FREQ_MHZ - 1]
+
     # Drop in ps-pl and Top
     create_bd_cell -type ip -vlnv xilinx.com:ip:zynq_ultra_ps_e:3.0 zynq_ultra_ps_e_0
     apply_bd_automation -rule xilinx.com:bd_rule:zynq_ultra_ps_e -config {apply_board_preset "1" }  [get_bd_cells zynq_ultra_ps_e_0]
     create_bd_cell -type module -reference Top Top_0    
     ## Set freqs
-    # set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $CLOCK_FREQ_MHZ] [get_bd_cells processing_system7_0]
-    # set_property -dict [list CONFIG.PCW_FPGA1_PERIPHERAL_FREQMHZ {250} CONFIG.PCW_EN_CLK1_PORT {1}] [get_bd_cells processing_system7_0]
+    set_property -dict [list CONFIG.PSU__FPGA_PL1_ENABLE {1} CONFIG.PSU__CRL_APB__PL1_REF_CTRL__SRCSEL {IOPLL} CONFIG.PSU__CRL_APB__PL1_REF_CTRL__FREQMHZ {250}] [get_bd_cells zynq_ultra_ps_e_0]
+    set_property -dict [list CONFIG.PSU__CRL_APB__PL0_REF_CTRL__FREQMHZ $CLOCK_FREQ_MHZ] [get_bd_cells zynq_ultra_ps_e_0]
     apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD" Clk "/zynq_ultra_ps_e_0/pl_clk0 ($CLOCK_FREQ_MHZ MHz)" }  [get_bd_intf_pins Top_0/io_S_AXI]
-    # Try using LPD instead
-    # set_property -dict [list CONFIG.PSU__USE__M_AXI_GP0 {0} CONFIG.PSU__USE__M_AXI_GP2 {1}] [get_bd_cells zynq_ultra_ps_e_0]
-    # delete_bd_objs [get_bd_intf_nets zynq_ultra_ps_e_0_M_AXI_HPM0_FPD]
-    # connect_bd_intf_net [get_bd_intf_pins zynq_ultra_ps_e_0/M_AXI_HPM0_FPD] -boundary_type upper [get_bd_intf_pins ps8_0_axi_periph/S00_AXI]
-    
-    # create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_fclk1
-    # connect_bd_net [get_bd_pins proc_sys_reset_fclk1/ext_reset_in] [get_bd_pins zynq_ultra_ps_e_0/pl_resetn0]
-    # set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_bd_cells processing_system7_0]
+
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins zynq_ultra_ps_e_0/maxihpm1_fpd_aclk]
     # Disable HP1
     set_property -dict [list CONFIG.PSU__USE__M_AXI_GP1 {0}] [get_bd_cells zynq_ultra_ps_e_0]
@@ -58,11 +53,10 @@ switch $TARGET {
     # Do HP# stuff
     set_property -dict [list CONFIG.PSU__USE__S_AXI_GP2 {1} CONFIG.PSU__USE__S_AXI_GP3 {1} CONFIG.PSU__USE__S_AXI_GP4 {1} CONFIG.PSU__USE__S_AXI_GP5 {1}] [get_bd_cells zynq_ultra_ps_e_0]
     # Connect HP# to faster clocks
-    # TODO: Correct connection?
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
     # 512-to-64 data width converters
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_1
@@ -80,10 +74,10 @@ switch $TARGET {
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_1/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_2/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_3/s_axi_aclk]
-    connect_bd_net [get_bd_pins rst_ps8_0_99M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn]
-    connect_bd_net [get_bd_pins rst_ps8_0_99M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_1/s_axi_aresetn]
-    connect_bd_net [get_bd_pins rst_ps8_0_99M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_2/s_axi_aresetn]
-    connect_bd_net [get_bd_pins rst_ps8_0_99M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_3/s_axi_aresetn]
+    connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn]
+    connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_1/s_axi_aresetn]
+    connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_2/s_axi_aresetn]
+    connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_3/s_axi_aresetn]
 
     # # AXI4 to AXI3 protocol converter
     # set_property -dict [list CONFIG.MI_PROTOCOL.VALUE_SRC USER CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.SI_PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_protocol_converter_0]
@@ -93,10 +87,10 @@ switch $TARGET {
     # connect_bd_net [get_bd_pins axi_protocol_converter_1/aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0]
     # connect_bd_net [get_bd_pins axi_protocol_converter_2/aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0]
     # connect_bd_net [get_bd_pins axi_protocol_converter_3/aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0]
-    # connect_bd_net [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
-    # connect_bd_net [get_bd_pins axi_protocol_converter_1/aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
-    # connect_bd_net [get_bd_pins axi_protocol_converter_2/aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
-    # connect_bd_net [get_bd_pins axi_protocol_converter_3/aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
+    # connect_bd_net [get_bd_pins axi_protocol_converter_0/aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
+    # connect_bd_net [get_bd_pins axi_protocol_converter_1/aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
+    # connect_bd_net [get_bd_pins axi_protocol_converter_2/aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
+    # connect_bd_net [get_bd_pins axi_protocol_converter_3/aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
     # # Clock converters from FCLKCLK0 <-> FCLKCLK1
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_1
@@ -144,16 +138,16 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_clock_converter_2/s_axi_aresetn] [get_bd_pins axi_clock_converter_2/m_axi_aresetn]
     connect_bd_net [get_bd_pins axi_clock_converter_2/m_axi_aresetn] [get_bd_pins axi_clock_converter_3/s_axi_aresetn]
     connect_bd_net [get_bd_pins axi_clock_converter_3/s_axi_aresetn] [get_bd_pins axi_clock_converter_3/m_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rst_ps8_0_99M/peripheral_aresetn]
+    connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
     
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
     # what to do about Clock converter -> HP0?
     # what to do about Address assignment to HP0?
 
