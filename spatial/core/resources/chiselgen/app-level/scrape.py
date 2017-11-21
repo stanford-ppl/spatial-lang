@@ -1,3 +1,5 @@
+# This is called by scrape.sh
+
 import gspread
 import sys
 import os
