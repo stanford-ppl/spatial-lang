@@ -59,6 +59,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
 
     preprocessPasses.foreach { pass => pass.runAll(block) }
 
+    cus.foreach(dbgcu)
     super.preprocess(block) // generateHeader
   }
 

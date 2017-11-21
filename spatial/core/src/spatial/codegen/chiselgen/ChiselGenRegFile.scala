@@ -44,14 +44,15 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
             case Def(_@ParRegFileStore(_,_,_,en)) => (port, en.length, 1)
           }
         }
+        if (writerInfo.length == 0) {warn(s"RegFile $lhs has no writers!")}
         val parInfo = writerInfo.groupBy(_._1).map{case (k,v) => src"($k -> ${v.map{_._2}.reduce{_+_}})"}
-        val stride = writerInfo.map(_._3).max
+        val stride = if (writerInfo.length == 0) 1 else writerInfo.map(_._3).max
         val depth = mem match {
           case BankedMemory(dims, d, isAccum) => d
           case _ => 1
         }
         if (depth == 1) {
-          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${writerInfo.map{_._2}.reduce{_+_}}, false, $width, $f))""")
+          emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${if (writerInfo.length == 0) 1 else writerInfo.map{_._2}.reduce{_+_}}, false, $width, $f))""")
           emitGlobalModule(src"${lhs}_$i.io.dump_en := false.B")
         } else {
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
