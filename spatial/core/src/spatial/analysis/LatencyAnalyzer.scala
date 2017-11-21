@@ -50,10 +50,10 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{
         case Def(CounterNew(start,end,stride,par)) =>
-          val min = boundOf.get(start).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $start"); 0.0}
-          val max = boundOf.get(end).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $end"); 1.0}
-          val step = boundOf.get(stride).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $stride"); 1.0}
-          val p = boundOf.get(par).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of $par"); 1.0}
+          val min = boundOf.get(start).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of ${str(start)}"); 0.0}
+          val max = boundOf.get(end).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of ${str(end)}"); 1.0}
+          val step = boundOf.get(stride).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of ${str(stride)}"); 1.0}
+          val p = boundOf.get(par).map(_.toDouble).getOrElse{warn(start.ctx, u"Don't know bound of ${str(par)}"); 1.0}
 
           val nIters = Math.ceil((max - min)/step)
           if (ignorePar)
@@ -235,7 +235,9 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
                     else                 { stages.sum * N + latencyOf(lhs) }
 
         dbgs(s"Outer Foreach $lhs: (N = $N, II = $ii, D = $delay)")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+        dbgs(lhs.ctx)
+        val stageNames = getControlNodes(func).map(s => c"$s")
+        stages.reverse.zip(stageNames).zipWithIndex.foreach{case ((s,n),i) => dbgs(s"- $i. $n: $s")}
 
         (delay, 1L)
 
@@ -256,7 +258,9 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
                     else                 { stages.sum * N + latencyOf(lhs) }
 
         dbgs(s"Outer Reduce $lhs (N = $N, II = $ii, D = $delay):")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+        dbgs(lhs.ctx)
+        val stageNames = getControlNodes(map).map(s => c"$s") :+ "Reduce"
+        stages.reverse.zip(stageNames).zipWithIndex.foreach{case ((s,n),i) => dbgs(s"- $i. $n: $s")}
 
         (delay, 1L)
 
@@ -270,7 +274,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         val internal: Long = latencyOfPipe(ldRes)._1 + latencyOfPipe(reduce)._1 * reductionTreeHeight(Pm)
         val accumulate: Long = latencyOfCycle(ldAcc)._1 + latencyOfCycle(reduce)._1 + latencyOfCycle(store)._1
         val reduceStage: Long = internal + accumulate + (Nr - 1)*accumulate
-        val stages = reduceStage +: mapStages
+        val stages =  reduceStage +: mapStages
         val mapII = (1L +: mapIIs).max
         val ii = userIIOf(lhs).getOrElse(mapII)
 
@@ -278,7 +282,12 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
                     else                 { stages.sum * Nm + latencyOf(lhs) }
 
         dbgs(s"Block Reduce $lhs (Nm = $Nm, IIm = $mapII, Nr = $Nr, IIr = $accumulate, D = $delay)")
-        stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
+        dbgs(lhs.ctx.lineContent.map(_.trim).getOrElse(lhs.ctx.toString))
+        dbgs(s"internal: $internal")
+        dbgs(s"IIr:      $accumulate")
+        dbgs(s"reduce:   $reduceStage = internal + IIr + (Nr-1)*IIr")
+        val stageNames = getControlNodes(map).map(s => c"$s") :+ "Reduce"
+        stages.reverse.zip(stageNames).zipWithIndex.foreach{case ((s,n),i) => dbgs(s"- $i. $n: $s")}
 
         (delay, 1L)
 
@@ -349,6 +358,18 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         dbgs(s"Case $lhs: (II = $ii, D = $delay)")
         stages.reverse.zipWithIndex.foreach{case (dly,i) => dbgs(s" - $i. $dly") }
         (delay, ii)
+
+      case op: DenseTransfer[_,_] =>
+        val delay = latencyOf(lhs)
+        val name = if (op.isLoad) "Load" else "Store"
+        dbgs(s"Dense$name $lhs: (D = $delay)")
+        (delay,1L)
+
+      case op:SparseTransfer[_] =>
+        val delay = latencyOf(lhs)
+        val name = if (op.isLoad) "Load" else "Store"
+        dbgs(s"Sparse$name $lhs: (D = $delay)")
+        (delay,1L)
 
       case _ =>
         // No general rule for combining blocks

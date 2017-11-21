@@ -12,7 +12,7 @@ trait PIRRetiming extends PIRTraversal {
    * from other stages (and LCA is not a stream controller), put them through a retiming FIFO
    **/
   def retime(cus: List[CU], others: Iterable[CU]): Unit = {
-    var producer = Map[GlobalBus, CU]()
+    var producer = Map[Any, CU]()
     var deps     = Map[CU, List[GlobalBus]]()
 
     val compute = cus.filter(_.allStages.nonEmpty)
@@ -152,13 +152,13 @@ trait PIRRetiming extends PIRTraversal {
     val memSym = null
     val memAccess = null
     val sram = CUMemory(name, memSym, cu)
-    sram.mode = bus match {
-      case bus:ScalarBus => ScalarFIFOMode
-      case bus:VectorBus => VectorFIFOMode
+    sram.tpe = bus match {
+      case bus:ScalarBus => ScalarFIFOType
+      case bus:VectorBus => VectorFIFOType
       case bus:ControlBus => throw new Exception(s"Unsupport sram data scale $bus") 
     }
     sram.size = depth
-    sram.writePort += bus //TODO: readport?
+    sram.writePort += ((bus, None, None)) //TODO: readport?
     sram
   }
 

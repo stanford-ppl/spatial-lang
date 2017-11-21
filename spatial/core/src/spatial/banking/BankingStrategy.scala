@@ -6,10 +6,10 @@ trait BankingStrategy {
   implicit val IR: State
 
   def bankAccesses(
-    mem:    Exp[_],                   // Memory to be banked
-    reads:  Set[AccessMatrix],        // Reads to this banked memory
-    writes: Set[AccessMatrix],        // Writes to this banked memory
-    domain: Domain                    // Iteration domain
+    mem:    Exp[_],                        // Memory to be banked
+    reads:  Seq[Set[AccessMatrix]],        // Reads to this banked memory
+    writes: Seq[Set[AccessMatrix]],        // Writes to this banked memory
+    domain: IndexDomain                    // Iteration domain
   ): Seq[ModBanking]
 
 }

@@ -3,27 +3,25 @@ package spatial.dse
 import argon.core._
 import spatial.aliases._
 import spatial.analysis._
-import spatial.banking._
+import spatial.banking.MemoryAnalyzer
 import spatial.metadata._
 import java.util.concurrent.BlockingQueue
 
 import spatial.models._
 
-case class DSEThread(
+case class HyperMapperThread(
   threadId:  Int,
-  params:    Seq[Exp[_]],
   space:     Seq[Domain[Int]],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[Seq[BigInt]],
-  outQueue:  BlockingQueue[Array[String]]
+  workQueue: BlockingQueue[Seq[Int]],
+  outQueue:  BlockingQueue[String]
 )(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
   private var isAlive: Boolean = true
   private var hasTerminated: Boolean = false
   def requestStop(): Unit = { isAlive = false }
-  var START: Long = 0
 
   // --- Profiling
   private final val PROFILING = false
@@ -44,14 +42,9 @@ case class DSEThread(
   private def resetAllTimers() { memTime = 0; bndTime = 0; conTime = 0; areaTime = 0; cyclTime = 0 }
 
   // --- Space Stuff
-
   private val target = spatialConfig.target
   private val capacity: Area = target.capacity
   val areaHeading: Seq[String] = capacity.nonZeroFields
-  private val indexedSpace = space.zipWithIndex
-  private val N = space.length
-  private val dims = space.map{d => BigInt(d.len) }
-  private val prods = List.tabulate(N){i => dims.slice(i+1,N).product }
 
   private lazy val scalarAnalyzer = new ScalarAnalyzer { var IR: State = state }
   private lazy val memoryAnalyzer = MemoryAnalyzer(state)
@@ -76,58 +69,43 @@ case class DSEThread(
   }
 
   def run(): Unit = {
-    //println(s"[$threadId] Started.")
-
     while(isAlive) {
       val requests = workQueue.take() // Blocking dequeue
 
       if (requests.nonEmpty) {
-        //println(s"[$threadId] Received batch of ${requests.length}. Working...")
+        // println(s"#$threadId: Received batch of $len. Working...")
         try {
           val result = run(requests)
-          //println(s"[$threadId] Completed batch of ${requests.length}. ${workQueue.size()} items remain in the queue")
+          // println(s"#$threadId: Completed batch of $len. ${workQueue.size()} items remain in the queue")
           outQueue.put(result) // Blocking enqueue
         }
         catch {case e: Throwable =>
-          println(s"[$threadId] Encountered error while running: ")
+          // println(s"#$threadId: Encountered error while running: ")
           println(e.getMessage)
           e.getStackTrace.foreach{line => println(line) }
           isAlive = false
         }
       }
       else {
-        //println(s"[$threadId] Received kill signal, terminating!")
+        // println(s"#$threadId: Received kill signal, terminating!")
         requestStop()
       } // Somebody poisoned the work queue!
     }
-
-    //println(s"[$threadId] Ending now!")
     hasTerminated = true
   }
 
-  def run(requests: Seq[BigInt]): Array[String] = {
-    val array = new Array[String](requests.size)
-    var i: Int = 0
-    requests.foreach{pt =>
-      state.resetErrors()
-      indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
+  def run(request: Seq[Int]): String = {
+    state.resetErrors()
+    request.indices.foreach{i => space(i).setValue(request(i)) }
 
-      //println(params.map{case p @ Bound(c) => p.name.getOrElse(p.toString) + s": $c" }.mkString(", "))
+    val (area, runtime) = evaluate()
+    val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
 
-      val (area, runtime) = evaluate()
-      val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
-      val time = System.currentTimeMillis() - START
-
-      // Only report the area resources that the target gives maximum capacities for
-      array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid + "," + time
-
-      i += 1
-    }
-    array
+    // Only report the area resources that the target gives maximum capacities for
+    space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
   }
 
   private def evaluate(): (Area, Long) = {
-    if (PROFILING) resetClock()
     scalarAnalyzer.rerun(accel, program)
     if (PROFILING) endBnd()
 
@@ -146,3 +124,4 @@ case class DSEThread(
   }
 
 }
+

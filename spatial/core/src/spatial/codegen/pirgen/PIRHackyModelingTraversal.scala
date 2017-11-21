@@ -12,6 +12,7 @@ import org.virtualized.SourceContext
 import scala.collection.mutable
 
 trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
+  def spec = spatialConfig.plasticineSpec
   override val latencyModel = new PlasticineLatencyModel{}
 
   private case class Partition(compute: Seq[Exp[_]]) {
@@ -44,10 +45,10 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     def willProbablyFitMaybe(others: Seq[Partition], isUnit: Boolean, scope: Seq[Exp[_]]): Boolean = {
       val (outsideInputs, outsideOutputs, nCycles) = cost(others, isUnit, scope)
 
-      val inputLimit  = if (isUnit) spatialConfig.sIn_PCU  else spatialConfig.vIn_PCU
-      val outputLimit = if (isUnit) spatialConfig.sOut_PCU else spatialConfig.vOut_PCU
+      val inputLimit  = if (isUnit) spec.pcuSin  else spec.pcuVin
+      val outputLimit = if (isUnit) spec.pcuSout else spec.pcuVout
 
-      outsideInputs.size <= inputLimit && outsideOutputs.size <= outputLimit && nCycles < spatialConfig.stages
+      outsideInputs.size <= inputLimit && outsideOutputs.size <= outputLimit && nCycles < spec.pcuStages
     }
     def nonEmpty = stages.nonEmpty
 
@@ -82,7 +83,7 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     def cost(p: Partition) = p.cost(partitions, par == 1, scope)
 
     while (remote.nonEmpty) {
-      current addTail remote.popHead(spatialConfig.stages)
+      current addTail remote.popHead(spec.pcuStages)
 
       while (willFit(current) && remote.nonEmpty) {
         current addTail remote.popHead()
@@ -143,8 +144,8 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
         // Last is always 10
         paths(stage) = offset + i
         if (lastOption.contains(stage)) {
-          delays(stage) = spatialConfig.stages - 1 - i
-          i = spatialConfig.stages - 1
+          delays(stage) = spec.pcuStages - 1 - i
+          i = spec.pcuStages - 1
         }
         else if (latencyOf(stage) > 0) delays(stage) = 1
         else delays(stage) = 0

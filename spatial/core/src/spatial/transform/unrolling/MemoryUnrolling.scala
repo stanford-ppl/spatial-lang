@@ -134,7 +134,7 @@ trait MemoryUnrolling extends UnrollingBase {
       val ofs   = addr2.map{a => bankOffset(mem,access,a,inst,lanes) }
       val ports = dps.flatMap{d => portsOf(access, mem, d) }.toSet
 
-      val banked = bankedAccess[T](access,mem,data2.asInstanceOf[Option[Seq[Exp[T]]]],bank,ofs,ens)
+      val banked = bankedAccess[T](access, mem2, data2.asInstanceOf[Option[Seq[Exp[T]]]], bank, ofs, ens)
 
       portsOf(banked.s,mem2,0) = ports
 
@@ -202,6 +202,7 @@ trait MemoryUnrolling extends UnrollingBase {
     */
   def unrollGlobalMemory[A](mem: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Exp[A] = {
     val mem2 = cloneOp(mem, rhs)
+    duplicatesOf(mem2) = duplicatesOf(mem)
     memories += (mem,0) -> mem2
     mem2
   }

@@ -12,32 +12,9 @@ object Convolution {
 	val tileSizeN = 16
 	val tileSizeK = 16
 
-	@virtualize // To be deprecated in favor of ConvolutionSlideFast
-	def ConvolutionSlide[T:Type:Num](output: DRAM2[T], 
-	                    input: DRAM2[T],
-	                    filter: LUT2[T],
-	                    colstride: scala.Int, rowstride: scala.Int,
-	                	load_par: Index, store_par: Index )(implicit state: State): Unit = {
-
-	  val lb = LineBuffer.strided[T](filter.rows, coltile, rowstride)
-	  val sr = RegFile[T](filter.rows, filter.cols)
-	  val lineout = SRAM[T](coltile/colstride)
-	  Foreach(input.rows by rowstride){row =>
-	    lb load input(row::row+rowstride, 0::input.cols par load_par)
-	    Foreach(input.cols by colstride){j => 
-	      Foreach(filter.rows by 1 par filter.rows){i => sr(i,*) <<= lb(i,j::j+colstride)}
-	      lineout(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1 par filter.cols){(ii,jj) => 
-	        val img = if ((row.to[Int]+rowstride-1) - (filter.rows - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.cols - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.cols - 1 - jj)
-	        img * filter(ii,jj)
-	      }{_+_}
-	      // lineout(j/colstride) = mux(row + (rowstride-1) < filter.rows.to[Int]-1 || j + (colstride-1) < filter.cols.to[Int]-1, 0.to[T], Reduce(Reg[T](0.to[T]))(filter.rows by 1, filter.cols by 1){(ii,jj) => sr(ii,jj) * filter(ii,jj)}{_+_}.value)
-	    }
-	    output(row/rowstride, 0::output.cols par store_par) store lineout
-	  }
-	}
 
 	@virtualize
-	def ConvolutionSlideFast[T:Type:Num](output: DRAM2[T], 
+	def ConvolutionSlide[T:Type:Num](output: DRAM2[T], 
 	                    input: DRAM2[T],
 	                    filter: LUT2[T],
 	                    colstride: scala.Int, rowstride: scala.Int,
@@ -65,7 +42,7 @@ object Convolution {
 
 	// Multifilter
 	@virtualize
-	def MFConvolutionSlideFast[T:Type:Num](output: DRAM3[T], 
+	def MFConvolutionSlide[T:Type:Num](output: DRAM3[T], 
 	                    input: DRAM2[T],
 	                    filter: List[LUT2[T]],
 	                    colstride: scala.Int, rowstride: scala.Int,
@@ -116,7 +93,7 @@ object Convolution {
 			  Parallel {  // why is this here?
 			    Foreach(input.dim2 by colstride){j =>
 			      Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
-			      lo(j) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
+			      lo(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
 			        val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
 			        img * filter(i,ii,jj)
 			      }{_+_}
@@ -129,7 +106,7 @@ object Convolution {
 	}
 
 
-	// Multichannel, multifilter
+	// Multichannel, multifilter, assume coltile fits all columns
 	@virtualize
 	def MCMFConvolutionSlide[T:Type:Num](output: DRAM3[T], 
 	                    input: DRAM3[T],
@@ -147,7 +124,7 @@ object Convolution {
 				Foreach(input.dim2 by colstride){j =>
 				  Foreach(filter.head.dim1 by 1 par filter.head.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
 				  lineout_temps.zipWithIndex.foreach{case (lot, p) => 
-				    lot(i)(j) = Reduce(Reg[T](0.to[T]))(filter.head.dim1 by 1, filter.head.dim2 by 1){(ii,jj) => 
+				    lot(i)(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.head.dim1 by 1, filter.head.dim2 by 1){(ii,jj) => 
 			          val img = if ((row.to[Int]+rowstride-1) - (filter.head.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.head.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.head.dim2 - 1 - jj)
 			          val f = filter(p).apply(i,ii,jj)
 			          img * f
@@ -155,7 +132,7 @@ object Convolution {
 				  }
 				}
 			}
-			Foreach(input.dim2 by 1){ j => 
+			Foreach(output.dim2 by 1){ j => 
 			  lineout.zip(lineout_temps).zipWithIndex.foreach{case ((lo, lot), i) => 
 			    lo(j) = lot.map{t => t(j)}.reduce{_+_}
 			  }
@@ -165,6 +142,37 @@ object Convolution {
 			  	output(p, row/rowstride, 0::output.dim2 par store_par) store lo
 			  }
 			}
+		  }
+	}
+
+	// Multichannel, multifilter, assume coltile fits all columns
+	// Regfile version for layer-by-layer assembly of output
+	@virtualize
+	def MCConvolutionSlide[T:Type:Num](output: DRAM3[T], slice: Index,
+	                    input: DRAM3[T],
+	                    filter: RegFile3[T],
+	                    colstride: scala.Int, rowstride: scala.Int,
+	                	load_par: Index, store_par: Index, channels: scala.Int, colsize: scala.Int)(implicit state: State): Unit = {
+
+		  Foreach(input.dim1 by rowstride){row =>
+		  	val lineout = SRAM[T](colsize/colstride)
+			val lineout_temps = List.tabulate(channels){_ => SRAM[T](colsize/colstride)}
+			val lbs = List.tabulate(channels){_ => LineBuffer.strided[T](filter.dim1, colsize, rowstride)}
+			val srs = List.tabulate(channels){_ => RegFile[T](filter.dim1, filter.dim2)}
+		    lbs.zip(srs.zip(lineout_temps)).zipWithIndex.foreach{case ((lb, (sr,lo)), i) =>
+		      lb load input(i, row::row+rowstride, 0::input.dim2 par load_par)
+			  Parallel {  // why is this here?
+			    Foreach(input.dim2 by colstride){j =>
+			      Foreach(filter.dim1 by 1 par filter.dim1){i => sr(i,*) <<= lb(i,j::j+colstride)} 
+			      lo(j/colstride) = Reduce(Reg[T](0.to[T]))(filter.dim1 by 1, filter.dim2 by 1){(ii,jj) => 
+			        val img = if ((row.to[Int]+rowstride-1) - (filter.dim1 - 1 - ii.to[Int]) < 0 || (j.to[Int]+colstride-1) - (filter.dim2 - 1 - jj.to[Int]) < 0) 0.to[T] else sr(ii,filter.dim2 - 1 - jj)
+			        img * filter(i,ii,jj)
+			      }{_+_}
+			    }
+			  }
+			}
+			Foreach(input.dim2 by 1){ j => lineout(j) = lineout_temps.map{t => t(j)}.reduce{_+_} }
+			output(slice, row/rowstride, 0::output.dim2 par store_par) store lineout
 		  }
 	}
 

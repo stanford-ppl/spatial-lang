@@ -154,6 +154,9 @@ object LUT {
 case class LUT1[T:Type:Bits](s: Exp[LUT1[T]]) extends Template[LUT1[T]] with LUT[T] {
   /** Returns the element at the given address `i`. **/
   @api def apply(i: Index): T = wrap(LUT.load(s, Seq(i.s), Bit.const(true)))
+  @api def length: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def size: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
 }
 object LUT1 {
   implicit def lut1Type[T:Type:Bits]: Type[LUT1[T]] = LUT1Type(typ[T])
@@ -164,6 +167,8 @@ case class LUT2[T:Type:Bits](s: Exp[LUT2[T]]) extends Template[LUT2[T]] with LUT
   @api def apply(r: Index, c: Index): T = wrap(LUT.load(s, Seq(r.s, c.s), Bit.const(true)))
   @api def rows: Index = wrap(stagedDimsOf(s).apply(0))
   @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
 }
 object LUT2 {
   implicit def lut2Type[T:Type:Bits]: Type[LUT2[T]] = LUT2Type(typ[T])
@@ -183,6 +188,10 @@ object LUT3 {
 case class LUT4[T:Type:Bits](s: Exp[LUT4[T]]) extends Template[LUT4[T]] with LUT[T] {
   /** Returns the element at the given 4-dimensional address. **/
   @api def apply(r: Index, c: Index, p: Index, q: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s), Bit.const(true)))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
+  @api def dim3: Index = wrap(stagedDimsOf(s).apply(3))
 }
 object LUT4 {
   implicit def lut4Type[T:Type:Bits]: Type[LUT4[T]] = LUT4Type(typ[T])
@@ -191,6 +200,11 @@ object LUT4 {
 case class LUT5[T:Type:Bits](s: Exp[LUT5[T]]) extends Template[LUT5[T]] with LUT[T] {
   /** Returns the element at the given 5-dimensional address. **/
   @api def apply(r: Index, c: Index, p: Index, q: Index, m: Index): T = wrap(LUT.load(s, Seq(r.s, c.s, p.s, q.s, m.s), Bit.const(true)))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
+  @api def dim3: Index = wrap(stagedDimsOf(s).apply(3))
+  @api def dim4: Index = wrap(stagedDimsOf(s).apply(4))
 }
 object LUT5 {
   implicit def lut5Type[T:Type:Bits]: Type[LUT5[T]] = LUT5Type(typ[T])

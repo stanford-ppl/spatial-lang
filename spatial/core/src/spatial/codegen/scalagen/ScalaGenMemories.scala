@@ -115,7 +115,8 @@ trait ScalaGenMemories extends ScalaGenBits {
     val bankAddr = bank.map(_.map(quote).mkString("Seq(", ",", ")")).mkString("Seq(", ",", ")")
     val ofsAddr  = ofs.map(quote).mkString("Seq(", ",", ")")
     val enables  = ens.map(quote).mkString("Seq(", ",", ")")
-    emit(src"val $lhs = $mem.apply(${lhs.ctx}, $bankAddr, $ofsAddr, $enables")
+    val ctx = s""""${lhs.ctx}""""
+    emit(src"val $lhs = $mem.apply($ctx, $bankAddr, $ofsAddr, $enables")
   }
 
   def emitBankedStore[T:Type](lhs: Exp[_], mem: Exp[_], data: Seq[Exp[T]], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
@@ -123,6 +124,7 @@ trait ScalaGenMemories extends ScalaGenBits {
     val ofsAddr  = ofs.map(quote).mkString("Seq(", ",", ")")
     val enables  = ens.map(quote).mkString("Seq(", ",", ")")
     val datas    = data.map(quote).mkString("Seq(", ",", ")")
-    emit(src"val $lhs = $mem.update(${lhs.ctx}, $bankAddr, $ofsAddr, $enables, $datas")
+    val ctx = s""""${lhs.ctx}""""
+    emit(src"val $lhs = $mem.update($ctx, $bankAddr, $ofsAddr, $enables, $datas")
   }
 }

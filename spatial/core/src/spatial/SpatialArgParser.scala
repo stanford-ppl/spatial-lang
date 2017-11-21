@@ -66,6 +66,14 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.bruteForceDSE = false
     spatialConfig.experimentDSE = true
   }
+  parser.opt[Unit]("hypermapper").action{ (_,_) =>
+    spatialConfig.enableDSE = true
+    spatialConfig.hyperMapperDSE = true
+    spatialConfig.heuristicDSE = false
+    spatialConfig.bruteForceDSE = false
+    spatialConfig.experimentDSE = false
+  }
+
 
   parser.opt[Unit]("retiming").action( (_,_) =>
     spatialConfig.enableRetiming = true
@@ -114,7 +122,7 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
   }.text("enables PIR generation")
 
   parser.opt[String]("pirsrc").action { (x, c) =>
-    spatialConfig.pirsrc = x
+    spatialConfig.pirsrc = Some(x)
   }.text("copy directory for generated pir source")
 
   parser.opt[Unit]("cgra+").action{ (_,_) =>

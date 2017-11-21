@@ -25,21 +25,24 @@ class SpatialConfig extends argon.core.Config {
   )
 
   case class PlasticineConf(
-    sinUcu: Int,
-    stagesUcu: Int,
-    sinPcu: Int,
-    soutPcu:Int,
-    vinPcu: Int,
-    voutPcu: Int,
-    regsPcu: Int,
-    comp: Int,
-    sinPmu: Int,
-    soutPmu:Int,
-    vinPmu: Int,
-    voutPmu: Int,
-    regsPmu: Int,
-    rw: Int,
-    lanes: Int
+    scuSin:Int,
+    scuSout:Int,
+    scuStages:Int,
+    scuRegs:Int,
+    pcuVin:Int,
+    pcuVout:Int,
+    pcuSin:Int,
+    pcuSout:Int,
+    var pcuStages:Int, // Can be reset by PIRDSE
+    pcuRegs:Int,
+    pmuVin:Int,
+    pmuVout:Int,
+    pmuSin:Int,
+    pmuSout:Int,
+    var pmuStages:Int,
+    pmuRegs:Int,
+    lanes: Int,
+    wordWidth: Int
   )
 
   var useBasicBlocks: Boolean = false
@@ -50,6 +53,7 @@ class SpatialConfig extends argon.core.Config {
   var enableDSE: Boolean = _
   var heuristicDSE: Boolean = true
   var bruteForceDSE: Boolean = false
+  var hyperMapperDSE: Boolean = false
   var experimentDSE: Boolean = false
 
   var enableDot: Boolean = _
@@ -62,8 +66,9 @@ class SpatialConfig extends argon.core.Config {
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
   var enablePIRSim: Boolean = false
-  lazy val PIR_HOME: String = sys.env.getOrElse("PIR_HOME", {Report.error("Please set the PIR_HOME environment variable."); sys.exit()})
-  var pirsrc: String = s"$PIR_HOME/pir/apps/src"
+  var pirsrc: Option[String] = None 
+
+  lazy val HYPERMAPPER: String = sys.env.getOrElse("HYPERMAPPER_HOME", {Report.error("Please set the HYPERMAPPER_HOME environment variable."); sys.exit() })
 
   var enableRetiming: Boolean = _
 
@@ -79,24 +84,38 @@ class SpatialConfig extends argon.core.Config {
   def removeParallelNodes: Boolean = enablePIR
   def rewriteLUTs: Boolean = enablePIR
 
-  var sIn_UCU: Int = _
-  var stages_UCU: Int = _
-
-  var sIn_PCU: Int = _
-  var sOut_PCU: Int = _
-  var vIn_PCU: Int = _
-  var vOut_PCU: Int = _
-  var stages: Int = _
-  var regs_PCU: Int = _
-  var sIn_PMU: Int = _
-  var sOut_PMU: Int = _
-  var vIn_PMU: Int = _
-  var vOut_PMU: Int = _
-  var readWrite: Int = _
-  var regs_PMU: Int = _
-  var lanes: Int = _
+  var plasticineSpec:PlasticineConf = _
 
   var threads: Int = 8
+
+  override def createInstance(): argon.core.Config = new SpatialConfig()
+
+  override def createClone(): argon.core.Config = {
+    val cfg = super.createClone().asInstanceOf[SpatialConfig]
+    cfg.useBasicBlocks = this.useBasicBlocks
+    cfg.targetName = this.targetName
+    cfg.target = this.target
+    cfg.enableDot = this.enableDSE
+    cfg.enableDSE = this.enableDSE
+    cfg.heuristicDSE = this.heuristicDSE
+    cfg.bruteForceDSE = this.bruteForceDSE
+    cfg.hyperMapperDSE = this.hyperMapperDSE
+    cfg.experimentDSE = this.experimentDSE
+    cfg.enableDot = this.enableDot
+    cfg.enableSim = this.enableSim
+    cfg.enableSynth = this.enableSynth
+    cfg.enablePIR = this.enablePIR
+    cfg.enablePIRSim = this.enablePIRSim
+    cfg.enableRetiming = this.enableRetiming
+    cfg.enableSplitting = this.enableSplitting
+    cfg.enableArchDSE = this.enableArchDSE
+    cfg.enableSyncMem = this.enableSyncMem
+    cfg.enableInstrumentation = this.enableInstrumentation
+    cfg.useCheapFifos = this.useCheapFifos
+    cfg.enableTree = this.enableTree
+    cfg.threads = this.threads
+    cfg
+  }
 
   override def printer():String = {
     val vars = this.getClass.getDeclaredFields
@@ -168,49 +187,34 @@ spatial {
 
     val defaultPlasticine =  ConfigFactory.parseString("""
 plasticine {
-  sin-ucu = 10
-  stages-ucu = 10
-  sin-pcu = 10
-  sout-pcu = 10
-  vin-pcu = 4
-  vout-pcu = 1
-  regs-pcu = 16
-  comp = 10
-  sin-pmu = 10
-  sout-pmu = 10
-  vin-pmu = 4
-  vout-pmu = 1
-  regs-pmu = 16
-  rw = 10
+  scu-sin = 10
+  scu-sout = 2
+  scu-stages = 5
+  scu-regs = 16
+  pcu-vin = 4
+  pcu-vout = 2
+  pcu-sin = 6
+  pcu-sout = 2
+  pcu-stages = 7
+  pcu-regs = 16
+  pmu-vin = 4
+  pmu-vout = 1
+  pmu-sin = 4
+  pmu-sout = 1
+  pmu-stages = 0
+  pmu-regs = 16
   lanes = 16
+  word-width = 32
 }
   """)
 
     val mergedPlasticineConf = ConfigFactory.load().withFallback(defaultPlasticine).resolve()
 
-    loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
-      case Right(plasticineConf) =>
-        sIn_UCU = plasticineConf.sinUcu
-        stages_UCU = plasticineConf.stagesUcu
-        sIn_PCU = plasticineConf.sinPcu
-        sOut_PCU = plasticineConf.soutPcu
-        vIn_PCU = plasticineConf.vinPcu
-        vOut_PCU = plasticineConf.voutPcu
-        stages = plasticineConf.comp
-        regs_PCU = plasticineConf.regsPcu
-        sIn_PMU = plasticineConf.sinPmu
-        sOut_PMU = plasticineConf.soutPmu
-        vIn_PMU = plasticineConf.vinPmu
-        vOut_PMU = plasticineConf.voutPmu
-        readWrite = plasticineConf.rw
-        regs_PMU = plasticineConf.regsPmu
-        lanes = plasticineConf.lanes
-
+    plasticineSpec = loadConfig[PlasticineConf](mergedPlasticineConf, "plasticine") match {
+      case Right(plasticineConf) => plasticineConf
       case Left(failures) =>
-//        error("Unable to read Plasticine configuration")
-//        error(failures.head.description)
-//        failures.tail.foreach{x => error(x.description) }
-//        sys.exit(-1)
+        throw new Exception(s"Unable to read Plasticine configuration ${failures}")
+        sys.exit(-1)
     }
   }
 

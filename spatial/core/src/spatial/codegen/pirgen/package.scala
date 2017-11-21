@@ -21,6 +21,7 @@ package object pirgen {
 
   val globals   = mutable.Set[GlobalComponent]()
   val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
+  def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:CU => cu}.toList
 
   @stateful def quote(x: Any):String = x match {
     case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
@@ -86,12 +87,13 @@ package object pirgen {
     case Some(x) => func(x) // Why is this not matching on Iterable or Iterator?
     case iter: Iterator[_] => iter.flatMap(func).toSet
     case iter: Iterable[_] => func(iter.iterator)
+    case (data,addr,_) => func(data) ++ func(addr)
     case _ => Set.empty
   }
 
   def localInputs(a: Any): Set[LocalComponent] = a match {
     case reg: LocalComponent => Set(reg)
-    case mem: CUMemory => localInputs(mem.readAddr ++ mem.writeAddr ++ mem.writePort ++ mem.readPort)
+    case mem: CUMemory => localInputs(/*mem.readAddr ++ mem.writeAddr ++ */mem.writePort ++ mem.readPort)
     case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
     case stage: Stage => stage.inputMems.toSet
     case _ => collectX[LocalComponent](a)(localInputs)
@@ -108,7 +110,7 @@ package object pirgen {
     case ControlIn(in) => Set(in)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.writePort ++ mem.readAddr ++ mem.writeAddr)
+    case mem: CUMemory => globalInputs(mem.writePort/* ++ mem.readAddr ++ mem.writeAddr*/)
     case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
     case stage:Stage => globalInputs(stage.inputMems)
     case MemLoad(mem) => globalInputs(mem)
@@ -130,29 +132,39 @@ package object pirgen {
   def vectorOutputs(a: Any): Set[VectorBus] = globalOutputs(a).collect{case x: VectorBus => x}
 
   def usedCChains(a: Any): Set[CUCChain] = a match {
+    case cc:CUCChain => Set(cc)
     case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
 
     case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_,_) => cchain}.toSet
     case sram: CUMemory =>
-      (sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
-        sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
+      //(sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
+        //sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
+      sram.readPort.flatMap { case (_, addr, _) => usedCChains(addr) }.toSet ++
+      sram.writePort.flatMap { case (_, addr, _) => usedCChains(addr) }.toSet
 
     case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
     case iter: Iterable[Any] => usedCChains(iter.iterator)
+    case Some(x) => usedCChains(x)
+    case CounterReg(cchain, counterIdx, parIdx) => Set(cchain)
     case _ => Set.empty
   }
 
-  def usedMem(x:Any):Set[CUMemory] = x match {
-    case MemLoad(mem) => Set(mem)
-    case x:CUMemory if x.mode == SRAMMode =>
-      usedMem(x.readAddr ++ x.writeAddr ++ x.writePort) + x
-    case x:CUMemory => Set(x)
-    case x:Stage => usedMem(x.inputMems)
-    case x:CUCounter => usedMem(x.start) ++ usedMem(x.end) ++ usedMem(x.stride)
-    case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => usedMem(x.mems)
-    case x:ComputeUnit => usedMem(x.allStages) ++ usedMem(x.cchains) ++ usedMem(x.srams)
-    case LocalRef(stage, reg) => usedMem(reg)
-    case _ => collectX[CUMemory](x)(usedMem)
+  def usedMem(x:Any, logger:Option[PIRLogger]=None):Set[CUMemory] = {
+    def rec(x:Any) = usedMem(x, logger)
+    def f = x match {
+      case MemLoad(mem) => Set(mem)
+      case x:CUMemory if x.tpe == SRAMType => 
+        x.readPort.flatMap { case (_, addr, _) => rec(addr) }.toSet ++
+        x.writePort.flatMap { case (data, addr, _) => rec(addr) ++ rec(data) } + x
+      case x:CUMemory => Set(x)
+      case x:Stage => rec(x.inputMems)
+      case x:CUCounter => rec(x.start) ++ rec(x.end) ++ rec(x.stride)
+      case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => rec(x.mems)
+      case x:ComputeUnit => rec(x.allStages) ++ rec(x.cchains) ++ rec(x.srams)
+      case LocalRef(stage, reg) => rec(reg)
+      case _ => collectX[CUMemory](x)(rec)
+    }
+    logger.fold (f) { _.dbgblk(s"usedMem($x, ${x.getClass.getSimpleName})") { f } }
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
@@ -208,38 +220,23 @@ package object pirgen {
     case _ => false
   }
 
-  @stateful def isLocalMem(mem: Expr): Boolean = isReg(mem) || isFIFO(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+  @stateful def isLocalMem(mem: Expr): Boolean = {
+    var cond = isReg(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
+    //cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
+    cond
+  }
 
-  def isRemoteMem(mem: Expr): Boolean = isSRAM(mem)
+  def isRemoteMem(mem: Expr): Boolean = {
+    var cond = isSRAM(mem)
+    cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
+    cond
+  }
 
   @stateful def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e)
 
-  @stateful def isLocalMemReadAccess(acc: Expr) = acc match {
-    case Def(_:RegRead[_]) => true
-    case Def(_:FIFODeq[_]) => true
-    case Def(_:BankedFIFODeq[_]) => true
-    case Def(_:StreamWrite[_]) => true
-    case Def(_:BankedStreamWrite[_]) => true
-    case _ => false
-  }
-
-  @stateful def isLocalMemWriteAccess(acc: Expr) = acc match {
-    case Def(_:RegWrite[_]) => true
-    case Def(_:FIFOEnq[_]) => true
-    case Def(_:BankedFIFOEnq[_]) => true
-    case Def(_:StreamRead[_]) => true
-    case Def(_:BankedStreamRead[_]) => true
-    case _ => false
-  }
-
-  @stateful def isLocalMemAccess(acc: Expr) = isLocalMemReadAccess(acc) || isLocalMemWriteAccess(acc)
-
-  @stateful def isRemoteMemAccess(acc:Expr) = acc match {
-    case Def(_:SRAMLoad[_]) => true
-    case Def(_:BankedSRAMLoad[_]) => true
-    case Def(_:SRAMStore[_]) => true
-    case Def(_:BankedSRAMStore[_]) => true
-    case _ => false
+  @stateful def getMem(access: Expr): Expr = access match {
+    case BankedReader((mem, _, _, _)::_) => mem
+    case BankedWriter((mem, _, _, _, _)::_) => mem
   }
 
   def isStage(d: Def): Boolean = d match {
@@ -283,10 +280,6 @@ package object pirgen {
       val add = OpStage(PIRFixAdd, List(mul.out, partialAddr),  fresh[Index])
       partialAddr = add.out
       addrCompute ++= List(mul,add)
-    }
-    if (addrCompute.isEmpty) {
-      partialAddr = fresh[Index]
-      addrCompute ++= List(OpStage(PIRBypass, List(indices.last), partialAddr))
     }
     (partialAddr, addrCompute)
   }
@@ -462,10 +455,6 @@ package object pirgen {
     case n => throw new Exception(s"Undefined getInnerPar for ${qdef(n)}")
   }
 
-  def getOuterDims[T](dmem: Expr, list: Seq[T]): Seq[T] = {
-    list.zipWithIndex.filterNot{case (ele, dim) => innerDimOf.get(compose(dmem)).contains(dim) }.map { _._1 }
-  }
-
   @stateful def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{
@@ -604,5 +593,10 @@ package object pirgen {
     seq(i)
   }
 
+  def getWriterCU(bus:GlobalBus):CU = {
+    val writers = cus.filter { cu => globalOutputs(cu).contains(bus) }
+    assert(writers.size==1, s"writers of $bus = ${writers}.size != 1")
+    writers.head
+  }
 
 }

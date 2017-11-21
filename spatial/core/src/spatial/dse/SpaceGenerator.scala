@@ -15,17 +15,21 @@ trait SpaceGenerator {
   def domain(p: Param[Index], restricts: Iterable[Restrict])(implicit ir: State): Domain[Int] = {
     if (restricts.nonEmpty) {
       Domain.restricted(
+        name   = p.name.getOrElse(c"$p"),
         range  = domainOf(p).toRange,
         setter = {(v: Int, state: State) => p.setValue(FixedPoint(v))(state) },
         getter = {(state: State) => p.value(state).asInstanceOf[FixedPoint].toInt },
-        cond   = {state => restricts.forall(_.evaluate()(state)) }
+        cond   = {state => restricts.forall(_.evaluate()(state)) },
+        tp     = Ordinal
       )
     }
     else {
       Domain(
+        name  = p.name.getOrElse(c"$p"),
         range = domainOf(p).toRange,
         setter = { (v: Int, state: State) => p.setValue(FixedPoint(v))(state) },
-        getter = { (state: State) => p.value(state).asInstanceOf[FixedPoint].toInt }
+        getter = { (state: State) => p.value(state).asInstanceOf[FixedPoint].toInt },
+        tp     = Ordinal
       )
     }
   }
@@ -43,13 +47,15 @@ trait SpaceGenerator {
     }
   }
 
-  def createCtrlSpace(metapipes: Seq[Exp[_]])(implicit ir: State): Seq[Domain[Boolean]] = {
+  def createCtrlSpace(metapipes: Seq[Exp[_]])(implicit ir: State): Seq[Domain[Int]] = {
     metapipes.map{mp =>
       Domain.apply(
-        options = Seq(false, true),
-        setter  = {(c: Boolean, state:State) => if (c) styleOf.set(mp, MetaPipe)(state)
-                                                else   styleOf.set(mp, SeqPipe)(state) },
-        getter  = {(state: State) => styleOf(mp)(state) == MetaPipe }
+        name    = mp.name.getOrElse(c"$mp"),
+        range   = 0 to 1,
+        setter  = {(c: Int, state:State) => if (c == 1) styleOf.set(mp, MetaPipe)(state)
+                                            else   styleOf.set(mp, SeqPipe)(state) },
+        getter  = {(state: State) => if (styleOf(mp)(state) == MetaPipe) 1 else 0 },
+        tp      = Categorical
       )
     }
   }

@@ -271,8 +271,9 @@ abstract class ResetterOp(
 
 
 /** Banked primitive nodes **/
-trait BankedReader[T] extends EnabledAccess[T] { this: Op[T] =>
+trait BankedReader[T] extends EnabledAccess[T] with Reader[T] { this: Op[T] =>
   def bankedReads: Seq[BankedRead]
+  final def localReads: Seq[LocalRead] = bankedReads.flatMap{read => LocalRead(read.mem) }
   override def accessWidth: Int = enables.length
   override def enables: Seq[Exp[Bit]] = bankedReads.flatMap(_.ens.getOrElse(Nil))
   def address = None
@@ -286,8 +287,9 @@ object BankedReader {
 }
 
 
-trait BankedWriter[T] extends EnabledAccess[T] { this: Op[T] =>
+trait BankedWriter[T] extends EnabledAccess[T] with Writer[T] { this: Op[T] =>
   def bankedWrites: Seq[BankedWrite]
+  final def localWrites: Seq[LocalWrite] = bankedWrites.flatMap{write => LocalWrite(write.mem) }
   override def accessWidth: Int = enables.length
   override def enables: Seq[Exp[Bit]] = bankedWrites.flatMap(_.ens.getOrElse(Nil))
   def address = None

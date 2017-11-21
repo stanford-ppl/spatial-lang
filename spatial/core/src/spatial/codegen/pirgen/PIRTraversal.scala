@@ -155,24 +155,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     writersOf(mem).map(_.node) //.filter { writer => getDispatches(mem, writer.node).contains(instId) }.map{_.node}
   }
 
-  //def getInnerDimension(dmem:Expr, instId:Int):Option[Int] = {
-    //val mem = compose(dmem)
-    //readersOf(mem).filter { reader => dispatchOf(reader, mem).contains(instId) }
-  //}
-
-  //def writerOf(mem:Expr): Access = {
-    //val writers = writersOf(mem)
-    //if (writers.size > 1) {
-      //error(u"Memory $mem has multiple writers: ")
-      //error(mem.ctx)
-      //writers.foreach{writer => error(writer.node.ctx, showCaret = true) }
-      //error("Plasticine currently only supports 1 writer per memory")
-      //sys.exit(-1)
-    //}
-    ////assert(writers.size==1, u"Plasticine only support single writer mem=${qdef(mem)} writers=[${writers.mkString(",")}]")
-    //writers.head
-  //}
-
   def allocateRetimingFIFO(reg:LocalComponent, bus:GlobalBus, cu:CU):CUMemory = {
     //HACK: don't know what the original sym is at splitting. 
     //Probably LocalComponent should keep a copy of sym at allocation time?
@@ -180,14 +162,14 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     val mem = CUMemory(s"$reg", memSym, cu)
     bus match {
       case bus:ControlBus =>
-        mem.mode = ControlFIFOMode
+        mem.tpe = ControlFIFOType
       case bus:ScalarBus =>
-        mem.mode = ScalarFIFOMode
+        mem.tpe = ScalarFIFOType
       case bus:VectorBus =>
-        mem.mode = VectorFIFOMode
+        mem.tpe = VectorFIFOType
     }
     mem.size = 1
-    mem.writePort += bus
+    mem.writePort += ((bus, None, None))
     cu.memMap += reg -> mem
     dbgs(s"allocateRetimingFIFO($reg, $bus, $cu) = $mem")
     mem
@@ -354,6 +336,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     cu.allStages.foreach{stage => swapBus_stage(stage) }
     cu.mems.foreach{mem => swapBus_mem(mem) }
     cu.cchains.foreach{cc => swapBus_cchain(cc) }
+    //swap_producer(orig, swap)
 
     def swapBus_stage(stage: Stage): Unit = stage match {
       case stage@MapStage(op, ins, outs) =>
@@ -380,21 +363,51 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     }
 
     def swapBus_mem(mem: CUMemory): Unit = {
-      mem.writePort = mem.writePort.map{
-        case `orig` => 
+      mem.writePort.transform {
+        case (`orig`, addr, top) => 
           dbgs(s"swapBus_mem: $cu.$mem.writePort $orig -> $swap")
-          swap
-        case bus => bus
+          val newTop = top.map { top =>
+            val origWriterCU = getWriterCU(orig)
+            if (origWriterCU==top) {
+              val newWriterCU = getWriterCU(swap)
+              newWriterCU
+            } else top
+          }
+          (swap, addr, newTop)
+        case port => port 
       }
-      mem.readPort = mem.readPort.map{
-        case `orig` => 
+      mem.readPort.transform {
+        case (`orig`, addr, top) => 
           dbgs(s"swapBus_mem: $cu.$mem.readPort $orig -> $swap")
-          swap
-        case bus => bus
+          (swap, addr, top)
+        case port => port 
       }
-      mem.readAddr = mem.readAddr.map{reg => swapBus_reg(reg)}
-      mem.writeAddr = mem.writeAddr.map{reg => swapBus_reg(reg)}
     }
+
+    //def swap_producer(orig:GlobalBus, swap:GlobalBus) = {
+      //producerOf.transform { case (mem, wps) =>
+        //wps.map { 
+          //case (`orig`, producer) =>
+            //val origWriterCU = getWriterCU(orig)
+            //val newWriterCU = getWriterCU(swap)
+            //if (origWriterCU == producer) (swap, newWriterCU)
+            //else (swap, producer)
+          //case (writer, producer) => (writer, producer)
+        //}
+      //}
+    //}
+    //def swap_reader(orig:GlobalBus, swap:GlobalBus) = {
+      //val origReaders = getWriterCU(orig)
+      //val newReaders = getWriterCU(swap)
+      //consumerOf.transform { case (mem, rcs) =>
+        //val newConsumers = 
+      //}
+    //}
+    //def getReaderCUs(bus:GlobalBus):CU = {
+      //val readers = cus.filter { cu => globalInputs(cu).contains(bus) }
+      //readers
+    //}
+
     def swapBus_cchain(cchain: CUCChain): Unit = cchain match {
       case cc: CChainInstance => cc.counters.foreach{ctr => swapBus_ctr(ctr)}
       case _ => // No action
@@ -404,6 +417,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
       ctr.end = swapBus_reg(ctr.end)
       ctr.stride = swapBus_reg(ctr.stride)
     }
+
   }
   }
 
@@ -432,6 +446,7 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
   }
 
   def runAll[S:Type](b: Block[S]): Block[S] = {
+    init()
     var block = b
     block = preprocess(block)
     block = run(block)

@@ -65,46 +65,52 @@ case class AccessMatrix(
     AccessMatrix(vecs,access,indices,id)
   }*/
 
-  def getAccessPairsIfAffine(dims: Seq[Int]): Option[AccessPair] = {
+  // Stateful is only needed for debugging
+  @stateful def getAccessPairsIfAffine(dims: Seq[Int]): Option[AccessPair] = {
     val vecs = Array.tabulate(dims.length){i => vectors(dims(i)) }
     if (vecs.forall(_.isInstanceOf[AffineVector])) {
       val affineVectors = vecs.map(_.asInstanceOf[AffineVector])
       val a = Matrix(affineVectors.map{row => row.as})
       val c = affineVectors.map{row => row.b}
-      Option((a, c))
+      val pair = (a,c)
+      //pair.printWithTab("      ")
+      Option(pair)
     }
-    else None
+    else {
+      //dbg(s"NOT AFFINE (RANDOM ACCESS?)")
+      None
+    }
   }
 
   // TODO
   /**
     * Returns true if the space of addresses in a is statically known to include all of the addresses in b
     */
-  def containsSpace(b: AccessMatrix, domain: Domain): Boolean = {
+  def containsSpace(b: AccessMatrix, domain: IndexDomain): Boolean = {
     false
   }
 
   /**
     * Returns true if the space of addresses in a and b may have at least one element in common
     */
-  def intersectsSpace(b: AccessMatrix, domain: Domain): Boolean = {
+  def intersectsSpace(b: AccessMatrix, domain: IndexDomain): Boolean = {
     true
   }
 
   /**
     * Returns true if there exists a reachable multi-dimensional index I such that addr_a(I) = addr_b(I)
     */
-  def intersects(b: AccessMatrix, domain: Domain): Boolean = {
+  def intersects(b: AccessMatrix, domain: IndexDomain): Boolean = {
     true
   }
 
   @stateful def printWithTab(tab: String): Unit = {
     dbg(tab + s"""${str(access.node)} [id: ${id.mkString(", ")}]""")
-    val heading = is.map(i => u"$i") :+ "1"
+    val heading = is.map(i => u"$i") :+ "c"
     val entries = heading +: vectors.map{vec =>
       Seq.tabulate(is.length+1){i => vec.str(i) }
     }
-    val maxCol = entries.flatten.map{x: String => x.length }.max
+    val maxCol = entries.flatten.map{x: String => x.length }.fold(0){Math.max}
     entries.foreach{row =>
       dbg(tab + row.map{x => " "*(maxCol - x.length + 1) + x }.mkString(" "))
     }

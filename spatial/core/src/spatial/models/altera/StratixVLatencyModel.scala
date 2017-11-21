@@ -43,7 +43,7 @@ class StratixVLatencyModel extends LatencyModel {
       val c = contentionOf(s)
       val p = boundOf(op.p).toInt
 
-      val dims = op.lens.map{x => boundOf(x).toInt }
+      val dims = op.lens.map{x => boundOf.get(x).map(_.toInt).getOrElse{warn(x.ctx, u"Don't know bound of: ${str(x)}"); target.burstSize }}
       val size = dims.last
       val iters = dims.dropRight(1).product
       val baseCycles = size / p.toDouble
@@ -56,7 +56,7 @@ class StratixVLatencyModel extends LatencyModel {
 
     case op: DenseTransfer[_,_] if op.isLoad =>
       val c = contentionOf(s)
-      val dims = op.lens.map{x => boundOf(x).toInt }
+      val dims = op.lens.map{x => boundOf.get(x).map(_.toInt).getOrElse{warn(x.ctx, u"Don't know bound of: ${str(x)}"); target.burstSize }}
       val size = dims.last
       val b = size  // TODO - max of this and max command size
       val r = 1.0   // TODO - number of commands needed (probably 1)

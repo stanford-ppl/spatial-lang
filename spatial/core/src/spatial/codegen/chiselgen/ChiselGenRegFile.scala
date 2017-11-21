@@ -32,26 +32,29 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val initVals = if (inits.isDefined) {
         getConstValues(inits.get).toList.map{a => src"${a}d"}.mkString(",")
       } else { "None"}
-      
-      val initString = if (inits.isDefined) src"Some(List($initVals))" else "None"
-      val f = fracBits(op.mT)
-      val width = bitWidth(op.mT)
-      val mem = instanceOf(lhs)
 
-      val writerInfo = writersOf(lhs).map{w =>
+      val initString = if (inits.isDefined) src"Some(List(${initVals}))" else "None"
+      val f = lhs.tp.typeArguments.head match {
+        case a: FixPtType[_,_,_] => a.fracBits
+        case _ => 0
+      }
+      val width = bitWidth(lhs.tp.typeArguments.head)
+      val mem = instanceOf(lhs)
+      val writerInfo = writersOf(lhs).zipWithIndex.map{ case (w,ii) =>
         val port = portsOf(w, lhs, 0).head
         w.node match {
           case Def(_:RegFileStore[_]) => (port, 1, 1)
           case Def(_:RegFileShiftIn[_]) => (port, 1, 1)
-          case Def(RegFileVectorShiftIn(_,data,addr,en,ax)) => (port, addr.length, data.tp.asInstanceOf[VectorType[_]].width) // Get stride
-          case Def(op:BankedRegFileStore[_]) => (port, op.accessWidth, 1)
+          case Def(op@RegFileVectorShiftIn(_,data,addr,en,axis)) => (port, addr.length, data.tp.asInstanceOf[VectorType[_]].width) // Get stride
+          case Def(_@BankedRegFileStore(_,_,_,_,en)) => (port, en.length, 1)
         }
       }
+      if (writerInfo.isEmpty) {warn(s"RegFile $lhs has no writers!")}
       val parInfo = writerInfo.groupBy(_._1).map{case (k,v) => src"($k -> ${v.map{_._2}.sum})"}
-      val stride = writerInfo.map(_._3).max
+      val stride = if (writerInfo.isEmpty) 1 else writerInfo.map(_._3).max
       val depth = mem.depth
       if (depth == 1) {
-        emitGlobalModule(src"""val $lhs = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${writerInfo.map{_._2}.sum}, false, $width, $f))""")
+        emitGlobalModule(src"""val $lhs = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${if (writerInfo.isEmpty) 1 else writerInfo.map{_._2}.sum}, false, $width, $f))""")
         emitGlobalModule(src"$lhs.io.dump_en := false.B")
       } else {
         nbufs = nbufs :+ lhs

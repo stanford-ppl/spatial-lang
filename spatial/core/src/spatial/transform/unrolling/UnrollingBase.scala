@@ -6,8 +6,8 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-
 import org.virtualized.SourceContext
+import spatial.aliases
 
 trait UnrollingBase extends ForwardTransformer {
   /**
@@ -141,6 +141,8 @@ trait UnrollingBase extends ForwardTransformer {
     * Tracks multiple substitution contexts in 'contexts' array
     **/
   trait Unroller {
+    type MemContext = ((Exp[_],Int), Exp[_])
+
     def inds: Seq[Bound[Index]]
     def Ps: Seq[Int]
 
@@ -152,7 +154,11 @@ trait UnrollingBase extends ForwardTransformer {
 
     def contexts: Array[ Map[Exp[Any],Exp[Any]] ]
 
-    val memContexts: Array[ Seq[((Exp[_],Int), Exp[_])] ] = Array.fill(P)(Nil)
+    private var __memContexts: Option[Array[Seq[MemContext]]] = None
+    def memContexts: Array[Seq[MemContext]] = {
+      if (__memContexts.isEmpty) { __memContexts = Some(Array.fill(P)(Nil)) }
+      __memContexts.get
+    }
 
     private var __valids: Option[ Seq[Seq[Exp[Bit]]] ] = None
     protected def createLaneValids(): Seq[Seq[Exp[Bit]]]
@@ -283,6 +289,15 @@ trait UnrollingBase extends ForwardTransformer {
       val inds2 = indices.zip(parAddr(p)).map{case (vec, i) => vec(i) }
       Map.empty[Exp[Any],Exp[Any]] ++ inds.zip(inds2)
     }
+  }
+
+  case class UnitUnroller(isInnerLoop: Boolean) extends Unroller {
+    val Ps: Seq[Int] = Seq(1)
+    val inds: Seq[Bound[Index]] = Nil
+    val indices: Seq[Seq[Const[Index]]] = Seq(Nil)
+    val indexValids: Seq[Seq[Const[Bit]]] = Seq(Nil)
+    protected def createLaneValids(): Seq[Seq[Exp[Bit]]] = Seq(Nil)
+    val contexts: Array[Map[Exp[Any], Exp[Any]]] = Array.tabulate(1){_ => Map.empty[Exp[Any],Exp[Any]] }
   }
 
 }

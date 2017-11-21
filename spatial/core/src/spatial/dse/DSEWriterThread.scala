@@ -8,8 +8,7 @@ case class DSEWriterThread(
   spaceSize: BigInt,
   filename:  String,
   header:    String,
-  workQueue: BlockingQueue[Array[String]],
-  doneQueue: BlockingQueue[Int]
+  workQueue: BlockingQueue[Array[String]]
 ) extends Runnable {
 
   private var isAlive: Boolean = true
@@ -18,7 +17,7 @@ case class DSEWriterThread(
 
   def run(): Unit = {
     val data = new PrintStream(filename)
-    data.println(header)
+    data.println(header + ",Timestamp")
 
     val P = BigDecimal(spaceSize)
     var N = BigDecimal(0)
@@ -49,7 +48,6 @@ case class DSEWriterThread(
     }
 
     data.close()
-    doneQueue.put(threadId)
     hasTerminated = true
   }
 }

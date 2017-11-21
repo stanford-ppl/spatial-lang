@@ -697,6 +697,7 @@ object utils {
     case _ => false
   }
 
+  @stateful def isParallel(c: Ctrl): Boolean = isParallel(c.node)
   @stateful def isParallel(e: Exp[_]): Boolean = getDef(e).exists(isParallel)
   def isParallel(d: Def): Boolean = d.isInstanceOf[ParallelPipe]
 

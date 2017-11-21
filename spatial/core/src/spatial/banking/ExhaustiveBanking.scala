@@ -4,6 +4,7 @@ import argon.core._
 import argon.util._
 import spatial.poly._
 import spatial.utils._
+import spatial.Subproc
 
 class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
 
@@ -13,7 +14,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     * Note that the total size is O(N**rank)
     */
   def Alphas(rank: Int, N: Int): Iterator[Seq[Int]] = {
-    val a2 = (1 until N).filter(isPow2)
+    val a2 = (1 until N).filter(x => isPow2(x) || x == 1)
     def Alphas2(dim: Int, prev: Seq[Int]): Iterator[Seq[Int]] = {
       if (dim < rank) {
         a2.iterator.flatMap{aD => Alphas2(dim+1, prev :+ aD) }
@@ -24,7 +25,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       if (dim < rank) {
         (0 until N).iterator.flatMap{aD => AlphasX(dim+1, prev :+ aD) }
       }
-      else (0 until N).iterator.map{aR => prev :+ aR }.filterNot(_.forall(isPow2))
+      else (0 until N).iterator.map{aR => prev :+ aR }.filterNot(_.forall(x => isPow2(x) || x == 1))
     }
     Alphas2(1, Nil) ++ AlphasX(1, Nil)
   }
@@ -45,6 +46,19 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     acc
   }
 
+  def isEmptyPolytope(matrix: String): Boolean = {
+    println("RUNNING ISL FOR POLYTOPE: ")
+    println(matrix)
+    dbg(s"Running ISL with input: ")
+    dbg(matrix)
+    val proc = Subproc("/isl/isl_polyhedron_sample"){(_,_) => None }
+    proc.send(matrix)
+    val lines = proc.blockAndReturnOut()
+    dbg("Got lines: ")
+    lines.foreach{line => dbg(line) }
+    lines.contains{"[]"}
+  }
+
   def checkCyclic(N: Int, alpha: Seq[Int], grp: Seq[AccessPair], dC: String): Boolean = checkConflicts(grp){(a0,a1,c0,c1) =>
     val row0_is = Array.tabulate(a0.cols){j => sum(a0.rows){i => alpha(i)*(a0(i,j) - a1(i,j))} }   // alpha*(A0 - A1)
     val row0_c  = sum(a0.rows){i => alpha(i)*(c0(i) - c1(i)) }                                     // alpha*(C0 - C1)
@@ -53,7 +67,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     //val row0 = Constraint(0, Vector(row0_is ++ Array(row0_K, row0_c)))  // Equality constraint ( = 0)
     val row0 = s"""0 ${row0_is.mkString(" ")} $row0_K $row0_c"""
     val mat = dC + row0
-    Polytope.isEmpty(mat)
+    isEmptyPolytope(mat)
   }
 
   def checkBlockCyclic(N: Int, B: Int, alpha: Seq[Int], grp: Seq[AccessPair], dBC: String): Boolean = checkConflicts(grp){(a0,a1,c0,c1) =>
@@ -84,7 +98,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     val mat = dBC + s"$row0\n$row1\n$row2\n$row3"
     //val row0 = Constraint(0, Vector(row0_is ++ Array(row0_K0, row0_K1, row0_c)))
     //val row1 = Constraint(0, Vector(row1_is ++ Array(row1_K0, row1_K1, row1_c)))
-    Polytope.isEmpty(mat)
+    isEmptyPolytope(mat)
   }
 
   /**
@@ -93,9 +107,19 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     */
   final val Bs = Seq(2, 4, 8, 16, 32, 64, 128, 256) ++ (3 until 256).filterNot(isPow2)
   def findBanking(rank: Int, grps: Seq[Seq[AccessPair]], dims: Seq[Int], dC: String, dBC: String): Option[ModBanking] = {
+    if (grps.isEmpty) throw new Exception("Cannot find banking for empty groups!")
+
     val Nmin = grps.map(_.size).max
-    val (n2,nx) = (Nmin to 8*Nmin).partition(isPow2)
+    val (n2,nx) = (Nmin to 8*Nmin).partition(x => isPow2(x) || x == 1)
     val Ns = (n2 ++ nx).iterator
+
+    dbg(s"    FIND BANKING: Nmin = $Nmin")
+    dbg("")
+    //dbg(s"[Result]")
+    grps.zipWithIndex.foreach{case (grp,i) =>
+      dbg(s"    Group $i: ")
+      grp.foreach{pair => pair.printWithTab("      ") }
+    }
 
     var banking: Option[ModBanking] = None
 
@@ -107,11 +131,15 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       while (As.hasNext && banking.isEmpty) {
         val alpha = As.next
         // O( 256 * #Accesses^2)
-        if (grps.forall(grp => checkCyclic(N, alpha,grp,dC))) {
+        dbg(s"      N=$N, B=1, alpha=$alpha")
+        if (grps.forall{grp => checkCyclic(N, alpha,grp,dC)}) {
           banking = Some(ModBanking(N, 1, alpha, dims))
         }
         else {
-          val B = Bs.find{b => grps.forall(grp => checkBlockCyclic(N, b, alpha, grp,dBC)) }
+          val B = Bs.find{b =>
+            dbg(s"      N=$N, B=$b, alpha=$alpha")
+            grps.forall{grp => checkBlockCyclic(N, b, alpha, grp,dBC) }
+          }
           banking = B.map{b => ModBanking(N, b, alpha, dims) }
         }
       }
@@ -120,7 +148,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     banking
   }
 
-  def bankAccesses(mem: Exp[_], reads: Set[AccessMatrix], writes: Set[AccessMatrix], domain: Domain): Seq[ModBanking] = {
+  def bankAccesses(mem: Exp[_], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[ModBanking] = {
     val cyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, a.last))) }
     val blockCyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, 0, a.last))) }
     val nIters = domain.headOption.map(_.length - 1).getOrElse(0)
@@ -131,8 +159,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     val blockCyclicIndexStr = blockCyclicIndexBounds.map(_.toString).mkString("\n")
     val dBC = s"${blockCyclicIndexBounds.length+4} ${nIters + 4}\n$blockCyclicIndexStr\n"
 
-    val accessGrps: Seq[Set[AccessMatrix]] = reads.groupBy(_.access.ctrl).toSeq.map(_._2) ++
-                                             writes.groupBy(_.access.ctrl).toSeq.map(_._2)
+    val accessGrps: Seq[Set[AccessMatrix]] = reads ++ writes
 
     dbg("  Attempting to find banking with access matrix groups: ")
     accessGrps.zipWithIndex.foreach{case (grp,i) =>
@@ -146,13 +173,19 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     val fullDiagonal = Seq(dimIndices)                // Fully diagonal (all dimensions contribute to single bank addr.)
     val strategies = Seq(hierarchical, fullDiagonal)  // TODO: try all possible dimension orderings?
     val options = strategies.flatMap{strategy =>
+      dbg(s"  Trying dimension strategy $strategy")
       // Split up accesses based on the dimension groups in this banking strategy
       // Then, for each dimension group, determine the banking
       val banking = strategy.map{dimensions =>        // Set of dimensions to bank together
-        val accesses = accessGrps.map{grp =>
+        //dbg(s"    Creating affine access pairs..")
+        val accesses = accessGrps.zipWithIndex.map{case (grp,i) =>
           // Convert all AccessMatrix instances into pairs of (Matrix, Offset Vector)
-          grp.toSeq.flatMap{_.getAccessPairsIfAffine(dimensions) }
+          grp.toSeq.flatMap{access =>
+            //access.printWithTab("      ")
+            access.getAccessPairsIfAffine(dimensions)
+          }
         }
+        dbg(s"    Dimension group: $dimensions")
         findBanking(dims.length, accesses, dimensions, dC, dBC)
       }
       if (banking.forall(_.isDefined)) Some(banking.map(_.get)) else None
@@ -162,7 +195,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     // TODO: What to do in the case where banking fails? Fall back to duplication/time multiplexing?
     options.headOption.getOrElse{
       bug(mem.ctx, c"Could not bank reads of memory $mem: ")
-      reads.map(_.access).foreach{rd => bug(s"  ${str(rd.node)}") }
+      reads.flatten.map(_.access).foreach{rd => bug(s"  ${str(rd.node)}") }
       bug(mem.ctx)
       Nil
     }

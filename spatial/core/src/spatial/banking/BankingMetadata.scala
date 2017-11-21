@@ -61,8 +61,8 @@ object RegBank { def apply(): Seq[ModBanking] = Seq(ModBanking(1, 1, Seq(1), Seq
   * Used during memory analysis to track intermediate results
   */
 case class InstanceGroup(
-  var reads:    Set[AccessMatrix],      // All reads within this group
-  var writes:   Set[AccessMatrix],      // All writes within this group
+  var reads:    Seq[Set[AccessMatrix]], // All reads within this group
+  var writes:   Seq[Set[AccessMatrix]], // All writes within this group
   var ctrls:    Set[Ctrl],              // Set of controllers these accesses are in
   var metapipe: Option[Ctrl],           // Controller if at least some accesses require n-buffering
   var banking:  Seq[Banking],           // Banking information
@@ -136,7 +136,12 @@ case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirr
 }
 
 @data object instanceOf {
-  def apply(mem: Exp[_]): Memory = metadata[Duplicates](mem).map(_.dups).get.head
+  def apply(mem: Exp[_]): Memory = metadata[Duplicates](mem).map(_.dups).get.headOption.getOrElse{
+    bug(mem.ctx, c"Memory $mem had no duplicates")
+    bug(mem.ctx)
+    null
+  }
+  def update(mem: Exp[_], dup: Memory): Unit = metadata.add(mem, Duplicates(Seq(dup)))
 }
 
 

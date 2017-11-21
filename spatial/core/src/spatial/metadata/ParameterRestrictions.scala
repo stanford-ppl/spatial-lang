@@ -58,8 +58,11 @@ case class REqualOrOne(ps: Seq[Param[Index]]) extends Restrict {
   override def toString = u"$ps equal or one"
 }
 
+sealed trait SpaceType
+case object Ordinal extends SpaceType { override def toString = "ordinal" }
+case object Categorical extends SpaceType { override def toString = "ordinal" } // TODO
 
-case class Domain[T](options: Seq[T], setter: (T,State) => Unit, getter: State => T) {
+case class Domain[T](name: String, options: Seq[T], setter: (T,State) => Unit, getter: State => T, tp: SpaceType) {
   def apply(i: Int): T = options(i)
   @stateful def value: T = getter(state)
   @stateful def set(i: Int): Unit = setter(options(i), state)
@@ -68,7 +71,7 @@ case class Domain[T](options: Seq[T], setter: (T,State) => Unit, getter: State =
 
   @stateful def filter(cond: State => Boolean): Domain[T] = {
     val values = options.filter{i => setter(i, state); cond(state) }
-    new Domain[T](values, setter, getter)
+    new Domain[T](name, values, setter, getter, tp)
   }
 
   override def toString: String = {
@@ -76,17 +79,17 @@ case class Domain[T](options: Seq[T], setter: (T,State) => Unit, getter: State =
     else "Domain(" + options.take(10).mkString(", ") + "... [" + (len-10) + " more])"
   }
 
-  @stateful def filter(cond: => Boolean) = new Domain(options.filter{t => setValue(t); cond}, setter, getter)
+  @stateful def filter(cond: => Boolean) = new Domain(name, options.filter{t => setValue(t); cond}, setter, getter, tp)
 }
 object Domain {
-  def apply(range: Range, setter: (Int,State) => Unit, getter: State => Int): Domain[Int] = {
+  def apply(name: String, range: Range, setter: (Int,State) => Unit, getter: State => Int, tp: SpaceType): Domain[Int] = {
     if (range.start % range.step != 0) {
       val start = range.step*(range.start/range.step + 1)
-      new Domain[Int]((start to range.end by range.step) :+ range.start, setter, getter)
+      new Domain[Int](name, (start to range.end by range.step) :+ range.start, setter, getter, tp)
     }
-    else new Domain[Int](range, setter, getter)
+    else new Domain[Int](name, range, setter, getter, tp)
   }
-  @stateful def restricted(range: Range, setter: (Int,State) => Unit, getter: State => Int, cond: State => Boolean): Domain[Int] = {
+  @stateful def restricted(name: String, range: Range, setter: (Int,State) => Unit, getter: State => Int, cond: State => Boolean, tp: SpaceType): Domain[Int] = {
     val (start, first) = if (range.start % range.step != 0) {
       val start = range.step*((range.start/range.step) + 1)
       setter(range.start, state)
@@ -96,7 +99,7 @@ object Domain {
     else (range.start, None)
 
     val values = (start to range.end by range.step).filter{i => setter(i, state); cond(state) } ++ first
-    new Domain[Int](values, setter, getter)
+    new Domain[Int](name, values, setter, getter, tp)
   }
 }
 

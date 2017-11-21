@@ -26,9 +26,23 @@ trait ControllerUnrolling extends UnrollingBase {
     case e:OpForeach        => unrollForeachNode(lhs, e)
     case e:OpReduce[_]      => unrollReduceNode(lhs, e)
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
+    case e:Hwblock          => unrollAccel(lhs,e)
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
+
+  def unrollAccel[T](lhs: Sym[T], rhs: Hwblock): Exp[T] = {
+    val lanes = UnitUnroller(isInnerControl(lhs))
+    val block = rhs.func
+    val block2 = stageSealedBlock {
+      mangleBlock(block, {stms => stms.foreach { stm => unroll(stm, lanes) } })
+      lanes.map{_ => f(block.result) }.head // List of duplicates for the original result of this block
+    }
+    val effects = block2.effects
+    val lhs2 = stageEffectful(Hwblock(block2,rhs.isForever), effects)(ctx)
+    transferMetadata(lhs -> lhs2)
+    lhs2.asInstanceOf[Exp[T]]
+  }
 
   /**
     * Duplicate the given switch based on the lanes Unroller instance

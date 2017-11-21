@@ -365,6 +365,9 @@ trait LatencyModel {
     case FixRandom(_) => model("FixRandom")()("LatencyOf").toLong  // TODO: This is synthesizable now?
     case FltRandom(_) => model("FltRandom")()("LatencyOf").toLong  // TODO: This is synthesizable now?
 
+    case _:Char2Int => 0
+    case _:StateMachine[_] => 0
+
     case _ =>
       miss(u"${d.getClass} (rule)")
       0

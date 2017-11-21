@@ -132,6 +132,10 @@ object RegFile {
 }
 
 case class RegFile1[T:Type:Bits](s: Exp[RegFile1[T]]) extends Template[RegFile1[T]] with RegFile[T] {
+  @api def length: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def size: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+
   /** Returns the value held by the register at address `i`. **/
   @api def apply(i: Index): T = wrap(RegFile.load(s, Seq(i.s), Bit.const(true)))
   /** Updates the register at address `i` to hold `data`. **/
@@ -162,6 +166,10 @@ object RegFile1 {
 }
 
 case class RegFile2[T:Type:Bits](s: Exp[RegFile2[T]]) extends Template[RegFile2[T]] with RegFile[T] {
+  @api def rows: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def cols: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
   /** Returns the value held by the register at row `r`, column `c`. **/
   @api def apply(r: Index, c: Index): T = wrap(RegFile.load(s, Seq(r.s, c.s), Bit.const(true)))
   /** Updates the register at row `r`, column `c` to hold the given `data`. **/
@@ -188,6 +196,10 @@ object RegFile2 {
 }
 
 case class RegFile3[T:Type:Bits](s: Exp[RegFile3[T]]) extends Template[RegFile3[T]] with RegFile[T] {
+  @api def dim0: Index = wrap(stagedDimsOf(s).apply(0))
+  @api def dim1: Index = wrap(stagedDimsOf(s).apply(1))
+  @api def dim2: Index = wrap(stagedDimsOf(s).apply(2))
+
   /** Returns the value held by the register at the given 3-dimensional address. **/
   @api def apply(dim0: Index, dim1: Index, dim2: Index): T = wrap(RegFile.load(s, Seq(dim0.s, dim1.s, dim2.s), Bit.const(true)))
   /** Updates the register at the given 3-dimensional address to hold the given `data`. **/
