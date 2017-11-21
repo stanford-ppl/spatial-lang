@@ -198,10 +198,11 @@ public:
   }
 
   virtual uint64_t malloc(size_t bytes) {
+    size_t safe_bytes = std::max(sizeof(size_t),bytes); // Hack in case malloc is size 0
     simCmd cmd;
     cmd.id = globalID++;
     cmd.cmd = MALLOC;
-    std::memcpy(cmd.data, &bytes, sizeof(size_t));
+    std::memcpy(cmd.data, &safe_bytes, sizeof(size_t));
     cmd.size = sizeof(size_t);
     cmdChannel->send(&cmd);
     simCmd *resp = recvResp();
@@ -227,15 +228,18 @@ public:
     data[0] = dst;
     data[1] = bytes;
     cmd.size = 2* sizeof(uint64_t);
-    cmdChannel->send(&cmd);
 
-    // Now send fixed 'bytes' from src
-    cmdChannel->sendFixedBytes(src, bytes);
+    if (src) {
+      cmdChannel->send(&cmd);
+  
+      // Now send fixed 'bytes' from src
+      cmdChannel->sendFixedBytes(src, bytes);
 
-    // Wait for ack
-    simCmd *resp = recvResp();
-    ASSERT(cmd.id == resp->id, "memcpy resp->id does not match cmd.id!");
-    ASSERT(cmd.cmd == resp->cmd, "memcpy resp->cmd does not match cmd.cmd!");
+      // Wait for ack
+      simCmd *resp = recvResp();
+      ASSERT(cmd.id == resp->id, "memcpy resp->id does not match cmd.id!");
+      ASSERT(cmd.cmd == resp->cmd, "memcpy resp->cmd does not match cmd.cmd!");      
+    }
   }
 
   virtual void memcpy(void *dst, uint64_t src, size_t bytes) {
@@ -246,10 +250,13 @@ public:
     data[0] = src;
     data[1] = bytes;
     cmd.size = 2* sizeof(uint64_t);
-    cmdChannel->send(&cmd);
 
-    // Now receive fixed 'bytes' from src
-    respChannel->recvFixedBytes(dst, bytes);
+    if (dst) {
+      cmdChannel->send(&cmd);
+
+      // Now receive fixed 'bytes' from src
+      respChannel->recvFixedBytes(dst, bytes);      
+    }
   }
 
   void connect() {
