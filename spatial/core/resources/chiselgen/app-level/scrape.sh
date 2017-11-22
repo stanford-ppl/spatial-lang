@@ -7,7 +7,7 @@
 if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
 elif [[ $1 = "ZCU" ]]; then
-	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
+	REGRESSION_HOME="/home/mattfel/regression/synth/zcu"
 elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/aws"
 fi

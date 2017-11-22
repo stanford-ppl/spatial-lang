@@ -275,7 +275,7 @@ public:
         dumpAllRegs();
         if (endTime - startTime > timeout * 1000) {
           timed_out = 1;
-          fprintf(stderr, "TIMEOUT, %lf seconds elapsed..", (endTime - startTime) / 1000 );
+          fprintf(stderr, "TIMEOUT, %lf seconds elapsed..\n", (endTime - startTime) / 1000 );
           break;
         }
       }
