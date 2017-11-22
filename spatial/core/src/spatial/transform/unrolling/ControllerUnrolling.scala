@@ -18,6 +18,8 @@ trait ControllerUnrolling extends UnrollingBase {
     case e: OpForeach        => duplicateController(lhs,rhs,lanes){ unrollForeachNode(lhs, e) }
     case e: OpReduce[_]      => duplicateController(lhs,rhs,lanes){ unrollReduceNode(lhs, e) }
     case e: OpMemReduce[_,_] => duplicateController(lhs,rhs,lanes){ unrollMemReduceNode(lhs, e) }
+    case e: UnitPipe         => duplicateController(lhs,rhs,lanes){ unrollUnit(lhs, e) }
+    case e: ParallelPipe     => duplicateController(lhs,rhs,lanes){ unrollParallel(lhs, e) }
     case _ if isControlNode(lhs) => duplicateController(lhs,rhs,lanes){ cloneOp(lhs, rhs) }
     case _ => super.unroll(lhs, rhs, lanes)
   }
@@ -27,6 +29,7 @@ trait ControllerUnrolling extends UnrollingBase {
     case e:OpReduce[_]      => unrollReduceNode(lhs, e)
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
     case e:Hwblock          => unrollAccel(lhs,e)
+    case e:UnitPipe         => unrollUnit(lhs,e)
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
@@ -40,6 +43,34 @@ trait ControllerUnrolling extends UnrollingBase {
     }
     val effects = block2.effects
     val lhs2 = stageEffectful(Hwblock(block2,rhs.isForever), effects)(ctx)
+    transferMetadata(lhs -> lhs2)
+    lhs2.asInstanceOf[Exp[T]]
+  }
+
+  def unrollUnit[T](lhs: Sym[T], rhs: UnitPipe): Exp[T] = {
+    val lanes = UnitUnroller(isInnerControl(lhs))
+    val block = rhs.func
+    val block2 = stageSealedBlock {
+      mangleBlock(block, {stms => stms.foreach { stm => unroll(stm, lanes) } })
+      lanes.map{_ => f(block.result) }.head // List of duplicates for the original result of this block
+    }
+    val en = globalValids
+    val effects = block2.effects
+    val lhs2 = stageEffectful(UnitPipe(en,block2), effects)(ctx)
+    transferMetadata(lhs -> lhs2)
+    lhs2.asInstanceOf[Exp[T]]
+  }
+
+  def unrollParallel[T](lhs: Sym[T], rhs: ParallelPipe): Exp[T] = {
+    val lanes = UnitUnroller(isInnerControl(lhs))
+    val block = rhs.func
+    val block2 = stageSealedBlock {
+      mangleBlock(block, {stms => stms.foreach { stm => unroll(stm, lanes) } })
+      lanes.map{_ => f(block.result) }.head // List of duplicates for the original result of this block
+    }
+    val en = globalValids
+    val effects = block2.effects
+    val lhs2 = stageEffectful(ParallelPipe(en,block2), effects)(ctx)
     transferMetadata(lhs -> lhs2)
     lhs2.asInstanceOf[Exp[T]]
   }

@@ -14,9 +14,25 @@ trait DotGenSRAM extends DotCodegen with DotGenReg {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@SRAMNew(dimensions)       => emitVert(lhs)
-    case SRAMLoad(sram, addr,en)      => emitMemRead(lhs)
-    case SRAMStore(sram,data,addr,en) => emitMemWrite(lhs)
+    case SRAMNew(_) => emitVert(lhs)
+
+    case BankedSRAMLoad(sram, bank, ofs, ens) =>
+      if (config.dotDetail == 0) emitMemRead(lhs) else {
+        emitVert(lhs)
+        emitEdge(sram, lhs)
+        bank.foreach{ind => ind.foreach{ a => emitEdge(a, sram) }}
+        ofs.foreach{o => emitEdge(o, sram) }
+        ens.foreach{a => emitEn(a,lhs) }
+      }
+
+    case BankedSRAMStore(sram,data,bank,ofs,ens) =>
+      if (config.dotDetail == 0) emitMemWrite(lhs) else {
+        data.foreach{ a => emitVert(a); emitEdge(a, sram)}
+        ens.foreach{ a => emitVert(a); emitEn(a, sram)}
+        bank.foreach{ind => ind.foreach{ a => emitEdge(a, sram) }}
+        ofs.foreach{o => emitEdge(o,sram) }
+      }
+
     case _ => super.emitNode(lhs, rhs)
   }
 

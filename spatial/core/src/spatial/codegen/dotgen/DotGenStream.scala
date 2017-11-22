@@ -10,16 +10,28 @@ import spatial.utils._
 trait DotGenStream extends DotCodegen with DotGenReg {
 
   override def attr(n:Exp[_]) = n match {
-    case n if isStreamIn(n) => super.attr(n).shape(box).style(filled).color(gold)
-    case n if isStreamOut(n) => super.attr(n).shape(box).style(filled).color(gold)
-    case n => super.attr(n)
+    case _ if isStreamIn(n) => super.attr(n).shape(box).style(filled).color(gold)
+    case _ if isStreamOut(n) => super.attr(n).shape(box).style(filled).color(gold)
+    case _ => super.attr(n)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case StreamInNew(bus) if fringeOf(lhs).nonEmpty => emitVert(lhs)
-    case StreamOutNew(bus) if fringeOf(lhs).nonEmpty => emitVert(lhs)
-    case StreamRead(stream, en) => if (config.dotDetail > 0) {emitVert(lhs); emitEdge(stream,lhs); emitEn(en,lhs)} else {emitMemRead(lhs)}
-    case StreamWrite(stream, data, en) => if (config.dotDetail > 0) {emitEdge(data,stream); emitEn(en,stream)} else {emitMemWrite(lhs)}
+    case StreamInNew(_) if fringeOf(lhs).nonEmpty => emitVert(lhs)
+    case StreamOutNew(_) if fringeOf(lhs).nonEmpty => emitVert(lhs)
+
+    case BankedStreamRead(strm, ens) =>
+      if (config.dotDetail == 0) emitMemRead(lhs) else {
+        emitVert(lhs)
+        emitEdge(strm, lhs)
+        ens.foreach{emitEn(_,strm)}
+      }
+
+    case BankedStreamWrite(strm, data, ens) =>
+      if (config.dotDetail == 0) emitMemWrite(lhs) else {
+        data.foreach{emitEdge(_, strm)}
+        ens.foreach{emitEn(_,strm)}
+      }
+
     case _ => super.emitNode(lhs, rhs)
   }
 

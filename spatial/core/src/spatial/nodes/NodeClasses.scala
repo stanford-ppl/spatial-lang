@@ -61,44 +61,48 @@ trait VectorAccess[T] extends EnabledAccess[T] { this: Op[T] =>
 
 trait StreamAccess[T] extends EnabledAccess[T] { this: Op[T] => }
 
-trait Reader[T] extends EnabledAccess[T] { this: Op[T] =>
+trait Reader[T,R] extends EnabledAccess[R] { this: Op[R] =>
   def localReads: Seq[LocalRead]
   override def enables: Seq[Exp[Bit]] = localReads.flatMap(_.en)
+  val mT: Type[T]
+  val bT: Bits[T]
 }
 object Reader {
   @stateful def unapply(x: Exp[_]): Option[Seq[LocalRead]] = getDef(x).flatMap(Reader.unapply)
   def unapply(d: Def): Option[Seq[LocalRead]] = d match {
-    case reader: Reader[_] if reader.localReads.nonEmpty => Some(reader.localReads)
+    case reader: Reader[_,_] if reader.localReads.nonEmpty => Some(reader.localReads)
     case _ => None
   }
 }
 
-trait Writer[T] extends EnabledAccess[T] { this: Op[T] =>
+trait Writer[T,R] extends EnabledAccess[R] { this: Op[R] =>
   def localWrites: Seq[LocalWrite]
   override def enables: Seq[Exp[Bit]] = localWrites.flatMap(_.en)
+  val mT: Type[T]
+  val bT: Bits[T]
 }
 object Writer {
   @stateful def unapply(x: Exp[_]): Option[Seq[LocalWrite]] = getDef(x).flatMap(Writer.unapply)
   def unapply(d: Def): Option[Seq[LocalWrite]] = d match {
-    case writer: Writer[_] if writer.localWrites.nonEmpty => Some(writer.localWrites)
+    case writer: Writer[_,_] if writer.localWrites.nonEmpty => Some(writer.localWrites)
     case _ => None
   }
 }
 
-trait VectorReader[T] extends Reader[T] with VectorAccess[T] { this: Op[T] => }
+trait VectorReader[T,R] extends Reader[T,R] with VectorAccess[R] { this: Op[R] => }
 object VectorReader {
   @stateful def unapply(x: Exp[_]): Option[Seq[LocalRead]] = getDef(x).flatMap(VectorReader.unapply)
   def unapply(d: Def): Option[Seq[LocalRead]] = d match {
-    case reader: VectorReader[_] if reader.localReads.nonEmpty => Some(reader.localReads)
+    case reader: VectorReader[_,_] if reader.localReads.nonEmpty => Some(reader.localReads)
     case _ => None
   }
 }
 
-trait VectorWriter[T] extends Writer[T] with VectorAccess[T] { this: Op[T] => }
+trait VectorWriter[T,R] extends Writer[T,R] with VectorAccess[R] { this: Op[R] => }
 object VectorWriter {
   @stateful def unapply(x: Exp[_]): Option[Seq[LocalWrite]] = getDef(x).flatMap(VectorWriter.unapply)
   def unapply(d: Def): Option[Seq[LocalWrite]] = d match {
-    case writer: VectorWriter[_] if writer.localWrites.nonEmpty => Some(writer.localWrites)
+    case writer: VectorWriter[_,_] if writer.localWrites.nonEmpty => Some(writer.localWrites)
     case _ => None
   }
 }
@@ -115,20 +119,20 @@ object StatusReader {
   }
 }
 
-trait DequeueLike[T] extends Reader[T] with StreamAccess[T] { this: Op[T] => }
+trait DequeueLike[T,R] extends Reader[T,R] with StreamAccess[R] { this: Op[R] => }
 object DequeueLike {
   @stateful def unapply(x: Exp[_]): Option[Seq[LocalRead]] = getDef(x).flatMap(DequeueLike.unapply)
   def unapply(d: Def): Option[Seq[LocalRead]] = d match {
-    case reader: DequeueLike[_] if reader.localReads.nonEmpty => Some(reader.localReads)
+    case reader: DequeueLike[_,_] if reader.localReads.nonEmpty => Some(reader.localReads)
     case _ => None
   }
 }
 
-trait EnqueueLike[T] extends Writer[T] with StreamAccess[T] { this: Op[T] => }
+trait EnqueueLike[T,R] extends Writer[T,R] with StreamAccess[R] { this: Op[R] => }
 object EnqueueLike {
   @stateful def unapply(x: Exp[_]): Option[Seq[LocalWrite]] = getDef(x).flatMap(EnqueueLike.unapply)
   def unapply(d: Def): Option[Seq[LocalWrite]] = d match {
-    case reader: EnqueueLike[_] if reader.localWrites.nonEmpty => Some(reader.localWrites)
+    case reader: EnqueueLike[_,_] if reader.localWrites.nonEmpty => Some(reader.localWrites)
     case _ => None
   }
 }
@@ -167,7 +171,7 @@ abstract class ReaderOp[T:Type:Bits,R:Type:Bits](
   mem:  Exp[_],
   addr: Seq[Exp[Index]] = null,
   en:   Exp[Bit] = null
-) extends Op[R] with Reader[R] {
+) extends Op[R] with Reader[T,R] {
   final override def localReads: Seq[LocalRead] = LocalRead(mem,addr,en)
   val mT = typ[T]
   val bT = bits[T]
@@ -178,7 +182,7 @@ abstract class WriterOp[T:Type:Bits](
   data: Exp[_] = null,
   addr: Seq[Exp[Index]] = null,
   en:   Exp[Bit] = null
-) extends Op[MUnit] with Writer[MUnit] {
+) extends Op[MUnit] with Writer[T,MUnit] {
   final override def localWrites: Seq[LocalWrite] = LocalWrite(mem,data,addr,en)
   val mT = typ[T]
   val bT = bits[T]
@@ -191,7 +195,7 @@ abstract class VectorReaderOp[T:Type:Bits](
   en:   Exp[Bit] = null,
   ax:   Int,                      // Dimension of vector read (e.g. for 2D, 0 = row slice, 1 = col slice)
   len:  Int                       // Length of vector slice
-)(implicit vT: Type[VectorN[T]]) extends Op[VectorN[T]] with VectorReader[VectorN[T]] {
+)(implicit vT: Type[VectorN[T]]) extends Op[VectorN[T]] with VectorReader[T,VectorN[T]] {
   final override def localReads: Seq[LocalRead] = LocalRead(mem, addr, en)
   override def accessWidth: Int = len
   val mT = typ[T]
@@ -207,7 +211,7 @@ abstract class VectorWriterOp[T:Type:Bits](
   en:   Exp[Bit] = null,
   ax:   Int,
   len:  Int
-) extends Op[MUnit] with VectorWriter[MUnit] {
+) extends Op[MUnit] with VectorWriter[T,MUnit] {
   final override def localWrites: Seq[LocalWrite] = LocalWrite(mem,data,addr,en)
   override def accessWidth: Int = len
   val mT = typ[T]
@@ -220,7 +224,7 @@ abstract class DequeueLikeOp[T:Type:Bits,R:Type:Bits](
   mem:  Exp[_],
   addr: Seq[Exp[Index]] = null,
   en:   Exp[Bit] = null
-) extends Op[R] with DequeueLike[R] {
+) extends Op[R] with DequeueLike[T,R] {
   final override def localReads: Seq[LocalRead] = LocalRead(mem,addr,en)
   val mT = typ[T]
   val bT = bits[T]
@@ -232,7 +236,7 @@ abstract class EnqueueLikeOp[T:Type:Bits](
   data: Exp[T],
   addr: Seq[Exp[Index]] = null,
   en:   Exp[Bit] = null
-) extends Op[MUnit] with EnqueueLike[MUnit] {
+) extends Op[MUnit] with EnqueueLike[T,MUnit] {
   final override def localWrites: Seq[LocalWrite] = LocalWrite(mem,data,addr,en)
   val mT = typ[T]
   val bT = bits[T]
@@ -245,7 +249,7 @@ abstract class VectorEnqueueLikeOp[T:Type:Bits](
   addr: Seq[Exp[Index]] = null,
   en:   Exp[Bit] = null,
   ax:   Int
-) extends Op[MUnit] with EnqueueLike[MUnit] with VectorWriter[MUnit] {
+) extends Op[MUnit] with EnqueueLike[T,MUnit] with VectorWriter[T,MUnit] {
   final override def localWrites: Seq[LocalWrite] = LocalWrite(mem,data,addr,en)
   val mT = typ[T]
   val bT = bits[T]
@@ -271,7 +275,7 @@ abstract class ResetterOp(
 
 
 /** Banked primitive nodes **/
-trait BankedReader[T] extends EnabledAccess[T] with Reader[T] { this: Op[T] =>
+trait BankedReader[T,R] extends EnabledAccess[R] with Reader[T,R] { this: Op[R] =>
   def bankedReads: Seq[BankedRead]
   final def localReads: Seq[LocalRead] = bankedReads.flatMap{read => LocalRead(read.mem) }
   override def accessWidth: Int = enables.length
@@ -281,13 +285,13 @@ trait BankedReader[T] extends EnabledAccess[T] with Reader[T] { this: Op[T] =>
 object BankedReader {
   @stateful def unapply(x: Exp[_]): Option[Seq[BankedRead]] = getDef(x).flatMap(BankedReader.unapply)
   def unapply(d: Def): Option[Seq[BankedRead]] = d match {
-    case reader: BankedReader[_] if reader.bankedReads.nonEmpty => Some(reader.bankedReads)
+    case reader: BankedReader[_,_] if reader.bankedReads.nonEmpty => Some(reader.bankedReads)
     case _ => None
   }
 }
 
 
-trait BankedWriter[T] extends EnabledAccess[T] with Writer[T] { this: Op[T] =>
+trait BankedWriter[T,R] extends EnabledAccess[R] with Writer[T,R] { this: Op[R] =>
   def bankedWrites: Seq[BankedWrite]
   final def localWrites: Seq[LocalWrite] = bankedWrites.flatMap{write => LocalWrite(write.mem) }
   override def accessWidth: Int = enables.length
@@ -297,31 +301,31 @@ trait BankedWriter[T] extends EnabledAccess[T] with Writer[T] { this: Op[T] =>
 object BankedWriter {
   @stateful def unapply(x: Exp[_]): Option[Seq[BankedWrite]] = getDef(x).flatMap(BankedWriter.unapply)
   def unapply(d: Def): Option[Seq[BankedWrite]] = d match {
-    case writer: BankedWriter[_] if writer.bankedWrites.nonEmpty => Some(writer.bankedWrites)
+    case writer: BankedWriter[_,_] if writer.bankedWrites.nonEmpty => Some(writer.bankedWrites)
     case _ => None
   }
 }
 
-trait BankedDequeueLike[T] extends BankedReader[T] with StreamAccess[T] { this: Op[T] =>
+trait BankedDequeueLike[T,R] extends BankedReader[T,R] with StreamAccess[R] { this: Op[R] =>
   def bankedReads: Seq[BankedRead]
   override def enables: Seq[Exp[Bit]] = bankedReads.flatMap(_.ens.getOrElse(Nil))
 }
 object BankedDequeueLike {
   @stateful def unapply(x: Exp[_]): Option[Seq[BankedRead]] = getDef(x).flatMap(BankedDequeueLike.unapply)
   def unapply(d: Def): Option[Seq[BankedRead]] = d match {
-    case reader: BankedDequeueLike[_] if reader.bankedReads.nonEmpty => Some(reader.bankedReads)
+    case reader: BankedDequeueLike[_,_] if reader.bankedReads.nonEmpty => Some(reader.bankedReads)
     case _ => None
   }
 }
 
-trait BankedEnqueueLike[T] extends BankedWriter[T] with StreamAccess[T] { this: Op[T] =>
+trait BankedEnqueueLike[T,R] extends BankedWriter[T,R] with StreamAccess[R] { this: Op[R] =>
   def bankedWrites: Seq[BankedWrite]
   override def enables: Seq[Exp[Bit]] = bankedWrites.flatMap(_.ens.getOrElse(Nil))
 }
 object BankedEnqueueLike {
   @stateful def unapply(x: Exp[_]): Option[Seq[BankedWrite]] = getDef(x).flatMap(BankedEnqueueLike.unapply)
   def unapply(d: Def): Option[Seq[BankedWrite]] = d match {
-    case writer: BankedEnqueueLike[_] if writer.bankedWrites.nonEmpty => Some(writer.bankedWrites)
+    case writer: BankedEnqueueLike[_,_] if writer.bankedWrites.nonEmpty => Some(writer.bankedWrites)
     case _ => None
   }
 }
@@ -332,7 +336,7 @@ abstract class BankedReaderOp[T:Type:Bits](
   bank: Seq[Seq[Exp[Index]]] = null,
   addr: Seq[Exp[Index]] = null,
   ens:  Seq[Exp[Bit]] = null
-)(implicit vT: Type[VectorN[T]]) extends Op[VectorN[T]] with BankedReader[VectorN[T]] {
+)(implicit vT: Type[VectorN[T]]) extends Op[VectorN[T]] with BankedReader[T,VectorN[T]] {
   final override def bankedReads: Seq[BankedRead] = BankedRead(mem, bank, addr, ens)
   val mT = typ[T]
   val bT = bits[T]
@@ -343,7 +347,7 @@ abstract class BankedWriterOp[T:Type:Bits](
   bank: Seq[Seq[Exp[Index]]] = null,
   addr: Seq[Exp[Index]] = null,
   ens:  Seq[Exp[Bit]] = null
-) extends Op[MUnit] with BankedWriter[MUnit] {
+) extends Op[MUnit] with BankedWriter[T,MUnit] {
   final override def bankedWrites: Seq[BankedWrite] = BankedWrite(mem, data, bank, addr, ens)
   val mT = typ[T]
   val bT = bits[T]
@@ -353,7 +357,7 @@ abstract class BankedDequeueLikeOp[T:Type:Bits](
   bank: Seq[Seq[Exp[Index]]] = null,
   addr: Seq[Exp[Index]] = null,
   ens:  Seq[Exp[Bit]] = null
-)(implicit vT: Type[VectorN[T]]) extends Op[VectorN[T]] with BankedDequeueLike[VectorN[T]] {
+)(implicit vT: Type[VectorN[T]]) extends Op[VectorN[T]] with BankedDequeueLike[T,VectorN[T]] {
   final override def bankedReads: Seq[BankedRead] = BankedRead(mem, bank, addr, ens)
   val mT = typ[T]
   val bT = bits[T]
@@ -364,7 +368,7 @@ abstract class BankedEnqueueLikeOp[T:Type:Bits](
   bank: Seq[Seq[Exp[Index]]] = null,
   addr: Seq[Exp[Index]] = null,
   ens:  Seq[Exp[Bit]] = null
-) extends Op[MUnit] with BankedEnqueueLike[MUnit] {
+) extends Op[MUnit] with BankedEnqueueLike[T,MUnit] {
   final override def bankedWrites: Seq[BankedWrite] = BankedWrite(mem, data, bank, addr, ens)
   val mT = typ[T]
   val bT = bits[T]

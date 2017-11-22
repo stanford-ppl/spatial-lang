@@ -112,25 +112,21 @@ trait UnrollingBase extends ForwardTransformer {
       case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 
-    logs(c"Cloning $lhs = $rhs")
-    strMeta(lhs)
+    dbgs(c"Cloning $lhs = $rhs")
+    //strMeta(lhs)
 
     val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), lhs.ctx) }
 
-    /*if (isAccess(lhs) && isNew && inHwScope) {
-      registerAccess(lhs -> lhs2)
-    }*/
-
     if (isNew) cloneFuncs.foreach{func => func(lhs2) }
-    logs(c"Created ${str(lhs2)}")
-    strMeta(lhs2)
+    dbgs(c"Created ${str(lhs2)}")
+    //strMeta(lhs2)
 
-    if (cloneFuncs.nonEmpty) {
+    /*if (cloneFuncs.nonEmpty) {
       dbgs(c"Cloning $lhs = $rhs")
       metadata.get(lhs).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
       dbgs(c"Created ${str(lhs2)}")
       metadata.get(lhs2).foreach{m => dbgs(c" - ${m._1}: ${m._2}") }
-    }
+    }*/
 
     lhs2
   }
@@ -223,7 +219,7 @@ trait UnrollingBase extends ForwardTransformer {
       foreach{p => register(orig -> unrolled) }
       List(unrolled)
     }
-    def unifyLanes[T](lns: List[Int])(orig: Exp[T], unrolled: Exp[T]): List[Exp[T]] = {
+    def unifyLanes[T](lns: Seq[Int])(orig: Exp[T], unrolled: Exp[T]): List[Exp[T]] = {
       inLanes(lns){p => register(orig -> unrolled) }
       List(unrolled)
     }

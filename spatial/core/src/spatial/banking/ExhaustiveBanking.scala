@@ -46,19 +46,6 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     acc
   }
 
-  def isEmptyPolytope(matrix: String): Boolean = {
-    println("RUNNING ISL FOR POLYTOPE: ")
-    println(matrix)
-    dbg(s"Running ISL with input: ")
-    dbg(matrix)
-    val proc = Subproc("/isl/isl_polyhedron_sample"){(_,_) => None }
-    proc.send(matrix)
-    val lines = proc.blockAndReturnOut()
-    dbg("Got lines: ")
-    lines.foreach{line => dbg(line) }
-    lines.contains{"[]"}
-  }
-
   def checkCyclic(N: Int, alpha: Seq[Int], grp: Seq[AccessPair], dC: String): Boolean = checkConflicts(grp){(a0,a1,c0,c1) =>
     val row0_is = Array.tabulate(a0.cols){j => sum(a0.rows){i => alpha(i)*(a0(i,j) - a1(i,j))} }   // alpha*(A0 - A1)
     val row0_c  = sum(a0.rows){i => alpha(i)*(c0(i) - c1(i)) }                                     // alpha*(C0 - C1)
@@ -67,7 +54,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     //val row0 = Constraint(0, Vector(row0_is ++ Array(row0_K, row0_c)))  // Equality constraint ( = 0)
     val row0 = s"""0 ${row0_is.mkString(" ")} $row0_K $row0_c"""
     val mat = dC + row0
-    isEmptyPolytope(mat)
+    Polytope.isEmpty(mat)
   }
 
   def checkBlockCyclic(N: Int, B: Int, alpha: Seq[Int], grp: Seq[AccessPair], dBC: String): Boolean = checkConflicts(grp){(a0,a1,c0,c1) =>
@@ -98,7 +85,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     val mat = dBC + s"$row0\n$row1\n$row2\n$row3"
     //val row0 = Constraint(0, Vector(row0_is ++ Array(row0_K0, row0_K1, row0_c)))
     //val row1 = Constraint(0, Vector(row1_is ++ Array(row1_K0, row1_K1, row1_c)))
-    isEmptyPolytope(mat)
+    Polytope.isEmpty(mat)
   }
 
   /**

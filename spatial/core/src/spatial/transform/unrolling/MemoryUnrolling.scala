@@ -34,19 +34,33 @@ trait MemoryUnrolling extends UnrollingBase {
     case _ => addr.map{laneAddr => inst.bankOffset(mem, laneAddr) }
   }
 
-  def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean): List[(Exp[_], (List[Int],List[Int]))] = {
+  case class UnrollInstance(mem: Exp[_], dispatchIds: Seq[Int], laneIds: Seq[Int], muxIndex: Int)
+
+  /**
+    * Returns the instances required to unroll the given access
+    *
+    */
+  def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean): List[UnrollInstance] = {
+    // First, group by the instance each unrolled access is being dispatched to
     val is   = iteratorsBetween(ctrlOf(access), ctrlOf(mem))
-    val mems = lanes.map{p =>
+    val mems = lanes.map{laneId =>
       val id = is.map{i => unrollNum(i) }
-      val dispatch = dispatchOf((access,id),mem)
-      if (isLoad && dispatch.size > 1) {
-        bug(c"Readers should have exactly one dispatch, $access had ${dispatch.size}.")
+      val dispatches = dispatchOf((access,id),mem)
+      if (isLoad && dispatches.size > 1) {
+        bug(c"Readers should have exactly one dispatch, $access had ${dispatches.size}.")
         bug(access.ctx)
       }
-      dispatch.map{d => (memories((mem,d)), d, p) }
+      dispatches.map{dispatchId => (memories((mem,dispatchId)), dispatchId, laneId, id) }
     }.flatten
 
-    mems.groupBy(_._1).mapValues{vs => (vs.map(_._2), vs.map(_._3)) }.toList
+    val instances = mems.groupBy(_._1).toList
+
+    // Then, group by each time multiplex port each access is being dispatched to
+    instances.flatMap{case (mem2, vs) =>
+      vs.groupBy{v => val id = v._4; muxIndexOf(access,id,mem) }.toSeq.map{case (muxIndex,vs) =>
+        UnrollInstance(mem2, vs.map(_._2), vs.map(_._3), muxIndex)
+      }
+    }
   }
 
   sealed abstract class UnrolledAccess[T] { def s: Exp[_] }
@@ -106,50 +120,56 @@ trait MemoryUnrolling extends UnrollingBase {
 
     dbgs(s"Unrolling ${str(access)}"); strMeta(access)
 
-    mems.flatMap{case (mem2,(dps,lns)) =>
-      val ens   = en.map{e => lanes.inLanes(lns){_ => Bit.and(f(e),globalValid()) }}
+    mems.flatMap{case UnrollInstance(mem2,dispatchIds,laneIds,muxIndex) =>
+      dbgs(s"  Dispatch: $dispatchIds")
+      dbgs(s"  Lane IDs: $laneIds")
+      dbgs(s"  Mux Index: $muxIndex")
+
+      val ens   = en.map{e => lanes.inLanes(laneIds){_ => Bit.and(f(e),globalValid()) }}
       val inst  = instanceOf(mem2)
       val addrOpt = addr.map{a =>
-        val a2 = lanes.inLanes(lns){p => (f(a),p) }                   // lanes of ND addresses
+        val a2 = lanes.inLanes(laneIds){p => (f(a),p) }               // lanes of ND addresses
         val distinct = a2.groupBy(_._1).mapValues(_.map(_._2)).toSeq  // ND address -> lane IDs
         val addr: Seq[Seq[Exp[Index]]] = distinct.map(_._1)           // Vector of ND addresses
         val take: Seq[Int] = distinct.map(_._2.last)                  // Last index of each distinct address
         val mapping: Map[Int,Int] = distinct.zipWithIndex.flatMap{case (entry,aId) => entry._2.map{laneId => laneId -> aId }}.toMap
         (addr, take, mapping)
       }
-      val addr2   = addrOpt.map(_._1)                        // Vector of ND addresses
-      val take    = addrOpt.map(_._2).getOrElse(lns.indices) // List of lanes which do not require broadcast
-      val addrMap = addrOpt.map(_._3)                        // Lane -> vector ID
-      def vecLength: Int = addr2.map(_.length).getOrElse(lns.length)
-      def laneToVecAddr(lane: Int): Int = addrMap.map(_.apply(lane)).getOrElse(lns.indexOf(lane))
+      val addr2   = addrOpt.map(_._1)                            // Vector of ND addresses
+      val take    = addrOpt.map(_._2).getOrElse(laneIds.indices) // List of lanes which do not require broadcast
+      val addrMap = addrOpt.map(_._3)                            // Lane -> vector ID
+      def vecLength: Int = addr2.map(_.length).getOrElse(laneIds.length)
+      def laneToVecAddr(lane: Int): Int = addrMap.map(_.apply(lane)).getOrElse(laneIds.indexOf(lane))
+
+      dbgs(s"  Take: $take // Non-duplicated lane indices")
 
       // Writing two different values to the same address currently just writes the last value
-      // TODO: Fix for time multiplexed case. How to represent this?
       val data2 = data.map{d =>
-        val d2 = lanes.inLanes(lns){_ => f(d) }
-        take.map{t => d2(t) }
+        val d2 = lanes.inLanes(laneIds){_ => f(d) }
+        take.map{t => d2(laneToVecAddr(t)) }
       }
 
       val bank  = addr2.map{a => bankAddress(access,a,inst,lanes) }
       val ofs   = addr2.map{a => bankOffset(mem,access,a,inst,lanes) }
-      val ports = dps.flatMap{d => portsOf(access, mem, d) }.toSet
+      val ports = dispatchIds.flatMap{d => portsOf(access, mem, d) }.toSet
 
       val banked = bankedAccess[T](access, mem2, data2.asInstanceOf[Option[Seq[Exp[T]]]], bank, ofs, ens)
 
       portsOf(banked.s,mem2,0) = ports
+      muxIndexOf(banked.s,Seq(0),mem2) = muxIndex
 
       dbgs(s"  ${str(banked.s)}"); strMeta(banked.s)
 
       banked match{
         case Vec(vec) =>
           val elems = take.indices.map{i => Vector.select[T](vec, i) }
-          lanes.inLanes(lns){p =>
+          lanes.inLanes(laneIds){p =>
             val elem = elems(laneToVecAddr(p))
             register(access -> elem)
             elem
           }
-        case Read(v)      => lanes.unifyLanes(lns)(access,v)
-        case Write(write) => lanes.unifyLanes(lns)(access,write)
+        case Read(v)      => lanes.unifyLanes(laneIds)(access,v)
+        case Write(write) => lanes.unifyLanes(laneIds)(access,write)
       }
     }
   }
@@ -231,6 +251,9 @@ trait MemoryUnrolling extends UnrollingBase {
     case _:RegNew[_]        => unrollMemory(lhs,lanes) // TODO: Should we explicitly duplicate Regs?
     case _:RegFileNew[_,_]  => unrollMemory(lhs,lanes)
     case _:SRAMNew[_,_]     => unrollMemory(lhs,lanes)
+    case _:StreamInNew[_]    => lanes.unify(lhs,unrollGlobalMemory(lhs,rhs))
+    case _:StreamOutNew[_]   => lanes.unify(lhs,unrollGlobalMemory(lhs,rhs))
+    case _:BufferedOutNew[_] => lanes.unify(lhs,unrollGlobalMemory(lhs,rhs))
 
     // LineBuffer RotateEnq is special
     case op@LineBufferRotateEnq(lb,data,en,row) => unrollAccess(lhs,lb,Some(data),Some(Seq(row)),Some(en),lanes)(op.mT,op.bT,ctx)
@@ -238,11 +261,11 @@ trait MemoryUnrolling extends UnrollingBase {
     case StatusReader(mem)   => unrollStatus(lhs,rhs,mem,lanes)
     case Resetter((mem,_)) => unrollResetMemory(lhs,rhs,mem,lanes)
 
-    case op:ReaderOp[_,_] if op.localReads.length == 1 =>
+    case op:Reader[_,_] if op.localReads.length == 1 =>
       val (mem,addr,en) = op.localReads.head
       unrollAccess(lhs,mem,None,addr,en,lanes)(op.mT,op.bT,ctx)
 
-    case op:WriterOp[_] if op.localWrites.length == 1 =>
+    case op:Writer[_,_] if op.localWrites.length == 1 =>
       val (mem,data,addr,en) = op.localWrites.head
       unrollAccess(lhs,mem,data,addr,en,lanes)(mtyp(op.mT),mbits(op.bT),ctx)
 

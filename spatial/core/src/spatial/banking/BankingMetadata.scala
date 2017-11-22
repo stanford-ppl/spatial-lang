@@ -7,7 +7,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.utils._
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable
 
 object Affine {
   def unapply(pattern: IndexPattern): Option[(Array[Int], Seq[Exp[Index]], Int)] = pattern match {
@@ -75,8 +75,8 @@ case class InstanceGroup(
   * Used internally in memory analysis to track finalized results
   */
 case class MemoryInstance(
-  reads:    Set[UnrolledAccess],           // All reads within this group
-  writes:   Set[UnrolledAccess],           // All writes within this group
+  reads:    Seq[Set[UnrolledAccess]],      // All reads within this group
+  writes:   Seq[Set[UnrolledAccess]],      // All writes within this group
   metapipe: Option[Ctrl],                  // Controller if at least some accesses require n-buffering
   banking:  Seq[Banking],                  // Banking information
   depth:    Int,                           // Depth of n-buffer
@@ -148,23 +148,23 @@ case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirr
 /**
   * Metadata for determining which memory duplicate(s) an access should connect to.
   */
-case class AccessDispatch(mapping: HashMap[Exp[_], HashMap[Seq[Int],Set[Int]]]) extends Metadata[AccessDispatch] {
+case class AccessDispatch(mapping: mutable.HashMap[Exp[_], mutable.HashMap[Seq[Int],Set[Int]]]) extends Metadata[AccessDispatch] {
   def mirror(f:Tx) = AccessDispatch(mapping.map{case (mem,idxs) => f(mem) -> idxs })
 }
 @data object dispatchOf {
-  private def getOrAdd(access: Exp[_]): HashMap[Exp[_],HashMap[Seq[Int],Set[Int]]] = {
+  private def getOrAdd(access: Exp[_]): mutable.HashMap[Exp[_],mutable.HashMap[Seq[Int],Set[Int]]] = {
     metadata[AccessDispatch](access).map(_.mapping) match {
       case Some(map) => map
       case None =>
-        val map = HashMap.empty[Exp[_],HashMap[Seq[Int],Set[Int]]]
+        val map = mutable.HashMap.empty[Exp[_],mutable.HashMap[Seq[Int],Set[Int]]]
         metadata.add(access, AccessDispatch(map))
         map
     }
   }
-  private def getOrAdd(access: Exp[_], mem: Exp[_]): HashMap[Seq[Int],Set[Int]] = {
+  private def getOrAdd(access: Exp[_], mem: Exp[_]): mutable.HashMap[Seq[Int],Set[Int]] = {
     val map = getOrAdd(access)
     if (map.contains(mem)) map(mem) else {
-      val innerMap = HashMap.empty[Seq[Int],Set[Int]]
+      val innerMap = mutable.HashMap.empty[Seq[Int],Set[Int]]
       map += mem -> innerMap
       innerMap
     }
@@ -255,6 +255,32 @@ case class PortIndex(mapping: Map[Exp[_], Map[Int, Set[Int]]]) extends Metadata[
     case None =>
       metadata.add(access, PortIndex(Map(mem -> ports)))
   }
+}
+
+case class MultiplexIndex(mapping: mutable.Map[(Exp[_],Seq[Int]), Int]) extends Metadata[MultiplexIndex] {
+  def mirror(f:Tx) = MultiplexIndex(mapping.map{case ((mem,id),idx) => (f(mem),id) -> idx })
+}
+@data object muxIndexOf {
+  private def get(access: Exp[_]): Option[mutable.Map[(Exp[_],Seq[Int]), Int]] = metadata[MultiplexIndex](access).map(_.mapping)
+  private def getOrElseAdd(access: Exp[_]): mutable.Map[(Exp[_],Seq[Int]),Int] = get(access) match {
+    case None =>
+      val newMap = mutable.HashMap.empty[(Exp[_],Seq[Int]),Int]
+      metadata.add(access, MultiplexIndex(newMap))
+      newMap
+    case Some(map) => map
+  }
+
+  def apply(access: Exp[_], id: Seq[Int], mem: Exp[_]): Int = get(access).flatMap(_.get((mem,id))).getOrElse(0)
+  def update(access: Exp[_], id: Seq[Int], mem: Exp[_], idx: Int): Unit = {
+    getOrElseAdd(access) += ((mem,id) -> idx)
+  }
+  def getMem(access: Exp[_], mem: Exp[_]): Seq[Int] = get(access) match {
+    case None      => Nil
+    case Some(map) => map.keys.filter(_._1 == mem).map{k => map(k) }.toSeq
+  }
+
+  def apply(access: UnrolledAccess, mem: Exp[_]): Int = apply(access.node, access.id, mem)
+  def update(access: UnrolledAccess, mem: Exp[_], idx: Int): Unit = update(access.node, access.id, mem, idx)
 }
 
 

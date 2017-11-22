@@ -3,6 +3,7 @@ package spatial.analysis
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import spatial.banking.muxIndexOf
 import spatial.metadata._
 import spatial.models.LatencyModel
 import spatial.nodes._
@@ -10,7 +11,19 @@ import spatial.utils._
 
 import scala.collection.mutable
 
-case class Cycle(reader: Exp[_], writer: Exp[_], memory: Exp[_], symbols: Set[Exp[_]], length: Long)
+abstract class Cycle {
+  def length: Long
+  def symbols: Set[Exp[_]]
+}
+
+/** Write-after-read (WAR) cycle: Standard read-accumulate loop. **/
+case class WARCycle(reader: Exp[_], writer: Exp[_], memory: Exp[_], symbols: Set[Exp[_]], length: Long) extends Cycle
+
+/** Access-after-access (AAA) cycle: Time-multiplexed writes. **/
+case class AAACycle(accesses: Set[Exp[_]], memory: Exp[_], length: Long) extends Cycle {
+  def symbols = accesses
+}
+
 
 trait ModelingTraversal extends SpatialTraversal { traversal =>
   val latencyModel: LatencyModel
@@ -46,8 +59,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   def latencyAndInterval(block: Block[_], verbose: Boolean = true): (Long, Long) = {
     val (latencies, cycles) = latenciesAndCycles(block, verbose = verbose)
     val scope = latencies.keySet
-    val latency = latencies.values.fold(0L){(a,b) => Math.max(a,b) }
-    val interval = (cycles.map(_.length) + 1L).max // TODO: Why was this 0 before?
+    val latency = latencies.values.fold(0L){Math.max}
+    val interval = cycles.map(_.length).fold(1L){Math.max}  // Lowest II is 1
     // HACK: Set initiation interval to 1 if it contains a specialized reduction
     // This is a workaround for chisel codegen currently specializing and optimizing certain reduction types
     val compilerII = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1L else interval
@@ -198,10 +211,33 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
     //val cycleSyms = accumWrites.flatMap{writer => cycles(writer) }
 
-    val allCycles = localAccums.map{case (reader,writer,mem) =>
+    val warCycles = localAccums.map{case (reader,writer,mem) =>
       val symbols = cycles(writer)
-      Cycle(reader, writer, mem, symbols, paths(writer) - paths(reader))
+      WARCycle(reader, writer, mem, symbols, paths(writer) - paths(reader))
     }
+
+    def pushMultiplexedAccesses(accessors: Set[(Exp[_],Exp[_])]) = accessors.groupBy{_._2}.map{case (mem,accesses) =>
+      val muxPairs = accesses.map{x =>
+        // NOTE: After unrolling there should be only one mux index per access
+        val muxes = muxIndexOf.getMem(x._1,x._2)
+        (x, paths.getOrElse(x._1,0L), muxes.fold(0){Math.max})
+      }.toSeq
+
+      val length = muxPairs.map(_._3).fold(0){Math.max} + 1L
+
+      var writeStage = 0L
+      muxPairs.sortBy(_._2).foreach{case (x, dly, _) =>
+        val writeDelay = Math.max(writeStage, dly)
+        writeStage = writeDelay + 1
+        paths(x._1) = writeDelay
+      }
+
+      AAACycle(accesses.map(_._1), mem, length)
+    }
+
+    val wawCycles = pushMultiplexedAccesses(localWrites)
+    val rarCycles = pushMultiplexedAccesses(localReads)
+    val allCycles: Set[Cycle] = (wawCycles ++ rarCycles ++ warCycles).toSet
 
     (paths.toMap, allCycles)
   }

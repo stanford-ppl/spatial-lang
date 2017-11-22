@@ -14,13 +14,20 @@ trait DotGenFIFO extends DotCodegen with DotGenReg {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => emitVert(lhs)
-    case FIFOEnq(fifo,v,en) => 
-      emitMemWrite(lhs)
-      if (config.dotDetail > 0) {emitEn(en, lhs)}
-    case FIFODeq(fifo,en)   => 
-      emitMemRead(lhs)
-      if (config.dotDetail > 0) {emitEn(en, lhs)}
+    case FIFONew(_)   => emitVert(lhs)
+
+    case BankedFIFODeq(fifo, ens) =>
+      if (config.dotDetail == 0) emitMemRead(lhs) else {
+        emitVert(lhs)
+        emitEdge(fifo, lhs)
+        ens.foreach{ a => emitEn(a,lhs) }
+      }
+
+    case BankedFIFOEnq(fifo, data, ens) => emitMemWrite(lhs)
+      if (config.dotDetail == 0) emitMemWrite(lhs) else {
+        data.foreach{a => emitVert(a); emitEdge(a, fifo)}
+        ens.foreach{a => emitVert(a); emitEn(a, lhs)}
+      }
 
     case _ => super.emitNode(lhs, rhs)
   }

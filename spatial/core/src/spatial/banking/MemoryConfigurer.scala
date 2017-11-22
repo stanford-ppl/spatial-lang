@@ -148,12 +148,19 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * all associated accesses.
     */
   def finalize(instances: Seq[MemoryInstance]): Unit = {
-    printInstances(instances)
-
     val duplicates = instances.zipWithIndex.map{
       case (MemoryInstance(reads,writes,mp,banking,depth,ports,isAccum), x) =>
-        val uaccesses = reads ++ writes
+        val uaccesses = (reads ++ writes).flatten
         val accesses  = uaccesses.map(_.access)
+        var ctrlCount = Map.empty[Ctrl,Int]
+
+        writes.foreach{grp =>
+          grp.groupBy(_.ctrl).foreach{case (ctrl,uaccs) =>
+              val index = ctrlCount.getOrElse(ctrl, 0)
+              uaccs.foreach{access => muxIndexOf(access, mem) = index }
+              ctrlCount += ctrl -> (index+1)
+          }
+        }
 
         uaccesses.foreach{a => dispatchOf.add(a.uaccess, mem, x) }
         accesses.foreach{access => portsOf(access, mem, x) = ports(access) }
@@ -161,10 +168,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         Memory(banking,depth,isAccum)
     }
 
+    printInstances(instances)
     duplicatesOf(mem) = duplicates
   }
 
-  def printInstances(instances: Seq[MemoryInstance]): Unit = {
+  protected def printInstances(instances: Seq[MemoryInstance]): Unit = if (config.verbosity > 0) {
     dbg("")
     dbg("")
     dbg(u"  SUMMARY for memory $mem:")
@@ -174,7 +182,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     instances.foreach(printInstance)
   }
 
-  def printInstance(instance: MemoryInstance): Unit = {
+  protected def printInstance(instance: MemoryInstance): Unit = {
     val MemoryInstance(reads,writes,mp,banking,depth,ports,isAccum) = instance
     dbg(s"  isAccum:    $isAccum")
     dbg(s"  Depth:      $depth")
@@ -182,10 +190,20 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     dbg(s"  Controller: ${mp.map{c=>u"$c"}.getOrElse("---")}")
     dbg(s"  Buffer Ports: ")
     (0 until depth).foreach{port =>
-      writes.filter{w => ports(w.access).contains(port) }
-              .foreach{w => dbg(c"    $port [WR] $w") }
-      reads.filter{r => ports(r.access).contains(port) }
-             .foreach{r => dbg(c"    $port [RD] $r") }
+      writes.foreach { grp =>
+        grp.filter{w => ports(w.access).contains(port) }
+           .foreach{w =>
+             val muxIdx = muxIndexOf(w,mem)
+             dbg(c"    $port: (mux:$muxIdx) [WR] $w")
+           }
+      }
+      reads.foreach { grp =>
+        grp.filter{r => ports(r.access).contains(port) }
+           .foreach{r =>
+             val muxIdx = muxIndexOf(r,mem)
+             dbg(c"    $port: (mux:$muxIdx) [RD] $r")
+           }
+      }
     }
   }
 
@@ -401,8 +419,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val reads   = rds.flatten.map{_.access}
     val writes  = wrs.flatten.map{_.access}
     val accesses = reads ++ writes
-    val ureads  = rds.flatten.map{_.unrolledAccess}.toSet
-    val uwrites = wrs.flatten.map{_.unrolledAccess}.toSet
+    val ureads  = rds.map{grp => grp.map(_.unrolledAccess)}
+    val uwrites = wrs.map{grp => grp.map(_.unrolledAccess)}
 
     // A memory is an accumulator if a writer depends on a reader in the same pipe
     // or if this memory is used as an accumulator by a Reduce or MemReduce
