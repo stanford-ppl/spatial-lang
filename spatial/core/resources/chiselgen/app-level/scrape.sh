@@ -96,6 +96,7 @@ if [[ $1 = "Zynq" ]]; then
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
+	    rm -rf /home/regression/${APP}*
 	  else
 	    mkdir $APP
 	    tar -xvf ${APP}.tar.gz -C $APP
