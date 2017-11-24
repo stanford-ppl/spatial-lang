@@ -6,8 +6,30 @@ import chisel3.util._
 import templates.SRFF
 import templates.Utils.log2Up
 import scala.language.reflectiveCalls
+
 import scala.collection.mutable.ListBuffer
 import java.io.{File, PrintWriter}
+
+class BurstAddr(addrWidth: Int, w: Int, burstSizeBytes: Int) extends Bundle {
+  val bits = UInt(addrWidth.W)
+  def burstTag = bits(bits.getWidth - 1, log2Up(burstSizeBytes))
+  def burstOffset = bits(log2Up(burstSizeBytes) - 1, 0)
+  def burstAddr = Cat(burstTag, 0.U(log2Up(burstSizeBytes).W))
+  def wordOffset = bits(log2Up(burstSizeBytes) - 1, log2Up(w/8))
+
+  override def cloneType(): this.type = {
+    new BurstAddr(addrWidth, w, burstSizeBytes).asInstanceOf[this.type]
+  }
+}
+
+class DRAMCmdTag(w: Int) extends Bundle {
+  val uid = UInt(6.W)
+  val addr = UInt((w - 6).W)
+
+  override def cloneType(): this.type = {
+    new DRAMCmdTag(w).asInstanceOf[this.type]
+  }
+}
 
 class MAGCore(
   val w: Int,
@@ -18,560 +40,284 @@ class MAGCore(
   val numOutstandingBursts: Int,
   val burstSizeBytes: Int,
   val blockingDRAMIssue: Boolean = false,
-  val isDebugChannel: Boolean = false
-) extends Module { // AbstractMAG(w, d, v, numOutstandingBursts, burstSizeBytes) {
-
-  val numRdataDebug = 2
-  val numRdataWordsDebug = 16
-  val numWdataDebug = 0
-  val numWdataWordsDebug = 16
-  val numDebugs = 432
-
-  // The data bus width to DRAM is 1-burst wide
-  // While it should be possible in the future to add a write combining buffer
-  // and decouple Plasticine's data bus width from the DRAM bus width,
-  // this is currently left out as a wishful todo.
-  // Check and error out if the data bus width does not match DRAM burst size
-  // Predef.assert(w/8*v == 64,
-  // s"Unsupported combination of w=$w and v=$v; data bus width must equal DRAM burst size ($burstSizeBytes bytes)")
-
-  // Enabling hardware asserts on aws-sim is causing a segfault in xsim
-  // We can safely disable them for aws-sim, as we should be able to catch violations with vcs simulation
-  val enableHwAsserts = FringeGlobals.target match {
-    case "aws" | "aws-sim" => false
-    case _ => true
-  }
+  val debug: Boolean = true
+) extends Module {
 
   val numStreams = loadStreamInfo.size + storeStreamInfo.size
-  val wordSizeBytes = w/8
-  val burstSizeWords = burstSizeBytes / wordSizeBytes
-  val tagWidth = log2Up(numStreams)
+  val streamTagWidth = log2Up(numStreams)
 
+  def storeStreamIndex(id: UInt) = id - loadStreamInfo.size.U
+  def storeStreamId(index: Int) = index + loadStreamInfo.size
+  
   val io = IO(new Bundle {
-    // Debug
     val enable = Input(Bool())
-
-    // val dbg = new DebugSignals
-    val debugSignals = Output(Vec(numDebugs, (UInt(w.W))))
-
-//    val app = Vec(numStreams, new MemoryStream(w, v))
     val app = new AppStreams(loadStreamInfo, storeStreamInfo)
-    val dram = new DRAMStream(w, v) // Should not have to pass vector width; must be DRAM burst width
+    val dram = new DRAMStream(w, v)
     val config = Input(new MAGOpcode())
   })
-
-  def extractBurstAddr(addr: UInt) = {
-    val burstOffset = log2Up(burstSizeBytes)
-    addr(addr.getWidth-1, burstOffset)
-  }
-
-  def extractBurstOffset(addr: UInt) = {
-    val burstOffset = log2Up(burstSizeBytes)
-    addr(burstOffset-1, 0)
-  }
-
-  def extractWordOffset(addr: UInt) = {
-    val burstOffset = log2Up(burstSizeBytes)
-    val wordOffset = log2Up(w)
-    addr(burstOffset, wordOffset)
-  }
 
   val addrWidth = io.app.loads(0).cmd.bits.addrWidth
   val sizeWidth = io.app.loads(0).cmd.bits.sizeWidth
 
-  val commandWidth =  addrWidth + 1 + 1 + sizeWidth
-  val commandFifo = Module(new FIFOArbiter(commandWidth, d, 1, numStreams))
-  val commandFifoConfig = Wire(new FIFOOpcode(d, 1))
-  commandFifoConfig.chainRead := 1.U
-  commandFifoConfig.chainWrite := 1.U
-  commandFifo.io.config := commandFifoConfig
-  commandFifo.io.forceTag.valid := 0.U
+  val cmd = new Command(addrWidth, sizeWidth, 0)
+  val cmdArbiter = Module(new FIFOArbiter(cmd, d, v, numStreams))
+  val cmdFifos = List.fill(numStreams) { Module(new FIFOCore(cmd, d, v)) }
+  cmdArbiter.io.fifo.zip(cmdFifos).foreach { case (io, f) => io <> f.io }
 
-  val cmds = io.app.loads.map { _.cmd} ++ io.app.stores.map {_.cmd}
+  val cmdFifoConfig = Wire(new FIFOOpcode(d, 1))
+  cmdFifoConfig.chainRead := true.B
+  cmdFifoConfig.chainWrite := true.B
+  cmdArbiter.io.config := cmdFifoConfig
+  cmdArbiter.io.forceTag.valid := false.B
 
-  def packCmd(c: Command): UInt = Cat(c.addr, c.isWr, c.isSparse, c.size)
-  def unpackCmd(c: UInt): Command = {
-    val cmd = Wire(new Command(addrWidth, sizeWidth, 0))
-    val addrStart = c.getWidth - 1
-    val isWrStart = addrStart - addrWidth
-    val isSparseStart = isWrStart - 1
-    val sizeStart = isSparseStart - 1
-    cmd.addr := c(addrStart, isWrStart + 1)
-    cmd.isWr := c(isWrStart)
-    cmd.isSparse := c(isSparseStart)
-    cmd.size := c(sizeStart, 0)
-    cmd
+  val cmds = io.app.loads.map { _.cmd } ++ io.app.stores.map {_.cmd }
+  cmdArbiter.io.enq.zip(cmds) foreach {case (enq, cmd) => enq(0) := cmd.bits }
+  cmdArbiter.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
+  cmdArbiter.io.full.zip(cmds) foreach { case (full, cmd) => cmd.ready := ~full }
+
+  val cmdHead = cmdArbiter.io.deq(0)
+  val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
+  cmdAddr.bits := cmdHead.addr
+
+  val cmdRead = io.enable & ~cmdArbiter.io.empty & ~cmdHead.isWr
+  val cmdWrite = io.enable & ~cmdArbiter.io.empty & cmdHead.isWr
+
+  val wdataReady = io.dram.wdata.ready
+  val burstCounter = Module(new Counter(w))
+  val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts)))
+  val dramReadySeen = Wire(Bool())
+
+  val rrespReadyMux = Module(new MuxN(Bool(), loadStreamInfo.size))
+  rrespReadyMux.io.sel := io.dram.rresp.bits.streamId
+  io.dram.rresp.ready := rrespReadyMux.io.out
+
+  val wdataMux = Module(new MuxN(Valid(io.dram.wdata.bits), storeStreamInfo.size))
+  wdataMux.io.sel := storeStreamIndex(cmdArbiter.io.tag)
+  wdataMux.io.ins.foreach { case i =>
+    i.bits.streamId := cmdArbiter.io.tag
+    i.bits.wlast := i.valid & (burstCounter.io.out === (io.dram.cmd.bits.size - 1.U))
+  }
+  val wdataValid = wdataMux.io.out.valid
+
+  val cmdDeqValidMux = Module(new MuxN(Bool(), numStreams))
+  cmdDeqValidMux.io.sel := cmdArbiter.io.tag
+  
+  val dramCmdMux = Module(new MuxN(Valid(io.dram.cmd.bits), numStreams))
+  dramCmdMux.io.sel := cmdArbiter.io.tag
+  dramCmdMux.io.ins.foreach { case i =>
+    i.bits.isSparse := false.B // remove and take out sparse logic in dram.h
+    i.bits.streamId := cmdArbiter.io.tag
+    i.bits.addr := cmdAddr.burstAddr
+    i.bits.rawAddr := cmdAddr.bits
+    val tag = Wire(new DRAMCmdTag(w))
+    tag.uid := burstTagCounter.io.out
+    tag.addr := cmdAddr.burstTag
+    i.bits.tag := tag.asUInt()
+    val size = Wire(new BurstAddr(cmdHead.size.getWidth, w, burstSizeBytes))
+    size.bits := cmdHead.size
+    i.bits.size := size.burstTag + (size.burstOffset != 0.U)
+    i.bits.isWr := cmdHead.isWr
   }
 
-  val headCommand = Wire(new Command(addrWidth, sizeWidth, 0))
-  headCommand := unpackCmd(commandFifo.io.deq(0))
-
-  commandFifo.io.enq.zip(cmds) foreach {case (enq, cmd) => enq(0) := packCmd(cmd.bits) }
-  commandFifo.io.enqVld.zip(cmds) foreach {case (enqVld, cmd) => enqVld := cmd.valid }
-
-  // Debug assertions
-  if (enableHwAsserts) {
-    for (i <- 0 until numStreams) {
-      val str3 = s"ERROR: addrFifo $i enqVld is high when not enabled!"
-      // if (FringeGlobals.target != "verilator") assert((io.enable & cmds(i).valid) | (io.enable & ~cmds(i).valid) | (~io.enable & ~cmds(i).valid), str3)
-    }
-  }
-
-  val burstAddr = extractBurstAddr(headCommand.addr)
-  val wordOffsets = extractWordOffset(headCommand.addr)
-
-  val isSparse = headCommand.isSparse & ~commandFifo.io.empty
-  io.dram.cmd.bits.isSparse := isSparse
-
-  val scatterGather = Wire(Bool())
-  scatterGather := io.config.scatterGather
-//  val sgPulse = Wire(Bool())
-//  scatterGather := isSparseFifo.io.deq(0)(0) & ~isSparseFifo.io.empty
-//  val sgPulser = Module(new Pulser())
-//  sgPulser.io.in := scatterGather
-//  sgPulse := sgPulser.io.out
-
-  val sizeTop = headCommand.size
-  val sizeInBursts = extractBurstAddr(sizeTop) + (extractBurstOffset(sizeTop) != 0.U)
-  io.dram.cmd.bits.size := sizeInBursts
-
-  // WData FIFO
-  val wins = storeStreamInfo.map {_.w}
-  val vins = storeStreamInfo.map {_.v}
-  val wdataFifo = Module(new FIFOArbiterWidthConvert(wins, vins, 32, 16, d))
-  val wrPhase = Module(new SRFF())
-  wrPhase.io.input.asyn_reset := false.B
-
-  // For blocking calls, create a new 'issued' signal.
-  // This wire is high if we have a request in flight
-  val issued = Wire(Bool())
-
-  // burstVld is high when the output DRAM command is valid
-  val burstVld = Wire(Bool())
-
-  val writeCmd = ~commandFifo.io.empty & (wrPhase.io.output.data | headCommand.isWr) // & ~issued
-  val wdataValid = writeCmd & ~wdataFifo.io.empty
+  val wrespReadyMux = Module(new MuxN(Bool(), storeStreamInfo.size))
+  wrespReadyMux.io.sel := io.dram.wresp.bits.streamId
+  io.dram.wresp.ready := wrespReadyMux.io.out
 
   val dramReady = io.dram.cmd.ready
-  val wdataReady = io.dram.wdata.ready
 
-  val respValid = io.dram.rresp.valid | io.dram.wresp.valid // & io.enable
+  val sparseLoads = loadStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
+  val denseLoads = loadStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
+  val gatherBuffers = sparseLoads.map { case (s, i) =>
+    val w = s.w
+    val v = s.v
+    val m = Module(new GatherBuffer(w, d, v, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
+    m.io.rresp.valid := io.dram.rresp.valid & (io.dram.rresp.bits.streamId === i.U)
+    m.io.rresp.bits := io.dram.rresp.bits
+    m.io.cmd.valid := cmdRead & cmdArbiter.io.tag === i.U & dramReady
+    m.io.cmd.bits := cmdHead
 
-  wdataFifo.io.forceTag.bits := commandFifo.io.tag - loadStreamInfo.size.U
-  wdataFifo.io.forceTag.valid := commandFifo.io.tag >= loadStreamInfo.size.U
+    dramCmdMux.io.ins(i).valid := cmdRead & ~m.io.fifo.full & ~m.io.hit
 
-  wdataFifo.io.enq.zip(io.app.stores.map{_.wdata}) foreach { case (enq, wdata) => enq := wdata.bits }
-  wdataFifo.io.enqVld.zip(io.app.stores.map{_.wdata}) foreach {case (enqVld, wdata) => enqVld := wdata.valid }
-  val wdataFifoSize = wdataFifo.io.fifoSize
+    rrespReadyMux.io.ins(i) := true.B
+    cmdDeqValidMux.io.ins(i) := ~m.io.fifo.full & dramReady
 
-  val sparseWriteEnable = Wire(Bool())
-  sparseWriteEnable := (isSparse & headCommand.isWr & ~commandFifo.io.empty)
-
-  val issuedFF = Module(new FF(1))
-  issuedFF.io.init := 0.U
-  issuedFF.io.in := Mux(issued, ~respValid, burstVld & dramReady)
-  issuedFF.io.enable := 1.U
-  if (blockingDRAMIssue) {
-    issued := issuedFF.io.out
-  } else { // Non-blocking, this should be a no-op
-    issued := false.B
+    val stream = io.app.loads(i)
+    stream.rdata.bits := m.io.fifo.deq
+    stream.rdata.valid := m.io.complete
+    m.io.fifo.deqVld := stream.rdata.ready
+    m
   }
 
-  // Burst offset counter
-  val burstCounter = Module(new Counter(w))
-  burstCounter.io.max := Mux(writeCmd, sizeInBursts, 1.U) // Mux(scatterGather, 1.U, sizeInBursts)
-  burstCounter.io.stride := 1.U
-  burstCounter.io.reset := 0.U
-  burstCounter.io.enable := Mux(writeCmd, wdataValid & wdataReady, burstVld & dramReady & ~issued) // & ~issued
-  burstCounter.io.saturate := 0.U
-
-  // Set a register when DRAMReady goes high, reset it when burstCounter is done (end of a command)
-  val dramReadySeen = Wire(Bool())
-  val dramReadyFF = Module(new FF(1))
-  dramReadyFF.io.init := 0.U
-  dramReadyFF.io.enable := burstCounter.io.done | (burstVld & headCommand.isWr)
-  dramReadyFF.io.in := Mux(burstCounter.io.done, 0.U, dramReady | dramReadySeen) & ~issued
-  dramReadySeen := dramReadyFF.io.out
-  burstVld := io.enable & ~commandFifo.io.empty &
-    Mux(writeCmd,
-      wdataValid & ~dramReadySeen,
-      true.B
-    )
-  io.dram.cmd.bits.dramReadySeen := dramReadySeen
-
-  // Burst Tag counter
-  val sgWaitForDRAM = Wire(Bool())
-  val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts+1)))
-  burstTagCounter.io.max := Mux(scatterGather, v.U, numOutstandingBursts.U)
-  burstTagCounter.io.stride := 1.U
-  burstTagCounter.io.reset := 0.U // burstCounter.io.done & ~scatterGather
-  burstTagCounter.io.enable := Mux(scatterGather, ~commandFifo.io.empty & ~sgWaitForDRAM, burstVld & dramReady) & ~issued
-  burstCounter.io.saturate := 0.U
-  val elementID = burstTagCounter.io.out(log2Up(v)-1, 0)
-
-  // Counter to pick correct wdataFifo for a sparse write
-  val wdataSelectCounter = Module(new Counter(log2Up(v+1)))
-  wdataSelectCounter.io.max := v.U
-  wdataSelectCounter.io.stride := 1.U
-  wdataSelectCounter.io.reset := ~(isSparse & headCommand.isWr)
-  wdataSelectCounter.io.enable := sparseWriteEnable & wdataValid & wdataReady
-  wdataSelectCounter.io.saturate := 0.U
-
-  // Coalescing cache
-  val ccache = Module(new CoalescingCache(w, d, v))
-  ccache.io.raddr := Cat(io.dram.cmd.bits.tag, 0.U(log2Up(burstSizeBytes).W))
-  ccache.io.readEn := scatterGather & respValid
-  ccache.io.waddr := headCommand.addr
-  ccache.io.wen := scatterGather & ~commandFifo.io.empty
-  ccache.io.position := elementID
-  ccache.io.wdata := wdataFifo.io.deq(0)
-  ccache.io.isScatter := false.B // TODO: Remove this restriction once ready
-
-  val sgValidDepulser = Module(new Depulser())
-  sgValidDepulser.io.in := ccache.io.miss
-  sgValidDepulser.io.rst := dramReady
-  sgWaitForDRAM := sgValidDepulser.io.out
-
-  commandFifo.io.deqVld := Mux(scatterGather, ~ccache.io.full & ~sgWaitForDRAM, burstCounter.io.done)
-
-  wdataFifo.io.deqVld := Mux(scatterGather, burstCounter.io.done & ~ccache.io.full,
-                          Mux(isSparse, wdataSelectCounter.io.done, true.B) & wdataValid & wdataReady)
-
-  // Parse Metadata line
-  def parseMetadataLine(m: Vec[UInt]) = {
-    // m is burstSizeWords * 8 wide. Each byte 'i' has the following format:
-    // | 7 6 5 4     | 3    2   1    0     |
-    // | x x x <vld> | <crossbar_config_i> |
-    val validAndConfig = List.tabulate(burstSizeWords) { i =>
-      parseMetadata(m(i))
-    }
-
-    val valid = validAndConfig.map { _._1 }
-    val crossbarConfig = validAndConfig.map { _._2 }
-    (valid, crossbarConfig)
-  }
-
-  def parseMetadata(m: UInt) = {
-    // m is an 8-bit word. Each byte has the following format:
-    // | 7 6 5 4     | 3    2   1    0     |
-    // | x x x <vld> | <crossbar_config_i> |
-    val valid = m(log2Up(burstSizeWords))
-    val crossbarConfig = m(log2Up(burstSizeWords)-1, 0)
-    (valid, crossbarConfig)
-  }
-
-  val (validMask, crossbarSelect) = parseMetadataLine(ccache.io.rmetaData)
-
-  val registeredData = Vec(io.dram.rresp.bits.rdata.map { d => RegNext(d, 0.U) })
-  val registeredVld = RegNext(respValid, 0.U)
-
-  // Gather crossbar
-  val switchParams = SwitchParams(v, v)
-  val crossbarConfig = Wire(CrossbarConfig(switchParams))
-  crossbarConfig.outSelect = Vec(crossbarSelect)
-  val gatherCrossbar = Module(new CrossbarCore(UInt(w.W), switchParams))
-  gatherCrossbar.io.ins := registeredData
-  gatherCrossbar.io.config := crossbarConfig
-
-  // Gather buffer
-  val gatherBuffer = List.tabulate(burstSizeWords) { i =>
-    val ff = Module(new FF(w))
-    ff.io.init := 0.U
-    ff.io.enable := registeredVld & validMask(i)
-    ff.io.in := gatherCrossbar.io.outs(i)
-    ff
-  }
-  val gatherData = Vec(List.tabulate(burstSizeWords) { gatherBuffer(_).io.out })
-
-  // Completion mask
-  val completed = Wire(UInt())
-  val completionMask = List.tabulate(burstSizeWords) { i =>
-    val ff = Module(new FF(1))
-    ff.io.init := 0.U
-    ff.io.enable := scatterGather & (completed | (validMask(i) & registeredVld))
-    ff.io.in := validMask(i)
-    ff
-  }
-  completed := completionMask.map { _.io.out }.reduce { _ & _ }
-
-  class Tag extends Bundle {
-    val streamTag = UInt(tagWidth.W)
-    val burstTag = UInt((w-tagWidth).W)
-  }
-
-  def getStreamTag(x: UInt) = x(w-1, w-1-tagWidth+1)
-
-  val tagOut = Wire(new Tag())
-  tagOut.streamTag := commandFifo.io.tag
-  tagOut.burstTag := Mux(scatterGather, burstAddr, burstTagCounter.io.out)
-
-  val wdata = Vec(List.tabulate(v) { i =>
-    if (i == 0) {
-      val mux = Module(new MuxNType(UInt(w.W), v))
-      mux.io.ins := wdataFifo.io.deq
-      mux.io.sel := wdataSelectCounter.io.out
-      mux.io.out
-    } else wdataFifo.io.deq(i)
-  })
-
-  io.dram.cmd.bits.addr := Cat(burstAddr, 0.U(log2Up(burstSizeBytes).W))
-  io.dram.cmd.bits.rawAddr := headCommand.addr
-  io.dram.cmd.bits.tag := Cat(tagOut.streamTag, tagOut.burstTag)
-  io.dram.cmd.bits.streamId := tagOut.streamTag
-  io.dram.cmd.bits.isWr := headCommand.isWr
-
-  // wdata assignment
-  io.dram.wdata.bits.wdata := wdata
-  io.dram.wdata.bits.streamId := wdataFifo.io.tag + loadStreamInfo.size.U
-  io.dram.wdata.valid := wdataValid
-  val wlast = wdataValid & (burstCounter.io.out === (sizeInBursts-1.U))
-  io.dram.wdata.bits.wlast := wlast
-
-
-  val wasSparseWren = Module(new SRFF()) // Hacky way to allow wrPhase to die after sparse write
-  wasSparseWren.io.input.set := sparseWriteEnable
-  wasSparseWren.io.input.reset := ~sparseWriteEnable
-  wasSparseWren.io.input.asyn_reset := false.B
-
-  wrPhase.io.input.set := (~commandFifo.io.empty & headCommand.isWr)
-  wrPhase.io.input.reset := templates.Utils.delay(wlast | wasSparseWren.io.output.data,1)
-  val dramCmdValid = Mux(scatterGather, ccache.io.miss, burstVld & ~issued)
-  io.dram.cmd.valid := dramCmdValid
-
-  val issuedTag = Wire(UInt(w.W))
-  if (blockingDRAMIssue) {
-    val issuedTagFF = Module(new FF(w))
-    issuedTagFF.io.init := 0.U
-    issuedTagFF.io.in := Cat(tagOut.streamTag, tagOut.burstTag)
-    issuedTagFF.io.enable := burstVld & dramReady & ~issued
-    issuedTag := issuedTagFF.io.out
-  } else {
-    issuedTag := 0.U
-  }
-
-  val readStreamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.rresp.bits.tag)
-  val writeStreamTagFromDRAM = if (blockingDRAMIssue) getStreamTag(issuedTag) else getStreamTag(io.dram.wresp.bits.tag)
-
-  val rdataFifos = List.tabulate(loadStreamInfo.size) { i =>
-    val m = Module(new WidthConverterFIFO(32, io.dram.rresp.bits.rdata.size, loadStreamInfo(i).w, loadStreamInfo(i).v, d))
+  // TODO: THIS CURRENTLY ASSUMES THE MEMORY CONTROLLER HANDS BACK DATA IN THE ORDER IT WAS REQUESTED
+  // IT SHOULD PROBABLY BE SWITCHED TO THE STYLE USED BY THE GATHER BUFFERS
+  val denseLoadBuffers = denseLoads.map { case (s, i) =>
+    val m = Module(new FIFOWidthConvert(32, io.dram.rresp.bits.rdata.size, s.w, s.v, d))
     m.io.enq := io.dram.rresp.bits.rdata
-    m.io.enqVld := io.dram.rresp.valid & (readStreamTagFromDRAM === i.U) & ~(m.io.full | m.io.almostFull)
+    m.io.enqVld := io.dram.rresp.valid & (io.dram.rresp.bits.streamId === i.U)
+
+    rrespReadyMux.io.ins(i) := ~m.io.full
+    cmdDeqValidMux.io.ins(i) := dramReady
+
+    dramCmdMux.io.ins(i).valid := cmdRead
+
+    val stream = io.app.loads(i)
+    stream.rdata.bits := m.io.deq
+    stream.rdata.valid := ~m.io.empty
+    m.io.deqVld := stream.rdata.ready
     m
   }
 
-  io.app.loads.map{_.rdata}.zip(rdataFifos) foreach { case (rdata, fifo) =>
-    rdata.bits := fifo.io.deq
-    rdata.valid := ~fifo.io.empty
-    fifo.io.deqVld := rdata.ready & ~fifo.io.empty
+  val sparseStores = storeStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
+  val denseStores = storeStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
+
+  val scatterBuffers = sparseStores.map { case (s, i) =>
+    val j = storeStreamId(i)
+
+    val m = Module(new ScatterBuffer(w, d, v, burstSizeBytes, addrWidth, sizeWidth, io.dram.rresp.bits))
+    val wdata = Module(new FIFOCore(UInt(s.w.W), d, s.v))
+    val stream = io.app.stores(i)
+    val write = cmdWrite & (cmdArbiter.io.tag === j.U)
+    val issueRead = ~m.io.complete & write & ~m.io.fifo.full & ~wdata.io.empty & ~m.io.hit
+    val skipRead = write & m.io.hit & ~wdata.io.empty
+    val issueWrite = m.io.complete & (cmdArbiter.io.tag === j.U)
+
+    val deqCmd = skipRead | (issueRead & dramReady)
+    wdata.io.config.chainRead := true.B
+    wdata.io.config.chainWrite := true.B
+    wdata.io.enqVld := stream.wdata.valid
+    wdata.io.enq := stream.wdata.bits
+    wdata.io.deqVld := deqCmd
+    stream.wdata.ready := ~wdata.io.full
+
+    cmdDeqValidMux.io.ins(j) := deqCmd
+
+    val dramCmd = dramCmdMux.io.ins(j)
+    val addr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
+    addr.bits := Mux(issueRead, cmdHead.addr, m.io.fifo.deq(0).cmd.addr)
+    dramCmd.bits.addr := addr.burstAddr
+    dramCmd.bits.rawAddr := addr.bits
+    dramCmd.bits.tag := Mux(issueRead, addr.burstTag, m.io.fifo.deq(0).count)
+    dramCmd.bits.isWr := issueWrite
+    val size = Wire(new BurstAddr(cmdHead.size.getWidth, w, burstSizeBytes))
+    size.bits := Mux(issueRead, cmdHead.size, m.io.fifo.deq(0).cmd.size)
+    dramCmd.bits.size := size.burstTag + (size.burstOffset != 0.U)
+    dramCmdMux.io.ins(j).valid := issueRead | (issueWrite & wdataValid & ~dramReadySeen)
+
+    m.io.rresp.valid := io.dram.rresp.valid & (io.dram.rresp.bits.streamId === j.U)
+    m.io.rresp.bits := io.dram.rresp.bits
+    m.io.fifo.enqVld := deqCmd
+    m.io.fifo.enq(0).data.foreach { _ := wdata.io.deq(0) }
+    m.io.fifo.enq(0).cmd := cmdHead
+    m.io.fifo.deqVld := burstCounter.io.done
+
+    wdataMux.io.ins(i).valid := issueWrite
+    wdataMux.io.ins(i).bits.wdata := m.io.fifo.deq(0).data
+
+    val wrespFIFO = Module(new FIFOCore(UInt(w.W), d, 1))
+    wrespFIFO.io.enq(0) := io.dram.wresp.bits.tag
+    wrespFIFO.io.enqVld := io.dram.wresp.valid & (io.dram.wresp.bits.streamId === j.U)
+    wrespReadyMux.io.ins(i) := ~wrespFIFO.io.full
+
+    val count = Module(new Counter(w))
+    count.io.max := ~(0.U(w.W))
+    // send a response after at least 16 sparse writes have completed
+    val sendResp = count.io.out >= v.U
+    val deqRespCount = ~wrespFIFO.io.empty & ~sendResp
+    count.io.stride := Mux(sendResp, v.U(w.W), wrespFIFO.io.deq(0))
+    count.io.dec := sendResp
+    count.io.enable := (sendResp & stream.wresp.ready) | deqRespCount
+    count.io.reset := false.B
+    count.io.saturate := false.B
+
+    stream.wresp.bits := sendResp
+    stream.wresp.valid := sendResp
+    wrespFIFO.io.deqVld := deqRespCount
+
+    m
+  }
+  // force command arbiter to service scatter buffers when data is waiting to be written back to memory
+  sparseStores.headOption match {
+    case Some((s, i)) =>
+      val scatterReadys = scatterBuffers.map { ~_.io.fifo.empty }
+      cmdArbiter.io.forceTag.valid := scatterReadys.reduce { _|_ }
+      cmdArbiter.io.forceTag.bits := PriorityEncoder(scatterReadys) + storeStreamId(i).U
+    case None =>
   }
 
-  cmds.zipWithIndex.foreach { case (cmd, i) =>
-    cmd.ready := ~commandFifo.io.full(i)
-  }
+  val denseStoreBuffers = denseStores.map { case (s, i) =>
+    val j = storeStreamId(i)
+    val m = Module(new FIFOWidthConvert(s.w, s.v, 32, 16, d))
+    val stream = io.app.stores(i)
 
-  io.app.stores.map{_.wdata}.zipWithIndex.foreach { case (wdata, i) =>
-    wdata.ready := ~wdataFifo.io.full(i)
-  }
+    cmdDeqValidMux.io.ins(j) := burstCounter.io.done
 
-  val wrespFifos = List.tabulate(storeStreamInfo.size) { i =>
-    val m = Module(new FIFOCounter(d, 1))
-    m.io.enq(0) := io.dram.wresp.valid
-    m.io.enqVld := io.dram.wresp.valid & (writeStreamTagFromDRAM === (i + loadStreamInfo.size).U)
+    dramCmdMux.io.ins(j).valid := cmdWrite & wdataValid & ~dramReadySeen
+
+    m.io.enqVld := stream.wdata.valid
+    m.io.enq := stream.wdata.bits
+    m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U)
+
+    wdataMux.io.ins(i).valid := cmdWrite & ~m.io.empty
+    wdataMux.io.ins(i).bits.wdata := m.io.deq
+    stream.wdata.ready := ~m.io.full
+
+    val wrespFIFO = Module(new FIFOCounter(d, 1))
+    wrespFIFO.io.enq(0) := io.dram.wresp.valid
+    wrespFIFO.io.enqVld := io.dram.wresp.valid & (io.dram.wresp.bits.streamId === j.U)
+    wrespReadyMux.io.ins(i) := ~wrespFIFO.io.full
+    stream.wresp.bits  := wrespFIFO.io.deq(0)
+    stream.wresp.valid := ~wrespFIFO.io.empty
+    wrespFIFO.io.deqVld := stream.wresp.ready
+
     m
   }
 
-  io.app.stores.map{_.wresp}.zip(wrespFifos) foreach { case (wresp, fifo) =>
-    wresp.bits  := fifo.io.deq(0)
-    wresp.valid := ~fifo.io.empty
-    fifo.io.deqVld := wresp.ready
-  }
+  val dramValid = io.dram.cmd.valid
+  burstCounter.io.max := Mux(io.dram.cmd.bits.isWr, io.dram.cmd.bits.size, 1.U)
+  burstCounter.io.stride := 1.U
+  burstCounter.io.reset := false.B
+  burstCounter.io.enable := Mux(io.dram.cmd.bits.isWr, wdataValid & wdataReady, dramValid  & dramReady)
+  burstCounter.io.saturate := false.B
 
-  if (rdataFifos.length > 0) {
-    val readyMux = Module(new MuxNType(Bool(), rdataFifos.length))
-    readyMux.io.ins := Vec(rdataFifos.map { f => ~(f.io.full | f.io.almostFull) })
-    readyMux.io.sel := readStreamTagFromDRAM
-    io.dram.rresp.ready := readyMux.io.out
-  } else {
-    io.dram.rresp.ready := true.B
-  }
-  if (wrespFifos.length > 0) {
-    val readyMux = Module(new MuxNType(Bool(), wrespFifos.length))
-    readyMux.io.ins := Vec(wrespFifos.map { f => ~(f.io.full | f.io.almostFull) })
-    readyMux.io.sel := writeStreamTagFromDRAM - loadStreamInfo.size.U
-    io.dram.wresp.ready := readyMux.io.out
-  } else {
-    io.dram.wresp.ready := true.B
-  }
+  // strictly speaking this isn't necessary, but the DRAM part of the test bench expects unique tags
+  // and sometimes apps make requests to the same address so tagging with the address isn't enough to guarantee uniqueness
+  burstTagCounter.io.max := (numOutstandingBursts - 1).U
+  burstTagCounter.io.stride := 1.U
+  burstTagCounter.io.reset := false.B
+  burstTagCounter.io.enable := dramValid  & dramReady
+  burstTagCounter.io.saturate := false.B
 
-  // Some assertions
-  if (enableHwAsserts & FringeGlobals.target != "verilator") {
-    // assert((dramCmdValid & io.enable) | (~io.enable & ~dramCmdValid) | (io.enable & ~dramCmdValid), "DRAM command is valid when enable == 0!")
-  }
 
-  // All debug counters
-  def getFF[T<:Data](sig: T, en: UInt) = {
-    val in = sig match {
-      case v: Vec[UInt] => v.reverse.reduce { Cat(_,_) }
-      case u: UInt => u
-    }
+  val dramReadyFF = Module(new FFType(UInt(1.W)))
+  dramReadyFF.io.init := 0.U
+  dramReadyFF.io.enable := burstCounter.io.done | (dramValid  & io.dram.cmd.bits.isWr)
+  dramReadyFF.io.in := Mux(burstCounter.io.done, 0.U, dramReady | dramReadySeen)
+  dramReadySeen := dramReadyFF.io.out
+  cmdArbiter.io.deqVld := cmdDeqValidMux.io.out
 
-    val ff = Module(new FF(sig.getWidth))
-    ff.io.init := Cat("hBADF".U, dbgCount.U)
-    ff.io.in := in
-    ff.io.enable := en
-    ff.io.out
-  }
+  io.dram.wdata.bits := wdataMux.io.out.bits
+  io.dram.wdata.valid := wdataMux.io.out.valid
 
-  def getCounter(en: UInt, width: Int = 32) = {
-    val ctr = Module(new Counter(width))
-    ctr.io.reset := 0.U
-    ctr.io.saturate := 0.U
-    ctr.io.max := ((1.toLong << width) - 1).U
-    ctr.io.stride := 1.U
-    ctr.io.enable := en
-    ctr.io.out
-  }
+  io.dram.cmd.bits := dramCmdMux.io.out.bits
+  io.dram.cmd.valid := dramCmdMux.io.out.valid
 
-  def addWhen(en: UInt, value: UInt) = {
-    val ff = Module(new FF(32))
-    //ff.io.init := 15162342.U
-    ff.io.init := 0.U
-    ff.io.enable := en
-    ff.io.in := ff.io.out + value
-    ff.io.out
-  }
-
-  var dbgCount = 0
+  if (debug) {
   val signalLabels = ListBuffer[String]()
-  def connectDbgSignal(sig: UInt, label: String = "") {
-    io.debugSignals(dbgCount) := sig
-    signalLabels.append(label + s" ($dbgCount)")
-    dbgCount += 1
-  }
+  // Print all debugging signals into a header file
+  val debugFileName = "cpp/generated_debugRegs.h"
+  val debugPW = new PrintWriter(new File(debugFileName))
+  debugPW.println(s"""
+#ifndef __DEBUG_REGS_H__
+#define __DEBUG_REGS_H__
 
-  val cycleCount = getCounter(io.enable, 40)
-  connectDbgSignal(cycleCount, "Cycles")
-  val rdataEnqCount = getCounter(io.dram.rresp.valid & io.dram.rresp.ready)
+#define NUM_DEBUG_SIGNALS ${signalLabels.size}
 
-  // rdata enq values
-  for (i <- 0 until numRdataDebug) {
-    for (j <- 0 until numRdataWordsDebug) {
-      connectDbgSignal(getFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount === i.U)), s"""rdata_from_dram${i}_$j""")
-    }
-  }
+const char *signalLabels[] = {
+""")
 
-  val wdataCount = getCounter(io.enable & wdataValid & wdataReady)
-  if (io.app.stores.size > 0) {
-    // wdata enq values
-    val appWdata0EnqCtr = getCounter(io.enable & io.app.stores(0).wdata.valid)
-    for (i <- 0 until numWdataDebug) {
-      for (j <- 0 until math.min(io.app.stores(0).wdata.bits.size, numWdataWordsDebug)) {
-        connectDbgSignal(getFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr === i.U)), s"""wdata_from_accel${i}_$j""")
-      }
-    }
-
-    // wdata values
-    for (i <- 0 until numWdataDebug) {
-      for (j <- 0 until numWdataWordsDebug) {
-        connectDbgSignal(getFF(Cat(wdataFifoSize(15, 0), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (wdataCount === i.U)), s"""wdata_to_dram${i}_$j""")
-      }
-    }
-  }
-
-  connectDbgSignal(getCounter(io.enable & dramReady & dramCmdValid), "Num DRAM Commands")
-  connectDbgSignal(getCounter(io.enable & ~commandFifo.io.empty & ~(dramReady & dramCmdValid)), "Total gaps in issue")
-  connectDbgSignal(getCounter(io.enable & dramReady & dramCmdValid & ~headCommand.isWr), "Read Commands")
-  connectDbgSignal(getCounter(io.enable & dramReady & dramCmdValid & headCommand.isWr), "Write Commands")
-
-  // Count number of commands issued per stream
-  (0 until numStreams) foreach { case i =>
-    val signal = "cmd" + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
-    connectDbgSignal(getCounter(dramCmdValid & dramReady & (tagOut.streamTag === i.U)), signal)
-  }
-
-  // Count number of load commands issued from accel per p
-  io.app.loads.zipWithIndex.foreach { case (load, i) =>
-    val loadCounter = getCounter(io.enable & load.cmd.valid)
-    val loadCounterHandshake = getCounter(io.enable & load.cmd.valid & load.cmd.ready)
-    connectDbgSignal(loadCounter, s"LoadCmds from Accel (valid) $i")
-    connectDbgSignal(loadCounterHandshake, s"LoadCmds from Accel (valid & ready) $i")
-  }
-
-  // Count number of store commands issued from accel per stream
-  io.app.stores.zipWithIndex.foreach { case (store, i) =>
-    val storeCounter = getCounter(io.enable & store.cmd.valid)
-    val storeCounterHandshake = getCounter(io.enable & store.cmd.valid & store.cmd.ready)
-    val lastWaddr = getFF(headCommand.addr, io.enable & store.cmd.valid & store.cmd.ready)
-    val firstSent = RegInit(true.B)
-    firstSent := Mux(io.enable & store.cmd.valid & store.cmd.ready, false.B, firstSent)
-    val firstWaddr = getFF(headCommand.addr, firstSent)
-    connectDbgSignal(storeCounter, s"StoreCmds from Accel (valid) $i")
-    connectDbgSignal(storeCounterHandshake, s"StoreCmds from Accel (valid & ready) $i")
-    connectDbgSignal(firstWaddr, s"First store cmd addr $i")    
-    connectDbgSignal(lastWaddr, s"Last store cmd addr $i")    
-  }
-
-  connectDbgSignal(getCounter(respValid), "Num DRAM Responses")
-  connectDbgSignal(getCounter(io.enable & ~(io.dram.rresp.valid & io.dram.rresp.ready)), "Total gaps in read responses")
-  connectDbgSignal(getCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready), "Total gaps in read responses (rresp.valid & ~rresp.ready)")
-  connectDbgSignal(getCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready), "Total gaps in read responses (~rresp.valid & rresp.ready)")
-  connectDbgSignal(getCounter(io.enable & ~io.dram.rresp.valid & ~io.dram.rresp.ready), "Total gaps in read responses (~rresp.valid & ~rresp.ready)")
-
-  // Count number of responses issued per stream
-  (0 until numStreams) foreach { case i =>
-    val signal = "resp " + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
-    val respValidSignal = (if (i < loadStreamInfo.size) io.dram.rresp.valid else io.dram.wresp.valid)
-    val respReadySignal = (if (i < loadStreamInfo.size) io.dram.rresp.ready else io.dram.wresp.ready)
-    val respTagSignal = (if (i < loadStreamInfo.size) readStreamTagFromDRAM else writeStreamTagFromDRAM)
-    connectDbgSignal(getCounter(respValidSignal & respReadySignal & (respTagSignal === i.U)), signal)
-  }
-
-  connectDbgSignal(getCounter(io.dram.rresp.valid & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "RResp valid enqueued somewhere")
-  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready), "Rresp valid and ready")
-  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.rresp.ready & rdataFifos.map {_.io.enqVld}.reduce{_|_}), "Resp valid and ready and enqueued somewhere")
-  connectDbgSignal(getCounter(io.dram.rresp.valid & ~io.dram.rresp.ready), "Resp valid and not ready")
-
-  // Responses enqueued into appropriate places
-  (0 until loadStreamInfo.size) foreach { case i =>
-    val signal = s"rdataFifo $i enq"
-    connectDbgSignal(getCounter(rdataFifos(i).io.enqVld), signal)
-  }
-
-  // Responses enqueued into appropriate places
-  (0 until storeStreamInfo.size) foreach { case i =>
-    val signal = s"wrespFifo $i enq"
-    connectDbgSignal(getCounter(wrespFifos(i).io.enqVld), signal)
-  }
-
-  connectDbgSignal(wdataCount, "num wdata transferred (wvalid & wready)")
-
-//  connectDbgSignal(getCounter(io.dram.rresp.valid & io.dram.wresp.valid), "Rvalid and Bvalid")
-
-//  connectDbgSignal(numWdataValidCtr.io.out, "wdata_valid")
-//  connectDbgSignal(numWdataReadyCtr.io.out, "wdata_ready")
-//  connectDbgSignal(dramReadySeen, "dramReadySeen")
-//  connectDbgSignal(writeCmd, "writeCmd")
-//  connectDbgSignal(wrPhase.io.output.data, "wrPhase")
-//  connectDbgSignal(~isWrFifo.io.empty & isWrFifo.io.deq(0)(0), "~isWrFifo.io.empty & isWrFifo.io.deq(0)(0)")
-//  connectDbgSignal(getCounter(wdataValid & wdataReady & ~issued), "wvalid & wready & ~issued")
-//  connectDbgSignal(getCounter(wdataValid & wdataReady & issued), "wvalid & wready & issued")
-
-  if (isDebugChannel) {
-    // Print all debugging signals into a header file
-    val debugFileName = "cpp/generated_debugRegs.h"
-    val debugPW = new PrintWriter(new File(debugFileName))
-    debugPW.println(s"""
-  #ifndef __DEBUG_REGS_H__
-  #define __DEBUG_REGS_H__
-
-  #define NUM_DEBUG_SIGNALS ${signalLabels.size}
-
-  const char *signalLabels[] = {
-  """)
-
-    debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
-    debugPW.println("};")
-    debugPW.println("#endif // __DEBUG_REGS_H__")
-    debugPW.close
+  debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
+  debugPW.println("};")
+  debugPW.println("#endif // __DEBUG_REGS_H__")
+  debugPW.close
   }
 }
