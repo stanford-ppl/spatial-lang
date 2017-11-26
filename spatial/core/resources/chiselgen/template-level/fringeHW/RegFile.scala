@@ -73,7 +73,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
     ff
   }
 
-  val rport = Module(new MuxN(d, w))
+  val rport = Module(new MuxN(UInt(w.W), d))
   val regOuts = Vec(regs.map{_.io.out})
   rport.io.ins := regOuts
   if (FringeGlobals.target == "zcu") {
@@ -86,26 +86,26 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   io.argIns := Vec(regOuts.zipWithIndex.filter { case (arg, idx) => argInRange.contains(idx) }.map {_._1})
 }
 
-class RegFilePure(val w: Int, val d: Int) extends Module {
+class RegFilePure[T <: Data](val t: T, val d: Int) extends Module {
   val addrWidth = log2Up(d)
 
   val io = IO(new Bundle {
     val raddr = Input(UInt(addrWidth.W))
     val wen  = Input(Bool())
     val waddr = Input(UInt(addrWidth.W))
-    val wdata = Input(Bits(w.W))
-    val rdata = Output(Bits(w.W))
+    val wdata = Input(t)
+    val rdata = Output(t)
   })
 
   val regs = List.tabulate(d) { i =>
-    val ff = Module(new FF(w))
+    val ff = Module(new FFType(t))
     ff.io.in := io.wdata
     ff.io.enable := io.wen & (io.waddr === i.U)
-    ff.io.init := 0.U
+    ff.io.init := (0.U).asTypeOf(t)
     ff
   }
 
-  val rport = Module(new MuxN(d, w))
+  val rport = Module(new MuxN(t, d))
   val regOuts = Vec(regs.map{_.io.out})
   rport.io.ins := regOuts
   rport.io.sel := io.raddr
