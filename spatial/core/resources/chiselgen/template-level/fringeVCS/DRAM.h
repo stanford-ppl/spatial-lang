@@ -377,10 +377,11 @@ bool checkQAndRespond(int id) {
 
 
           if (req->isWr) {
-            pokeDRAMWriteResponse(req->tag);
+            pokeDRAMWriteResponse(req->tag, req->streamId);
           } else {
             pokeDRAMReadResponse(
               req->tag,
+              req->streamId,
               rdata[0],
               rdata[1],
               rdata[2],
@@ -474,10 +475,11 @@ bool checkQAndRespond(int id) {
             }
 
             if (req->isWr) {
-              pokeDRAMWriteResponse(req->tag);
+              pokeDRAMWriteResponse(req->tag, req->streamId);
             } else {
               pokeDRAMReadResponse(
                   req->tag,
+                  req->streamId,
                   rdata[0],
                   rdata[1],
                   rdata[2],
