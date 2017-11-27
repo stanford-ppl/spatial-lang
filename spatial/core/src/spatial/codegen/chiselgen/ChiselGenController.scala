@@ -167,7 +167,7 @@ trait ChiselGenController extends ChiselGenCounter{
         stages.zipWithIndex.foreach{ case (s, i) =>
           emitGlobalWireMap(src"${s}_done", "Wire(Bool())")
           emitGlobalWireMap(src"${s}_en", "Wire(Bool())")
-          emit(src"""${swap(idx, Chain)}.connectStageCtrl(${swap(s, Done)}.D(1,rr), ${swap(s, En)}, List($i))""")
+          emit(src"""${swap(idx, Chain)}.connectStageCtrl(${swap(s, Done)}.D(0,rr), ${swap(s, En)}, List($i)) // Used to be delay of 1 on Nov 26, 2017 but not sure why""")
         }
       }
       emit(src"""${swap(idx, Chain)}.chain_pass(${idx}, ${swap(controller, SM)}.io.output.ctr_inc)""")
@@ -688,7 +688,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${swap(c, BaseEn)} := ${swap(sym, SM)}.io.output.stageEnable(${idx}).D(1,rr) & ~${swap(c, Done)}.D(1,rr)""")  
+        emit(src"""${swap(c, BaseEn)} := ${swap(sym, SM)}.io.output.stageEnable(${idx}).D(0,rr) & ~${swap(c, Done)}.D(1,rr) // Both used to be delayed by 1 on Nov 26, 2017 but not sure why""")  
         emit(src"""${swap(c, En)} := ${swap(c, BaseEn)} ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
