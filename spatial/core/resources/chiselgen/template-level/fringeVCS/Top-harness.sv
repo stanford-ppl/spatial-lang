@@ -249,6 +249,7 @@ module test;
 
   function void pokeDRAMReadResponse(
     input int tag,
+    input int streamId,
     input int rdata0,
     input int rdata1,
     input int rdata2,
@@ -268,6 +269,7 @@ module test;
   );
     io_dram_0_rresp_valid = 1;
     io_dram_0_rresp_bits_tag = tag;
+    io_dram_0_rresp_bits_streamId = streamId;
     io_dram_0_rresp_bits_rdata_0 = rdata0;
     io_dram_0_rresp_bits_rdata_1 = rdata1;
     io_dram_0_rresp_bits_rdata_2 = rdata2;
@@ -287,10 +289,12 @@ module test;
   endfunction
 
   function void pokeDRAMWriteResponse(
-    input int tag
+    input int tag,
+    input int streamId
   );
     io_dram_0_wresp_valid = 1;
     io_dram_0_wresp_bits_tag = tag;
+    io_dram_0_wresp_bits_streamId = streamId;
   endfunction
 
 

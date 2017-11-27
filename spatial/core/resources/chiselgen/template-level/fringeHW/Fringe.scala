@@ -94,8 +94,8 @@ class Fringe(
     val (loadStreamIDs, storeStreamIDs) = getAppStreamIDs(channelAssignment)
 
     println(s"[Fringe] Creating MAG $i, assignment: $channelAssignment, loadStreamIDs: $loadStreamIDs, storeStreamIDs: $storeStreamIDs")
-    val linfo = if (loadStreamIDs.size == 0) List(StreamParInfo(w, 16, 0)) else loadStreamIDs.map { loadStreamInfo(_) }
-    val sinfo = if (storeStreamIDs.size == 0) List(StreamParInfo(w, 16, 0)) else storeStreamIDs.map {storeStreamInfo(_) }
+    val linfo = if (loadStreamIDs.size == 0) List(StreamParInfo(w, 16, 0, false)) else loadStreamIDs.map { loadStreamInfo(_) }
+    val sinfo = if (storeStreamIDs.size == 0) List(StreamParInfo(w, 16, 0, false)) else storeStreamIDs.map {storeStreamInfo(_) }
     val loadStreams = loadStreamIDs.map { io.memStreams.loads(_) }
     val storeStreams = storeStreamIDs.map { io.memStreams.stores(_) }
 
@@ -107,7 +107,8 @@ class Fringe(
 
   val debugChannelID = 0
 
-  val numDebugs = mags(debugChannelID).numDebugs
+  //val numDebugs = mags(debugChannelID).numDebugs
+  val numDebugs = 0
   val numRegs = numArgIns + numArgOuts + 2 - numArgIOs + numDebugs // (command, status registers)
 
   // Scalar, command, and status register file
@@ -158,7 +159,7 @@ class Fringe(
       argOutReg.bits := io.argOuts(i-1).bits
       argOutReg.valid := io.argOuts(i-1).valid
     } else {
-      argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
+      //argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
       argOutReg.valid := 1.U
     }
   }

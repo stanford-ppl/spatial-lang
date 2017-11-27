@@ -102,15 +102,15 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
 
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
-    sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
-    sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.set := (io.sEn(i) & ~io.sDone(i)) || (io.sEn(i) & io.sDone(i) & Utils.getRetimed(~io.sEn(i), 1) /*Special case when en and done go on at same time in first cycle*/)
+    sEn_latch(i).io.input.reset := swap || Utils.getRetimed(swap, 1)
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
-    sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.reset := swap || Utils.getRetimed(swap, 1)
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  swap := sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done),i) => (en.io.output.data === done.io.output.data) || (en.io.output.data && io.sDone(i)) }.reduce{_&_} & anyEnabled
   // io.swapAlert := ~swap & anyEnabled & (0 until numBufs).map{ i => sEn_latch(i).io.output.data === (sDone_latch(i).io.output.data | io.sDone(i))}.reduce{_&_} // Needs to go high when the last done goes high, which is 1 cycle before swap goes high
 
   val statesIn = (0 until numWriters).map{ i => 

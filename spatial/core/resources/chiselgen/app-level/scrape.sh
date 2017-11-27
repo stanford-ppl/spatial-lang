@@ -96,6 +96,7 @@ if [[ $1 = "Zynq" ]]; then
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
+	    rm -rf /home/regression/${APP}*
 	  else
 	    mkdir $APP
 	    tar -xvf ${APP}.tar.gz -C $APP
@@ -108,7 +109,7 @@ if [[ $1 = "Zynq" ]]; then
 	    sudo ./Top $2 $3 $4 $5 $6 $7 $8
 	    rm /home/sync/\$(whoami)
 	    rm -rf /home/regression/${APP}*	  
-	fi" > log
+	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
     runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
