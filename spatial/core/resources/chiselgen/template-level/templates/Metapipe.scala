@@ -76,12 +76,12 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   maxFF.io.input(0).reset := io.input.rst
   val max = getRetimed(maxFF.io.output.data,1)
 
-  val doneClear = RegInit(0.U)
+  val doneClear = Wire(UInt())
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i) //& ~deadState.io.output.data
-    ff.io.input.asyn_reset := doneClear | io.input.rst
-    ff.io.input.reset := false.B
+    ff.io.input.asyn_reset := io.input.rst
+    ff.io.input.reset := doneClear //false.B
     ff
   }
   val doneMask = doneFF.zipWithIndex.map { case (ff, i) => ff.io.output.data }
