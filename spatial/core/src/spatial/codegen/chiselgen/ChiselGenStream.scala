@@ -279,6 +279,78 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""io.genericStreams.outs($id).valid := ${swap(stream, Valid)}""")
         }
       }
+
+
+    case e@ParStreamRead(strm, ens) =>
+      val parent = parentOf(lhs).get
+      emit(src"""val ${lhs}_rId = getStreamInLane("$strm")""")
+      strm match {
+        case Def(StreamInNew(bus)) => bus match {
+          case VideoCamera => 
+            emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
+            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${swap(parent, Retime)}, rr) """)
+          case SliderSwitch => 
+            emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
+          case _ => 
+            val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
+              case Def(StreamInNew(bus)) => bus match {
+                case BurstAckBus => true
+                case ScatterAckBus => true
+                case _ => false
+              }
+              case _ => false
+            }
+            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
+            // if (!isAck) {
+            //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
+              emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
+            // } else {
+            //   emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")        
+            // }
+
+
+        }
+      }
+
+
+    case ParStreamWrite(stream, data, ens) =>
+      val par = ens.length
+      val parent = parentOf(lhs).get
+      val datacsv = data.map{d => src"${d}"}.mkString(",")
+      val en = ens.map(quote).mkString("&")
+
+      emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*-*${ens.length}""")
+      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
+      (0 until ens.length).map{ i => emit(src"""${swap(stream, DataOptions)}(${lhs}_wId + ${i}) := ${data(i)}""")}
+      // emit(src"""${stream} := Vec(List(${datacsv}))""")
+
+      stream match {
+        case Def(StreamOutNew(bus)) => bus match {
+          case VGA => 
+            emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
+            // emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
+            // emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
+            emitGlobalWireMap(src"""stream_out_startofpacket""", """Wire(Bool())""")
+            emitGlobalWireMap(src"""stream_out_endofpacket""", """Wire(Bool())""")
+            emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
+            emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
+            emit(src"""// emiiting data for stream ${stream}""")
+            // emit(src"""${stream} := ${data.head}""")
+            // emit(src"""converted_data := ${stream}""")
+            // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})""")
+          case LEDR =>
+            // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+      //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
+            // emit(src"""${stream} := $data""")
+            // emit(src"""io.led_stream_out_data := ${stream}""")
+          case _ =>
+            // val datacsv = data.map{d => src"${d}"}.mkString(",")
+            // val en = ens.map(quote).mkString("&")
+            // emit(src"${stream} := Vec(List(${datacsv}))")
+            // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
+        }
+      }
+
     case _ => super.emitNode(lhs, rhs)
   }
 
