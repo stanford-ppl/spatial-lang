@@ -1010,9 +1010,9 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"// Complete spatialConfig: ${spatialConfig.printer()}")
       emit("")
       emit(src"// Widths: ${widthStats.sorted}")
-      emit(src"//   Widest Outer Controller: ${widthStats.max}")
+      emit(src"//   Widest Outer Controller: ${if (widthStats.length == 0) 0 else widthStats.max}")
       emit(src"// Depths: ${depthStats.sorted}")
-      emit(src"//   Deepest Inner Controller: ${depthStats.max}")
+      emit(src"//   Deepest Inner Controller: ${if (depthStats.length == 0) 0 else depthStats.max}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
 
