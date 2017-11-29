@@ -31,7 +31,7 @@ class Command(val addrWidth: Int, val sizeWidth: Int, memChannel: Int) extends B
 }
 
 // Parallelization and word width information
-case class StreamParInfo(w: Int, v: Int, memChannel: Int)
+case class StreamParInfo(w: Int, v: Int, memChannel: Int, isSparse: Boolean)
 
 class MemoryStream(addrWidth: Int, sizeWidth: Int, memChannel: Int) extends Bundle {
   val cmd = Flipped(Decoupled(new Command(addrWidth, sizeWidth, 0)))
@@ -78,7 +78,6 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
   val tag = UInt(w.W)
   val streamId = UInt(w.W)
   val dramReadySeen = Bool()
-//  val wdata = Vec(v, UInt(w.W)) // v
 
   override def cloneType(): this.type = {
     new DRAMCommand(w, v).asInstanceOf[this.type]

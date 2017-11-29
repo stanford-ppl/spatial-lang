@@ -374,3 +374,5 @@ xsim-clean:
 sim-clean:
 	make -C ${VERILATOR_SRC} clean
 	rm -f Top *.vcd
+
+null: # Null target for regression testing purposes
