@@ -86,6 +86,23 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       emit(src"""${lhs}.r := ${fifo}.connectPopPort(${swap(reader, En)} & (${enabler}).D(${bug202delay}) & $en & ~${swap(reader, Inhibitor)}).apply(0)""")
 
+
+    case ParFILOPop(filo, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
+      val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en).reverse""")
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
+
+    case ParFILOPush(filo, data, ens) =>
+      val par = ens.length
+      val en = ens.map(quote).mkString("&")
+      val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
+      val enabler = src"${swap(writer, DatapathEn)}"
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
+
     case FILOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FILOEmpty(fifo) => emit(src"val $lhs = ${fifo}.io.empty")
     case FILOFull(fifo) => emit(src"val $lhs = ${fifo}.io.full")

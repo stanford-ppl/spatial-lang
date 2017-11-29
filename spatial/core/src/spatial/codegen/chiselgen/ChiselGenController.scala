@@ -558,6 +558,7 @@ trait ChiselGenController extends ChiselGenCounter{
     emitGlobalWireMap(src"""${swap(sym, RstEn)}""", """Wire(Bool())""") // TODO: Is this legal?
     emit(src"""${swap(sym, RstEn)} := ${swap(sym, SM)}.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${swap(sym, SM)}.io.input.numIter := (${numIter.mkString(" *-* ")}).raw.asUInt // Unused for inner and parallel""")
+    if (spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt * numIter.length > maxretime) maxretime = spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt * numIter.length
     emit(src"""${swap(sym, SM)}.io.input.rst := ${swap(sym, Resetter)} // generally set by parent""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
@@ -762,6 +763,8 @@ trait ChiselGenController extends ChiselGenCounter{
     case Hwblock(func,isForever) =>
       hwblock_sym = hwblock_sym :+ lhs.asInstanceOf[Exp[_]]
       controllerStack.push(lhs)
+      if (levelOf(lhs) == OuterControl) {widthStats += childrenOf(lhs).length}
+      else if (levelOf(lhs) == InnerControl) {depthStats += controllerStack.length}
       toggleEn() // turn on
       val streamAddition = getStreamEnablers(lhs)
       emitController(lhs, None, None)
@@ -807,6 +810,8 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)
+      if (levelOf(lhs) == OuterControl) {widthStats += childrenOf(lhs).length}
+      else if (levelOf(lhs) == InnerControl) {depthStats += controllerStack.length}
       emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())") // hack
       emitController(lhs, None, None)
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B""")
@@ -826,6 +831,8 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
+      if (levelOf(lhs) == OuterControl) {widthStats += childrenOf(lhs).length}
+      else if (levelOf(lhs) == InnerControl) {depthStats += controllerStack.length}
       emitController(lhs, None, None)
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B""")
       emitGlobalWire(src"""${swap(lhs, IIDone)} := true.B""")
@@ -1001,6 +1008,11 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"// Root controller for app: ${config.name}")
       emit(src"// Complete config: ${config.printer()}")
       emit(src"// Complete spatialConfig: ${spatialConfig.printer()}")
+      emit("")
+      emit(src"// Widths: ${widthStats.sorted}")
+      emit(src"//   Widest Outer Controller: ${if (widthStats.length == 0) 0 else widthStats.max}")
+      emit(src"// Depths: ${depthStats.sorted}")
+      emit(src"//   Deepest Inner Controller: ${if (depthStats.length == 0) 0 else depthStats.max}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
 

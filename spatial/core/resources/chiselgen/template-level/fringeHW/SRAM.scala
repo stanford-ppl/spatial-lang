@@ -78,7 +78,7 @@ class SRAM[T <: Data](override val t: T, override val d: Int) extends GenericRAM
       // Implement WRITE_FIRST logic here
       // equality register
       val equalReg = RegNext(io.wen & (io.raddr === io.waddr), false.B)
-      val wdataReg = RegNext(io.wdata, 0.U)
+      val wdataReg = RegNext(io.wdata.asUInt, 0.U)
       io.rdata := Mux(equalReg, wdataReg.asUInt, mem.io.rdata).asTypeOf(t)
 
     case "DE1" | "de1soc" =>

@@ -114,6 +114,44 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       } else {
         emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en))).apply(0)""")
       }
+
+
+    case ParFIFODeq(fifo, ens) =>
+      val par = ens.length
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      if (spatialConfig.useCheapFifos){
+        val en = ens.map(quote).mkString("&")
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        val en = ens.map{i => src"$i & (${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)})"}
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
+      }
+      
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
+
+      // fifo.tp.typeArguments.head match { 
+      //   case FixPtType(s,d,f) => if (spatialNeedsFPType(fifo.tp.typeArguments.head)) {
+      //       emit(s"""val ${quote(lhs)} = (0 until $par).map{ i => Utils.FixedPoint($s,$d,$f,${quote(fifo)}.io.out(i)) }""")
+      //     } else {
+      //       emit(src"""val ${lhs} = ${fifo}.io.out""")
+      //     }
+      //   case _ => emit(src"""val ${lhs} = ${fifo}.io.out""")
+      // }
+
+    case ParFIFOEnq(fifo, data, ens) =>
+      val par = ens.length
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      val enabler = src"${swap(writer, DatapathEn)}"
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      if (spatialConfig.useCheapFifos) {
+        val en = ens.map(quote).mkString("&")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+      } else {
+        val en = ens.map{i => src"$i & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)})"}
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), Vec(List($en)))""")
+      }
+      
       
     case FIFOPeek(fifo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); ${lhs}.r := ${fifo}.io.out(0).r")
     case FIFOEmpty(fifo) => emitGlobalWire(src"val $lhs = Wire(Bool())"); emit(src"$lhs := ${fifo}.io.empty")
