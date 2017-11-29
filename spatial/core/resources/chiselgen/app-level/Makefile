@@ -265,8 +265,8 @@ arria10: arria10-hw
 arria10-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs arria10"
 	sed -i 's/SRFF/SRFF_sp/g' verilog-arria10/Top.v
-	cp ./chisel/template-level/fringeArria10/*.v ./verilog-arria10/
-	cp ./chisel/template-level/fringeArria10/*.sh ./verilog-arria10/
+	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' verilog-arria10/Top.v
+	cat ./chisel/template-level/fringeArria10/*.v >> verilog-arria10/Top.v
 
 
 zcu: zcu-hw zcu-sw

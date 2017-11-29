@@ -304,10 +304,10 @@
 ./chiselgen/template-level/fringeVCS/DRAMSim2/ClockDomain.h
 ./chiselgen/template-level/fringeVCS/SRAMVerilogSim.v
 ./chiselgen/template-level/fringeVCS/DRAM.h
-./chiselgen/template-level/fringeArria10/Arria10_tb.v
+./chiselgen/template-level/fringeArria10/testbenches/Arria10_tb.v
+./chiselgen/template-level/fringeArria10/testbenches/simulate.sh
 ./chiselgen/template-level/fringeArria10/bigIP/BigIPArria10.scala
 ./chiselgen/template-level/fringeArria10/RetimeShiftRegister.v
-./chiselgen/template-level/fringeArria10/simulate.sh
 ./chiselgen/template-level/fringeArria10/SRAMVerilogAWS.v
 ./chiselgen/template-level/fringeArria10/FringeArria10.scala
 ./chiselgen/template-level/fringeHW/AXI4LiteToRFBridge.scala

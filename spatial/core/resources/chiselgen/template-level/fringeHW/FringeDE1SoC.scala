@@ -46,7 +46,8 @@ class FringeDE1SoC(
   // Avalon is using reset and write_n
   fringeCommon.reset := reset
   fringeCommon.io.raddr := io.S_AVALON.address
-  fringeCommon.io.wen   := ~io.S_AVALON.write_n & io.S_AVALON.chipselect
+  // TODO: This signal might be reconsidered since Arria10 takes a different control signal
+  fringeCommon.io.wen   := ~io.S_AVALON.write & io.S_AVALON.chipselect
 
   fringeCommon.io.waddr := io.S_AVALON.address
   fringeCommon.io.wdata := io.S_AVALON.writedata
