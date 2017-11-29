@@ -62,7 +62,8 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   rstCtr.io.input.enable := state === resetState.U & io.input.enable
   rstCtr.io.input.reset := (state != resetState.U) | io.input.rst
   rstCtr.io.input.saturate := true.B
-  rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))
+  // rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))
+  rstCtr.io.input.stop := Mux(staticNiter.B, 1.S, Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W)))
   rstCtr.io.input.gap := 0.S(rstw.W)
   rstCtr.io.input.start := 0.S(rstw.W)
   rstCtr.io.input.stride := 1.S(rstw.W)
@@ -75,18 +76,18 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   maxFF.io.input(0).reset := io.input.rst
   val max = getRetimed(maxFF.io.output.data,1)
 
-  val doneClear = RegInit(0.U)
+  val doneClear = Wire(UInt())
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
-    ff.io.input.set := io.input.stageDone(i) & ~deadState.io.output.data
-    ff.io.input.asyn_reset := doneClear | io.input.rst
-    ff.io.input.reset := false.B
+    ff.io.input.set := io.input.stageDone(i) //& ~deadState.io.output.data
+    ff.io.input.asyn_reset := io.input.rst
+    ff.io.input.reset := doneClear //false.B
     ff
   }
   val doneMask = doneFF.zipWithIndex.map { case (ff, i) => ff.io.output.data }
 
   val ctr = Module(new SingleCounter(1, Some(0), None, Some(1), Some(0)))
-  ctr.io.input.enable := doneClear & ~deadState.io.output.data
+  ctr.io.input.enable := doneClear //& ~deadState.io.output.data
   ctr.io.input.saturate := true.B
   ctr.io.input.stop := max.asSInt
   ctr.io.input.reset := io.input.rst | (state === doneState.U)
@@ -101,7 +102,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   // io.output.stageEnable.foreach { _ := UInt(0) }
   // doneClear := UInt(0)
 
-  when(io.input.enable && ~deadState.io.output.data) {
+  when(io.input.enable ) {
     deadState.io.input.reset := false.B
     // when(state === initState.U) {   // INIT -> RESET
     //   stateFF.io.input(0).data := resetState.U
@@ -198,12 +199,12 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       stateFF.io.input(0).data := state
       deadState.io.input.set := false.B
     }
-  }.elsewhen(deadState.io.output.data){
-    deadState.io.input.set := false.B
-    deadState.io.input.reset := true.B
-    // io.output.stageEnable.foreach { s => s := false.B}
-    stateFF.io.input(0).data := state
-    cycsSinceDone.io.input(0).enable := false.B
+  // }.elsewhen(deadState.io.output.data){
+  //   deadState.io.input.set := false.B
+  //   deadState.io.input.reset := true.B
+  //   // io.output.stageEnable.foreach { s => s := false.B}
+  //   stateFF.io.input(0).data := state
+  //   cycsSinceDone.io.input(0).enable := false.B
   }.otherwise {
     cycsSinceDone.io.input(0).enable := false.B
     deadState.io.input.set := false.B
@@ -215,7 +216,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
 
   // Output logic
   io.output.ctr_inc := io.input.stageDone(0) & Utils.delay(~io.input.stageDone(0), 1) // on rising edge
-  io.output.done := state === doneState.U & deadState.io.output.data
+  io.output.done := state === doneState.U //& deadState.io.output.data
   io.output.state := state.asSInt
 }
 

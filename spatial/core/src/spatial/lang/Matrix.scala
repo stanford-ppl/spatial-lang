@@ -20,6 +20,9 @@ case class Matrix[T:Type](s: Exp[Matrix[T]]) extends Struct[Matrix[T]] {
   /** Returns a flattened, immutable @Array view of this Matrix's data. **/
   @api def flatten: MArray[T] = data
 
+  /** Returns the number of elements in the Matrix. **/
+  @api def length: Index = rows * cols
+
   /** Applies the function `func` on each element in this Matrix. **/
   @api def foreach(func: T => MUnit): MUnit = data.foreach(func)
   /** Returns a new Matrix created using the mapping `func` over each element in this Matrix. **/
@@ -66,6 +69,8 @@ case class Tensor3[T:Type](s: Exp[Tensor3[T]]) extends Struct[Tensor3[T]] {
   @api def update(i: Index, j: Index, k: Index, elem: T): MUnit = data.update(i*dim1*dim2 + j*dim1 + k, elem)
   /** Returns a flattened, immutable @Array view of this Tensor3's data. **/
   @api def flatten: MArray[T] = data
+  /** Returns the number of elements in the Tensor3. **/
+  @api def length: Index = dim0 * dim1 * dim2
 
   /** Applies the function `func` on each element in this Tensor3. **/
   @api def foreach(func: T => MUnit): MUnit = data.foreach(func)
@@ -116,6 +121,8 @@ case class Tensor4[T:Type](s: Exp[Tensor4[T]]) extends Struct[Tensor4[T]] {
   @api def update(i: Index, j: Index, k: Index, l: Index, elem: T): MUnit = data.update(i*dim1*dim2*dim3 + j*dim2*dim3 + k*dim3 + l, elem)
   /** Returns a flattened, immutable @Array view of this Tensor4's data. **/
   @api def flatten: MArray[T] = data
+  /** Returns the number of elements in the Tensor4. **/
+  @api def length: Index = dim0 * dim1 * dim2 * dim3
 
   /** Applies the function `func` on each element in this Tensor4. **/
   @api def foreach(func: T => MUnit): MUnit = data.foreach(func)
@@ -170,6 +177,8 @@ case class Tensor5[T:Type](s: Exp[Tensor5[T]]) extends Struct[Tensor5[T]] {
   @api def update(i: Index, j: Index, k: Index, l: Index, m: Index, elem: T): MUnit = data.update(i*dim1*dim2*dim3*dim4 + j*dim2*dim3*dim4 + k*dim3*dim4 + l*dim4 + m, elem)
   /** Returns a flattened, immutable @Array view of this Tensor5's data. **/
   @api def flatten: MArray[T] = data
+  /** Returns the number of elements in the Tensor5. **/
+  @api def length: Index = dim0 * dim1 * dim2 * dim3 * dim4
 
   /** Applies the function `func` on each element in this Tensor5. **/
   @api def foreach(func: T => MUnit): MUnit = data.foreach(func)

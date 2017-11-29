@@ -1,10 +1,13 @@
 #!bin/bash
 
 #1 = Backend
+#2+ = args
 
 # get tid
 if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
+elif [[ $1 = "ZCU" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/zcu"
 elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/aws"
 fi
@@ -18,6 +21,12 @@ if [[ $1 = "Zynq" ]]; then
 	word="Slice"
 	f1=3
 	f2=6
+elif [[ $1 = "ZCU" ]]; then
+    par_util=`pwd`/verilog-zcu/par_utilization.rpt
+    par_tmg=`pwd`/verilog-zcu/par_timing_summary.rpt
+    word="CLB"
+    f1=3
+    f2=6
 elif [[ $1 = "AWS" ]]; then
 	par_util=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/utilization_route_design.rpt
 	par_tmg=/home/mattfel/aws-fpga/hdk/cl/examples/$appname/build/reports/timing_summary_route_design.rpt
@@ -79,5 +88,35 @@ echo "LUT: $lutraw (${lutpcnt}%) Regs: $regraw (${regpcnt}%) BRAM: $ramraw (${ra
 python3 scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$tmg" "$1"
 
 
-# Fake out scala Regression
+# Run on board
+if [[ $1 = "Zynq" ]]; then
+	APP=$(basename $(pwd))
+	scp $(basename $(pwd)).tar.gz regression@holodeck-zc706:
+	ssh regression@holodeck-zc706 "
+	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
+	  if [[ \$locked -gt 0 ]]; then
+	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
+	    rm -rf /home/regression/${APP}*
+	  else
+	    mkdir $APP
+	    tar -xvf ${APP}.tar.gz -C $APP
+	    pushd $APP
+	    mkdir verilog
+	    mv accel.bit.bin verilog
+	    popd
+	    cd $APP
+	    touch /home/sync/\$(whoami)
+	    sudo ./Top $2 $3 $4 $5 $6 $7 $8
+	    rm /home/sync/\$(whoami)
+	    rm -rf /home/regression/${APP}*	  
+	fi" &> log
+    timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
+    locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
+    runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
+    if [[ $runtime = "" ]]; then runtime=NA; fi
+    pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
+    python3 report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked"
+fi
+
+# Fake out regression
 echo "PASS: 1"
