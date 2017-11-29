@@ -135,7 +135,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     banking
   }
 
-  def bankAccesses(mem: Exp[_], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[ModBanking] = {
+  def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[ModBanking] = {
     val cyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, a.last))) }
     val blockCyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, 0, a.last))) }
     val nIters = domain.headOption.map(_.length - 1).getOrElse(0)
@@ -146,45 +146,55 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     val blockCyclicIndexStr = blockCyclicIndexBounds.map(_.toString).mkString("\n")
     val dBC = s"${blockCyclicIndexBounds.length+4} ${nIters + 4}\n$blockCyclicIndexStr\n"
 
-    val accessGrps: Seq[Set[AccessMatrix]] = reads ++ writes
+    val groups: Seq[Set[AccessMatrix]] = reads ++ writes
 
     dbg("  Attempting to find banking with access matrix groups: ")
-    accessGrps.zipWithIndex.foreach{case (grp,i) =>
+    groups.zipWithIndex.foreach{case (grp,i) =>
       dbg(s"    Group #$i: ")
       grp.foreach{m => m.printWithTab("      ") }
     }
 
-    val dims = constDimsOf(mem)
     val dimIndices = dims.indices
     val hierarchical = dimIndices.map{d => Seq(d) }   // Fully hierarchical (each dimension has separate bank addr.)
     val fullDiagonal = Seq(dimIndices)                // Fully diagonal (all dimensions contribute to single bank addr.)
-    val strategies = Seq(hierarchical, fullDiagonal)  // TODO: try all possible dimension orderings?
-    val options = strategies.flatMap{strategy =>
-      dbg(s"  Trying dimension strategy $strategy")
-      // Split up accesses based on the dimension groups in this banking strategy
-      // Then, for each dimension group, determine the banking
-      val banking = strategy.map{dimensions =>        // Set of dimensions to bank together
-        //dbg(s"    Creating affine access pairs..")
-        val accesses = accessGrps.zipWithIndex.map{case (grp,i) =>
-          // Convert all AccessMatrix instances into pairs of (Matrix, Offset Vector)
-          grp.toSeq.flatMap{access =>
-            //access.printWithTab("      ")
-            access.getAccessPairsIfAffine(dimensions)
-          }
-        }
-        dbg(s"    Dimension group: $dimensions")
-        findBanking(dims.length, accesses, dimensions, dC, dBC)
-      }
-      if (banking.forall(_.isDefined)) Some(banking.map(_.get)) else None
-    }
+    // TODO: try other/all possible dimension orderings?
+    val strategies = if (dims.length > 1) Seq(hierarchical, fullDiagonal) else Seq(hierarchical)
 
-    // TODO: Replace with cost model
-    // TODO: What to do in the case where banking fails? Fall back to duplication/time multiplexing?
-    options.headOption.getOrElse{
-      bug(mem.ctx, c"Could not bank reads of memory $mem: ")
-      reads.flatten.map(_.access).foreach{rd => bug(s"  ${str(rd.node)}") }
-      bug(mem.ctx)
-      Nil
+    if (groups.forall(_.size <= 1)) {
+      // Only a single bank needed, since only 1 access per group
+      // Note this case is required for banking random accesses
+      // TODO: Assumes random accesses should never be grouped together; we assume they can never be banked together
+      Seq(ModBanking(1, 1, List.fill(dims.length){1}, List.tabulate(dims.length){i => i}))
+    }
+    else {
+      val options = strategies.flatMap { strategy =>
+        dbg(s"  Trying dimension strategy $strategy")
+        // Split up accesses based on the dimension groups in this banking strategy
+        // Then, for each dimension group, determine the banking
+        val banking = strategy.map { dimensions => // Set of dimensions to bank together
+          //dbg(s"    Creating affine access pairs..")
+          val accesses = groups.zipWithIndex.map { case (grp, i) =>
+            // Convert all AccessMatrix instances into pairs of (Matrix, Offset Vector)
+            grp.toSeq.flatMap { access =>
+              //access.printWithTab("      ")
+              access.getAccessPairsIfAffine(dimensions)
+            }
+          }
+          dbg(s"    Dimension group: $dimensions")
+          findBanking(dims.length, accesses, dimensions, dC, dBC)
+        }
+        if (banking.forall(_.isDefined)) Some(banking.map(_.get)) else None
+      }
+
+      // TODO: Replace with cost model
+      // TODO: What to do in the case where banking fails? Fall back to duplication/time multiplexing?
+      options.headOption.getOrElse {
+        dbg(c"BANKING FAILED")
+        bug(mem.ctx, c"Could not bank reads of memory $mem: ")
+        reads.flatten.map(_.access).foreach { rd => bug(s"  ${str(rd.node)}") }
+        bug(mem.ctx)
+        Nil
+      }
     }
   }
 

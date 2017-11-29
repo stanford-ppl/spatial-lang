@@ -91,14 +91,6 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       emitGlobalModule(src"$lhs.io.reset := reset")
       linebufs = linebufs :+ lhs
 
-    case op@LineBufferRotateEnq(lb,row,data,en) => throw new Exception(s"Cannot generate unbanked LineBuffer enqueue.\n${str(lhs)}")
-      //throw new Exception(src"Non-parallelized LineBufferRotateEnq not implemented yet!  It isn't hard, just ask matt to do it")
-      /*val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
-      val i = dispatch.head
-      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-      emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
-      emit(src"${lb}_$i.io.w_en(${row}) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})")*/
 
     case BankedLineBufferRotateEnq(lb,data,ens,row) =>
       val parent = ctrlOf(lhs).node
@@ -142,62 +134,54 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${getConstValue(len)}, ${newWire(lhs.tp.typeArguments.head)}))""")
       for ( k <- 0 until lenOf(lhs)) {
-        emit(src"${lhs}($k) := ${quote(lb)}_$i.readRowSlice(${rowtext}, ${k}.U).r")  
+        emit(src"${lhs}($k) := ${quote(lb)}_$i.readRowSlice(${rowtext}, ${k}.U).r")
       }*/
-    case _:LineBufferRowSlice[_] => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
-    case _:LineBufferColSlice[_] => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
-    case _:LineBufferLoad[_]     => throw new Exception(s"Cannot generate unbanked LineBuffer load.\n${str(lhs)}")
-    /*   val dispatch = dispatchOf(lhs, lb).toList.distinct
-      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
-      val i = dispatch.head
-      emit(src"${lb}_$i.io.col_addr(0) := ${col}.raw")
-      val rowtext = row match {
-        case Const(cc) => s"$cc"
-        case _ => src"${row}.r"
-      }
-      emit(s"val ${quote(lhs)} = ${quote(lb)}_$i.readRow(${rowtext})")*/
+    case _:LineBufferRowSlice[_]  => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
+    case _:LineBufferColSlice[_]  => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
+    case _:LineBufferLoad[_]      => throw new Exception(s"Cannot generate unbanked LineBuffer load.\n${str(lhs)}")
+    case _:LineBufferEnq[_]       => throw new Exception(s"Cannot generate unbanked LineBuffer enqueue.\n${str(lhs)}")
+    case _:LineBufferRotateEnq[_] => throw new Exception(s"Cannot generate unbanked LineBuffer enqueue.\n${str(lhs)}")
 
-    // TODO
     case BankedLineBufferLoad(lb,bank,ofs,ens) =>
-      /*rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) =>
-        emit(src"$lb.io.col_addr(0) := $col.raw // Assume we always read from same col")
+      // TODO: Revised banking
+      /*val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val ii = dispatch.head
+      rows.zip(cols).zipWithIndex.foreach{case ((row, col),i) =>
+        emit(src"${lb}_$ii.io.col_addr(0) := $col.raw // Assume we always read from same col")
         val rowtext = row match {
           case Const(cc) => s"$cc"
-          case _ => src"$row.r"
+          case _ => src"${row}.r"
         }
-        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}.readRow(${rowtext})")
+        emit(s"val ${quote(lhs)}_$i = ${quote(lb)}_$ii.readRow(${rowtext})")
       }
       emitGlobalWire(s"""val ${quote(lhs)} = Wire(Vec(${rows.length}, UInt(32.W)))""")
-      emit(s"""${quote(lhs)} := Vec(${rows.indices.map{i => src"${lhs}_$i"}.mkString(",")})""")*/
-
-
-    // TODO: Shouldn't occur? Can be merged with BankedLineBufferEnq
-    case LineBufferEnq(lb,data,en) =>
-      val parent = ctrlOf(lhs).node
-      emit(src"$lb.io.data_in(0) := $data.raw")
-      emit(src"$lb.io.w_en(0) := $en & Utils.getRetimed(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})")
-
+      emit(s"""${quote(lhs)} := Vec(${(0 until rows.length).map{i => src"${lhs}_$i"}.mkString(",")})""")*/
 
     case BankedLineBufferEnq(lb,data,ens) => //FIXME: Not correct for more than par=1
-      val parent = ctrlOf(lhs).node
-
       if (!isTransient(lhs)) {
+        //val dispatch = dispatchOf(lhs, lb).toList.distinct
+        //if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+        //val ii = dispatch.head
+        val parent = ctrlOf(lhs).node //writersOf(lb).find{_.node == lhs}.get.ctrlNode
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"$lb.io.data_in($i) := $d.raw")
         }
         emit(src"""$lb.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
       }
       else {
-        emit(src"""val ${lb}_transient_base = $lb.col_wPar*$lb.rstride""")
+        //val dispatch = dispatchOf(lhs, lb).toList.distinct
+        //if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+        //val ii = dispatch.head
+        val parent = ctrlOf(lhs).node //writersOf(lb).find{_.node == lhs}.get.ctrlNode
+        emit(src"""val ${lb}_transient_base = ${lb}.col_wPar*${lb}.rstride""")
         data.zipWithIndex.foreach { case (d, i) =>
-          emit(src"$lb.io.data_in(${lb}_transient_base + $i) := $d.raw")
+          emit(src"${lb}.io.data_in(${lb}_transient_base + $i) := ${d}.raw")
         }
-        emit(src"""$lb.io.w_en($lb.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
-        emit(src"""$lb.io.transientDone := ${parent}_done""")
-        emit(src"""$lb.io.transientSwap := ${parentOf(parent).get}_done""")
+        emit(src"""${lb}.io.w_en(${lb}.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${lb}.io.transientDone := ${parent}_done""")
+        emit(src"""${lb}.io.transientSwap := ${parentOf(parent).get}_done""")
       }
-
-
 
     case _ => super.emitNode(lhs, rhs)
   }

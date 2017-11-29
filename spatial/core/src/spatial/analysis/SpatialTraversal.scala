@@ -8,15 +8,15 @@ import spatial.metadata._
 import spatial.utils._
 
 trait SpatialTraversal extends Traversal {
-  def blockNestedScopeAndResult(block: Block[_]): (Set[Exp[_]], Seq[Exp[_]]) = {
-    val scope = blockNestedContents(block).flatMap(_.lhs)
+  def blockNestedScheduleAndResult(block: Block[_]): (Seq[Exp[_]], Seq[Exp[_]]) = {
+    val schedule = blockNestedContents(block).flatMap(_.lhs)
       .filterNot(s => isGlobal(s))
       .filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
-      .map(_.asInstanceOf[Exp[_]]).toSet
+      .map(_.asInstanceOf[Exp[_]])
 
-    val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
+    val result = (block +: schedule.flatMap{case Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
 
-    (scope, result)
+    (schedule, result)
   }
 
   def getStages(blks: Block[_]*): Seq[Sym[_]] = blks.flatMap(blockContents).flatMap(_.lhs)

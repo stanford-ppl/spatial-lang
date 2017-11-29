@@ -1,7 +1,7 @@
 package fringe
 
 import chisel3._
-import chisel3.util.{log2Ceil, isPow2}
+import chisel3.util._
 import templates.Utils.log2Up
 
 
@@ -19,22 +19,43 @@ case class FIFOOpcode(val d: Int, val v: Int) extends Bundle {
   }
 }
 
-abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
-  val io = IO(new Bundle {
-    val enq = Input(Vec(v, Bits(w.W)))
-    val enqVld = Input(Bool())
-    val deq = Output(Vec(v, Bits(w.W)))
-    val deqVld = Input(Bool())
-    val full = Output(Bool())
-    val empty = Output(Bool())
-    val almostFull = Output(Bool())
-    val almostEmpty = Output(Bool())
-    val config = Input(new FIFOOpcode(d, v))
-    val fifoSize = Output(UInt(32.W))
-  })
+class FIFOBaseIO[T <: Data](t: T, d: Int, v: Int, banked: Boolean = false) extends Bundle {
+  class BankInterface extends Bundle {
+    val wen = Input(Bool())
+    val rdata = Output(t)
+    val wdata = Input(t)
+    val valid = Output(Bool())
 
+    override def cloneType(): this.type = {
+      new BankInterface().asInstanceOf[this.type]
+    }
+  }
+
+  val enq = Input(Vec(v, t))
+  val enqVld = Input(Bool())
+  val deq = Output(Vec(v, t))
+  val deqVld = Input(Bool())
+  val full = Output(Bool())
+  val empty = Output(Bool())
+  val almostFull = Output(Bool())
+  val almostEmpty = Output(Bool())
+  val config = Input(new FIFOOpcode(d, v))
+  val fifoSize = Output(UInt(32.W))
+  val banks = if (banked) Some(Vec(d/v, Vec(v, new BankInterface))) else None
+
+  override def cloneType(): this.type = {
+    new FIFOBaseIO(t, d, v, banked).asInstanceOf[this.type]
+  }
+}
+
+abstract class FIFOBase[T <: Data](val t: T, val d: Int, val v: Int, val banked: Boolean = false) extends Module {
+  val w = t.getWidth
   val addrWidth = log2Up(d/v)
   val bankSize = d/v
+  val bankCount = if (banked) bankSize else 1
+  val depth = if (banked) 1 else bankSize
+
+  val io = IO(new FIFOBaseIO(t, d, v, banked))
 
   // Check for sizes and v
   Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
@@ -77,11 +98,12 @@ abstract class FIFOBase(val w: Int, val d: Int, val v: Int) extends Module {
   io.almostFull := almostFull
 }
 
-class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(1, d, v) {
+class FIFOCounter(override val d: Int, override val v: Int) extends FIFOBase(UInt(1.W), d, v) {
   io.deq.foreach { d => d := ~empty }
 }
 
-class FIFOCore(override val w: Int, override val d: Int, override val v: Int) extends FIFOBase(w, d, v) {
+class FIFOCore[T<:Data](override val t: T, override val d: Int, override val v: Int, override val banked: Boolean=false) extends FIFOBase(t, d, v, banked) {
+
   // Create wptr (tail) counter chain
   val wptrConfig = Wire(new CounterChainOpcode(log2Up(scala.math.max(bankSize,v)+1), 2, 0, 0))
   wptrConfig.chain(0) := io.config.chainWrite
@@ -134,83 +156,69 @@ class FIFOCore(override val w: Int, override val d: Int, override val v: Int) ex
   val nextHeadBankAddr = rptr.io.next(0)
 
   // Backing SRAM
-  val mems = if (w == 1) List.fill(v) { Module(new FFRAM(1, bankSize)) } else List.fill(v) { Module(new SRAM(w, bankSize)) }
+  val mems = List.fill(bankCount) {
+    List.fill(v) {
+      if (w == 1 || banked) Module(new FFRAM(t, depth)) else Module(new SRAM(t, depth))
+    }
+  }
+
+  val rdata = if (banked) {
+    val m = Module(new MuxN(Vec(v, t), bankCount))
+    m.io.ins := Vec(mems.map { case banks => Vec(banks.map { _.io.rdata }) })
+    m.io.sel := headLocalAddr
+    m.io.out
+  } else {
+    mems(0).map { _.io.rdata }
+  }
+
+  val wdata = Vec(List.tabulate(v) { i => if (i == 0) io.enq(i) else Mux(io.config.chainWrite, io.enq(0), io.enq(i)) })
+
   mems.zipWithIndex.foreach { case (m, i) =>
-    // Read address
-    m.io.raddr := Mux(readEn, nextHeadLocalAddr, headLocalAddr)
+    m.zipWithIndex.foreach { case (bank, j) =>
+      io.banks match {
+        case Some(b: Vec[_]) =>
+          bank.io.raddr := 0.U
+          bank.io.waddr := 0.U
 
-    // Write address
-    m.io.waddr := tailLocalAddr
+          val enqWen = Mux(io.config.chainWrite, writeEn & tailBankAddr === j.U, writeEn) & tailLocalAddr === i.U
+          val deqWen = Mux(io.config.chainRead, readEn & headBankAddr === j.U, readEn) & headLocalAddr === i.U
+          val ff = Module(new FFType(Bool()))
+          ff.io.init := false.B
+          ff.io.enable := enqWen | deqWen
+          ff.io.in := enqWen
+          b(i)(j).valid := ff.io.out
 
-    // Write data
-    val wdata = i match {
-      case 0 => io.enq(i)
-      case _ => Mux(io.config.chainWrite, io.enq(0), io.enq(i))
+          bank.io.wdata := Mux(b(i)(j).wen, b(i)(j).wdata, wdata(j))
+          bank.io.wen := Mux(enqWen, true.B, b(i)(j).wen)
+          b(i)(j).rdata := bank.io.rdata
+        case None =>
+          bank.io.raddr := Mux(readEn, nextHeadLocalAddr, headLocalAddr)
+          bank.io.waddr := tailLocalAddr
+
+          bank.io.wdata := wdata(j)
+          bank.io.wen := Mux(io.config.chainWrite, writeEn & tailBankAddr === j.U, writeEn)
+      }
+
+      i match {
+        case 0 =>
+          // Read data output
+          val deqData = j match {
+            case 0 =>
+              val rdata0Mux = Module(new MuxN(t, v))
+              val addrFF = Module(new FF(log2Ceil(v)))
+              addrFF.io.in := Mux(readEn, nextHeadBankAddr, headBankAddr)
+              addrFF.io.enable := true.B
+
+              rdata0Mux.io.ins := rdata
+              rdata0Mux.io.sel := Mux(io.config.chainRead, addrFF.io.out, 0.U)
+              rdata0Mux.io.out
+            case _ =>
+              rdata(j)
+          }
+          io.deq(j) := deqData
+        case _ =>
+      }
     }
-    m.io.wdata := wdata
-
-    // Write enable
-    val wen = Mux(io.config.chainWrite,
-                    io.enqVld & tailBankAddr === i.U,
-                    io.enqVld)
-    m.io.wen := wen
-
-    // Read data output
-    val rdata = i match {
-      case 0 =>
-        val rdata0Mux = Module(new MuxN(v, w))
-        val addrFF = Module(new FF(log2Ceil(v)))
-        addrFF.io.in := Mux(readEn, nextHeadBankAddr, headBankAddr)
-        addrFF.io.enable := true.B
-
-        rdata0Mux.io.ins := Vec(mems.map {_.io.rdata })
-        rdata0Mux.io.sel := Mux(io.config.chainRead, addrFF.io.out, 0.U)
-        rdata0Mux.io.out
-      case _ =>
-        m.io.rdata
-    }
-    io.deq(i) := rdata
   }
 }
-
-//class FIFO(val w: Int, val d: Int, val v: Int, val inst: FIFOConfig) extends ConfigurableModule[FIFOOpcode] {
-//  val addrWidth = log2Ceil(d/v)
-//  val bankSize = d/v
-//
-//  // Check for sizes and v
-//  Predef.assert(d%v == 0, s"Unsupported FIFO size ($d)/banking($v) combination; $d must be a multiple of $v")
-//  Predef.assert(isPow2(v), s"Unsupported banking number $v; must be a power-of-2")
-//  Predef.assert(isPow2(d), s"Unsupported FIFO size $d; must be a power-of-2")
-//
-//  val io = new ConfigInterface {
-//    val config_enable = Input(Bool())
-//    val enq = Vec.fill(v) { Bits(INPUT, width = w) }
-//    val enqVld = Input(Bool())
-//    val deq = Vec.fill(v) { Bits(OUTPUT, width = w) }
-//    val deqVld = Input(Bool())
-//    val full = Output(Bool())
-//    val empty = Output(Bool())
-//  }
-//
-//  val configType = FIFOOpcode(d, v)
-//  val configIn = FIFOOpcode(d, v)
-//  val configInit = FIFOOpcode(d, v, Some(inst))
-//  val config = Reg(configType, configIn, configInit)
-//  when (io.config_enable) {
-//    configIn := configType.cloneType().fromBits(Fill(configType.getWidth, io.config_data))
-//  } .otherwise {
-//    configIn := config
-//  }
-//
-//  val fifo = Module(new FIFOCore(w, d, v))
-//  fifo.io.chainWrite := config.chainWrite
-//  fifo.io.chainRead := config.chainRead
-//  fifo.io.enq := io.enq
-//  fifo.io.enqVld := io.enqVld
-//  fifo.io.deqVld := io.deqVld
-//  io.deq := fifo.io.deq
-//  io.full := fifo.io.full
-//  io.empty := fifo.io.empty
-//}
-
 

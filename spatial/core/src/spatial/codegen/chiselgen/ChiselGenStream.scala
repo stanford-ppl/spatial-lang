@@ -279,8 +279,6 @@ trait ChiselGenStream extends ChiselGenSRAM {
         }
       }
 
-
-
     case BankedStreamRead(strm, ens) =>
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_rId = getStreamInLane("$strm")""")
@@ -303,15 +301,13 @@ trait ChiselGenStream extends ChiselGenSRAM {
             emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}*/) // Do not delay ready because datapath includes a delayed _valid already """)
             // if (!isAck) {
             //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
-            emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
-          // } else {
-          //   emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
-          // }
-
+              emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
+            // } else {
+            //   emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
+            // }
 
         }
       }
-
 
     case BankedStreamWrite(stream, data, ens) =>
       //val par = ens.length
@@ -335,19 +331,19 @@ trait ChiselGenStream extends ChiselGenSRAM {
             emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
             emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
             emit(src"""// emiiting data for stream ${stream}""")
-          // emit(src"""${stream} := ${data.head}""")
-          // emit(src"""converted_data := ${stream}""")
-          // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})""")
+            // emit(src"""${stream} := ${data.head}""")
+            // emit(src"""converted_data := ${stream}""")
+            // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)})""")
           case LEDR =>
-          // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
-          //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
-          // emit(src"""${stream} := $data""")
-          // emit(src"""io.led_stream_out_data := ${stream}""")
+            // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
+            // emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
+            // emit(src"""${stream} := $data""")
+            // emit(src"""io.led_stream_out_data := ${stream}""")
           case _ =>
-          // val datacsv = data.map{d => src"${d}"}.mkString(",")
-          // val en = ens.map(quote).mkString("&")
-          // emit(src"${stream} := Vec(List(${datacsv}))")
-          // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
+            // val datacsv = data.map{d => src"${d}"}.mkString(",")
+            // val en = ens.map(quote).mkString("&")
+            // emit(src"${stream} := Vec(List(${datacsv}))")
+            // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}) & ~${parent}_done /*mask off double-enq for sram loads*/")
         }
       }
 

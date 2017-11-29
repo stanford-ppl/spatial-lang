@@ -275,9 +275,9 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     val scope = blockNestedContents(block).flatMap(_.lhs)
                   .filterNot(s => isGlobal(s))
                   //.filter{e => e.tp == UnitType || Bits.unapply(e.tp).isDefined }
-                  .map(_.asInstanceOf[Exp[_]]).toSet
+                  .map(_.asInstanceOf[Exp[_]])
 
-    val result = (block +: scope.toSeq.flatMap{case s@Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
+    val result = (block +: scope.flatMap{case Def(d) => d.blocks; case _ => Nil}).flatMap{b => exps(b) }
 
     dbgs(s"Retiming block $block:")
     //scope.foreach{e => dbgs(s"  ${str(e)}") }

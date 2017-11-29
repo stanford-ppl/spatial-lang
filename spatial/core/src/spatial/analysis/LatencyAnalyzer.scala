@@ -85,11 +85,13 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
     (cycles, intervals)
   }
 
+  def latencyOfInner(b: Block[_]): (Long,Long) = latencyOfPipe(b, config.verbosity > 0)
+
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = {
     val (cycles, ii) = rhs match {
       case Hwblock(blk, isForever) if isInnerControl(lhs) =>
         inHwScope = true
-        val (body, _) = latencyOfPipe(blk)
+        val (body, _) = latencyOfInner(blk)
 
         dbgs(s"Inner Accel $lhs: (D = $body)")
         dbgs(s"- body = $body")
@@ -120,7 +122,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
       // --- Pipe
       case UnitPipe(en, func) if isInnerControl(lhs) =>
-        val (latency, compilerII) = latencyOfPipe(func)
+        val (latency, compilerII) = latencyOfInner(func)
         val ii = userIIOf(lhs).getOrElse(compilerII)
 
         val delay = latency + latencyOf(lhs)
@@ -132,7 +134,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
       case OpForeach(en, cchain, func, iters) if isInnerControl(lhs) =>
         val N = nIters(cchain)
-        val (latency, compilerII) = latencyOfPipe(func)
+        val (latency, compilerII) = latencyOfInner(func)
         val ii = userIIOf(lhs).getOrElse(compilerII)
 
         val delay = latency + (N - 1)*ii + latencyOf(lhs)
@@ -148,13 +150,13 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
         val fuseMapReduce = false //canFuse(map,reduce,rV,P)
 
-        val (mapLat, mapII) = latencyOfPipe(map)
+        val (mapLat, mapII) = latencyOfInner(map)
 
         val (ldLat, _) = latencyOfCycle(ld)
         val (reduceLat, _) = latencyOfCycle(reduce)
         val (storeLat, _) = latencyOfCycle(store)
 
-        val treeLat = latencyOfPipe(reduce)._1 * reductionTreeHeight(P)
+        val treeLat = latencyOfInner(reduce)._1 * reductionTreeHeight(P)
 
         val cycle = ldLat + reduceLat + storeLat
 
@@ -171,7 +173,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
       case UnrolledForeach(en,cchain,func,iters,valids) if isInnerControl(lhs) =>
         val N = nIters(cchain)
-        val (pipe, compilerII) = latencyOfPipe(func)
+        val (pipe, compilerII) = latencyOfInner(func)
         val ii = userIIOf(lhs).getOrElse(compilerII)
 
         val delay = pipe + (N - 1)*ii + latencyOf(lhs)
@@ -184,7 +186,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
       case UnrolledReduce(en,cchain,accum,func,iters,valids) if isInnerControl(lhs) =>
         val N = nIters(cchain)
 
-        val (body, compilerII) = latencyOfPipe(func)
+        val (body, compilerII) = latencyOfInner(func)
         val ii = userIIOf(lhs).getOrElse(compilerII)
         val delay = body + (N - 1)*ii + latencyOf(lhs)
 
@@ -196,9 +198,9 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
       case StateMachine(en, start, notDone, action, nextState, _) if isInnerControl(lhs) =>
         // TODO: Any way to predict number of iterations, or annotate expected number?
         val N = 1
-        val (cont, contII) = latencyOfPipe(notDone)
-        val (act, actII)   = latencyOfPipe(action)
-        val (next, nextII) = latencyOfPipe(nextState)
+        val (cont, contII) = latencyOfInner(notDone)
+        val (act, actII)   = latencyOfInner(action)
+        val (next, nextII) = latencyOfInner(nextState)
 
         val ii = List(contII, actII, nextII).max
         val delay = cont + act + next + (N-1)*ii + latencyOf(lhs)
@@ -246,7 +248,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         val P = parsOf(cchain).product
 
         val (mapStages, mapII) = latencyOfBlock(map)
-        val internal = latencyOfPipe(reduce)._1 * reductionTreeHeight(P)
+        val internal = latencyOfInner(reduce)._1 * reductionTreeHeight(P)
         val cycle = latencyOfCycle(ld)._1 + latencyOfCycle(reduce)._1 + latencyOfCycle(store)._1
 
         val reduceStage = internal + cycle
@@ -271,7 +273,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         val Pr = parsOf(cchainRed).product // Parallelization factor for reduce
 
         val (mapStages, mapIIs) = latencyOfBlock(map)
-        val internal: Long = latencyOfPipe(ldRes)._1 + latencyOfPipe(reduce)._1 * reductionTreeHeight(Pm)
+        val internal: Long = latencyOfInner(ldRes)._1 + latencyOfInner(reduce)._1 * reductionTreeHeight(Pm)
         val accumulate: Long = latencyOfCycle(ldAcc)._1 + latencyOfCycle(reduce)._1 + latencyOfCycle(store)._1
         val reduceStage: Long = internal + accumulate + (Nr - 1)*accumulate
         val stages =  reduceStage +: mapStages
@@ -321,9 +323,9 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
       case StateMachine(en, start, notDone, action, nextState, _) =>
         val N = 1 // TODO
-        val (cont, contII) = latencyOfPipe(notDone)
+        val (cont, contII) = latencyOfInner(notDone)
         val (acts, actIIs) = latencyOfBlock(action)
-        val (next, nextII) = latencyOfPipe(nextState)
+        val (next, nextII) = latencyOfInner(nextState)
 
         val ii = (List(contII, nextII) ++ actIIs).max
         val delay = (cont + acts.sum + next) * N + latencyOf(lhs)
@@ -346,7 +348,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         (delay, ii)
 
       case SwitchCase(body) if isInnerControl(lhs) =>
-        val (delay, ii) = latencyOfPipe(body)
+        val (delay, ii) = latencyOfInner(body)
         dbgs(s"Case $lhs: (II = $ii, D = $delay)")
         dbgs(s" - body: $delay")
         (delay, ii)

@@ -8,8 +8,14 @@ import spatial.nodes._
 import spatial.utils._
 
 class LineBufferConfigurer(override val mem: Exp[_], override val strategy: BankingStrategy)(override implicit val IR: State) extends MemoryConfigurer(mem,strategy)(IR) {
+  override protected val AllowMultiDimStreaming = true
 
-  override def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
+  override protected def createStreamingVector(access: Access): CompactMatrix = {
+    val mat = super.createStreamingVector(access)
+    mat.copy(vectors = AffineVector(Array.empty,Nil,0) +: mat.vectors)
+  }
+
+  /*override def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
     case Def(LineBufferColSlice(_, row, col, len)) => accessPatternOf(access.node).last match {
       case Affine(as, is, b) =>
         Seq.tabulate(len.toInt){ c =>
@@ -21,10 +27,8 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
           CompactMatrix(Array(AffineVector(Array(1), Seq(col), c)), access)
         }
     }
-    case _ => super.getAccessVector(access).map{case CompactMatrix(vecs,_,vecId) =>
-      CompactMatrix(Array(vecs.last),access,vecId)
-    }
-  }
+    case _ => super.getAccessVector(access)
+  }*/
 
   protected def annotateTransientAccesses(accesses: Seq[Access]): Unit = accesses.foreach{case (node,ctrl) =>
     def unknownRows(): Int = {

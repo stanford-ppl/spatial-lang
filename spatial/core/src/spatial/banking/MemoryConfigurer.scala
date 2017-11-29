@@ -15,25 +15,48 @@ import scala.collection.mutable.{ArrayBuffer,HashMap,HashSet}
   */
 class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit val IR: State) extends MemoryChecks {
   protected val dims: Seq[Int] = constDimsOf(mem)
-  protected val lastIndex: HashMap[Exp[Index],Exp[Index]] = new HashMap[Exp[Index],Exp[Index]]
-  protected val inVector: HashSet[Exp[Index]] = new HashSet[Exp[Index]]
+  protected val AllowMultiDimStreaming = false
+  protected val inVector: HashSet[Exp[Index]] = new HashSet[Exp[Index]] // TODO: Unused?
   protected val unrolledRand= new HashMap[Exp[Index],Map[Seq[Int],Exp[Index]]]
 
-  def unrolledRandomAddresses(access: Access, x: Option[Exp[Index]]): (Map[Seq[Int],Exp[Index]], Int) = {
-    val is = x match {
-      case Some(addr) => iteratorsBetween(ctrlOf(addr), ctrlOf(mem))
-      case None       => iteratorsBetween(access.ctrl, ctrlOf(mem))
-    }
+  /**
+    * Unrolls the given random access symbol to multiple symbols based on the parallelization factors
+    * of all counters between the memory definition and the calculation of this address.
+    */
+  def unrollRandomAddress(access: Access, x: Option[Exp[Index]], pattern: IndexPattern): Map[Seq[Int],Exp[Index]] = {
+    val lastVariantIndex = pattern.lastVariantIndex
+    val is = accessIterators(access.node, mem)
+    // Take only the indices which this access varies with (essentially code motion)
+    val idxOfLastInvariant = lastVariantIndex.map{i => is.indexOf(i) }.getOrElse(-1)
+    val variant = is.slice(0, idxOfLastInvariant+1)
+    val invariant = is.slice(idxOfLastInvariant+1, is.length)
+
     if (x.isDefined && unrolledRand.contains(x.get)) {
-      val map = unrolledRand(x.get)
-      (map, is.length)
+      unrolledRand(x.get)
     }
     else {
-      val ps = is.map{i => parFactorOf(i).toInt }
-      // TODO: Annoying to have to call fresh here..
-      val xs = multiLoop(ps).map{id => id -> fresh[Index]}.toMap
+      // Iterate over all iterators being unrolled
+      val vps = variant.map{i => parFactorOf(i).toInt }
+      val ips = invariant.map{i => parFactorOf(i).toInt }
+      // TODO: Annoying to update symbol table when calling fresh here..
+      val xs = multiLoop(vps).flatMap{vid =>
+        // Only create a new index for variant iterators
+        val x = fresh[Index]
+        multiLoop(ips).map{iid => (vid++iid) -> x }
+      }.toMap
+
+      if (config.verbosity > 0) {
+        dbg(s"  Random access $access" + (if (x.isDefined) s", addr: ${str(x.get)}" else "") )
+        val ps = is.map{i => parFactorOf(i).toInt }
+        dbg(s"  Iterators between access and memory: " + is.zip(ps).map{case (i,p) => c"$i ($p)"}.mkString(", "))
+        dbg(s"  Variant:   " + variant.zip(vps).map{case (i,p) => c"$i ($p)"}.mkString(", "))
+        dbg(s"  Invariant: " + invariant.zip(ips).map{case (i,p) => c"$i ($p)"}.mkString(", "))
+        dbg(s"  Unrolled to: ")
+        xs.foreach{case (id,x) => dbg("    [" + id.mkString(",") + s"] -> $x") }
+      }
+
       x.foreach{x => unrolledRand += x -> xs }
-      (xs, is.length)
+      xs
     }
   }
 
@@ -42,16 +65,22 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * by simulating loop parallelization/unrolling
     */
   def unroll(matrix: CompactMatrix, indices: Seq[Exp[Index]]): Seq[AccessMatrix] = {
-    val is = iteratorsBetween(matrix.access.ctrl, ctrlOf(mem))
+    val is = accessIterators(matrix.access.node, mem)
     val ps = is.map{i => parFactorOf(i).toInt }
     dbg("")
     dbg(s"  Simulating unrolling of access ${matrix.access}")
     dbg(s"  Iterators between access and memory: " + is.zip(ps).map{case (i,p) => c"$i ($p)"}.mkString(", "))
 
     def expand(vector: AccessVector, id: Seq[Int]): AccessVector = vector match {
-      case RandomVector(_,uroll,len) =>
-        val xp = uroll.apply(id.take(len))
-        RandomVector(Some(xp),uroll,len)
+      // EXPERIMENTAL: Treat a random vector offset address as an affine index
+      case RandomVector(_,uroll,Some(vecId)) =>
+        val xp = uroll.apply(id)
+        val as = indices.map{i => if (i == xp) 1 else 0 }.toArray
+        AffineVector(as,indices,vecId)
+
+      case RandomVector(_,uroll,None) =>
+        val xp = uroll.apply(id) //.take(len))
+        RandomVector(Some(xp), uroll, None)
 
       // Note that there's three sets of iterators here:
       //  is      - iterators defined between the memory and this access
@@ -179,29 +208,32 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     dbg(u"${str(mem)}")
     dbg(mem.ctx.lineContent.getOrElse(""))
     dbg("")
-    instances.foreach(printInstance)
+    instances.zipWithIndex.foreach{case (inst,i) =>
+      dbg(s"  Instance #$i: ")
+      printInstance(inst)
+    }
   }
 
   protected def printInstance(instance: MemoryInstance): Unit = {
     val MemoryInstance(reads,writes,mp,banking,depth,ports,isAccum) = instance
-    dbg(s"  isAccum:    $isAccum")
-    dbg(s"  Depth:      $depth")
-    dbg(s"  Banking:    $banking")
-    dbg(s"  Controller: ${mp.map{c=>u"$c"}.getOrElse("---")}")
-    dbg(s"  Buffer Ports: ")
+    dbg(s"    isAccum:    $isAccum")
+    dbg(s"    Depth:      $depth")
+    dbg(s"    Banking:    $banking")
+    dbg(s"    Controller: ${mp.map{c=>u"$c"}.getOrElse("---")}")
+    dbg(s"    Buffer Ports: ")
     (0 until depth).foreach{port =>
       writes.foreach { grp =>
         grp.filter{w => ports(w.access).contains(port) }
            .foreach{w =>
              val muxIdx = muxIndexOf(w,mem)
-             dbg(c"    $port: (mux:$muxIdx) [WR] $w")
+             dbg(c"      $port: (mux:$muxIdx) [WR] $w")
            }
       }
       reads.foreach { grp =>
         grp.filter{r => ports(r.access).contains(port) }
            .foreach{r =>
              val muxIdx = muxIndexOf(r,mem)
-             dbg(c"    $port: (mux:$muxIdx) [RD] $r")
+             dbg(c"      $port: (mux:$muxIdx) [RD] $r")
            }
       }
     }
@@ -292,18 +324,17 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Converts a 1-dimensional partial access with optional address `addr` to an AccessVector
     * Simulates unrolling for random accesses to model each distinct random access as an "iterator"
     */
-  def indexPatternToAccessVector(access: Access, addr: Option[Exp[Index]], pattern: IndexPattern, isVecOfs: Boolean): AccessVector = pattern match {
-    case Affine(as, is, b)  => AffineVector(as, is, b)
+  def indexPatternToAccessVector(access: Access, addr: Option[Exp[Index]], pattern: IndexPattern, vecId: Option[Int]): AccessVector = pattern match {
+    case Affine(as, is, b)  => AffineVector(as, is, b + vecId.getOrElse(0))
     case _ =>
-      addr.foreach{a => lastIndex += a -> pattern.lastIndex }
-      if (isVecOfs) addr.foreach{a => inVector += a }
-      val (uroll,len) = unrolledRandomAddresses(access, addr)
-      RandomVector(addr,uroll,len)
+      //if (isVecOfs) addr.foreach{a => inVector += a } // TODO: Not yet used
+      val uroll = unrollRandomAddress(access, addr, pattern)
+      RandomVector(addr,uroll,vecId)
   }
 
   def accessPatternToCompactMatrix(access: Access, addr: Option[Seq[Exp[Index]]]): Seq[CompactMatrix] = {
     val vectors = accessPatternOf(access.node).zipWithIndex.map { case (pattern, i) =>
-      indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = false)
+      indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, None)
     }
     dbg(s"  ${str(access.node)}: Found ${vectors.length} vectors: ")
     vectors.foreach{v => dbg("    " + v.toString) }
@@ -314,11 +345,12 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Return the access pattern of this access as one or more CompactMatrices
     */
   def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
-    case Def(d: VectorAccess[_]) =>
+    case Def(d: VectorAccess[_]) if d.accessWidth > 1 =>
       Seq.tabulate(d.accessWidth){ vecId =>
         val addr = d.address
         val vectors = accessPatternOf(access.node).zipWithIndex.map { case (pattern, i) =>
-          indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, isVecOfs = i == d.axis)
+          val vId = if (i == d.axis) Some(vecId) else None
+          indexPatternToAccessVector(access, addr.map(_.apply(i)), pattern, vId)
         }
         CompactMatrix(vectors.toArray, access, Some(vecId))
       }
@@ -328,35 +360,35 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   }
 
   /**
+    * Fake the access pattern of this streaming access as being an affine function of the iterators
+    * This is done such that all unrolled vectors will be distinct, to avoid tripping up the analyzer
+    *
+    * Foreach(N par 4){i =>
+    *   Foreach(M par 6){j =>
+    *     x(6i + j) --> 24i + 6j + [0,24)
+    */
+  protected def createStreamingVector(access: Access): CompactMatrix = {
+    val is = accessIterators(access.node, mem)
+    val ps = is.map{i => parFactorOf(i).toInt }
+    val as = Array.tabulate(is.length){i => ps.drop(i + 1).product }
+    CompactMatrix(Array(AffineVector(as, is, 0)), access, None)
+  }
+
+  /**
     * Converts streaming accesses to 1D accesses
     *
     * NOTE: This only works if accesses to this memory are (viewed as) 1D
     */
   protected def getStreamingAccessVectors(readers: Seq[Access], writers: Seq[Access]): (Seq[CompactMatrix], Seq[CompactMatrix]) = {
     if (readers.nonEmpty || writers.nonEmpty) {
-      if (dims.length != 1) {
+      if (dims.length != 1 && !AllowMultiDimStreaming) {
         bug(mem.ctx, "Cannot create streaming accesses on memory with more than one dimension")
         bug(s"${str(mem)}")
         readers.foreach { rd => bug(s"${str(rd.node)}") }
         writers.foreach { wr => bug(s"${str(wr.node)}") }
       }
-      def createVector(access: Access): CompactMatrix  = {
-        /**
-          * Fake the access pattern of this streaming access as being an affine function of the iterators
-          * This is done such that all unrolled vectors will be distinct, to avoid tripping up the analyzer
-          *
-          * Foreach(N par 4){i =>
-          *   Foreach(M par 6){j =>
-          *     x(6i + j) --> 24i + 6j + [0,24)
-          */
-        val is = iteratorsBetween(access.ctrl, ctrlOf(mem))
-        val ps = is.map{i => parFactorOf(i).toInt }
-        val as = Array.tabulate(is.length){i => ps.drop(i + 1).product }
-        CompactMatrix(Array(AffineVector(as, is, 0)), access, None)
-      }
-
-      val readVectors = readers.map(createVector)
-      val writeVectors = writers.map(createVector)
+      val readVectors = readers.map(createStreamingVector)
+      val writeVectors = writers.map(createStreamingVector)
       (readVectors, writeVectors)
     }
     else (Nil,Nil)
@@ -465,7 +497,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val writes = writeGroups.flatten.map(_.access)
     val ctrls  = reads.map(_.ctrl).toSet
     val groupWrites = if (readGroups.nonEmpty) reachingWrites(readGroups, writeGroups, domain) else writeGroups
-    val groupBanking = strategy.bankAccesses(mem, readGroups, groupWrites, domain)
+    val groupBanking = strategy.bankAccesses(mem, dims, readGroups, groupWrites, domain)
     // TODO: Multiple metapipe parents should cause backtrack eventually
     val (groupMetapipe, groupPorts) = findMetaPipe(mem, reads, writes)
     val groupDepth = groupPorts.values.max + 1

@@ -110,6 +110,17 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         emit(src"""$fifo.connectEnqPort(Vec(List($datacsv)), Vec(List($en)))""")
       }
 
+      /*val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      val enabler = src"${swap(writer, DatapathEn)}"
+      val datacsv = data.map{d => src"$d.r"}.mkString(",")
+      if (spatialConfig.useCheapFifos) {
+        val en = ens.map(quote).mkString("&")
+        emit(src"""$fifo.connectEnqPort(Vec(List($datacsv)), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
+      } else {
+        val en = ens.map{i => src"$i & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)})"}
+        emit(src"""$fifo.connectEnqPort(Vec(List($datacsv)), Vec(List($en)))""")
+      }*/
+
 
     case BankedFIFODeq(fifo,ens) =>
       //val par = ens.length

@@ -17,6 +17,10 @@ object utils {
     */
   def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
 
+  /**
+    * Returns an iterator over the multi-dimensional space `dims`.
+    * If dims is empty, trivially returns an iterator with only one element (Nil)
+    */
   def multiLoop(dims: Seq[Int]): Iterator[Seq[Int]] = {
     val ndims = dims.length
     val prods = List.tabulate(ndims) { i => dims.slice(i + 1, ndims).product }
@@ -59,11 +63,22 @@ object utils {
   }
 
   /**
-    * Returns a list of loop iterators between the given access's parent (inclusive) and the end controller (non-inclusive)
+    * Returns a list of iterators between the start controller (inclusive) and the end controller (non-inclusive)
     * Innermost iterator is last, outermost is first
     */
   @stateful def iteratorsBetween(start: Ctrl, end: Ctrl): Seq[Bound[Index]] = {
     ctrlBetween(start,end).flatMap(loopIterators).distinct
+  }
+
+  /**
+    * Returns a list of iterators between controller containing access (inclusive) and controller containing mem (non-inclusive)
+    * Innermost iterator is last, outermost is first
+    * NOTE: The .ctrl method on Access should not be used for this check, as it does not always return the controller
+    * in which the access is _defined_. accessIterators is meant for unrolling purposes, which only cares about
+    * location of definition, not location of use.
+    */
+  @stateful def accessIterators(access: Exp[_], mem: Exp[_]): Seq[Bound[Index]] = {
+    iteratorsBetween(ctrlOf(access), ctrlOf(mem))
   }
 
   /**

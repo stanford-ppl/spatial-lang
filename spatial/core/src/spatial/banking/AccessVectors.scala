@@ -11,8 +11,8 @@ abstract class AccessVector {
   def str(i: Int): String
 }
 
-case class RandomVector(x: Option[Exp[Index]], uroll: Map[Seq[Int],Exp[Index]], len: Int) extends AccessVector {
-  def is: Seq[Exp[Index]] = uroll.values.toSeq
+case class RandomVector(x: Option[Exp[Index]], uroll: Map[Seq[Int],Exp[Index]], vecId: Option[Int]) extends AccessVector {
+  def is: Seq[Exp[Index]] = uroll.values.toSeq // TODO: Should this be Nil if vecId is undefined?
   def str(i: Int): String = "*"
 }
 
@@ -36,12 +36,13 @@ case class CompactMatrix(vectors: Array[AccessVector], access: Access, vecId: Op
 
   @stateful def printWithTab(tab: String): Unit = {
     dbg(tab + s"""${str(access.node)}""")
-    val heading = indices.map(i => u"$i") :+ "1"
+    val inds = indices.distinct
+    val heading = inds.distinct.map(i => u"$i") :+ "1"
     val entries = heading +: vectors.map{
-      case v: RandomVector => Seq.tabulate(indices.length+1){i => v.str(i) }
+      case v: RandomVector => Seq.tabulate(inds.length+1){i => v.str(i) }
       case v: AffineVector =>
-        val rvec = v.remap(indices)
-        Seq.tabulate(indices.length+1){i => rvec.str(i) }
+        val rvec = v.remap(inds)
+        Seq.tabulate(inds.length+1){i => rvec.str(i) }
     }
     val maxCol = entries.flatten.map{x: String => x.length }.max
     entries.foreach{row =>

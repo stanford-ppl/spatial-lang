@@ -26,7 +26,6 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(json_key, scope)
 
 gc = gspread.authorize(credentials)
 
-print sys.argv[7]
 if (sys.argv[7] == "Zynq"):
 	sh = gc.open("Zynq Regression") # Open by name
 elif (sys.argv[7] == "ZCU"):
@@ -49,7 +48,7 @@ else:
 
 # Page 10 - Results
 worksheet = sh.worksheet("Runtime")
-if (sys.argv[2] == "1"):
+if (sys.argv[3] == "1"):
 	worksheet.update_cell(tid,col, sys.argv[6] + "\nTimed Out!\nFAILED")
 elif (sys.argv[8] == "0"):
 	worksheet.update_cell(tid,col, sys.argv[6] + "\n" + sys.argv[4] + "\n" + sys.argv[5])

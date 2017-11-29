@@ -38,6 +38,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case UnrolledForeach(ens,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
+      if (levelOf(lhs) == OuterControl) {widthStats += childrenOf(lhs).length}
+      else if (levelOf(lhs) == InnerControl) {depthStats += controllerStack.length}
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitGlobalWireMap(src"${lhs}_inhibitor", "Wire(Bool())")
       // Preallocate valid bound syms
@@ -129,6 +131,8 @@ trait ChiselGenUnrolled extends ChiselGenController {
     case UnrolledReduce(ens,cchain,accum,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
+      if (levelOf(lhs) == OuterControl) {widthStats += childrenOf(lhs).length}
+      else if (levelOf(lhs) == InnerControl) {depthStats += controllerStack.length}
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
       // allocateValids(lhs, cchain, iters, valids)
@@ -201,76 +205,6 @@ trait ChiselGenUnrolled extends ChiselGenController {
       val en = if (ens.isEmpty) "true.B" else ens.map(quote).mkString(" && ")
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
-
-      /*val width = bitWidth(sram.tp.typeArguments.head)
-      val rPar = bank.length
-      val dims = stagedDimsOf(sram)
-      disableSplit = true
-      emit(s"""// Assemble multidimR vector""")
-      emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-      //if (dispatch.toList.length == 1) {
-        //val k = dispatch.toList.head
-      val parent = ctrlOf(lhs).node
-      inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${symDelay(lhs)},rr) & ${ens(i)}")
-        ind.zipWithIndex.foreach{ case (a, j) =>
-          emit(src"""${swap(lhs, RVec)}($i).addr($j) := ${a}.raw """)
-        }
-      }
-      val p = portsOf(lhs, sram, 0).head
-      emit(src"""val ${lhs}_base = $sram.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
-      // sram.tp.typeArguments.head match {
-      //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-            emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
-            emit(s"""(0 until ${rPar}).foreach{i => ${quote(lhs)}(i).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base+i) }""")*/
-          //   } else {
-          //     emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
-          //   }
-          // case _ => emit(src"""val $lhs = (0 until ${rPar}).map{i => ${sram}_$k.io.output.data(${lhs}_base+i) }""")
-        // }
-      //}
-      /* else {
-        emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
-        dispatch.zipWithIndex.foreach{ case (k,id) => 
-          val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-          emit(src"${swap(lhs, RVec)}($id).en := (${swap(parent, En)}).D(${swap(parent, Retime)}, rr) & ${ens(id)}")
-          inds(id).zipWithIndex.foreach{ case (a, j) =>
-            emit(src"""${swap(lhs, RVec)}($id).addr($j) := ${a}.raw """)
-          }
-          val p = portsOf(lhs, sram, k).head
-          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
-          // sram.tp.typeArguments.head match { 
-          //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
-                emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
-            //   } else {
-            //     emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
-            //   }
-            // case _ => emit(src"""${lhs}($id) := ${sram}_$k.io.output.data(${lhs}_base_$k)""")
-          // }
-        }
-      }*/
-      /*disableSplit = false
-
-      val dims = stagedDimsOf(sram)
-      val width = bitWidth(sram.tp.typeArguments.head)
-      val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"${swap(parent, DatapathEn)}"
-      emit(s"""// Assemble multidimW vector""")
-      emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(${inds.indices.length}, new multidimW(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      data.zipWithIndex.foreach { case (d, i) =>
-        emit(src"""${swap(lhs, WVec)}($i).data := ${d}.r""")
-      }
-      inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)})")
-        ind.zipWithIndex.foreach{ case (a, j) =>
-          emit(src"""${swap(lhs, WVec)}($i).addr($j) := ${a}.r """)
-        }
-      }
-      duplicatesOf(sram).zipWithIndex.foreach{ case (mem, i) =>
-        emit(src"""${sram}_$i.connectWPort(${swap(lhs, WVec)}, List(${portsOf(lhs, sram, i)}))""")
-      }*/
-
 
     case _ => super.emitNode(lhs, rhs)
   }

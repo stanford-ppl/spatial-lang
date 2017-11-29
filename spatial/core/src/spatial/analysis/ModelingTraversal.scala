@@ -67,8 +67,8 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     (latency, compilerII)
   }
 
-  def latencyOfPipe(block: Block[_]): (Long, Long) = {
-    val (latency, interval) = latencyAndInterval(block, verbose = false)
+  def latencyOfPipe(block: Block[_], verbose: Boolean = false): (Long, Long) = {
+    val (latency, interval) = latencyAndInterval(block, verbose = verbose)
     (latency, interval)
   }
 
@@ -85,11 +85,12 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   }
 
   def latenciesAndCycles(block: Block[_], verbose: Boolean = true): (Map[Exp[_],Long], Set[Cycle]) = {
-    val (scope, result) = blockNestedScopeAndResult(block)
-    pipeLatencies(result, scope, verbose = verbose)
+    val (schedule, result) = blockNestedScheduleAndResult(block)
+    pipeLatencies(result, schedule, verbose = verbose)
   }
 
-  def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Long] = Map.empty, verbose: Boolean = true): (Map[Exp[_],Long], Set[Cycle]) = {
+  def pipeLatencies(result: Seq[Exp[_]], schedule: Seq[Exp[_]], oos: Map[Exp[_],Long] = Map.empty, verbose: Boolean = true): (Map[Exp[_],Long], Set[Cycle]) = {
+    val scope = schedule.toSet
     val knownCycles = mutable.HashMap[Exp[_],Set[(Exp[_],Exp[_])]]()
 
     val localReads  = scope.collect{case reader @ Reader(reads) => reader -> reads.head.mem }
@@ -104,7 +105,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
             knownCycles += sym -> (knownCycles.getOrElse(sym, Set.empty[(Exp[_],Exp[_])]) + ((reader, writer)) )
           }
 
-          if (verbose && path.nonEmpty) {
+          /*if (verbose && path.nonEmpty) {
             dbgs("Found cycle between: ")
             dbgs(s"  ${str(writer)}")
             dbgs(s"  ${str(reader)}")
@@ -116,7 +117,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
             dbgs(s"No cycle between: ")
             dbgs(s"  ${str(writer)}")
             dbgs(s"  ${str(reader)}")
-          }
+          }*/
 
           if (path.nonEmpty) {
             Some((reader,writer,writtenMem))
@@ -159,13 +160,13 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
           val delay = critical + latencyOf(cur, inReduce) // TODO + inputDelayOf(cur) -- factor in delays which are external to reduction cycles
 
-          if (verbose) dbgs(c"[$delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur, inReduce)}] ${str(cur)}" + (if (inReduce) "[cycle]" else ""))
+          //if (verbose) dbgs(c"[$delay = max(" + dlys.mkString(", ") + s") + ${latencyOf(cur, inReduce)}] ${str(cur)}" + (if (inReduce) "[cycle]" else ""))
           delay
         }
         else {
           val inReduce = knownCycles.contains(cur)
           val delay = latencyOf(cur, inReduce)
-          if (verbose) dbgs(c"[$delay = max(0) + ${latencyOf(cur, inReduce)}] ${str(cur)}" + (if (inReduce) "[cycle]" else ""))
+          //if (verbose) dbgs(c"[$delay = max(0) + ${latencyOf(cur, inReduce)}] ${str(cur)}" + (if (inReduce) "[cycle]" else ""))
           delay
         }
 
@@ -178,17 +179,17 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       case s: Sym[_] if cycle contains cur =>
         val forward = s.dependents.filter(dep => scope.contains(dep))
         if (forward.nonEmpty) {
-          if (verbose) dbgs(s"${str(s)} [${paths.getOrElse(s,0L)}]")
+          //if (verbose) dbgs(s"${str(s)} [${paths.getOrElse(s,0L)}]")
 
           val earliestConsumer = forward.map{e =>
             val in = paths.getOrElse(e, 0L) - latencyOf(e, inReduce=cycle.contains(e))
-            if (verbose) dbgs(s"  [$in = ${paths.getOrElse(e, 0L)} - ${latencyOf(e,inReduce = cycle.contains(e))}] ${str(e)}")
+            //if (verbose) dbgs(s"  [$in = ${paths.getOrElse(e, 0L)} - ${latencyOf(e,inReduce = cycle.contains(e))}] ${str(e)}")
             in
           }.min
 
           val push = Math.max(earliestConsumer, paths.getOrElse(cur, 0L))
 
-          if (verbose) dbgs(s"  [$push]")
+          //if (verbose) dbgs(s"  [$push]")
 
           paths(cur) = push
         }
@@ -204,7 +205,7 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
       // TODO: What to do in case where a node is contained in multiple cycles?
       accumWrites.toList.zipWithIndex.foreach{case (writer,i) =>
         val cycle = cycles.getOrElse(writer, Set.empty)
-        if (verbose) dbgs(s"Cycle #$i: ")
+        //if (verbose) dbgs(s"Cycle #$i: ")
         reverseDFS(writer, cycle)
       }
     }
@@ -238,6 +239,14 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     val wawCycles = pushMultiplexedAccesses(localWrites)
     val rarCycles = pushMultiplexedAccesses(localReads)
     val allCycles: Set[Cycle] = (wawCycles ++ rarCycles ++ warCycles).toSet
+
+    if (verbose) {
+      def dly(x: Exp[_]) = paths.getOrElse(x, 0L)
+      schedule.sortWith{(a,b) => dly(a) < dly(b)}.foreach{node =>
+        dbgs(s"  [${dly(node)}] ${str(node)}")
+      }
+    }
+
 
     (paths.toMap, allCycles)
   }

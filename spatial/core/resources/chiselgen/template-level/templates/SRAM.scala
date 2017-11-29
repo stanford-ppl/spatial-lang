@@ -81,7 +81,7 @@ class Mem1D(val size: Int, bitWidth: Int, syncMem: Boolean = false) extends Modu
       val radder = Utils.getRetimed(io.r.addr,1)
       io.output.data := MuxLookup(radder, 0.U(bitWidth.W), m)
     } else {
-      val m = Module(new fringe.SRAM(bitWidth, size))
+      val m = Module(new fringe.SRAM(UInt(bitWidth.W), size))
       m.io.raddr := io.r.addr
       m.io.waddr := io.w.addr
       m.io.wen   := io.w.en & wInBound

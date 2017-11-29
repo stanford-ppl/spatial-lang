@@ -94,7 +94,7 @@ class FringeZynq(
 
   // AXI bridge
   io.M_AXI.zipWithIndex.foreach { case (maxi, i) =>
-    val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mags(i).tagWidth))
+    val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mags(i).streamTagWidth))
     axiBridge.io.in <> fringeCommon.io.dram(i)
     maxi <> axiBridge.io.M_AXI
   }

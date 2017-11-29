@@ -42,7 +42,7 @@ trait MemoryUnrolling extends UnrollingBase {
     */
   def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean): List[UnrollInstance] = {
     // First, group by the instance each unrolled access is being dispatched to
-    val is   = iteratorsBetween(ctrlOf(access), ctrlOf(mem))
+    val is   = accessIterators(access, mem)
     val mems = lanes.map{laneId =>
       val id = is.map{i => unrollNum(i) }
       val dispatches = dispatchOf((access,id),mem)
@@ -116,7 +116,7 @@ trait MemoryUnrolling extends UnrollingBase {
     en:     Option[Exp[Bit]],
     lanes:  Unroller
   )(implicit ctx: SrcCtx): List[Exp[_]] = {
-    val mems = getInstances(access, mem, lanes, isLoad = data.isDefined)
+    val mems = getInstances(access, mem, lanes, isLoad = data.isEmpty)
 
     dbgs(s"Unrolling ${str(access)}"); strMeta(access)
 
