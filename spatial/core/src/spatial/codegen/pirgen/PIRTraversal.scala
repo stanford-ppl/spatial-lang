@@ -291,26 +291,6 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger with 
     case _ => None
   }
 
-  // --- Transformation functions
-  def removeComputeStages(cu: CU, remove: Set[Stage]) {
-    val ctx = ComputeContext(cu)
-    val stages = mutable.ArrayBuffer[Stage]()
-    stages ++= ctx.stages
-    cu.computeStages.clear()
-
-    stages.foreach{
-      case stage@MapStage(op,ins,outs) if !remove.contains(stage) =>
-        stage.ins = ins.map{case LocalRef(i,reg) => ctx.refIn(reg) }
-        stage.outs = outs.map{case LocalRef(i,reg) => ctx.refOut(reg) }
-        ctx.addStage(stage)
-
-      case stage@ReduceStage(op,init,in,acc,accParent) if !remove.contains(stage) =>
-        ctx.addStage(stage)
-
-      case _ => // This stage is being removed! Ignore it!
-    }
-  }
-
   def swapBus(cus: Iterable[CU], orig: GlobalBus, swap: GlobalBus) = dbgblk(s"swapBus($orig -> $swap)") {
     cus.foreach{cu =>
     cu.allStages.foreach{stage => swapBus_stage(stage) }
@@ -318,14 +298,9 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger with 
     cu.cchains.foreach{cc => swapBus_cchain(cc) }
     //swap_producer(orig, swap)
 
-    def swapBus_stage(stage: Stage): Unit = stage match {
-      case stage@MapStage(op, ins, outs) =>
-        stage.ins = ins.map{ref => swapBus_ref(ref) }
-        stage.outs = outs.map{ref => swapBus_ref(ref) }
-      case stage:ReduceStage => // No action
-    }
-    def swapBus_ref(ref: LocalRef): LocalRef = ref match {
-      case LocalRef(i,reg) => LocalRef(i, swapBus_reg(reg))
+    def swapBus_stage(stage: Stage): Unit = {
+      stage.ins = stage.ins.map{ref => swapBus_reg(ref) }
+      stage.outs = stage.outs.map{ref => swapBus_reg(ref) }
     }
     def swapBus_reg(reg: LocalComponent): LocalComponent = (reg,swap) match {
       case (ScalarIn(`orig`),  swap: ScalarBus) => ScalarIn(swap)
@@ -401,28 +376,19 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger with 
   }
   }
 
-  // Given result register type A, reroute to type B as necessary
-  def propagateReg(exp: Expr, a: LocalComponent, b: LocalComponent, ctx: CUContext):LocalComponent = (a,b) match {
-    case (a:ScalarOut, b:ScalarOut) => a
-    case (a:VectorOut, b:VectorOut) => a
-    case (_:ReduceReg | _:AccumReg, _:ReduceReg | _:AccumReg) => a
+  def addComputeStage(cu:CU, stage:Stage) = {
+    cu.computeStages += stage
+    dbgs(s"addComputeStage: cu=${cu.name}, stage=$stage")
+  }
 
-    // Propagating from read addr wire to another read addr wire is ok (but should usually never happen)
-    case (a:ReadAddrWire, b:ReadAddrWire) => ctx.addOutputFor(exp)(a,b); b
-    case (a,b) if !isReadable(a) => throw new Exception(s"Cannot propagate for $exp from output-only $a")
-    case (a,b) if !isWritable(b) => throw new Exception(s"Cannot propagate for $exp to input-only $b")
+  def addControlStage(cu:CU, stage:Stage) = {
+    cu.controlStages += stage
+    dbgs(s"addControlStage: cu=${cu.name}, stage=$stage")
+  }
 
-    // Prefer reading original over a new temporary register
-    case (a, b:TempReg) => a
-
-    // Special cases: don't propagate to write/read wires from counters or constants
-    case (_:CounterReg | _:ConstReg[_], _:WriteAddrWire | _:ReadAddrWire) => a
-
-    // General case for outputs: Don't add mapping for exp to output
-    case (a,b) if !isReadable(b) => ctx.addOutput(a,b); b
-
-    // General case for all others: add output + mapping
-    case (a,b) => ctx.addOutputFor(exp)(a,b); b
+  def bypass(cu:CU, x: LocalComponent, y: LocalComponent) {
+    val stage = MapStage(PIRBypass, List(x), List(y))
+    addComputeStage(cu, stage)
   }
 
   def runAll[S:Type](b: Block[S]): Block[S] = {

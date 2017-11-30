@@ -76,6 +76,7 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
     dbgl(s"CU global inputs:") {
       collectInput[GlobalBus](cu).foreach{in => dbgs(s"$in") }
     }
+    dbgs(s"regs:${cu.regs}")
     dbgl(s"regTable:") {
       cu.regTable.foreach { case (exp, comp) => 
         dbgs(s"$exp -> $comp [${comp.getClass.getSimpleName}]")

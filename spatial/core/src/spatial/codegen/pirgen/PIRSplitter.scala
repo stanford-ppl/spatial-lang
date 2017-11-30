@@ -111,10 +111,10 @@ class PIRSplitter(implicit val codegen:PIRCodegen) extends PIRSplitting {
 
     def swapCU_stage(stage:Stage) = {
       stage match {
-        case stage:ReduceStage => stage.accParent = swapToSC(stage.accParent)
+        case stage:ReduceStage => stage.accum.parent = swapToSC(stage.accum.parent)
         case stage =>
       }
-      stage.inputMems.foreach(swapCU_reg)
+      stage.ins.foreach(swapCU_reg)
     }
 
     def swapCU_reg(reg: LocalComponent): Unit = reg match {

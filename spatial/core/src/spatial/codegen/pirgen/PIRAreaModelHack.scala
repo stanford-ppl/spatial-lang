@@ -43,8 +43,8 @@ class PIRAreaModelHack(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def areaOf(stage: Stage, cu: CU): Double = stage match {
-    case MapStage(op,_,_)      => (opArea(op) + regArea()) * cu.lanes
-    case ReduceStage(op,_,_,_,_) => (getReduceCost(cu) + 1)*(opArea(op) + regArea())
+    case stage:MapStage      => (opArea(stage.op) + regArea()) * cu.lanes
+    case stage:ReduceStage => (getReduceCost(cu) + 1)*(opArea(stage.op) + regArea())
   }
 
   def opArea(op: PIROp, verbose: Boolean = true): Double = {

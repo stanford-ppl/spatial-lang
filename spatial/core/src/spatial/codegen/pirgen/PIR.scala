@@ -97,7 +97,7 @@ sealed abstract class ReduceMem[T<:LocalComponent] extends LocalMem[T]
 case class ReduceReg() extends ReduceMem[ReduceReg] {
   override def toString = s"rr$id"
 }
-case class AccumReg(init: ConstReg[_<:AnyVal]) extends ReduceMem[AccumReg] {
+case class AccumReg(init: ConstReg[_<:AnyVal], var parent:CU) extends ReduceMem[AccumReg] {
   override def toString = s"ar$id"
 }
 
@@ -193,25 +193,15 @@ case class AddrStage(mem: Expr, addr: Expr) extends PseudoStage { def output = N
 case class FifoOnWriteStage(mem: Expr, start: Option[Expr], end: Option[Expr]) extends PseudoStage { def output = None }
 
 // --- Scheduled stages
-case class LocalRef(stage: Int, reg: LocalComponent)
-
 sealed abstract class Stage {
-  def inputMems: Seq[LocalComponent]
-  def outputMems: Seq[LocalComponent]
-  def inputRefs: Seq[LocalRef]
-  def outputRefs: Seq[LocalRef]
+  val op:PIROp
+  var ins: Seq[LocalComponent]
+  var outs: Seq[LocalComponent]
 }
-case class MapStage(op: PIROp, var ins: Seq[LocalRef], var outs: Seq[LocalRef]) extends Stage {
-  def inputMems = ins.map(_.reg)
-  def outputMems = outs.map(_.reg)
-  def inputRefs = ins
-  def outputRefs = outs
-}
-case class ReduceStage(op: PIROp, init: ConstReg[_<:AnyVal], in: LocalRef, acc: ReduceReg, var accParent:CU) extends Stage {
-  def inputMems = List(in.reg, acc)
-  def outputMems = List(acc)
-  def inputRefs = List(in)
-  def outputRefs = Nil
+case class MapStage(op: PIROp, var ins: Seq[LocalComponent], var outs: Seq[LocalComponent]) extends Stage
+case class ReduceStage(op: PIROp, var ins: Seq[LocalComponent], var outs: Seq[LocalComponent]) extends Stage {
+  def in = ins.filterNot { _.isInstanceOf[AccumReg] }.head
+  def accum = ins.collect { case reg:AccumReg => reg }.head
 }
 
 // --- Compute units
@@ -243,11 +233,15 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
     //if (iters.isEmpty) None  else Some(iters.reduce{(a,b) => if (a._2 > b._2) a else b}._1)
   //}
 
-  def addReg(exp: Expr, reg: LocalComponent) {
+  def addReg(exp: Expr, reg: LocalComponent) = {
     regs += reg
     regTable += exp -> reg
     if (expTable.contains(reg)) expTable += reg -> (expTable(reg) :+ exp)
     else                        expTable += reg -> List(exp)
+    reg
+  }
+  @stateful def reg(x: Expr): LocalComponent = {
+    get(x).getOrElse(throw new Exception(s"No register defined for $x in CU ${this.name}"))
   }
   @stateful def get(x: Expr): Option[LocalComponent] = {
     regTable.get(x).orElse {
@@ -285,123 +279,3 @@ case class ComputeUnit(name: String, var style: CUStyle) extends PIR {
   }
 
 }
-
-// --- Context for creating/modifying CUs
-abstract class CUContext(val cu: ComputeUnit) {
-  private val refs = mutable.HashMap[Expr,LocalRef]()
-  private var readAccums: Set[AccumReg] = Set.empty
-
-  def stages: mutable.ArrayBuffer[Stage]
-  def addStage(stage: Stage): Unit
-  def isWriteContext: Boolean
-  def init(): Unit
-
-  def stageNum: Int = stages.count{case stage:MapStage => true; case _ => false} + 1
-  def controlStageNum: Int = controlStages.length
-  def prevStage: Option[Stage] = stages.lastOption
-  def mapStages: Iterator[MapStage] = stages.iterator.collect{case stage:MapStage => stage}
-
-  def controlStages: mutable.ArrayBuffer[Stage] = cu.controlStages
-  def addControlStage(stage: Stage): Unit = cu.controlStages += stage
-
-  def addReg(x: Expr, reg: LocalComponent) {
-    //debug(s"  $x -> $reg")
-    cu.addReg(x, reg)
-  }
-  def addRef(x: Expr, ref: LocalRef) { refs += x -> ref }
-  @stateful def getReg(x: Expr): Option[LocalComponent] = cu.get(x)
-  @stateful def reg(x: Expr): LocalComponent = {
-    cu.get(x).getOrElse(throw new Exception(s"No register defined for $x in $cu"))
-  }
-
-  // Add a stage which bypasses x to y
-  def bypass(x: LocalComponent, y: LocalComponent) {
-    val stage = MapStage(PIRBypass, List(refIn(x)), List(refOut(y)))
-    addStage(stage)
-  }
-
-  def ref(reg: LocalComponent, out: Boolean, stage: Int = stageNum): LocalRef = reg match {
-    // If the previous stage computed the read address for this load, use the registered output
-    // of the memory directly. Otherwise, use the previous stage
-    case MemLoad(sram) => //TODO: rework out the logic here
-      /*debug(s"Referencing SRAM $sram in stage $stage")
-      debug(s"  Previous stage: $prevStage")
-      debug(s"  SRAM read addr: ${sram.readAddr}")*/
-      if (prevStage.isEmpty || sram.tpe == VectorFIFOType || sram.tpe == ScalarFIFOType )
-        LocalRef(-1, reg)
-      else {
-        if (sram.tpe != VectorFIFOType && sram.tpe!= ScalarFIFOType) {
-          LocalRef(stage-1,reg)
-        }
-        else
-          throw new Exception(s"No address defined for SRAM $sram")
-      }
-
-    case reg: CounterReg if isWriteContext && prevStage.isEmpty =>
-      //debug(s"Referencing counter $reg in first write stage")
-      LocalRef(-1, reg)
-
-    case reg: AccumReg if isUnreadAccum(reg) =>
-      //debug(s"First reference to accumulator $reg in stage $stage")
-      readAccums += reg
-      LocalRef(stage, reg)
-    case _ if out =>
-      //debug(s"Referencing output register $reg in stage $stage")
-      LocalRef(stage, reg)
-    case _ =>
-      //debug(s"Referencing input register $reg in stage $stage")
-      LocalRef(stage-1, reg)
-  }
-  def refIn(reg: LocalComponent, stage: Int = stageNum) = ref(reg, out = false, stage)
-  def refOut(reg: LocalComponent, stage: Int = stageNum) = ref(reg, out = true, stage)
-
-  def addOutputFor(e: Expr)(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, Some(e))
-  def addOutput(prev: LocalComponent, out: LocalComponent): Unit = addOutput(prev, out, None)
-  def addOutput(prev: LocalComponent, out: LocalComponent, e: Option[Expr]): Unit = {
-    mapStages.find{stage => stage.outputMems.contains(prev) } match {
-      case Some(stage) =>
-        stage.outs :+= refOut(out, mapStages.indexOf(stage) + 1)
-      case None =>
-        bypass(prev, out)
-    }
-    if (e.isDefined) addReg(e.get, out)
-    else cu.regs += out // No mapping, only list
-  }
-
-  // Get memory in this CU associated with the given reader
-  def mem(mem: Expr): CUMemory = {
-    val cuMems = cu.mems.filter{ _.mem == mem }
-    assert(cuMems.size==1, s"More than 1 cuMem=${cuMems} allocated for $mem in $cu")
-    cuMems.head
-  }
-
-  // A CU can have multiple SRAMs for a given mem symbol, one for each local read
-  def memories(mem: Expr) = cu.mems.filter(_.mem == mem)
-
-
-  // HACK: Keep track of first read of accum reg (otherwise can use the wrong stage)
-  private def isUnreadAccum(reg: LocalComponent) = reg match {
-    case reg: AccumReg => !readAccums.contains(reg)
-    case _ => false
-  }
-}
-
-
-case class ComputeContext(override val cu: ComputeUnit) extends CUContext(cu) {
-  def stages = cu.computeStages
-  def addStage(stage: Stage) { cu.computeStages += stage }
-  def isWriteContext = false
-  def init() = {}
-}
-//case class WriteContext(override val cu: ComputeUnit) extends CUContext(cu) {
-  //def init() { cu.writeStages.clear }
-  //def stages = cu.writeStages
-  //def addStage(stage: Stage) { cu.writeStages += stage }
-  //def isWriteContext = true
-//}
-//case class ReadContext(override val cu: ComputeUnit) extends CUContext(cu) {
-  //def init() { cu.readStages.clear }
-  //def stages = cu.readStages
-  //def addStage(stage: Stage) { cu.readStages += stage }
-  //def isWriteContext = false 
-//}

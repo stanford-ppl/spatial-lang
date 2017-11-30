@@ -68,7 +68,6 @@ package object pirgen {
     case ControlOut(out) => Set(out)
     case ScalarOut(out) => Set(out)
     case VectorOut(out) => Set(out)
-    case LocalRef(stage, reg) => Set(reg)
 
     case Some(x) => Set(x)
     case (data,addr,_) => Set(data, addr)
@@ -78,12 +77,12 @@ package object pirgen {
   def visitIn(a: Any): Set[Any] = a match {
     case counter: CUCounter => Set(counter.start, counter.end, counter.stride)
     case mem: CUMemory => (mem.writePort ++ mem.readPort.map { case (data, addr, _) => addr}).toSet
-    case stage: Stage => stage.inputMems.toSet
+    case stage: Stage => stage.ins.toSet
     case a => visitDown(a)
   }
 
   def visitOut(a: Any): Set[Any] = a match {
-    case stage: Stage => stage.outputMems.toSet
+    case stage: Stage => stage.outs.toSet
     case mem: CUMemory => mem.readPort.map { case (data, addr, _) => data}.toSet
     case a => visitDown(a)
   }

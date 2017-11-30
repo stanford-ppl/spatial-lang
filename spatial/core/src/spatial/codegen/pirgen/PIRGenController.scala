@@ -7,7 +7,6 @@ import scala.collection.mutable
 
 trait PIRGenController extends PIRCodegen {
 
-  var allocatedReduce: Set[ReduceReg] = Set.empty
   val genControlLogic = false
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
@@ -21,18 +20,15 @@ trait PIRGenController extends PIRCodegen {
   }
 
   def emitAllStages(cu: ComputeUnit) {
-    def emitStages(stages: Iterable[Stage], prefix:String="") = stages.foreach{
-      case MapStage(op,inputs,outputs) =>
-        val ins = inputs.map(quote).mkString(", ")
-        val outs = outputs.map(quote).mkString(", ")
-        emit(s"""${prefix}Stage(operands=List($ins), op=$op, results=List($outs))""")
-
-      case ReduceStage(op,init,in,acc, accParent) =>
-        emit(s"""val (_, ${quote(acc)}) = Stage.reduce(op=$op, init=${quote(init)}, accumParent="${accParent.name}")""")
-        allocatedReduce += acc
+    def emitStages(stages: Iterable[Stage]) = stages.foreach{ stage =>
+      val tp = stage match {
+        case _:MapStage => s"Stage"
+        case _:ReduceStage => s"ReduceStages"
+      }
+      val ins = stage.ins.map(quote).mkString(", ")
+      val outs = stage.outs.map(quote).mkString(", ")
+      emit(s"""$tp(operands=List($ins), op=${stage.op}, results=List($outs))""")
     }
-
-    //emit(s"var stage: List[Stage] = Nil")
 
     if (cu.controlStages.nonEmpty && genControlLogic) {
       emitStages(cu.controlStages)
@@ -57,9 +53,10 @@ trait PIRGenController extends PIRCodegen {
     s"${quote(cu)}(${decs.mkString(",")})"
   }
 
-  def preallocateRegisters(cu: CU) = cu.regs.foreach{
+  def declareRegisters(cu: CU) = cu.regs.foreach{
     case reg:TempReg        => emit(s"""val ${quote(reg)} = CU.temp(${reg.init}).name("${quote(reg)}")""")
-    //case reg@AccumReg(init) => emit(s"val ${quote(reg)} = CU.accum(init = ${quote(init)})")
+    case reg:ReduceReg => emit(s"val ${quote(reg)} = CU.reduce")
+    case reg:AccumReg => emit(s"""val ${quote(reg)} = CU.accum(Const(${reg.init})).parent("${reg.parent.name}")""")
     case reg:ControlReg if genControlLogic => emit(s"val ${quote(reg)} = CU.ctrl")
     case _ => // No preallocation
   }
@@ -73,7 +70,7 @@ trait PIRGenController extends PIRCodegen {
     dbgs(s"$cu.mems=${mems}")
 
     open(s"val ${cu.name} = ${cuDeclaration(cu)} { implicit CU => ")
-    preallocateRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
+    declareRegisters(cu)                // Includes scalar inputs/outputs, temps, accums
     mems.foreach(emitComponent(_))      // Declare mems without addr calculation first. 
                                         // Counter bounds might depends on scalarBuffer
     cu.cchains.foreach(emitComponent(_))    // Allocate all counterchains
@@ -206,13 +203,13 @@ trait PIRGenController extends PIRCodegen {
 
     case WriteAddrWire(mem)      => s"${quote(mem)}.writeAddr"      // Write address wire
     case ReadAddrWire(mem)       => s"${quote(mem)}.readAddr"       // Read address wire
-    case MemLoad(mem)        => s"${quote(mem)}.readPort"                      // SRAM read
+    case MemLoad(mem)        => s"${quote(mem)}"                      // SRAM read
     case MemNumel(mem)        => s"${quote(mem)}.numel"                      // Mem number of element
 
-    case reg:ReduceReg           => s"rr${reg.id}"                  // Reduction register
-    case reg:AccumReg            => s"ar${reg.id}"                  // After preallocation
+    case reg:ReduceReg           => s"rd${reg.id}"                  // Reduction register
+    case reg:AccumReg            => s"ac${reg.id}"                  // After preallocation
     case reg:TempReg             => s"${quote(reg.x)}"                  // Temporary register
-    case reg:ControlReg          => s"cr${reg.id}"                  // Control register
+    case reg:ControlReg          => s"ct${reg.id}"                  // Control register
 
     case ControlIn(bus)              => quote(bus)                      // Scalar output
     case ControlOut(bus)             => quote(bus)                      // Scalar output
@@ -222,24 +219,4 @@ trait PIRGenController extends PIRCodegen {
     case VectorOut(bus)          => quote(bus)                      // Vector output
   }
 
-  def quote(ref: LocalRef): String = ref match {
-    case LocalRef(stage, reg: ConstReg[_])   => quote(reg)
-    case LocalRef(stage, reg: CounterReg) => s"${quote(reg)}"
-    case LocalRef(stage, reg: ValidReg)   => quote(reg)
-
-    case LocalRef(stage, wire: WriteAddrWire)  => quote(wire)
-    case LocalRef(stage, wire: ReadAddrWire)   => quote(wire)
-
-    case LocalRef(stage, reg: ReduceReg) if allocatedReduce.contains(reg) => quote(reg)
-    case LocalRef(stage, reg: ReduceReg)   => s"CU.reduce"
-    case LocalRef(stage, reg: AccumReg)    => s"${quote(reg)}"
-    case LocalRef(stage, reg: TempReg)     => s"${quote(reg)}"
-    case LocalRef(stage, reg: ControlReg)  => s"${quote(reg)}"
-    case LocalRef(stage, reg@MemLoad(mem)) => s"${quote(mem)}"
-
-    case LocalRef(stage, reg: ScalarIn)  => s"CU.scalarIn(${quote(reg)})"
-    case LocalRef(stage, reg: ScalarOut) => s"CU.scalarOut(${quote(reg)})"
-    case LocalRef(stage, reg: VectorIn)  => s"CU.vecIn(${quote(reg)})"
-    case LocalRef(stage, reg: VectorOut) => s"CU.vecOut(${quote(reg)})"
-  }
 }

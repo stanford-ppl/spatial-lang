@@ -40,17 +40,17 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   def removeUnusedCUComponents(cu: CU) = {
-    removeUnusedStages(cu)
+    removeUnusedRegs(cu)
     removeUnusedCChainCopy(cu)
     removeUnusedMems(cu)
   }
 
-  def removeUnusedStages(cu: CU) = dbgblk(s"removeUnusedStages(${cu.name})") {
+  def removeUnusedRegs(cu: CU) = dbgblk(s"removeUnusedRegs(${cu.name})") {
     val stages = cu.allStages.toList
     val usedRegs = mutable.Set[LocalComponent]()
     val allRegs = mutable.Set[LocalComponent]()
     stages.reverseIterator.foreach { stage =>
-      val usedOuts = stage.outputMems.filter {
+      val usedOuts = stage.outs.filter {
         case out:ControlOut => true
         case out:ScalarOut => true
         case out:VectorOut => true
@@ -58,31 +58,29 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       }
       if (usedOuts.nonEmpty) {
         usedRegs ++= usedOuts
-        usedRegs ++= stage.inputMems
+        usedRegs ++= stage.ins
       }
       dbgs(s"stage=$stage")
       dbgs(s"- usedOuts=$usedOuts")
-      allRegs ++= stage.inputMems
-      allRegs ++= stage.outputMems
+      allRegs ++= stage.ins
+      allRegs ++= stage.outs
     }
 
     val unusedRegs = allRegs -- usedRegs
-    dbgs(s"unusedRegs=$unusedRegs")
 
     if (unusedRegs.nonEmpty) {
+      dbgs(s"")
       dbgs(s"Removing unused registers from cu ${cu.name}")
+      dbgs(s"unusedRegs=$unusedRegs")
 
-      stages.foreach{ 
-        case stage:MapStage => stage.outs = stage.outs.filterNot{ref => unusedRegs contains ref.reg} 
-        case stage:ReduceStage => // Cannot remove register in reduce stage
+      stages.foreach { stage =>
+        stage.outs = stage.outs.filterNot{reg => unusedRegs contains reg} 
       }
+
       cu.regs --= unusedRegs
-    }
-    stages.foreach { stage =>
-      if (stage.outputMems.isEmpty) {
-        dbgs(s"Removing stage with no output from $cu: $stage")
-        cu.computeStages -= stage
-        cu.controlStages -= stage
+
+      dbgblk(s"Resulting Stages:") {
+        stages.foreach { stage => dbgs(s"$stage") }
       }
     }
   }
@@ -115,11 +113,13 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     val buses = globals.collect{case bus:GlobalBus if isInterCU(bus) => bus}
     val inputs = cus.flatMap{cu => collectInput[GlobalBus](cu) }.toSet
 
-    dbgs(s"Buses: ")
-    buses.foreach{bus => dbgs(s"  $bus")}
+    dbgl(s"Buses: ") {
+      buses.foreach{bus => dbgs(s"$bus")}
+    }
 
-    dbgs(s"Used buses: ")
-    inputs.foreach{in => dbgs(s"  $in")}
+    dbgl(s"Used buses: ") {
+      inputs.foreach{in => dbgs(s"$in")}
+    }
 
 
     val unusedBuses = buses.filterNot(inputs contains _)
@@ -130,12 +130,11 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case VectorOut(out) => unusedBuses contains out
       case _ => false
     }
-    def isUnusedRef(ref: LocalRef) = isUnusedReg(ref.reg)
 
     dbgs(s"Removing unused global buses:\n  " + unusedBuses.mkString("\n  "))
     cus.foreach{cu =>
       val stages = cu.allStages.collect{case m:MapStage => m}
-      stages.foreach{stage => stage.outs = stage.outs.filterNot(isUnusedRef) }
+      stages.foreach{stage => stage.outs = stage.outs.filterNot(isUnusedReg) }
       cu.regs = cu.regs.filterNot(isUnusedReg)
     }
     globals --= unusedBuses
@@ -150,10 +149,10 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     cu.computeStages.foreach{stage => dbgs(s"$stage") }
 
     val bypassStages = cu.computeStages.flatMap{
-      case bypass@MapStage(
+      case bypass@MapStage (
         PIRBypass, 
-        List(LocalRef(_,MemLoad(mem:CUMemory))), 
-        List(LocalRef(_,VectorOut(out: VectorBus)))
+        List(MemLoad(mem:CUMemory)), 
+        List(VectorOut(out: VectorBus))
       ) if mem.writePort.size==1 & mem.tpe==VectorFIFOType =>
         val (in:GlobalBus, _, _) = mem.writePort.head
         if (isInterCU(out)) {
@@ -165,8 +164,8 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
       case bypass@MapStage(
         PIRBypass, 
-        List(LocalRef(_,MemLoad(mem:CUMemory))), 
-        List(LocalRef(_,ScalarOut(out: OutputArg)))
+        List(MemLoad(mem:CUMemory)), 
+        List(ScalarOut(out: OutputArg))
       ) if mem.writePort.size==1 & (mem.tpe==ScalarFIFOType | mem.tpe==ScalarBufferType)=>
         val (in:GlobalBus, _, _) = mem.writePort.head
         dbgs(s"Found route-thru: $in -> $out")
@@ -175,8 +174,8 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
       case bypass@MapStage(
         PIRBypass, 
-        List(LocalRef(_,MemLoad(mem:CUMemory))), 
-        List(LocalRef(_,ScalarOut(out: ScalarBus)))
+        List(MemLoad(mem:CUMemory)), 
+        List(ScalarOut(out: ScalarBus))
       ) if mem.writePort.size==1 & (mem.tpe==ScalarFIFOType | mem.tpe==ScalarBufferType)=>
         val (in:GlobalBus, _, _) = mem.writePort.head
         if (isInterCU(out)) {
@@ -190,22 +189,22 @@ class PIROptimizer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       dbgblk(s"Removing route through stages: ") {
         bypassStages.foreach{stage => dbgs(s"$stage")}
       }
-      removeComputeStages(cu, bypassStages.toSet)
+      bypassStages.foreach { stage => removeStage(cu, stage) }
     }
   }
 
-  // TODO: This could be iterative with removing unused outputs
-  // Right now only does one layer
-  def removeDeadStages(cu: CU) {
+  def removeDeadStages(cu: CU) = dbgblk(s"removeDeadStages(${cu.name})"){
     val deadStages = cu.computeStages.collect{case stage:MapStage if stage.outs.isEmpty => stage}
     if (deadStages.nonEmpty) {
-      dbgblk(s"Removing dead stages from $cu:") {
-        deadStages.foreach{stage => dbgs(s"$stage") }
-      }
-      removeComputeStages(cu, deadStages.toSet)
+      deadStages.foreach { stage => removeStage(cu, stage) }
     }
   }
 
+  def removeStage(cu:CU, stage:Stage) = {
+    dbgs(s"Remove Stage $stage from cu=${cu.name}")
+    cu.computeStages -= stage
+    cu.controlStages -= stage
+  }
 
   def removeEmptyCUs(cus: List[CU]) = dbgblk(s"removeEmptyCUs") { cus.foreach { cu =>
     dbgblk(s"$cu") {
