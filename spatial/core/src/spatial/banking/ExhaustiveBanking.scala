@@ -135,7 +135,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     banking
   }
 
-  def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[ModBanking] = {
+  def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain, dimGrps: Seq[Seq[Seq[Int]]]): Seq[ModBanking] = {
     val cyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, a.last))) }
     val blockCyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, 0, a.last))) }
     val nIters = domain.headOption.map(_.length - 1).getOrElse(0)
@@ -154,12 +154,6 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       grp.foreach{m => m.printWithTab("      ") }
     }
 
-    val dimIndices = dims.indices
-    val hierarchical = dimIndices.map{d => Seq(d) }   // Fully hierarchical (each dimension has separate bank addr.)
-    val fullDiagonal = Seq(dimIndices)                // Fully diagonal (all dimensions contribute to single bank addr.)
-    // TODO: try other/all possible dimension orderings?
-    val strategies = if (dims.length > 1) Seq(hierarchical, fullDiagonal) else Seq(hierarchical)
-
     if (groups.forall(_.size <= 1)) {
       // Only a single bank needed, since only 1 access per group
       // Note this case is required for banking random accesses
@@ -167,7 +161,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       Seq(ModBanking(1, 1, List.fill(dims.length){1}, List.tabulate(dims.length){i => i}))
     }
     else {
-      val options = strategies.flatMap { strategy =>
+      val options = dimGrps.flatMap { strategy =>
         dbg(s"  Trying dimension strategy $strategy")
         // Split up accesses based on the dimension groups in this banking strategy
         // Then, for each dimension group, determine the banking

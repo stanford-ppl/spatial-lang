@@ -10,25 +10,13 @@ import spatial.utils._
 class LineBufferConfigurer(override val mem: Exp[_], override val strategy: BankingStrategy)(override implicit val IR: State) extends MemoryConfigurer(mem,strategy)(IR) {
   override protected val AllowMultiDimStreaming = true
 
+  // Only hierarchically bank LineBuffers on the second dimension
+  override protected def dimensionGroupings: Seq[Seq[Seq[Int]]] = Seq(Seq(Seq(1)))
+
   override protected def createStreamingVector(access: Access): CompactMatrix = {
     val mat = super.createStreamingVector(access)
     mat.copy(vectors = AffineVector(Array.empty,Nil,0) +: mat.vectors)
   }
-
-  /*override def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
-    case Def(LineBufferColSlice(_, row, col, len)) => accessPatternOf(access.node).last match {
-      case Affine(as, is, b) =>
-        Seq.tabulate(len.toInt){ c =>
-          CompactMatrix(Array(AffineVector(as, is, b + c)), access)
-        }
-      case _ =>
-        // EXPERIMENTAL: Treat the col address as its own index
-        Seq.tabulate(len.toInt){ c =>
-          CompactMatrix(Array(AffineVector(Array(1), Seq(col), c)), access)
-        }
-    }
-    case _ => super.getAccessVector(access)
-  }*/
 
   protected def annotateTransientAccesses(accesses: Seq[Access]): Unit = accesses.foreach{case (node,ctrl) =>
     def unknownRows(): Int = {

@@ -38,9 +38,9 @@ trait MemoryUnrolling extends UnrollingBase {
 
   /**
     * Returns the instances required to unroll the given access
-    *
+    * len: width of vector access for vectorized accesses, e.g. linebuffer(0, c::c+3)
     */
-  def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean): List[UnrollInstance] = {
+  def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean, len: Int): List[UnrollInstance] = {
     // First, group by the instance each unrolled access is being dispatched to
     val is   = accessIterators(access, mem)
     val mems = lanes.map{laneId =>
@@ -258,7 +258,7 @@ trait MemoryUnrolling extends UnrollingBase {
     // LineBuffer RotateEnq is special
     case op@LineBufferRotateEnq(lb,data,en,row) => unrollAccess(lhs,lb,Some(data),Some(Seq(row)),Some(en),lanes)(op.mT,op.bT,ctx)
 
-    case StatusReader(mem)   => unrollStatus(lhs,rhs,mem,lanes)
+    case StatusReader(mem) => unrollStatus(lhs,rhs,mem,lanes)
     case Resetter((mem,_)) => unrollResetMemory(lhs,rhs,mem,lanes)
 
     case op:Reader[_,_] if op.localReads.length == 1 =>

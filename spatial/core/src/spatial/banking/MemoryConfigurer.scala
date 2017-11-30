@@ -19,6 +19,14 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   protected val inVector: HashSet[Exp[Index]] = new HashSet[Exp[Index]] // TODO: Unused?
   protected val unrolledRand= new HashMap[Exp[Index],Map[Seq[Int],Exp[Index]]]
 
+  protected def dimensionGroupings: Seq[Seq[Seq[Int]]] = {
+    val dimIndices = dims.indices
+    val hierarchical = dimIndices.map{d => Seq(d) }   // Fully hierarchical (each dimension has separate bank addr.)
+    val fullDiagonal = Seq(dimIndices)                // Fully diagonal (all dimensions contribute to single bank addr.)
+    // TODO: try other/all possible dimension orderings?
+    if (dims.length > 1) Seq(hierarchical, fullDiagonal) else Seq(hierarchical)
+  }
+
   /**
     * Unrolls the given random access symbol to multiple symbols based on the parallelization factors
     * of all counters between the memory definition and the calculation of this address.
@@ -497,7 +505,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val writes = writeGroups.flatten.map(_.access)
     val ctrls  = reads.map(_.ctrl).toSet
     val groupWrites = if (readGroups.nonEmpty) reachingWrites(readGroups, writeGroups, domain) else writeGroups
-    val groupBanking = strategy.bankAccesses(mem, dims, readGroups, groupWrites, domain)
+    val groupBanking = strategy.bankAccesses(mem, dims, readGroups, groupWrites, domain, dimensionGroupings)
     // TODO: Multiple metapipe parents should cause backtrack eventually
     val (groupMetapipe, groupPorts) = findMetaPipe(mem, reads, writes)
     val groupDepth = groupPorts.values.max + 1
