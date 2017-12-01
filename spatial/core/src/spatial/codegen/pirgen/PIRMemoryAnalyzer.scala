@@ -83,7 +83,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case Def(SRAMNew(dims)) => dims.size
       case Def(FIFONew(size)) => 1
     }
-    outerDimsOf(mem) = (0 until numDim).toSeq.filterNot { _ == innerDimOf(mem) }
+    outerDimsOf(mem) = (0 until numDim).toSeq.filterNot { dim => innerDimOf.get(mem).fold(false){ dim == _ } }
   }
 
   def setNumOuterBanks(mem:Expr) = numOuterBanksOf(mem) = dbgblk(s"setNumOuterBanks($mem)") {

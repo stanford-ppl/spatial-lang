@@ -103,7 +103,7 @@ trait PIRStruct {
   // Struct handling
   def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
 
-  def decompose(exp: Expr): Seq[Expr] = decomposed(exp) match {
+  def decompose(exp: Expr): Seq[Expr] = decomposed.get(exp).getOrElse(Left(exp)) match {
     case Left(exp) => Seq(exp)
     case Right(seq) => seq.map(_._2)
   }
