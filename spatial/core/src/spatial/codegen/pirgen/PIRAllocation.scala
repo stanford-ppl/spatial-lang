@@ -128,7 +128,8 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         dbgs(s"writers=${writers}")
         dbgs(s"duplicates=${duplicatesOf(mem)}")
         mutable.Set() ++ 
-        duplicatesOf(mem).zip(numOuterBanksOf(mem)).zipWithIndex.flatten { case ((m, numBanks), i) =>
+        duplicatesOf(mem).zipWithIndex.flatten { case (m, i) =>
+          val numBanks = numOuterBanksOf((mem, i))
           (0 until numBanks).map { bank =>
             val cu = ComputeUnit(s"${quote(dmem)}_dsp${i}_bank${bank}", MemoryCU)
             dbgs(s"Allocating MCU duplicates $cu for ${quote(dmem)}, duplicateId=$i")
@@ -236,10 +237,10 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     cuMem.size = constDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
     inst match {
       case BankedMemory(dims, depth, isAccum) =>
-        innerDimOf.get(mem).fold {
+        innerDimOf.get((mem, i)).fold {
           cuMem.banking = Some(NoBanks)
         } { dim =>
-          dims(dim) match { case Banking(stride, banks, _) =>
+          dims(dim) match { case Banking(stride, banks, isOuter) =>
             // Inner loop dimension 
             if (banks > 1) {
               assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")

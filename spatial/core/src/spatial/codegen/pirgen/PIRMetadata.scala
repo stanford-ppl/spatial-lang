@@ -41,20 +41,18 @@ object readerCUsOf extends MOneToOneMap with MetadataMaps {
 }
 
 object innerDimOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr // SRAM
+  type K = (Expr, Int) // (SRAM, dispatch ID)
   type V = Int
 }
 
 object outerDimsOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr // SRAM
+  type K = (Expr, Int) // (SRAM, dispatch ID)
   type V = Seq[Int]
 }
 
-// K: sram Exp
-// V: List of number of outer banks per duplicate
 object numOuterBanksOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr
-  type V = Seq[Int]
+  type K = (Expr, Int) // (SRAM, dispatch ID)
+  type V = Int
 }
 
 object bankOf extends MOneToOneMap with MetadataMaps {
