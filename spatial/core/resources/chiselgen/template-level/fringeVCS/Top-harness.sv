@@ -1,11 +1,11 @@
 module test;
-  import "DPI" function void sim_init();
-  import "DPI" function int tick();
-  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse);
-  import "DPI" function int sendWdata(int streamId, int dramCmdValid, int dramReadySeen, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
-  import "DPI" function void popDRAMReadQ();
-  import "DPI" function void popDRAMWriteQ();
-  import "DPI" function void readOutputStream(int data, int tag, int last);
+  import "DPI" context function void sim_init();
+  import "DPI" context function int tick();
+  import "DPI" context function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse);
+  import "DPI" context function int sendWdata(int streamId, int dramCmdValid, int dramReadySeen, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" context function void popDRAMReadQ();
+  import "DPI" context function void popDRAMWriteQ();
+  import "DPI" context function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
   export "DPI" function start;
