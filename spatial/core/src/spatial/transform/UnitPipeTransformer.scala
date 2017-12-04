@@ -20,7 +20,7 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
   var enable: Option[Exp[Bit]] = None
 
   def withEnable[T](en: Exp[Bit])(blk: => T)(implicit ctx: SrcCtx): T = {
-    var prevEnable = enable
+    val prevEnable = enable
     dbgs(s"Enable was $enable")
     enable = Some(en) //Some(enable.map(bool_and(_,en)).getOrElse(en) )   TODO: Should this use ANDs?
     dbgs(s"Enable is now $enable")

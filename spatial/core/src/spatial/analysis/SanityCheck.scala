@@ -22,6 +22,7 @@ trait SanityCheck extends SpatialTraversal {
     case Const(_) => true
     case s: Sym[_] if s.tp == StringType => true   // Exception to allow debug printing to work
     case s if isOffChipMemory(s) => true
+    case Def(_:FuncDecl[_]) => true                // Module declarations are ok
     case _ => false
   }
 
@@ -59,7 +60,7 @@ trait SanityCheck extends SpatialTraversal {
 
       val illegalInputs = inputs.filter{
         //case s @ Def(RegRead(reg)) => !isArgIn(reg) // Special case on reg reads of input args
-        case s @ Def(NewVar(_)) => false            // Already gave errors for outside vars
+        case Def(NewVar(_))     => false              // Already gave errors for outside vars
         case s => !isTransferException(s)
       }
       if (illegalInputs.nonEmpty) {
