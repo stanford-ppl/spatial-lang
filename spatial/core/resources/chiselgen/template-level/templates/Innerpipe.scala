@@ -65,7 +65,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     // rstCtr.io.input.stride := 1.S
     val rst = ~io.input.enable | io.input.rst | state =/= pipeDone.U
 
-    io.output.rst_en := (state =/= pipeRun.U || rstLatch.io.output.data) // This breaks up combinational loops
+    io.output.rst_en := Utils.getRetimed((state =/= pipeRun.U || rstLatch.io.output.data), 1) // This breaks up combinational loops
 
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {
