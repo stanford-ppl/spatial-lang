@@ -55,7 +55,7 @@ sim-hw:
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	cp chisel/template-level/fringeVCS/SRAMVerilogSim.v . || :
-	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
+	sbt "runMain top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
 	cp verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs
@@ -99,7 +99,7 @@ aws-sim-hw:
 	# ----------------------------------------------------------------------------
 	rm -rf ${AWS_V_SIM_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws-sim"
+	sbt "runMain top.Instantiator --verilog --testArgs aws-sim"
 	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_SIM_DIR}/Top.v
 	cat chisel/template-level/fringeVCS/RetimeShiftRegister.sv >> ${AWS_V_SIM_DIR}/Top.v
 	# Make a copy of the template directory
@@ -135,7 +135,7 @@ aws-F1-hw:
 	# ----------------------------------------------------------------------------
 	rm -rf ${AWS_V_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws"
+	sbt "runMain top.Instantiator --verilog --testArgs aws"
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${AWS_V_DIR}/Top.v
 	cat chisel/template-level/fringeAWS/RetimeShiftRegister.sv >> ${AWS_V_DIR}/Top.v
 	mv ${BIGIP_SCRIPT} ${AWS_V_DIR}/
@@ -242,7 +242,7 @@ zynq-sw:
 zynq-hw:
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
 	echo "$$(date +%s)" > start.log
-	sbt "run-main top.Instantiator --verilog --testArgs zynq"
+	sbt "runMain top.Instantiator --verilog --testArgs zynq"
 	mv ${BIGIP_SCRIPT} ${ZYNQ_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
 	cp chisel/template-level/fringeZynq/build/* ${ZYNQ_V_DIR}
@@ -271,7 +271,7 @@ zcu-hw:
 	sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
 	sed -i "s/EPRINTF(/fprintf(stderr,/g" cpp/fringeZynq/FringeContextZynq.h # Not sure why eprintf randomly crashes zcu
 
-	sbt "run-main top.Instantiator --verilog --testArgs zcu"
+	sbt "runMain top.Instantiator --verilog --testArgs zcu"
 	mv ${BIGIP_SCRIPT} ${ZCU_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZCU_V_DIR}/Top.v
 	cp chisel/template-level/fringeZynq/build/* ${ZCU_V_DIR}
@@ -306,7 +306,7 @@ de1soc-sw:
 	cp sp.rbf ./prog/verilog/accel.bit.bin
 
 de1soc-hw:
-	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
+	sbt "runMain top.Instantiator --verilog --testArgs de1soc"
 	sed -i 's/SRFF/SRFF_sp/g' verilog-de1soc/Top.v
 	cp -r chisel/template-level/fringeDE1SoC/simulation verilog-de1soc/
 	cp -r chisel/template-level/fringeDE1SoC/* verilog-de1soc/
@@ -333,7 +333,7 @@ vcs-sw:
 
 vcs-hw:
 	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
-	sbt "run-main top.Instantiator --verilog --testArgs vcs"
+	sbt "runMain top.Instantiator --verilog --testArgs vcs"
 	cp -r chisel/template-level/fringeVCS/* verilog-vcs
 	touch in.txt
 	make -C verilog-vcs
@@ -358,7 +358,7 @@ xsim-sw:
 	ln -sf cpp/Top .
 
 xsim-hw:
-	sbt "run-main top.Instantiator --verilog --testArgs xsim"
+	sbt "runMain top.Instantiator --verilog --testArgs xsim"
 	cp -r chisel/template-level/fringeXSIM/* verilog-xsim
 	touch in.txt
 	make -C verilog-xsim

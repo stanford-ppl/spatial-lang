@@ -40,6 +40,12 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
   })
 
   if (!isFSM) {
+
+    val rstLatch = Module(new SRFF())
+    rstLatch.io.input.set := io.input.rst
+    rstLatch.io.input.reset := io.input.enable
+    rstLatch.io.input.asyn_reset := io.input.enable
+
     // Had to change state to a spatial FF because chisel had some bullshit bug where it wrote the completely wrong number to the RegInit as of Sept 26, 2017
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B
@@ -59,7 +65,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     // rstCtr.io.input.stride := 1.S
     val rst = ~io.input.enable | io.input.rst | state =/= pipeDone.U
 
-    io.output.rst_en := state === pipeReset.U // This breaks up combinational loops
+    io.output.rst_en := (state =/= pipeRun.U || rstLatch.io.output.data) // This breaks up combinational loops
 
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {
