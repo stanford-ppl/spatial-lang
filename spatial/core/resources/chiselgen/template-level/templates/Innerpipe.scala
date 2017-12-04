@@ -87,7 +87,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
         }
       }.elsewhen( state === pipeRun.U ) {
         // io.output.rst_en := false.B
-        io.output.ctr_inc := Mux(io.input.enable, true.B, false.B)
+        io.output.ctr_inc := Mux(io.input.enable && ~Utils.getRetimed(state =/= pipeRun.U || rstLatch.io.output.data,1) , true.B, false.B)
         when (io.input.ctr_done) {
           io.output.done := Mux(io.input.forever, false.B, true.B)
           io.output.extendedDone := Mux(io.input.forever, false.B, true.B)
@@ -103,13 +103,13 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
         io.output.ctr_inc := false.B
         io.output.done := false.B//Mux(io.input.forever, false.B, true.B)
         io.output.extendedDone := Mux(io.input.forever, false.B, true.B)
-        if (retime == 0) stateFF.io.input(0).data := pipeReset.U else stateFF.io.input(0).data := pipeSpinWait.U
+        if (retime == 0) stateFF.io.input(0).data := pipeRun.U else stateFF.io.input(0).data := pipeSpinWait.U
       }.elsewhen( state >= pipeSpinWait.U ) {
         io.output.ctr_inc := false.B
         // io.output.rst_en := false.B
         io.output.done := false.B
         io.output.extendedDone := false.B
-        stateFF.io.input(0).data := Mux(state >= (pipeSpinWait + retime).U, pipeReset.U, state + 1.U);
+        stateFF.io.input(0).data := Mux(state >= (pipeSpinWait + retime).U, pipeRun.U, state + 1.U);
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done | (state === pipeRun.U & io.input.ctr_done), true.B, false.B)
@@ -117,7 +117,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
       // io.output.rst_en := false.B
       io.output.state := state.asSInt
       if (retime == 0) {
-        stateFF.io.input(0).data := pipeReset.U
+        stateFF.io.input(0).data := pipeRun.U
       } else {
         stateFF.io.input(0).data := Mux(state === pipeDone.U, pipeSpinWait.U, Mux(state === pipeRun.U & io.input.ctr_done, pipeDone.U, state)) // Move along if enable turns on just as we reach done state
       }
