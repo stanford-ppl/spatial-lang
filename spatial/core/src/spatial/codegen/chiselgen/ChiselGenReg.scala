@@ -211,7 +211,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
             // Make sure this was not stripped of its accumulation from full unroll
             if (fully_unrolled_accum) {
               emitGlobalWireMap(src"""${reg}_wren""", "Wire(Bool())");emit(src"${swap(reg, Wren)} := ${swap(parentOf(lhs).get, DatapathEn)}")
-              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}""")
+              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}.D(${symDelay(lhs)}, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before""")
             }
             emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(reg.tp.typeArguments.head)})""")
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
