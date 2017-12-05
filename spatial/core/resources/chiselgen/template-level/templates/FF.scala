@@ -110,7 +110,8 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done),i) => (en.io.output.data === done.io.output.data) || (en.io.output.data && io.sDone(i)) }.reduce{_&_} & anyEnabled
+  swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)
+  // swap := sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done),i) => (en.io.output.data === done.io.output.data) || (en.io.output.data && io.sDone(i)) }.reduce{_&_} & anyEnabled
   // io.swapAlert := ~swap & anyEnabled & (0 until numBufs).map{ i => sEn_latch(i).io.output.data === (sDone_latch(i).io.output.data | io.sDone(i))}.reduce{_&_} // Needs to go high when the last done goes high, which is 1 cycle before swap goes high
 
   val statesIn = (0 until numWriters).map{ i => 

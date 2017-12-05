@@ -450,6 +450,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := (${sym}${i}_hops + ${sym}${i}_adjustment).U(${32 min 2*w}.W)""")
               case (Exact(s), _, Exact(st), Exact(p)) => 
+                appPropertyStats += HasVariableCtrBounds
                 emit(src"val ${sym}${i}_range =  Utils.getRetimed(${end} - ${start}, Utils.fixsub_latency)")
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
@@ -459,6 +460,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
+                appPropertyStats += HasVariableCtrStride
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"val ${sym}${i}_range = ${e} - ${s}")
                 emit(src"val ${sym}${i}_jump = ${step} *-* ${p}.S(${w}.W)")
@@ -469,6 +471,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
               case _ => 
+                appPropertyStats += HasVariableCtrBounds // TODO: Possible variable stride too, should probably match against this
                 emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, Utils.fixsub_latency)")
                 emit(src"val ${sym}${i}_jump = ${step} *-* ${par}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump")
@@ -1013,6 +1016,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"//   Widest Outer Controller: ${if (widthStats.length == 0) 0 else widthStats.max}")
       emit(src"// Depths: ${depthStats.sorted}")
       emit(src"//   Deepest Inner Controller: ${if (depthStats.length == 0) 0 else depthStats.max}")
+      emit(src"// App Characteristics: ${appPropertyStats.toList.mkString(",")}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
 

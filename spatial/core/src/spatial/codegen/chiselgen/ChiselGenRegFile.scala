@@ -55,6 +55,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${if (writerInfo.length == 0) 1 else writerInfo.map{_._2}.reduce{_+_}}, false, $width, $f))""")
           emitGlobalModule(src"${lhs}_$i.io.dump_en := false.B")
         } else {
+          appPropertyStats += HasNBufRegFile
           nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
           emitGlobalModule(src"""val ${lhs}_$i = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, $depth, Map(${parInfo.mkString(",")}), $width, $f))""")
         }

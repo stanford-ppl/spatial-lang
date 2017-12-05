@@ -428,14 +428,14 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
-    sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.reset := Utils.getRetimed(swap,1)
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
-    sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.reset := Utils.getRetimed(swap,1)
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)
 
   val statesInW = wHashmap.map { t =>
     val c = Module(new NBufCtr(1,Some(t._1), Some(numBufs), 1+Utils.log2Up(numBufs)))
@@ -660,14 +660,14 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   // Latch whether each buffer's stage is enabled and when they are done
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
-    sEn_latch(i).io.input.reset := swap
+    sEn_latch(i).io.input.reset := Utils.getRetimed(swap,1)
     sEn_latch(i).io.input.asyn_reset := reset
     sDone_latch(i).io.input.set := io.sDone(i)
-    sDone_latch(i).io.input.reset := swap
+    sDone_latch(i).io.input.reset := Utils.getRetimed(swap,1)
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled
+  swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)
 
   val statesInW = wHashmap.map { t =>
     val c = Module(new NBufCtr(1,Some(t._1), Some(numBufs),1+Utils.log2Up(numBufs)))
