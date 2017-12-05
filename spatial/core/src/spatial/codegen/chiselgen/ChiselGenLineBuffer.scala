@@ -23,6 +23,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     // TODO: Need to account for stride here
     case op@LineBufferNew(rows, cols, stride) =>
+      appPropertyStats += HasLineBuffer
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) =>
         val readers = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i }
         val writers = writersOf(lhs).filter{write => dispatchOf(write, lhs) contains i }

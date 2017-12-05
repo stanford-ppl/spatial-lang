@@ -39,6 +39,13 @@ object Retime extends RemapSignal
 object SM extends RemapSignal
 object Inhibit extends RemapSignal
 
+sealed trait AppProperties
+object HasLineBuffer extends AppProperties
+object HasNBufSRAM extends AppProperties
+object HasNBufRegFile extends AppProperties
+object HasVariableCtrBounds extends AppProperties
+object HasVariableCtrStride extends AppProperties
+
 
 trait ChiselGenSRAM extends ChiselCodegen {
   private var nbufs: List[(Sym[SRAM[_]], Int)] = Nil
@@ -49,6 +56,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var accumsWithIIDlay = new scala.collection.mutable.ListBuffer[Exp[_]]
   var widthStats = new scala.collection.mutable.ListBuffer[Int]
   var depthStats = new scala.collection.mutable.ListBuffer[Int]
+  var appPropertyStats = Set[AppProperties]()
 
   // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
@@ -433,6 +441,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
   ))""")
             } else {
+              appPropertyStats += HasNBufSRAM
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
               val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
@@ -448,6 +457,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
   ))""")
             } else {
+              appPropertyStats += HasNBufSRAM
               nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
               val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
               emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
