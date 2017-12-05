@@ -87,7 +87,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
         }
       }.elsewhen( state === pipeRun.U ) {
         // io.output.rst_en := false.B
-        io.output.ctr_inc := Mux(io.input.enable && ~Utils.getRetimed(state =/= pipeRun.U || rstLatch.io.output.data,1) || io.input.rst , true.B, false.B)
+        io.output.ctr_inc := Mux(io.input.enable && ~(Utils.getRetimed(state =/= pipeRun.U || rstLatch.io.output.data,1) || io.input.rst), true.B, false.B)
         when (io.input.ctr_done) {
           io.output.done := Mux(io.input.forever, false.B, true.B)
           io.output.extendedDone := Mux(io.input.forever, false.B, true.B)
