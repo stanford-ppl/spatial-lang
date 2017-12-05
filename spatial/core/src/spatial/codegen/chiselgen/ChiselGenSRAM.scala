@@ -162,6 +162,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
     //}
   //}
 
+  def isSpecializedReduce(accum: Exp[_]): Boolean = {
+    reduceType(accum) match {
+      case Some(fps: ReduceFunction) => // is an accumulator
+        fps match {
+          case FixPtSum => true
+          case _ => false
+        }
+      case _ => false
+    }
+  }
   def cchainWidth(ctr: Exp[Counter]): Int = ctr match {
     case Def(CounterNew(Exact(s), Exact(e), _, _)) =>
       val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt}
