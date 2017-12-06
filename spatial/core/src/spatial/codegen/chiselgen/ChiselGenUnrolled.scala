@@ -163,7 +163,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         if (isSpecializedReduce(accum)) {
           emit(src"$rstr := ${swap(lhs, RstEn)}")
         } else {
-          emit(src"$rstr := ${swap(lhs, RstEn)}.D(${lhs}_retime, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before")
+          emit(src"$rstr := ${swap(lhs, RstEn)}.D(${swap(lhs, Retime)}, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before")
         }
       } else {
         if (spatialConfig.enableRetiming) {
