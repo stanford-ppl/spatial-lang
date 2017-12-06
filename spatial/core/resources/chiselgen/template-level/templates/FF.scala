@@ -55,7 +55,7 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
         io.input(wId).init := d.number
     }
     io.input(wId).enable := en
-    io.input(wId).reset := reset
+    io.input(wId).reset := reset & ~en
     // Ignore port
     wId = wId + 1
   }
@@ -170,7 +170,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
           io.input(wId).init := d.number
       }
       io.input(wId).enable := en
-      io.input(wId).reset := reset
+      io.input(wId).reset := reset & ~en
       io.wr_ports(wId) := port.U
       wId = wId + 1
     } else {
@@ -180,7 +180,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
         case d: types.FixedPoint => 
           io.broadcast.data := d.number
       }
-      io.broadcast.enable := en
+      io.broadcast.enable := en & ~en
       io.broadcast.reset := reset      
     }
   }
