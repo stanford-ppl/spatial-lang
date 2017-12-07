@@ -37,7 +37,7 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
   io.output.data := Mux(anyReset, io.input(0).init, ff)
 
   var wId = 0
-  def write[T,A](data: T, en: Bool, reset: Bool, port: List[Int], init: A): Unit = {
+  def write[T,A](data: T, en: Bool, reset: Bool, port: List[Int], init: A, accumulating: Boolean): Unit = {
     data match {
       case d: UInt =>
         io.input(wId).data := d
@@ -55,7 +55,7 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
         io.input(wId).init := d.number
     }
     io.input(wId).enable := en
-    if (w == 1) {
+    if (w == 1 || accumulating) {
       io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
     } else {
       io.input(wId).reset := reset & ~en 
@@ -64,8 +64,8 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
     wId = wId + 1
   }
 
-  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A): Unit = {
-    write(data, en, reset, List(port), init)
+  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A, accumulating: Boolean): Unit = {
+    write(data, en, reset, List(port), init, accumulating)
   }
 
   def read(port: Int) = {
@@ -150,11 +150,11 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   }
 
   var wId = 0
-  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A): Unit = {
-    write(data, en, reset, List(port), init)
+  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A, accumulating: Boolean): Unit = {
+    write(data, en, reset, List(port), init, accumulating)
   }
 
-  def write[T,A](data: T, en: Bool, reset: Bool, ports: List[Int], init: A): Unit = {
+  def write[T,A](data: T, en: Bool, reset: Bool, ports: List[Int], init: A, accumulating: Boolean): Unit = {
     if (ports.length == 1) {
       val port = ports(0)
       data match { 
@@ -174,7 +174,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
           io.input(wId).init := d.number
       }
       io.input(wId).enable := en
-      if (w == 1) {
+      if (w == 1 || accumulating) {
         io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
       } else {
         io.input(wId).reset := reset & ~en 
