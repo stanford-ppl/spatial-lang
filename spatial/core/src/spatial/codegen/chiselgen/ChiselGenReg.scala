@@ -232,7 +232,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                   if (dup.isAccum) {
-                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${swap(reg, Resetter)} ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${swap(reg, Resetter)}.D(${symDelay(lhs)}) ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                   } else {
                     emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                   }
