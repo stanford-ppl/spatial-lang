@@ -160,11 +160,11 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
         val rstr = wireMap(src"${accum}_resetter")
         // Need to delay reset by controller retime if not specialized reduction
-        if (isSpecializedReduce(accum)) {
-          emit(src"$rstr := ${swap(lhs, RstEn)}")
-        } else {
-          emit(src"$rstr := ${swap(lhs, RstEn)}.D(${swap(lhs, Retime)}, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before")
-        }
+        // if (isSpecializedReduce(accum)) {
+        emit(src"$rstr := ${swap(lhs, RstEn)}")
+        // } else {
+        //   emit(src"$rstr := ${swap(lhs, RstEn)}.D(${swap(lhs, Retime)}, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before")
+        // }
       } else {
         if (spatialConfig.enableRetiming) {
           emitGlobalWire(src"val ${accum}_II_dlay = /*${iiOf(lhs)} +*/ 1 // un-hack to fix Arbitrary Lambda")
