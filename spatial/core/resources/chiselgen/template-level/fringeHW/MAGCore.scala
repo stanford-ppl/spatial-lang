@@ -60,8 +60,8 @@ class MAGCore(
   val sizeWidth = io.app.loads(0).cmd.bits.sizeWidth
 
   val cmd = new Command(addrWidth, sizeWidth, 0)
-  val cmdArbiter = Module(new FIFOArbiter(cmd, d, v, numStreams))
-  val cmdFifos = List.fill(numStreams) { Module(new FIFOCore(cmd, d, v)) }
+  val cmdArbiter = Module(new FIFOArbiter(cmd, d, 1, numStreams))
+  val cmdFifos = List.fill(numStreams) { Module(new FIFOCore(cmd, d, 1)) }
   cmdArbiter.io.fifo.zip(cmdFifos).foreach { case (io, f) => io <> f.io }
 
   val cmdFifoConfig = Wire(new FIFOOpcode(d, 1))

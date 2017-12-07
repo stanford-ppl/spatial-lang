@@ -689,7 +689,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     // Simple check, fragile if load structure ever changes.  If this is ParLineBufferRotateEnq with rows =/= lb stride, then this is transient. We get rows from parent of parent of access' counter
     val rowstride = mem match {case Def(LineBufferNew(_,_,stride)) => stride match {case Exact(c) => c.toInt; case _ => 0}; case _ => 0}
     val rowsWritten = access match {
-      case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => dims.dropRight(1).last match {case Exact(c: BigInt) => c}
+      case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_)) => dims.zip(strides).dropRight(1).last match {case (Exact(c: BigInt), Exact(st: BigInt)) => c/st}
       case Def(_: LineBufferLoad[_]) => rowstride // Not transient
       case Def(_: ParLineBufferLoad[_]) => rowstride // Not transient
       case Def(_: LineBufferColSlice[_]) => rowstride // Not transient
@@ -719,8 +719,8 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
               case Def(UnitPipe(_,_)) => 1
               case Def(Hwblock(_,_)) => // This seems to be first mem analyzer pass
                 access match {
-                  case Def(DenseTransfer(_,_,_,dims,_,_,_,_)) => 
-                    dims.dropRight(1).last match {case Exact(c: BigInt) => c}
+                  case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_)) => 
+                    dims.zip(strides).dropRight(1).last match {case (Exact(c: BigInt), Exact(st: BigInt)) => c/st}
                 }
               case _ => 0
             }        

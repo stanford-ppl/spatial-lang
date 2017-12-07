@@ -37,7 +37,7 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
   io.output.data := Mux(anyReset, io.input(0).init, ff)
 
   var wId = 0
-  def write[T,A](data: T, en: Bool, reset: Bool, port: List[Int], init: A): Unit = {
+  def write[T,A](data: T, en: Bool, reset: Bool, port: List[Int], init: A, accumulating: Boolean): Unit = {
     data match {
       case d: UInt =>
         io.input(wId).data := d
@@ -55,13 +55,17 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
         io.input(wId).init := d.number
     }
     io.input(wId).enable := en
-    io.input(wId).reset := reset
+    if (w == 1 || accumulating) {
+      io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
+    } else {
+      io.input(wId).reset := reset & ~en 
+    }
     // Ignore port
     wId = wId + 1
   }
 
-  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A): Unit = {
-    write(data, en, reset, List(port), init)
+  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A, accumulating: Boolean): Unit = {
+    write(data, en, reset, List(port), init, accumulating)
   }
 
   def read(port: Int) = {
@@ -110,7 +114,8 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
     sDone_latch(i).io.input.asyn_reset := reset
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
-  swap := sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done),i) => (en.io.output.data === done.io.output.data) || (en.io.output.data && io.sDone(i)) }.reduce{_&_} & anyEnabled
+  swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)
+  // swap := sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done),i) => (en.io.output.data === done.io.output.data) || (en.io.output.data && io.sDone(i)) }.reduce{_&_} & anyEnabled
   // io.swapAlert := ~swap & anyEnabled & (0 until numBufs).map{ i => sEn_latch(i).io.output.data === (sDone_latch(i).io.output.data | io.sDone(i))}.reduce{_&_} // Needs to go high when the last done goes high, which is 1 cycle before swap goes high
 
   val statesIn = (0 until numWriters).map{ i => 
@@ -145,11 +150,11 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   }
 
   var wId = 0
-  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A): Unit = {
-    write(data, en, reset, List(port), init)
+  def write[T,A](data: T, en: Bool, reset: Bool, port: Int, init: A, accumulating: Boolean): Unit = {
+    write(data, en, reset, List(port), init, accumulating)
   }
 
-  def write[T,A](data: T, en: Bool, reset: Bool, ports: List[Int], init: A): Unit = {
+  def write[T,A](data: T, en: Bool, reset: Bool, ports: List[Int], init: A, accumulating: Boolean): Unit = {
     if (ports.length == 1) {
       val port = ports(0)
       data match { 
@@ -169,7 +174,12 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
           io.input(wId).init := d.number
       }
       io.input(wId).enable := en
-      io.input(wId).reset := reset
+      if (w == 1 || accumulating) {
+        io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
+      } else {
+        io.input(wId).reset := reset & ~en 
+      }
+      
       io.wr_ports(wId) := port.U
       wId = wId + 1
     } else {
@@ -179,7 +189,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
         case d: types.FixedPoint => 
           io.broadcast.data := d.number
       }
-      io.broadcast.enable := en
+      io.broadcast.enable := en & ~en
       io.broadcast.reset := reset      
     }
   }
