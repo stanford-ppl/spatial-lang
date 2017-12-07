@@ -55,7 +55,11 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
         io.input(wId).init := d.number
     }
     io.input(wId).enable := en
-    io.input(wId).reset := reset & ~en
+    if (w == 1) {
+      io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
+    } else {
+      io.input(wId).reset := reset & ~en 
+    }
     // Ignore port
     wId = wId + 1
   }
@@ -170,7 +174,12 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
           io.input(wId).init := d.number
       }
       io.input(wId).enable := en
-      io.input(wId).reset := reset & ~en
+      if (w == 1) {
+        io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
+      } else {
+        io.input(wId).reset := reset & ~en 
+      }
+      
       io.wr_ports(wId) := port.U
       wId = wId + 1
     } else {
