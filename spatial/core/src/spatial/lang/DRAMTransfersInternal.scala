@@ -24,6 +24,7 @@ object DRAMTransfersInternal {
     onchip:  Exp[C[T]],
     ofs:     Seq[Exp[Index]],
     lens:    Seq[Exp[Index]],
+    strides: Seq[Exp[Index]],
     units:   Seq[Boolean],
     par:     Const[Index],
     isLoad:  Boolean,
@@ -33,12 +34,13 @@ object DRAMTransfersInternal {
     val unitDims = units
     val offchipOffsets = wrap(ofs)
     val tileDims = wrap(lens)
+    val strideNums = wrap(strides)
     val local = wrap(onchip)
     val dram  = wrap(offchip)
 
     // Last counter is used as counter for load/store
     // Other counters (if any) are used to iterate over higher dimensions
-    val counters = tileDims.map{d => () => Counter(start = 0, end = d, step = 1, par = 1) }
+    val counters = tileDims.zip(strideNums).map{case(d,st) => () => Counter(start = 0, end = d, step = 1, par = 1) }
 
     val requestLength = tileDims.last
     val p = wrap(par)
@@ -51,7 +53,7 @@ object DRAMTransfersInternal {
       Stream.Foreach(counters.dropRight(1).map{ctr => ctr()}){ is =>
         val indices = is :+ 0.to[Index]
 
-        val offchipAddr = () => flatIndex( offchipOffsets.zip(indices).map{case (a,b) => a + b}, wrap(stagedDimsOf(offchip)))
+        val offchipAddr = () => flatIndex( offchipOffsets.zip(indices.zip(strideNums)).map{case (a,(b,st)) => a + b*st}, wrap(stagedDimsOf(offchip)))
 
         val onchipOfs   = indices.zip(unitDims).collect{case (i,isUnitDim) if !isUnitDim => i }
         val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
