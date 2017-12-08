@@ -266,7 +266,7 @@ trait ControllerUnrolling extends UnrollingBase {
     val redType = reduceType(reduce.result)
 
     val result = inReduction(isInner){
-      val accValue = load.inline(accum)
+      val accValue = inroll(load)
       val isFirst = Math.reduceTree(iters.zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
       isReduceStarter(accValue) = true
@@ -293,7 +293,7 @@ trait ControllerUnrolling extends UnrollingBase {
 
     isReduceResult(result) = true
 
-    inReduction(isInner){ store.inline(accum, result) }
+    inReduction(isInner){ withSubstScope(store.inputB -> result){ inroll(store) } }
   }
 
   def fullyUnrollReduce[T](
@@ -323,7 +323,7 @@ trait ControllerUnrolling extends UnrollingBase {
         val pipe = Pipe.op_unit_pipe(globalValids, () => {
           val foldValid = fold.map{_ => Bit.const(true) }
           val result = unrollReduceTree[T]((fold ++ values).toSeq, (foldValid ++ valids()).toSeq, ident, reduce.toFunction2)
-          store.inline(accum, result)
+          withSubstScope(store.inputB -> result){ inroll(store) }
         })
         styleOf(pipe) = SeqPipe
         levelOf(pipe) = InnerControl
@@ -332,7 +332,7 @@ trait ControllerUnrolling extends UnrollingBase {
         dbgs("Fully unrolling inner reduce")
         val foldValid = fold.map{_ => Bit.const(true) }
         val result = unrollReduceTree[T]((fold ++ values).toSeq, (foldValid ++ valids()).toSeq, ident, reduce.toFunction2)
-        store.inline(accum, result)
+        withSubstScope(store.inputB -> result){ inroll(store) }
       }
       unit
     }
@@ -385,7 +385,7 @@ trait ControllerUnrolling extends UnrollingBase {
     }
 
     val effects = blk.effects
-    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchain, accum, blk, inds2, vs)(mT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchain, blk, inds2, vs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
     logs(s"Created reduce ${str(lhs2)}")
     lhs2
@@ -431,7 +431,7 @@ trait ControllerUnrolling extends UnrollingBase {
     val start = counterStarts(cchainMap).map(_.getOrElse(int32s(0)))
     val redType = reduceType(reduce.result)
 
-    val blk = stageSealedLambda1(f(accum)) {
+    val blk = stageSealedLambda1(accum) {
       logs(s"[Accum-fold $lhs] Unrolling map")
       val mems = unrollMap(func, mapLanes)
       val mvalids = () => mapLanes.valids.map{vs => Math.reduceTree(vs){(a,b) => Bit.and(a,b)} }
@@ -439,8 +439,8 @@ trait ControllerUnrolling extends UnrollingBase {
       if (isUnitCounterChain(cchainRed)) {
         logs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         val rpipe = Pipe.op_unit_pipe(globalValids, () => {
-          val values = inReduction(false){ mems.map{mem => loadRes.inline(mem) } }
-          val foldValue = if (fold) { Some( loadAcc.inline(accum) ) } else None
+          val values = inReduction(false){ mems.map{mem => inroll(loadRes) } }
+          val foldValue = if (fold) { Some( inroll(loadAcc) ) } else None
           inReduction(false){ unrollReduceAccumulate[T,C](accum, values, mvalids(), ident, foldValue, reduce, loadAcc, storeAcc, isMap2.map(_.head), start, isInner = false) }
           unit
         })
@@ -541,7 +541,7 @@ trait ControllerUnrolling extends UnrollingBase {
     }
 
     val effects = blk.effects
-    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchainMap, accum, blk, isMap2, mvs)(mT,mC), effects.star)(ctx)
+    val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchainMap, blk, isMap2, mvs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
 
     logs(s"[Accum-fold] Created reduce ${str(lhs2)}")

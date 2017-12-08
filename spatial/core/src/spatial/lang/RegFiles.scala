@@ -106,7 +106,8 @@ object RegFile {
     en:   Exp[Bit],
     axis: Int
   ): Exp[MUnit] = {
-    stageWrite(reg)(RegFileVectorShiftIn(reg, data, addr, en, axis))(ctx)
+    val len = lenOf(data)
+    stageWrite(reg)(RegFileVectorShiftIn(reg, data, addr, en, axis, len))(ctx)
   }
 
   @internal def banked_load[T:Type:Bits](

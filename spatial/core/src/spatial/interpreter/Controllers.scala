@@ -74,10 +74,9 @@ trait Controllers extends AInterpreter {
         interpretNestedLoop(lhs, cchaine, func, iters, valids)
       }
 
-    case UnrolledReduce(SeqEB(ens), ESeqCL(cchaine), accum, func, iters, valids) =>
+    case UnrolledReduce(SeqEB(ens), ESeqCL(cchaine), func, iters, valids) =>
       if (ens.forall(x => x)) {
-        interpretNestedLoop(lhs, cchaine, func, iters, valids)        
-        accum
+        interpretNestedLoop(lhs, cchaine, func, iters, valids)
       }
       
     case ParallelPipe(SeqEB(ens), block) => {

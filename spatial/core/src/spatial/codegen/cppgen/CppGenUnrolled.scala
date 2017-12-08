@@ -24,7 +24,7 @@ trait CppGenUnrolled extends CppGenController {
 
   override protected def name(s: Dyn[_]): String = s match {
     case Def(_: UnrolledForeach) => s"${s}_unrForeach"
-    case Def(_: UnrolledReduce[_,_]) => s"${s}_unrRed"
+    case Def(_: UnrolledReduce)  => s"${s}_unrRed"
     case Def(_: BankedSRAMLoad[_]) => s"${s}_parLd"
     case Def(_: BankedSRAMStore[_]) => s"${s}_parSt"
     case Def(_: BankedFIFODeq[_]) => s"${s}_parDeq"
@@ -44,7 +44,7 @@ trait CppGenUnrolled extends CppGenController {
       emitUnrolledLoop(cchain, iters, valids){ emitBlock(func) }
       controllerStack.pop()      
 
-    case UnrolledReduce(en, cchain,_,func,iters,valids) =>
+    case UnrolledReduce(en, cchain,func,iters,valids) =>
       controllerStack.push(lhs)
       instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
       emitBlock(func)

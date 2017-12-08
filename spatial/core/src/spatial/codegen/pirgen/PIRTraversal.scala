@@ -298,16 +298,16 @@ trait PIRTraversal extends SpatialTraversal with Partitions with PIRLogger {
     case Def(op: UnitPipe) => blockContents(op.func)
     case Def(op: UnrolledForeach) if isInnerControl(pipe) => blockNestedContents(op.func)
     case Def(op: UnrolledForeach) => blockContents(op.func)
-    case Def(op: UnrolledReduce[_,_]) if isInnerControl(pipe) => blockNestedContents(op.func)
-    case Def(op: UnrolledReduce[_,_]) => blockContents(op.func)
+    case Def(op: UnrolledReduce) if isInnerControl(pipe) => blockNestedContents(op.func)
+    case Def(op: UnrolledReduce) => blockContents(op.func)
     case Def(op: Switch[_]) => op.cases.flatMap(getStms)
     case Def(op: SwitchCase[_]) => blockNestedContents(op.body)
     case _ => throw new Exception(s"Don't know how to get stms pipe=${qdef(pipe)}")
   }
 
   def itersOf(pipe:Expr):Option[Seq[Seq[Expr]]] = pipe match {
-    case Def(op: UnrolledForeach)     => Some(op.iters)
-    case Def(op: UnrolledReduce[_,_]) => Some(op.iters)
+    case Def(op: UnrolledForeach) => Some(op.iters)
+    case Def(op: UnrolledReduce)  => Some(op.iters)
     case _ => None
   }
 

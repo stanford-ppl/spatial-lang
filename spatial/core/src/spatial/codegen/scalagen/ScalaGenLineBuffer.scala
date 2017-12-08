@@ -54,8 +54,8 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols,stride) =>
-      val banks = instanceOf(lhs).nBanks
-      emitMem(lhs, src"$lhs = LineBuffer[${op.mT}]($rows, $cols, $banks, $stride, ${invalid(op.mT)})")
+      val banks = instanceOf(lhs).nBanks.last
+      emitMem(lhs, src"$lhs = LineBuffer[${op.mT}]($rows.toInt, $cols.toInt, $banks, $stride.toInt, ${invalid(op.mT)})")
 
     case _: LineBufferRowSlice[_] => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
     case _: LineBufferColSlice[_] => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
@@ -66,7 +66,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
       ens.zipWithIndex.foreach{case (en,i) =>
         open(src"val a$i = {")
         oobBankedApply(op.mT, buffer, lhs, bank(i), ofs(i)){
-          emit(src"if ($en) $buffer.bankedRead(${bank(i)}(0),${bank(i)}(1),${ofs(i)}) else ${invalid(op.mT)}")
+          emit(src"if ($en) $buffer.bankedRead(${bank(i)(0)}.toInt,${bank(i)(1)}.toInt,${ofs(i)}.toInt) else ${invalid(op.mT)}")
         }
         close("}")
       }

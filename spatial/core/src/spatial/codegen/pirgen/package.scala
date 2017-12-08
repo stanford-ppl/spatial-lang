@@ -35,7 +35,7 @@ package object pirgen {
       case lhs: Expr if composed.contains(lhs) => s"-> ${qdef(compose(lhs))}"
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case Def(e:UnrolledReduce[_,_]) => 
+      case Def(e:UnrolledReduce) =>
         s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
       case Op(rhs) => s"$rhs"
@@ -422,7 +422,7 @@ package object pirgen {
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
       getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
-    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
+    case Def(UnrolledReduce(en, cchain, func, iters, valids)) =>
       getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
     case Def(FringeDenseLoad(dram, _, dataStream)) => getInnerPar(dataStream)
     case Def(FringeDenseStore(dram, _, dataStream, _)) => getInnerPar(dataStream)

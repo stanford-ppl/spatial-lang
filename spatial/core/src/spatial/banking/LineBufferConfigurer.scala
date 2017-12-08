@@ -48,8 +48,14 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
   }
 
   override def bank(readers: Seq[Access], writers: Seq[Access]): Seq[MemoryInstance] = {
+    val rowBanking = ModBanking(constDimsOf(mem).head,1,Seq(1),Seq(0))
+
     annotateTransientAccesses(readers ++ writers)
-    super.bank(readers, writers)
+    val instances = super.bank(readers, writers)
+    instances.map{inst =>
+      val banking = Seq(rowBanking, inst.banking.last)
+      inst.copy(banking = banking)
+    }
   }
 
 }

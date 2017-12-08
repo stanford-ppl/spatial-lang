@@ -9,7 +9,7 @@ import spatial.utils._
 trait ScalaGenRegFile extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: RegFileType[_] => src"Array[${tp.child}]"
+    case tp: RegFileType[_] => src"ShiftableMemory[${tp.child}]"
     case _ => super.remap(tp)
   }
 
@@ -37,9 +37,11 @@ trait ScalaGenRegFile extends ScalaGenMemories {
     case RegFileReset(rf, en) => emit(src"val $lhs = if ($en) $rf.reset()")
 
     case RegFileShiftIn(rf,data,addr,en,axis) =>
-      emit(src"val $lhs = if ($en) $rf.shiftIn(${lhs.ctx}, Seq($addr), $axis, $data)")
-    case RegFileVectorShiftIn(rf,data,addr,en,axis) =>
-      emit(src"val $lhs = if ($en) $rf.shiftInVec(${lhs.ctx}, Seq($addr), $axis, $data)")
+      val ctx = s""""${lhs.ctx}""""
+      emit(src"val $lhs = if ($en) $rf.shiftIn($ctx, Seq($addr), $axis, $data)")
+    case RegFileVectorShiftIn(rf,data,addr,en,axis,len) =>
+      val ctx = s""""${lhs.ctx}""""
+      emit(src"val $lhs = if ($en) $rf.shiftInVec($ctx, Seq($addr), $axis, $data)")
 
     case op@BankedRegFileLoad(rf,bank,ofs,ens)       => emitBankedLoad(lhs,rf,bank,ofs,ens)(op.mT)
     case op@BankedRegFileStore(rf,data,bank,ofs,ens) => emitBankedStore(lhs,rf,data,bank,ofs,ens)(op.mT)

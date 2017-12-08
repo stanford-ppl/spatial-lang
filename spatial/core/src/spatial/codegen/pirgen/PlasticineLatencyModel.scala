@@ -130,7 +130,7 @@ trait PlasticineLatencyModel extends LatencyModel {
     case _:OpReduce[_]         => 1
     case _:OpMemReduce[_,_]    => 1
     case _:UnrolledForeach     => 1
-    case _:UnrolledReduce[_,_] => 1
+    case _:UnrolledReduce      => 1
 
       // Host/Debugging/Unsynthesizable nodes
     case _: ExitIf  => 0      

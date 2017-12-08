@@ -25,20 +25,20 @@ class BankedMemory[T:ClassTag](
   def apply(ctx: String, bank: Seq[Seq[FixedPoint]], ofs: Seq[FixedPoint], ens: Seq[Bool]): Array[T] = {
     Array.tabulate(bank.length){i =>
       OOB.readOrElse({
-        if (ens(i).value) data.apply(flattenAddress(banks,bank(i))).apply(ofs(i)) else invalid
-      },{
-        System.out.println(s"""[warn] $ctx: Memory load from $name out of bounds at bank (${bank.mkString(", ")}), address ${ofs(i)}""")
+        if (ens(i).value) data.apply(flattenAddress(banks,bank(i))).apply(ofs(i).toInt) else invalid
+      },{ err =>
+        Warn(s"""[warn] $ctx: Memory load from $name out of bounds at bank (${bank(i).mkString(", ")}), address ${ofs(i)}""")
         invalid
       })
     }
   }
 
-  def update(ctx: String, bank: Seq[Seq[FixedPoint]], ofs: Seq[FixedPoint], ens: Seq[Bool], data: Seq[T]): Unit = {
+  def update(ctx: String, bank: Seq[Seq[FixedPoint]], ofs: Seq[FixedPoint], ens: Seq[Bool], elems: Seq[T]): Unit = {
     bank.indices.foreach{i =>
       OOB.writeOrElse({
-        if (ens(i).value) data.apply(flattenAddress(banks,bank(i))).update(ofs(i),data(i))
-      },{
-        System.out.println(s"""[warn] $ctx: Memory load from $name out of bounds at bank (${bank.mkString(", ")}), address ${ofs(i)}""")
+        if (ens(i).value) data.apply(flattenAddress(banks,bank(i))).update(ofs(i).toInt,elems(i))
+      },{ err =>
+        Warn(s"""[warn] $ctx: Memory load from $name out of bounds at bank (${bank(i).mkString(", ")}), address ${ofs(i)}""")
       })
     }
   }
@@ -67,12 +67,12 @@ class ShiftableMemory[T:ClassTag](
     this.update(ctx,Seq(bank),Seq(ofs),Seq(Bool(true)),Seq(data))
   }
 
-  def shiftInVec(ctx: String, inds: Seq[FixedPoint], axis: Int, data: Array[T]): Unit = {
-    val len = data.len
+  def shiftInVec(ctx: String, inds: Seq[FixedPoint], axis: Int, elems: Array[T]): Unit = {
+    val len = elems.length
     (dims(axis)-1 to 0 by -1).foreach{j =>
-      val addrFrom = Seq.tabulate(dims.length){d => if (d == axis) inds(d) else j - len }
-      val addrTo   = Seq.tabulate(dims.length){d => if (d == axis) inds(d) else j }
-      val dat = if (j < len) data(len-1 - j) else unbankedLoad(ctx,addrFrom)
+      val addrFrom = Seq.tabulate(dims.length){d => if (d != axis) inds(d) else FixedPoint(j - len) }
+      val addrTo   = Seq.tabulate(dims.length){d => if (d != axis) inds(d) else FixedPoint(j) }
+      val dat = if (j < len) elems(len-1 - j) else unbankedLoad(ctx,addrFrom)
       unbankedStore(ctx,addrTo,dat)
     }
   }

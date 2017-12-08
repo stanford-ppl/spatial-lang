@@ -17,8 +17,8 @@ trait ControllerSanityCheck extends SpatialTraversal {
   override def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case _ if isControlNode(lhs) =>
       rhs match {
-        case e: UnrolledForeach     => checkIters(lhs, e.iters.flatten)
-        case e: UnrolledReduce[_,_] => checkIters(lhs, e.iters.flatten)
+        case e: UnrolledForeach => checkIters(lhs, e.iters.flatten)
+        case e: UnrolledReduce  => checkIters(lhs, e.iters.flatten)
         case _ =>
       }
 

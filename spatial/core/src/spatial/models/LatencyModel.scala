@@ -350,7 +350,7 @@ trait LatencyModel {
     case _:OpReduce[_]         => model("OpReduce")()("LatencyOf").toLong
     case _:OpMemReduce[_,_]    => model("OpMemReduce")()("LatencyOf").toLong
     case _:UnrolledForeach     => model("UnrolledForeach")()("LatencyOf").toLong
-    case _:UnrolledReduce[_,_] => model("UnrolledReduce")()("LatencyOf").toLong
+    case _:UnrolledReduce      => model("UnrolledReduce")()("LatencyOf").toLong
     case _:Switch[_]           => model("Switch")()("LatencyOf").toLong
     case _:SwitchCase[_]       => model("SwitchCase")()("LatencyOf").toLong
 

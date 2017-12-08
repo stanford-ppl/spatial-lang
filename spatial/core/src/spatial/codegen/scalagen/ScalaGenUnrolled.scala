@@ -59,7 +59,7 @@ trait ScalaGenUnrolled extends ScalaGenMemories with ScalaGenSRAM with ScalaGenC
       close("}")
       emit(src"/** END UNROLLED FOREACH $lhs **/")
 
-    case UnrolledReduce(ens,cchain,_,func,iters,valids) =>
+    case UnrolledReduce(ens,cchain,func,iters,valids) =>
       emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
       open(src"val $lhs = if ($en) {")

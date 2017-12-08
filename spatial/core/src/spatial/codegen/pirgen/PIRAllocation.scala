@@ -35,7 +35,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     pipe match {
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
         Some((cchain, iters, valids))
-      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
+      case Def(UnrolledReduce(en, cchain, func, iters, valids)) =>
         Some((cchain, iters, valids))
       case _ => None
     }
@@ -178,7 +178,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case Def(Hwblock(func,_)) => None
       case Def(UnitPipe(en, func)) => Some(func)
       case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some(func)
-      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => Some(func)
+      case Def(UnrolledReduce(en, cchain, func, iters, valids)) => Some(func)
       case Def(Switch(body, selects, cases)) => None
       case Def(SwitchCase(body)) => Some(body)
     }
@@ -689,7 +689,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           allocateStages(lhs)
           allocateCChains(lhs) 
 
-        case UnrolledReduce(en, cchain, accum, func, iters, valids) =>
+        case UnrolledReduce(en, cchain, func, iters, valids) =>
           val cu = allocateCU(lhs)
           allocateStages(lhs)
           allocateCChains(lhs) 

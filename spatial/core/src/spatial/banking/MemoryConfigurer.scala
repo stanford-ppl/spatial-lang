@@ -353,6 +353,9 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Return the access pattern of this access as one or more CompactMatrices
     */
   def getAccessVector(access: Access): Seq[CompactMatrix] = access.node match {
+    // TODO: Don't treat vector enqueues like vector operations for now
+    case Def(d:VectorEnqueueLikeOp[_]) => accessPatternToCompactMatrix(access, d.address)
+
     case Def(d: VectorAccess[_]) if d.accessWidth > 1 =>
       Seq.tabulate(d.accessWidth){ vecId =>
         val addr = d.address

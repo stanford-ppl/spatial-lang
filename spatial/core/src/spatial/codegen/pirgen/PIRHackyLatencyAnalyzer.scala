@@ -137,7 +137,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
 
         pipe + N - 1 + latencyOf(lhs)
 
-      case UnrolledReduce(en,cchain,accum,func,iters,valids) if isInnerControl(lhs) =>
+      case UnrolledReduce(en,cchain,func,iters,valids) if isInnerControl(lhs) =>
         val N = nIters(cchain)
 
         val body = latencyOfPipe(func)._1
@@ -228,7 +228,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
         if (isMetaPipe(lhs)) { stages.max * (N - 1) + stages.sum + latencyOf(lhs) }
         else                 { stages.sum * N + latencyOf(lhs) }
 
-      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
+      case UnrolledReduce(en,cchain,func,iters,valids) =>
         val N = nIters(cchain)
         val P = parsOf(cchain).product
         val stages = latencyOfBlock(func)

@@ -208,7 +208,7 @@ trait ChiselGenController extends ChiselGenCounter{
     var keep_looking = true
     while (keep_looking & nextLevel.isDefined) {
       nextLevel.get match {
-        case Def(_:UnrolledReduce[_,_]) => nextLevel = None; keep_looking = false
+        case Def(_:UnrolledReduce)  => nextLevel = None; keep_looking = false
         case Def(_:UnrolledForeach) => nextLevel = None; keep_looking = false
         case Def(_:Hwblock) => nextLevel = None; keep_looking = false
         case Def(_:UnitPipe) => nextLevel = None; keep_looking = false
@@ -297,7 +297,7 @@ trait ChiselGenController extends ChiselGenCounter{
           case Def(Forever()) => true
           case _ => false
         }
-        case Def(e: UnrolledReduce[_,_]) => e.cchain match {
+        case Def(e: UnrolledReduce) => e.cchain match {
           case Def(Forever()) => true
           case _ => false
         }
@@ -579,7 +579,7 @@ trait ChiselGenController extends ChiselGenCounter{
         if (!isForever(cchain.get)) {
           emitGlobalWireMap(src"""${swap(cchain.get, En)}""", """Wire(Bool())""") 
           sym match { 
-            case Def(n: UnrolledReduce[_,_]) => // These have II
+            case Def(n: UnrolledReduce) => // These have II
               emit(src"""${swap(cchain.get, En)} := ${swap(sym, SM)}.io.output.ctr_inc & ${swap(sym, IIDone)}""")
             case Def(n: UnrolledForeach) => 
               if (isStreamChild(sym) & hasStreamIns) {
@@ -635,7 +635,7 @@ trait ChiselGenController extends ChiselGenCounter{
       if (smStr == "Metapipe" & childrenOf(sym).length > 1) {
         childrenOf(sym).foreach{ 
           case stage @ Def(s:UnrolledForeach) => cchainPassMap += (s.cchain -> stage)
-          case stage @ Def(s:UnrolledReduce[_,_]) => cchainPassMap += (s.cchain -> stage)
+          case stage @ Def(s:UnrolledReduce)  => cchainPassMap += (s.cchain -> stage)
           case _ =>
         }
         iters.get.foreach{ idx => 
@@ -734,13 +734,13 @@ trait ChiselGenController extends ChiselGenCounter{
     if (parent.isDefined) {
       if (levelOf(parent.get) != InnerControl && styleOf(parent.get) == StreamPipe) {
         parent.get match {
-          case Def(UnrolledForeach(_,cchain,_,_,_)) => 
-            val Def(CounterChainNew(ctrs)) = cchain
-            emitCounterChain(cchain, src"_copy${self}")
+          case Def(op:UnrolledForeach) =>
+            //val Def(CounterChainNew(ctrs)) = op.cchain
+            emitCounterChain(op.cchain, src"_copy${self}")
             // connectCtrTrivial(cchain, src"_copy${self}")
-          case Def(UnrolledReduce(_,cchain,_,_,_,_)) => 
-            val Def(CounterChainNew(ctrs)) = cchain
-            emitCounterChain(cchain, src"_copy${self}")
+          case Def(op:UnrolledReduce) =>
+            //val Def(CounterChainNew(ctrs)) = op.cchain
+            emitCounterChain(op.cchain, src"_copy${self}")
             // connectCtrTrivial(cchain, src"_copy${self}")
           case _ => // Emit nothing
         }

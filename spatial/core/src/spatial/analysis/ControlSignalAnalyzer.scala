@@ -323,6 +323,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       if (parent.node != lhs) parentOf(lhs) = parent.node else parentOf(lhs) = ctrl.node
       if (parent.node != lhs) ctrlOf(lhs) = parent        else ctrlOf(lhs) = ctrl
+      if    (blk.node != lhs) blkOf(lhs) = blk            else blkOf(lhs) = curBlock.get
 
       checkPendingNodes(lhs, rhs, Some(parent), Some(blk))
 

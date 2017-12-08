@@ -24,7 +24,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     }
     implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](len)
     val start  = cols.start.map(_.s).getOrElse(int32s(0))
-    val exp = LineBuffer.col_slice(s, row.s, start, len)
+    val exp = LineBuffer.col_slice(s, row.s, start, Bit.const(true), len)
     exp.tp.wrapped(exp)
   }
   /** Creates a vectorized load port to this LineBuffer at the given `rows` and `col`. **/
@@ -42,7 +42,7 @@ case class LineBuffer[T:Type:Bits](s: Exp[LineBuffer[T]]) extends Template[LineB
     }
     implicit val vT: Type[VectorN[T]] = VectorN.typeFromLen[T](len)
     val start = rows.start.map(_.s).getOrElse(int32s(0))
-    val exp = LineBuffer.row_slice(s, start, col.s, len)
+    val exp = LineBuffer.row_slice(s, start, col.s, Bit.const(true), len)
     exp.tp.wrapped(exp)
   }
 
@@ -89,18 +89,20 @@ object LineBuffer {
     buff: Exp[LineBuffer[T]],
     row:  Exp[Index],
     col:  Exp[Index],
+    en:   Exp[Bit],
     len:  Int
   )(implicit vT: Type[VectorN[T]]): Exp[VectorN[T]] = {
-    stageUnique(LineBufferColSlice(buff, row, col, len))(ctx)
+    stageUnique(LineBufferColSlice(buff, row, col, en, len))(ctx)
   }
 
   @internal def row_slice[T:Type:Bits](
     buff: Exp[LineBuffer[T]],
     row:  Exp[Index],
     col:  Exp[Index],
+    en:   Exp[Bit],
     len:  Int
   )(implicit vT: Type[VectorN[T]]): Exp[VectorN[T]] = {
-    stageUnique(LineBufferRowSlice(buff, row, col, len))(ctx)
+    stageUnique(LineBufferRowSlice(buff, row, col, en, len))(ctx)
   }
 
   @internal def load[T:Type:Bits](

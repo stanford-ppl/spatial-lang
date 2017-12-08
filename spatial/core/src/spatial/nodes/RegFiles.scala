@@ -85,8 +85,9 @@ case class RegFileVectorShiftIn[T:Type:Bits](
   data: Exp[Vector[T]],
   addr: Seq[Exp[Index]],
   en:   Exp[Bit],
-  ax:   Int
-) extends VectorEnqueueLikeOp[T](reg,data,addr,en,ax) {
+  ax:   Int,
+  len:  Int
+) extends VectorEnqueueLikeOp[T](reg,data,addr,en,ax,len) {
   def mirror(f:Tx) = RegFile.vector_shift_in(f(reg),f(data),f(addr),f(en),axis)
 }
 

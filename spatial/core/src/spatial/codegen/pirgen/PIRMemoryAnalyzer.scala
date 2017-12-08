@@ -49,10 +49,8 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def extractInnerBounds(ctrl:Expr) = ctrl match {
       case ctrl if !isInnerControl(ctrl) => Nil
-      case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
-        iters.last
-      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-        iters.last
+      case Def(op: UnrolledForeach) => op.iters.last
+      case Def(op: UnrolledReduce)  => op.iters.last
       case _ => Nil
   }
 

@@ -20,7 +20,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
 
   override protected def name(s: Dyn[_]): String = s match {
     case Def(_: UnrolledForeach)     => s"${s}_unrForeach"
-    case Def(_: UnrolledReduce[_,_]) => s"${s}_unrRed"
+    case Def(_: UnrolledReduce)      => s"${s}_unrRed"
     case Def(_: BankedSRAMLoad[_])   => s"""${s}_parLd${s.name.getOrElse("")}"""
     case Def(_: BankedSRAMStore[_])  => s"""${s}_parSt${s.name.getOrElse("")}"""
     case Def(_: BankedFIFODeq[_])    => s"${s}_parDeq"
@@ -128,7 +128,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
 
-    case UnrolledReduce(ens,cchain,accum,func,iters,valids) =>
+    case UnrolledReduce(ens,cchain,func,iters,valids) =>
       val parent_kernel = controllerStack.head
       controllerStack.push(lhs)
       if (levelOf(lhs) == OuterControl) {widthStats += childrenOf(lhs).length}
@@ -150,52 +150,58 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
       }
       val dlay = bodyLatency.sum(lhs)
-      accumsWithIIDlay += accum.asInstanceOf[Exp[_]]
-      if (levelOf(lhs) == InnerControl) {
-        if (spatialConfig.enableRetiming) {
-          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+
+      // MEMORY ANALYSIS UPDATES
+      // TODO: It's no longer valid to assume that there is just one accumulator here
+      // Is this correct?
+      writtenIn(lhs).filter{mem => isAccum(mem) }.foreach { accum =>
+        accumsWithIIDlay += accum
+        if (levelOf(lhs) == InnerControl) {
+          if (spatialConfig.enableRetiming) {
+            emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+          } else {
+            emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+          }
+          emitGlobalWireMap(s"${quote(accum)}_wren", "Wire(Bool())")
+          emit(s"${swap(quote(accum), Wren)} := (${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${swap(lhs, Inhibitor)}).D(0,rr)")
+          emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
+          val rstr = wireMap(src"${accum}_resetter")
+          emit(src"$rstr := ${swap(lhs, RstEn)}")
         } else {
-          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+          if (spatialConfig.enableRetiming) {
+            emitGlobalWire(src"val ${accum}_II_dlay = /*${iiOf(lhs)} +*/ 1 // un-hack to fix Arbitrary Lambda")
+          } else {
+            emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
+          }
+          emitGlobalWireMap(src"${accum}_wren", "Wire(Bool())")
+          emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${swap(parentOf(lhs).get, Done)}, 2)")
+          emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
+          val rstr = wireMap(src"${accum}_resetter")
+          emit(src"$rstr := ${swap(lhs, RstEn)}.D(0)")
         }
-        emitGlobalWireMap(s"${quote(accum)}_wren", "Wire(Bool())")
-        emit(s"${swap(quote(accum), Wren)} := (${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${swap(lhs, Inhibitor)}).D(0,rr)")
-        emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
-        val rstr = wireMap(src"${accum}_resetter")
-        emit(src"$rstr := ${swap(lhs, RstEn)}")
-      } else {
-        if (spatialConfig.enableRetiming) {
-          emitGlobalWire(src"val ${accum}_II_dlay = /*${iiOf(lhs)} +*/ 1 // un-hack to fix Arbitrary Lambda")
-        } else {
-          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
+        // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
+        emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
+        withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
+          emit(s"// Controller Stack: ${controllerStack.tail}")
+          emitParallelizedLoop(iters, cchain)
+          allocateValids(lhs, cchain, iters, valids)
+          if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
+          if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
+          emitBlock(func)
         }
-        emitGlobalWireMap(src"${accum}_wren", "Wire(Bool())")
-        emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${swap(parentOf(lhs).get, Done)}, 2)")
-        emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
-        val rstr = wireMap(src"${accum}_resetter")
-        emit(src"$rstr := ${swap(lhs, RstEn)}.D(0)")
-      }
-      // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
-      emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
-      withSubStream(src"${lhs}", src"${parent_kernel}", levelOf(lhs) == InnerControl) {
-        emit(s"// Controller Stack: ${controllerStack.tail}")
-        emitParallelizedLoop(iters, cchain)
-        allocateValids(lhs, cchain, iters, valids)
-        if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
-        if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)
-        emitBlock(func)
-      }
-      if (levelOf(lhs) != InnerControl) {
-        accum match { 
-          case Def(_:RegNew[_]) => 
-            // if (childrenOf(lhs).length == 1) {
-            emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, SM)}.io.output.done //(${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct ???")
-          case Def(_:SRAMNew[_,_]) =>
-            emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
-          case Def(_:RegFileNew[_,_]) =>
-            emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+        if (levelOf(lhs) != InnerControl) {
+          accum match {
+            case Def(_: RegNew[_]) =>
+              // if (childrenOf(lhs).length == 1) {
+              emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
+              emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, SM)}.io.output.done //(${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct ???")
+            case Def(_: SRAMNew[_, _]) =>
+              emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
+              emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+            case Def(_: RegFileNew[_, _]) =>
+              emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
+              emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")
+          }
         }
       }
       emitValids(lhs, cchain, iters, valids)

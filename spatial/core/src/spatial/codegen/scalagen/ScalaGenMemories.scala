@@ -1,15 +1,26 @@
 package spatial.codegen.scalagen
 
+import argon.codegen.scalagen.ScalaFileGen
 import argon.core._
 import spatial.aliases._
 import spatial.banking._
 import spatial.utils._
 
-trait ScalaGenMemories extends ScalaGenBits {
+trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
   var globalMems: Boolean = false
   dependencies ::= FileDep("scalagen", "OOB.scala")
+  dependencies ::= FileDep("scalagen", "BankedMemory.scala")
+  dependencies ::= FileDep("scalagen", "Warn.scala")
 
-  def emitMem(lhs: Exp[_], x: String): Unit = if (globalMems) emit(s"if ($lhs == null) $x") else emit("val " + x)
+  override def emitPostMain(): Unit = {
+    super.emitPostMain()
+    emit("Warn.close()")
+  }
+
+  def emitMem(lhs: Exp[_], x: String): Unit = {
+    if (globalMems) emit(s"if ($lhs == null) $x")
+    else emit(src"var $lhs: ${lhs.tp} = null")
+  }
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
     val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
@@ -39,8 +50,8 @@ trait ScalaGenMemories extends ScalaGenBits {
     val op = if (isRead) "readOrElse" else "writeOrElse"
     open(s"OOB.$op({")
       lines
-    closeopen("}, {")
-      emit(s"""System.out.println("[warn] ${lhs.ctx} Memory $name: Out of bounds $op at address " + $addr)""")
+    closeopen("}, {err => ")
+      emit(s"""Warn("[warn] ${lhs.ctx} Memory $name: Out of bounds $op at address " + $addr)""")
       if (isRead) emit(src"${invalid(tp)}")
     close("})")
   }
@@ -62,7 +73,7 @@ trait ScalaGenMemories extends ScalaGenBits {
   }
 
 
-  def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = if (globalMems) emit(src"val $mem") else {
+  def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
     val inst = instanceOf(mem)
     val dims = constDimsOf(mem)
     implicit val ctx: SrcCtx = mem.ctx
@@ -88,26 +99,48 @@ trait ScalaGenMemories extends ScalaGenBits {
     val dimensions = dims.map(_.toString).mkString("Seq(", ",", ")")
     val numBanks = inst.nBanks.map(_.toString).mkString("Seq(", ",", ")")
 
+    def emitMemDef(rhs: => Unit) = {
+      if (globalMems) {
+        open(src"if ($mem eq null) { $mem = {")
+        rhs
+        close("}}")
+      }
+      else {
+        open(src"val $mem = {")
+        rhs
+        close("}")
+      }
+    }
+
     if (isRegFile(mem)) {
+      // HACK: Stage, then generate, the banking and offset addresses for the regfile on the fly
       val addr = Seq.fill(rankOf(mem)){ fresh[Index] }
-      val bankAddrFunc = stageBlock{
+      val bankAddrFunc = fakeStageScopeHack{
         val bank = inst.bankAddress(addr)
         implicit val vT: Type[VectorN[Index]] = VectorN.typeFromLen[Index](bank.length)
         Vector.fromseq[Index,VectorN](bank)
       }
-      val offsetFunc = stageBlock { inst.bankOffset(mem,addr) }
+      val offsetFunc = fakeStageScopeHack{ inst.bankOffset(mem,addr) }
 
-      open(src"if ($mem == null) $mem = new ShiftableMemory(${mem.toStringFrontend}, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined}, {")
-        emit(src"""case Seq(${addr.mkString(",")}) => """)
-        emitBlock(bankAddrFunc)
-      close("},")
-      open("{")
-        emit(src"""case Seq(${addr.mkString(",")}) => """)
-        emitBlock(offsetFunc)
-      close("})")
+      emitMemDef{
+        val name = u""""$mem""""
+        open(src"new ShiftableMemory($name, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined}, {")
+          emit(src"""case Seq(${addr.mkString(",")}) => """)
+          bankAddrFunc.foreach(visitStm)
+          emit(src"${bankAddrFunc.last.lhs.head}")
+        close("},")
+        open("{")
+          emit(src"""case Seq(${addr.mkString(",")}) => """)
+          offsetFunc.foreach(visitStm)
+          emit(src"${offsetFunc.last.lhs.head}")
+        close("})")
+      }
     }
     else {
-      emit(src"if ($mem == null) $mem = new BankedMemory(${mem.toStringFrontend}, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined})")
+      emitMemDef {
+        val name = u""""$mem""""
+        emit(src"new BankedMemory($name, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined})")
+      }
     }
   }
 
@@ -116,7 +149,7 @@ trait ScalaGenMemories extends ScalaGenBits {
     val ofsAddr  = ofs.map(quote).mkString("Seq(", ",", ")")
     val enables  = ens.map(quote).mkString("Seq(", ",", ")")
     val ctx = s""""${lhs.ctx}""""
-    emit(src"val $lhs = $mem.apply($ctx, $bankAddr, $ofsAddr, $enables")
+    emit(src"val $lhs = $mem.apply($ctx, $bankAddr, $ofsAddr, $enables)")
   }
 
   def emitBankedStore[T:Type](lhs: Exp[_], mem: Exp[_], data: Seq[Exp[T]], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
@@ -125,6 +158,6 @@ trait ScalaGenMemories extends ScalaGenBits {
     val enables  = ens.map(quote).mkString("Seq(", ",", ")")
     val datas    = data.map(quote).mkString("Seq(", ",", ")")
     val ctx = s""""${lhs.ctx}""""
-    emit(src"val $lhs = $mem.update($ctx, $bankAddr, $ofsAddr, $enables, $datas")
+    emit(src"val $lhs = $mem.update($ctx, $bankAddr, $ofsAddr, $enables, $datas)")
   }
 }

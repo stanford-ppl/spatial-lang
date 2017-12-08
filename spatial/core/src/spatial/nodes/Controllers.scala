@@ -108,16 +108,15 @@ case class UnrolledForeach(
   override def binds = super.binds ++ iters.flatten ++ valids.flatten
 }
 
-case class UnrolledReduce[T,C[T]](
+case class UnrolledReduce(
   en:     Seq[Exp[Bit]],
   cchain: Exp[CounterChain],
-  accum:  Exp[C[T]],
   func:   Block[MUnit],
   iters:  Seq[Seq[Bound[Index]]],
   valids: Seq[Seq[Bound[Bit]]]
-)(implicit val mT: Type[T], val mC: Type[C[T]]) extends Loop {
-  def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Reduce.op_unrolled_reduce(f(en)++addEn,f(cchain),f(accum),f(func),iters,valids)
+) extends Loop {
+  def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Reduce.op_unrolled_reduce(f(en)++addEn,f(cchain),f(func),iters,valids)
 
-  override def inputs = syms(en) ++ syms(cchain, accum) ++ syms(func)
+  override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
   override def binds = super.binds ++ iters.flatten ++ valids.flatten
 }

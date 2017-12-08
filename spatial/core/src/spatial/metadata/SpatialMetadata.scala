@@ -217,6 +217,16 @@ case class IndexController(ctrl: Ctrl) extends Metadata[IndexController] {
   def update(x: Exp[_], ctrl: Ctrl): Unit = metadata.add(x, IndexController(ctrl))
 }
 
+case class BlockController(blk: Blk) extends Metadata[BlockController] {
+  def mirror(f:Tx) = this
+  override def ignoreOnTransform: Boolean = true
+}
+@data object blkOf {
+  def get(x: Exp[_]): Option[Blk] = metadata[BlockController](x).map(_.blk)
+  def apply(x: Exp[_]): Blk = metadata[BlockController](x).map(_.blk).get
+  def update(x: Exp[_], blk: Blk): Unit = metadata.add(x, BlockController(blk))
+}
+
 case class IndexCounter(ctr: Exp[Counter]) extends Metadata[IndexCounter] {
   def mirror(f:Tx) = this
   override def ignoreOnTransform: Boolean = true

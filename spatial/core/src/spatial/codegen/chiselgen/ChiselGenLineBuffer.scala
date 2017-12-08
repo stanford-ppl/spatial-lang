@@ -41,7 +41,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       val col_rPars = readers.map(_.node).map{
         case Def(_: LineBufferLoad[_]) => 1
         case Def(op: BankedLineBufferLoad[_]) => op.bank.map(_.apply(1)).distinct.length
-        case Def(LineBufferColSlice(_,_,_,len)) => len
+        //case Def(LineBufferColSlice(_,_,_,len)) => len
       }
       if (col_rPars.distinct.length != 1) {
         error(lhs.ctx, u"LineBuffer $lhs has differing port widths.")

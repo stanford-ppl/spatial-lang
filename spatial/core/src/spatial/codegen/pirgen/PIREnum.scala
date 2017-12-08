@@ -46,7 +46,7 @@ case object SRAMMode extends LocalMemoryMode { override def toString = "SramMode
 case object FIFOMode extends LocalMemoryMode { override def toString = "FifoMode" }
 
 sealed abstract class PIROp
-case object PIRALUMux  extends PIROp { override def toString = "MuxOp"    }
+case object PIRALUMux  extends PIROp { override def toString = "MuxOp"  }
 case object PIRBypass  extends PIROp { override def toString = "Bypass" }
 case object PIRFixAdd  extends PIROp { override def toString = "FixAdd" }
 case object PIRFixSub  extends PIROp { override def toString = "FixSub" }

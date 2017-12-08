@@ -134,12 +134,13 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
       e.iters.flatten.foreach { iter => parentOf(iter) = lhs }
       e.valids.flatten.foreach { vld => parentOf(vld) = lhs }
 
-    case e: UnrolledReduce[_,_] =>
+    case e: UnrolledReduce =>
       visitUnrolled(lhs,e.cchain,e.iters){ visitBlock(e.func) }
-      isAccum(e.accum) = true
-      parentOf(e.accum) = lhs
       e.iters.flatten.foreach { iter => parentOf(iter) = lhs }
       e.valids.flatten.foreach { vld => parentOf(vld) = lhs }
+      writtenIn(lhs).foreach{mem =>
+        if (isAccum(mem)) parentOf(mem) = lhs
+      }
 
     case _ => super.analyze(lhs,rhs)
   }

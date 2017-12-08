@@ -54,9 +54,10 @@ case class LineBufferColSlice[T:Type:Bits](
   buff: Exp[LineBuffer[T]],
   row:  Exp[Index],
   col:  Exp[Index],
+  en:   Exp[Bit],
   len:  Int
-)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T](buff,addr=Seq(row,col), ax=1,len=len) {
-  def mirror(f:Tx) = LineBuffer.col_slice(f(buff),f(row),f(col),len)
+)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T](buff,addr=Seq(row,col), en=en, ax=1,len=len) {
+  def mirror(f:Tx) = LineBuffer.col_slice(f(buff),f(row),f(col),f(en),len)
   override def aliases = Nil
 }
 
@@ -64,9 +65,10 @@ case class LineBufferRowSlice[T:Type:Bits](
   buff: Exp[LineBuffer[T]],
   row:  Exp[Index],
   col:  Exp[Index],
+  en:   Exp[Bit],
   len:  Int
-)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T](buff, addr=Seq(row,col), ax=0,len=len) {
-  def mirror(f:Tx) = LineBuffer.row_slice(f(buff),f(row),f(col),len)
+)(implicit val vT: Type[VectorN[T]]) extends VectorReaderOp[T](buff, addr=Seq(row,col), en=en, ax=0,len=len) {
+  def mirror(f:Tx) = LineBuffer.row_slice(f(buff),f(row),f(col),f(en),len)
   override def aliases = Nil
 }
 

@@ -157,16 +157,15 @@ object Reduce extends ReduceClass(InnerPipe) {
     stageEffectful( OpReduce[T](ens, cchain, reg, mBlk, ldBlk, rBlk, stBlk, ident, fold, rV, iters), effects)(ctx)
   }
 
-  @internal def op_unrolled_reduce[T,C[T]](
+  @internal def op_unrolled_reduce(
     en:     Seq[Exp[Bit]],
     cchain: Exp[CounterChain],
-    accum:  Exp[C[T]],
     func:   () => Exp[MUnit],
     iters:  Seq[Seq[Bound[Index]]],
     valids: Seq[Seq[Bound[Bit]]]
-  )(implicit mT: Type[T], mC: Type[C[T]]): Exp[Controller] = {
-    val fBlk = stageSealedLambda1(accum) { func() }
+  ): Exp[Controller] = {
+    val fBlk = stageSealedBlock{ func() }
     val effects = fBlk.effects
-    stageEffectful(UnrolledReduce(en, cchain, accum, fBlk, iters, valids), effects.star)(ctx)
+    stageEffectful(UnrolledReduce(en, cchain, fBlk, iters, valids), effects.star)(ctx)
   }
 }

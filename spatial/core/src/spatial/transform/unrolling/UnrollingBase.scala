@@ -105,6 +105,15 @@ trait UnrollingBase extends ForwardTransformer {
     case _ => super.mirror(lhs, rhs)
   }
 
+  def inroll[R](block: Block[R]): Exp[R] = inlineBlockWith(block, {stms =>
+    val lanes = UnitUnroller(true)
+    stms.foreach{
+      case TP(lhs,rhs) => unroll(lhs,rhs,lanes)
+      case stm => visitStm(stm)
+    }
+    lanes.map{_ => f(block.result) }.head
+  })
+
   def cloneOp[A](lhs: Sym[A], rhs: Op[A]): Exp[A] = {
     def cloneOrMirror(lhs: Sym[A], rhs: Op[A])(implicit mA: Type[A], ctx: SrcCtx): Exp[A] = (lhs match {
       case Def(op: EnabledControlNode)  => op.mirrorAndEnable(this, globalValids)
@@ -112,13 +121,13 @@ trait UnrollingBase extends ForwardTransformer {
       case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 
-    dbgs(c"Cloning $lhs = $rhs")
+    //dbgs(c"Cloning $lhs = $rhs")
     //strMeta(lhs)
 
     val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), lhs.ctx) }
 
     if (isNew) cloneFuncs.foreach{func => func(lhs2) }
-    dbgs(c"Created ${str(lhs2)}")
+    //dbgs(c"Created ${str(lhs2)}")
     //strMeta(lhs2)
 
     /*if (cloneFuncs.nonEmpty) {

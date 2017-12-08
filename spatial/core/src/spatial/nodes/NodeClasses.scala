@@ -248,9 +248,11 @@ abstract class VectorEnqueueLikeOp[T:Type:Bits](
   data: Exp[Vector[T]],
   addr: Seq[Exp[Index]] = null,
   en:   Exp[Bit] = null,
-  ax:   Int
+  ax:   Int,
+  len:  Int
 ) extends Op[MUnit] with EnqueueLike[T,MUnit] with VectorWriter[T,MUnit] {
   final override def localWrites: Seq[LocalWrite] = LocalWrite(mem,data,addr,en)
+  override def accessWidth: Int = len
   val mT = typ[T]
   val bT = bits[T]
   override def address: Option[Seq[Exp[Index]]] = Option(addr)

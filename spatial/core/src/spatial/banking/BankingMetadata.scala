@@ -102,14 +102,30 @@ case class Memory(
     val w = constDimsOf(mem)
     val d = w.length
     val n = banking.map(_.nBanks).product
-    val b = banking.find(_.dims.contains(d-1)).map(_.stride).getOrElse(1)
 
-    // TODO: Need to confirm correctness for non-flat case
-    spatial.lang.Math.sumTree((0 until d).map{t =>
-      val xt = wrap(addr(t))
-      if (t < d - 1) { xt * (w.slice(t+1,d-2).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
-      else           { (xt / (n*b)) * b + xt % b }
-    }).s
+    if (banking.length == 1) {
+      val b = banking.head.stride
+
+      spatial.lang.Math.sumTree((0 until d).map{t =>
+        val xt = wrap(addr(t))
+        if (t < d - 1) { xt * (w.slice(t+1,d-1).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
+        else           { (xt / (n*b)) * b + xt % b }
+      }).s
+    }
+    else if (banking.length == w.length) {
+      val b = banking.map(_.stride)
+      val n = banking.map(_.nBanks)
+      val dims = (0 until d).map{t => (t+1 until d).map{k => math.ceil(w(k)/n(k)).toInt }.product }
+
+      spatial.lang.Math.sumTree((0 until d).map{t =>
+        val xt = wrap(addr(t))
+        ( ( xt/(b(t)*n(t)) )*b(t) + xt%b(t) ) * dims(t)
+      }).s
+    }
+    else {
+      // TODO: Bank address for mixed dimension groups
+      throw new Exception("Bank address calculation for arbitrary dim groupings unknown")
+    }
   }
 
   @internal def constBankOffset(mem: Exp[_], addr: Seq[Int]): Int = {

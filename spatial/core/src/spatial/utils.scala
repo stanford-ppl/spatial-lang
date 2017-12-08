@@ -62,12 +62,19 @@ object utils {
     allParents[Ctrl](start, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
   }
 
+  @stateful def blksBetween(start: Blk, end: Blk): List[Blk] = {
+    def blkParent(blk: Blk): Option[Blk] = {
+      if (blk.block >= 0) Some((blk.node,-1)) else blkOf.get(blk.node)
+    }
+    allParents[Blk](start, {c:Blk => blkParent(c) }, Some(end)).map(_.get).drop(1)
+  }
+
   /**
     * Returns a list of iterators between the start controller (inclusive) and the end controller (non-inclusive)
     * Innermost iterator is last, outermost is first
     */
-  @stateful def iteratorsBetween(start: Ctrl, end: Ctrl): Seq[Bound[Index]] = {
-    ctrlBetween(start,end).flatMap(loopIterators).distinct
+  @stateful def iteratorsBetween(start: Blk, end: Blk): Seq[Bound[Index]] = {
+    blksBetween(start,end).flatMap(blkIterators).distinct
   }
 
   /**
@@ -76,9 +83,10 @@ object utils {
     * NOTE: The .ctrl method on Access should not be used for this check, as it does not always return the controller
     * in which the access is _defined_. accessIterators is meant for unrolling purposes, which only cares about
     * location of definition, not location of use.
+    * Additionally, only iterators which can be unrolled relative to the access are relevant here.
     */
   @stateful def accessIterators(access: Exp[_], mem: Exp[_]): Seq[Bound[Index]] = {
-    iteratorsBetween(ctrlOf(access), ctrlOf(mem))
+    iteratorsBetween(blkOf(access), blkOf(mem))
   }
 
   /**
@@ -556,12 +564,49 @@ object utils {
   }
 
   /** Control Nodes **/
-  @stateful def loopIterators(x: Ctrl): Seq[Bound[Index]] = x.node match {
+  @stateful def blkIterators(x: Blk): Seq[Bound[Index]] = x.node match {
+    case Def(_:Hwblock)         => Nil
+    case Def(_:UnitPipe)        => Nil
+    case Def(_:ParallelPipe)    => Nil
+    case Def(_:StateMachine[_]) => Nil
+    case Def(_:SwitchCase[_])   => Nil
+    case Def(_:Switch[_])       => Nil
+
+    case Def(op:OpReduce[_]) => x.block match {
+      case -1 => Nil       // Outside loop: no par
+      case  0 => op.iters  // Map: par
+      case  1 => Nil       // Accumulator load: no par
+      case  2 => Nil       // Reduce: no par?
+      case  3 => Nil       // Store: no par
+    }
+    case Def(op:OpForeach) => x.block match {
+      case -1 => Nil       // Outside loop: no par
+      case  0 => op.iters  // Foreach: par
+    }
+    case Def(op:OpMemReduce[_,_]) => x.block match {
+      case -1 => Nil
+      case  0 => op.itersMap  // Map: par (outer)
+      case  1 => op.itersRed  // Load Result: par (inner)
+      case  2 => op.itersRed  // Load Accum: par (inner)
+      case  3 => Nil          // Reduce: no par?
+      case  4 => op.itersRed  // Store Accum: par (inner)
+    }
+    //case Def(op:UnrolledReduce[_,_]) => op.iters.flatten
+    //case Def(op:UnrolledForeach)     => op.iters.flatten
+    case Def(op:DenseTransfer[_,_])  => op.iters
+    case Def(op:SparseTransfer[_])   => Seq(op.i)
+    case Def(op:SparseTransferMem[_,_,_]) => Seq(op.i)
+    case _ =>
+      bug(x.node.ctx, c"No iterators rule defined for controller $x")
+      Nil
+  }
+
+  @stateful def ctrlIterators(x: Ctrl): Seq[Bound[Index]] = x.node match {
     case Def(op:OpReduce[_])      => op.iters
     case Def(op:OpForeach)        => op.iters
     case Def(op:OpMemReduce[_,_]) => if (x.block == 0) op.itersMap else op.itersMap ++ op.itersRed
 
-    case Def(op:UnrolledReduce[_,_]) => op.iters.flatten
+    case Def(op:UnrolledReduce)      => op.iters.flatten
     case Def(op:UnrolledForeach)     => op.iters.flatten
     case Def(op:DenseTransfer[_,_])  => op.iters
     case Def(op:SparseTransfer[_])   => Seq(op.i)
@@ -708,7 +753,7 @@ object utils {
     case e: OpReduce[_]         => isForever(e.cchain)
     case e: OpMemReduce[_,_]    => isForever(e.cchainMap) // This should probably never happen?
     case e: UnrolledForeach     => isForever(e.cchain)
-    case e: UnrolledReduce[_,_] => isForever(e.cchain)
+    case e: UnrolledReduce      => isForever(e.cchain)
     case _ => false
   }
 

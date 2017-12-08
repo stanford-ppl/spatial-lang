@@ -183,7 +183,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
         (delay, 1L)
 
-      case UnrolledReduce(en,cchain,accum,func,iters,valids) if isInnerControl(lhs) =>
+      case UnrolledReduce(en,cchain,func,iters,valids) if isInnerControl(lhs) =>
         val N = nIters(cchain)
 
         val (body, compilerII) = latencyOfInner(func)
@@ -307,7 +307,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
 
         (delay, 1L)
 
-      case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
+      case UnrolledReduce(en,cchain,func,iters,valids) =>
         val N = nIters(cchain)
         val (stages, iis) = latencyOfBlock(func)
         val compilerII = (1L +: iis).max

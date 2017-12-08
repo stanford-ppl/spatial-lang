@@ -101,7 +101,7 @@ trait DotGenController extends DotCodegen {
         rhs.blocks.foreach(blk => emitCtrlBlock(lhs,blk))
       }
 
-    case UnrolledReduce(en,cchain,accum,func,iters,valids) =>
+    case UnrolledReduce(en,cchain,func,iters,valids) =>
       emitValids(valids)
       emitSubGraph(lhs, DotAttr().label(quote(lhs)).style(rounded)){
         emitVert(lhs)

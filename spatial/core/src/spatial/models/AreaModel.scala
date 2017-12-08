@@ -458,7 +458,7 @@ abstract class AreaModel {
     case _:OpReduce[_]         => areaOfControl(lhs)
     case _:OpMemReduce[_,_]    => areaOfControl(lhs)
     case _:UnrolledForeach     => areaOfControl(lhs)
-    case _:UnrolledReduce[_,_] => areaOfControl(lhs)
+    case _:UnrolledReduce      => areaOfControl(lhs)
     case _:StateMachine[_]     => areaOfControl(lhs)
     case s:Switch[_] => lhs.tp match {
       case Bits(bt) => model("SwitchMux")("n" -> s.cases.length, "b" -> bt.length)
