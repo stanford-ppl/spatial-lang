@@ -42,7 +42,7 @@ object readerCUsOf extends MOneToOneMap with MetadataMaps {
 
 object innerDimOf extends MOneToOneMap with MetadataMaps {
   type K = (Expr, Int) // (SRAM, dispatch ID)
-  type V = Int
+  type V = (Int, mutable.Set[Expr]) // (dim, ctrls)
 }
 
 object outerDimsOf extends MOneToOneMap with MetadataMaps {

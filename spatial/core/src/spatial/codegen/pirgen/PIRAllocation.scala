@@ -58,7 +58,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           CUCounter(min, max, step, par)
         }
         val Def(CounterChainNew(ctrs)) = cchain
-        val counters = ctrs.collect{case ctr@Def(CounterNew(start,end,stride,_)) => 
+        val counters = ctrs.map{case ctr@Def(CounterNew(start,end,stride,_)) => 
           val par = getConstant(parFactorsOf(ctr).head).get.asInstanceOf[Int]
           allocateCounter(start, end, stride, par)
         }
@@ -239,7 +239,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case BankedMemory(dims, depth, isAccum) =>
         innerDimOf.get((mem, i)).fold {
           cuMem.banking = Some(NoBanks)
-        } { dim =>
+        } { case (dim, ctrls) =>
           dims(dim) match { case Banking(stride, banks, isOuter) =>
             // Inner loop dimension 
             if (banks > 1) {
@@ -467,10 +467,10 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           remoteReaders.foreach { reader =>
             dbgs(s"getReaderCUs($reader) = ${getReaderCUs(reader)}")
             getReaderCUs(reader).foreach { readerCU =>
-              val lmem = readerCU.memMap(dmem)
               val locallyWritten = isLocallyWritten(dmem, reader, readerCU)
               if (!locallyWritten) {
                 dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
+                val lmem = readerCU.memMap(dmem)
                 val producer = getTopController(mem, writer, instOf(lmem))
                 lmem.writePort += ((bus, None, producer))
               }

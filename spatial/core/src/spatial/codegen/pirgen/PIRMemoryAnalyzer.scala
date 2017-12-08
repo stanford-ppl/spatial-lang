@@ -54,24 +54,29 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def containsInnerInd(ind:Expr):Boolean = dbgblk(s"containsInnerInd($ind)") {
+  // If contains the inner dimension, returns the controller that parallelized the inner dimension
+  def ctrlOfInnerDims(ind:Expr):mutable.Set[Expr] = dbgblk(s"ctrlOfInnerDims($ind)") {
     ind match {
       case b:Bound[_] => 
-        val ctrl = ctrlOf(ind).get.node
-        extractInnerBounds(ctrl).contains(b)
-      case Def(d) => d.allInputs.exists(containsInnerInd)
-      case e => false
+        val ctrl = ctrlOf(b).get.node
+        if (extractInnerBounds(ctrl).contains(b)) mutable.Set(ctrl) else mutable.Set()
+      case ParLocalReader(_) => mutable.Set()
+      case Def(d) => d.allInputs.map(ctrlOfInnerDims).reduceOption { _ union _ }.getOrElse(mutable.Set())
+      case e => mutable.Set()
     }
   }
 
-  //TODO: check parallelization factor here. Only parallel inner loop bound matters
   def extractInnerBounds(ctrl:Expr) = ctrl match {
-      case ctrl if !isInnerControl(ctrl) => Nil
-      case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
-        iters.last
-      case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
-        iters.last
-      case _ => Nil
+    case ctrl if !isInnerControl(ctrl) => Nil
+    case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
+      val innerPar = getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
+      dbgs(s"innerPar of ctrl=$ctrl: $innerPar")
+      if (innerPar > 1) iters.last else Nil
+    case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) =>
+      val innerPar = getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
+      dbgs(s"innerPar of ctrl=$ctrl: $innerPar")
+      if (innerPar > 1) iters.last else Nil
+    case _ => Nil
   }
 
   def markInnerDim(mem:Expr) = {
@@ -86,15 +91,28 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         }
         if (inds.isEmpty) { //FIFO
           instIds.foreach { instId => 
-            innerDimOf((mem, instId)) = 0
-            dbgs(s"innerDim(instId=$instId) = 0 (FIFO)")
+            innerDimOf((mem, instId)) = (0, mutable.Set())
+            dbgs(s"innerDim(mem=$mem, instId=$instId) = (0, Set()) (FIFO)")
           }
         }
         inds.zipWithIndex.foreach { case (ind, dim) =>
-          if (containsInnerInd(ind)) {
+          val ctrls = ctrlOfInnerDims(ind)
+          if (ctrls.nonEmpty) {
             instIds.foreach { instId => 
-              innerDimOf((mem, instId)) = dim
-              dbgs(s"innerDim(instId=$instId) = $dim")
+              innerDimOf.get((mem, instId)).fold {
+                innerDimOf((mem, instId)) = (dim, ctrls)
+                dbgs(s"innerDim(mem=$mem, instId=$instId) = ($dim, $ctrls)")
+              } { 
+                case (`dim`, innerCtrls) => innerCtrls ++= ctrls
+                case (dim, otherCtrls ) =>
+                  val otherCtrls = innerDimOf((mem, instId))._2
+                  error(s"Cannot parallelize inner loop of these inner controllers at the same time for plasticine:")
+                  error(s"mem=${mem.name} instId=$instId ${mem.ctx}")
+                  (otherCtrls ++ ctrls).foreach { ctrl =>
+                    error(s"ctrl=$ctrl ${ctrl.ctx}")
+                  }
+                  System.exit(-1)
+              }
             }
           }
         }
@@ -109,7 +127,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
     duplicatesOf(mem).zipWithIndex.foreach { case (inst, instId) =>
       outerDimsOf((mem, instId)) = (0 until numDim).toSeq.filterNot { dim => 
-        innerDimOf.get((mem, instId)).fold(false){ dim == _ }
+        innerDimOf.get((mem, instId)).fold(false){ case (innerDim, ctrls) => dim == innerDim }
       }
     }
   }
