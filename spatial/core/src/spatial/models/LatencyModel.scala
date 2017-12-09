@@ -148,7 +148,7 @@ trait LatencyModel {
   @stateful protected def requiresRegistersInReduce(s: Exp[_]): Boolean = getDef(s).exists{
     case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("SRAMLoad")()("RequiresInReduce") > 0
     case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("ParSRAMLoad")()("RequiresInReduce") > 0
-    case FixMul(_,_) => model("FixMul")()("RequiresInReduce") > 0
+    case FixMul(_,_) => model("FixMul")("b" -> nbits(s))("RequiresInReduce") > 0
     case d => latencyOfNodeInReduce(s,d) > 0
   }
 
