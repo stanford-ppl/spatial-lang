@@ -104,7 +104,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val bug202delay = reader match {
         case Def(op@SwitchCase(_)) => 
-          if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}.toInt" 
+          if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}.toInt" else src"${symDelay(lhs)}.toInt" 
         case _ => src"${symDelay(lhs)}.toInt" 
       }
       val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
