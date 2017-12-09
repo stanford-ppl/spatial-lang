@@ -488,7 +488,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
         emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}) & $en""")
+        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}.toInt) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
@@ -506,7 +506,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimW vector""")
       emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
       emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
-      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}, rr)""")
+      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}.toInt, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
@@ -527,7 +527,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${symDelay(lhs)},rr) & ${ens(i)}")
+          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${symDelay(lhs)}.toInt,rr) & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${swap(lhs, RVec)}($i).addr($j) := ${a}.raw """)
           }
@@ -577,7 +577,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""${swap(lhs, WVec)}($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)})")
+        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}.toInt)")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${swap(lhs, WVec)}($i).addr($j) := ${a}.r """)
         }
@@ -644,11 +644,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
       // emit(src"val fu32_0 = List.fill(${fixu32_0Map.size}){Wire(new FixedPoint(false, 32, 0))}")
       // emit(src"val fs10_22 = List.fill(${fixs10_22Map.size}){Wire(new FixedPoint(true, 10, 22))}")
 
-      emit(s"Utils.fixmul_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixdiv_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixDiv")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixadd_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixAdd")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixsub_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixSub")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixmod_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMod")()("LatencyOf").toInt else 0}")
+      emit(s"Utils.fixmul_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMul")("b" -> 32)("LatencyOf").toInt else 0}")
+      emit(s"Utils.fixdiv_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixDiv")("b" -> 32)("LatencyOf").toInt else 0}")
+      emit(s"Utils.fixadd_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixAdd")("b" -> 32)("LatencyOf").toInt else 0}")
+      emit(s"Utils.fixsub_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixSub")("b" -> 32)("LatencyOf").toInt else 0}")
+      emit(s"Utils.fixmod_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMod")("b" -> 32)("LatencyOf").toInt else 0}")
       emit(s"Utils.fixeql_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixEql")()("LatencyOf").toInt else 0}")
       emit(s"Utils.mux_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("Mux")()("LatencyOf").toInt    else 0}")
       emit(s"Utils.sramload_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMLoad")()("LatencyOf").toInt    else 0}")

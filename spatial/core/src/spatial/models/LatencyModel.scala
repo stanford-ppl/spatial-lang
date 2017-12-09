@@ -113,9 +113,9 @@ trait LatencyModel {
     }
   }
 
-  @stateful def apply(s: Exp[_], inReduce: Boolean = false): Long = latencyOf(s, inReduce)
+  @stateful def apply(s: Exp[_], inReduce: Boolean = false): Double = latencyOf(s, inReduce)
 
-  @stateful def latencyOf(s: Exp[_], inReduce: Boolean): Long = {
+  @stateful def latencyOf(s: Exp[_], inReduce: Boolean): Double = {
     val prevVerbosity = config.verbosity
     config.verbosity = modelVerbosity
     val latency = s match {
@@ -129,10 +129,10 @@ trait LatencyModel {
     latency
   }
 
-  @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Long = d match {
-    case FixAdd(_,_)     => model("FixAdd")()("LatencyInReduce").toLong
-    case Mux(_,_,_)      => model("Mux")()("LatencyInReduce").toLong
-    case FltAdd(_,_)     => model("FltAdd")()("LatencyInReduce").toLong
+  @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Double = d match {
+    case FixAdd(_,_)     => model("FixAdd")("b" -> nbits(s))("LatencyInReduce").toDouble
+    case Mux(_,_,_)      => model("Mux")()("LatencyInReduce").toDouble
+    case FltAdd(_,_)     => model("FltAdd")()("LatencyInReduce").toDouble
     //case RegWrite(_,_,_) => 0
     case _ => latencyOfNode(s,d) //else 0L
   }
@@ -181,11 +181,11 @@ trait LatencyModel {
     case XNor(_,_)  => model("XNor")()("RequiresRegs") > 0
     case FixNeg(_)   => model("FixNeg")()("RequiresRegs") > 0
     case FixInv(_)   => model("FixInv")()("RequiresRegs") > 0
-    case FixAdd(_,_) => model("FixAdd")()("RequiresRegs") > 0
-    case FixSub(_,_) => model("FixSub")()("RequiresRegs") > 0
-    case FixMul(_,_) => model("FixMul")()("RequiresRegs") > 0
-    case FixDiv(_,_) => model("FixDiv")()("RequiresRegs") > 0
-    case FixMod(_,_) => model("FixMod")()("RequiresRegs") > 0
+    case FixAdd(_,_) => model("FixAdd")("b" -> nbits(s))("RequiresRegs") > 0
+    case FixSub(_,_) => model("FixSub")("b" -> nbits(s))("RequiresRegs") > 0
+    case FixMul(_,_) => model("FixMul")("b" -> nbits(s))("RequiresRegs") > 0
+    case FixDiv(_,_) => model("FixDiv")("b" -> nbits(s))("RequiresRegs") > 0
+    case FixMod(_,_) => model("FixMod")("b" -> nbits(s))("RequiresRegs") > 0
     case FixLt(_,_)  => model("FixLt")()("RequiresRegs") > 0
     case FixLeq(_,_) => model("FixLeq")()("RequiresRegs") > 0
     case FixNeq(_,_) => model("FixNeq")()("RequiresRegs") > 0
@@ -214,159 +214,159 @@ trait LatencyModel {
     case _ => false
   }
 
-  @stateful protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
-    case d if isAllocation(d) => model("isAllocation")()("LatencyOf").toLong
-    case FieldApply(_,_)    => model("FieldApply")()("LatencyOf").toLong
-    case VectorApply(_,_)   => model("VectorApply")()("LatencyOf").toLong
-    case VectorSlice(_,_,_) => model("VectorSlice")()("LatencyOf").toLong
-    case VectorConcat(_)    => model("VectorConcat")()("LatencyOf").toLong
-    case DataAsBits(_)      => model("DataAsBits")()("LatencyOf").toLong
-    case BitsAsData(_,_)    => model("BitsAsData")()("LatencyOf").toLong
+  @stateful protected def latencyOfNode(s: Exp[_], d: Def): Double = d match {
+    case d if isAllocation(d) => model("isAllocation")()("LatencyOf").toDouble
+    case FieldApply(_,_)    => model("FieldApply")()("LatencyOf").toDouble
+    case VectorApply(_,_)   => model("VectorApply")()("LatencyOf").toDouble
+    case VectorSlice(_,_,_) => model("VectorSlice")()("LatencyOf").toDouble
+    case VectorConcat(_)    => model("VectorConcat")()("LatencyOf").toDouble
+    case DataAsBits(_)      => model("DataAsBits")()("LatencyOf").toDouble
+    case BitsAsData(_,_)    => model("BitsAsData")()("LatencyOf").toDouble
 
-    case _:VarRegNew[_]   => model("VarRegNew")()("LatencyOf").toLong
-    case _:VarRegRead[_]  => model("VarRegRead")()("LatencyOf").toLong
-    case _:VarRegWrite[_] => model("VarRegWrite")()("LatencyOf").toLong
+    case _:VarRegNew[_]   => model("VarRegNew")()("LatencyOf").toDouble
+    case _:VarRegRead[_]  => model("VarRegRead")()("LatencyOf").toDouble
+    case _:VarRegWrite[_] => model("VarRegWrite")()("LatencyOf").toDouble
 
-    case _:LUTLoad[_] => model("LUTLoad")()("LatencyOf").toLong
+    case _:LUTLoad[_] => model("LUTLoad")()("LatencyOf").toDouble
 
     // Registers
-    case _:RegRead[_]  => model("RegRead")()("LatencyOf").toLong
-    case _:RegWrite[_] => model("RegWrite")()("LatencyOf").toLong
-    case _:RegReset[_] => model("RegReset")()("LatencyOf").toLong
+    case _:RegRead[_]  => model("RegRead")()("LatencyOf").toDouble
+    case _:RegWrite[_] => model("RegWrite")()("LatencyOf").toDouble
+    case _:RegReset[_] => model("RegReset")()("LatencyOf").toDouble
 
     // Register File
-    case _:RegFileLoad[_]       => model("RegFileLoad")()("LatencyOf").toLong
-    case _:ParRegFileLoad[_]    => model("ParRegFileLoad")()("LatencyOf").toLong
-    case _:RegFileStore[_]      => model("RegFileStore")()("LatencyOf").toLong
-    case _:ParRegFileStore[_]   => model("ParRegFileStore")()("LatencyOf").toLong
-    case _:RegFileShiftIn[_]    => model("RegFileShiftIn")()("LatencyOf").toLong
-    case _:ParRegFileShiftIn[_] => model("ParRegFileShiftIn")()("LatencyOf").toLong
+    case _:RegFileLoad[_]       => model("RegFileLoad")()("LatencyOf").toDouble
+    case _:ParRegFileLoad[_]    => model("ParRegFileLoad")()("LatencyOf").toDouble
+    case _:RegFileStore[_]      => model("RegFileStore")()("LatencyOf").toDouble
+    case _:ParRegFileStore[_]   => model("ParRegFileStore")()("LatencyOf").toDouble
+    case _:RegFileShiftIn[_]    => model("RegFileShiftIn")()("LatencyOf").toDouble
+    case _:ParRegFileShiftIn[_] => model("ParRegFileShiftIn")()("LatencyOf").toDouble
 
     // Streams
-    case _:StreamRead[_]        => model("StreamRead")()("LatencyOf").toLong
-    case _:ParStreamRead[_]     => model("ParStreamRead")()("LatencyOf").toLong
-    case _:StreamWrite[_]       => model("StreamWrite")()("LatencyOf").toLong
-    case _:ParStreamWrite[_]    => model("ParStreamWrite")()("LatencyOf").toLong
-    case _:BufferedOutWrite[_]  => model("BufferedOutWrite")()("LatencyOf").toLong
+    case _:StreamRead[_]        => model("StreamRead")()("LatencyOf").toDouble
+    case _:ParStreamRead[_]     => model("ParStreamRead")()("LatencyOf").toDouble
+    case _:StreamWrite[_]       => model("StreamWrite")()("LatencyOf").toDouble
+    case _:ParStreamWrite[_]    => model("ParStreamWrite")()("LatencyOf").toDouble
+    case _:BufferedOutWrite[_]  => model("BufferedOutWrite")()("LatencyOf").toDouble
 
     // FIFOs
-    case _:FIFOEnq[_]    => model("FIFOEnq")()("LatencyOf").toLong
-    case _:ParFIFOEnq[_] => model("ParFIFOEnq")()("LatencyOf").toLong
-    case _:FIFODeq[_]    => model("FIFODeq")()("LatencyOf").toLong
-    case _:ParFIFODeq[_] => model("ParFIFODeq")()("LatencyOf").toLong
-    case _:FIFONumel[_]  => model("FIFONumel")()("LatencyOf").toLong
-    case _:FIFOAlmostEmpty[_] => model("FIFOAlmostEmpty")()("LatencyOf").toLong
-    case _:FIFOAlmostFull[_]  => model("FIFOAlmostFull")()("LatencyOf").toLong
-    case _:FIFOEmpty[_]       => model("FIFOEmpty")()("LatencyOf").toLong
-    case _:FIFOFull[_]        => model("FIFOFull")()("LatencyOf").toLong
+    case _:FIFOEnq[_]    => model("FIFOEnq")()("LatencyOf").toDouble
+    case _:ParFIFOEnq[_] => model("ParFIFOEnq")()("LatencyOf").toDouble
+    case _:FIFODeq[_]    => model("FIFODeq")()("LatencyOf").toDouble
+    case _:ParFIFODeq[_] => model("ParFIFODeq")()("LatencyOf").toDouble
+    case _:FIFONumel[_]  => model("FIFONumel")()("LatencyOf").toDouble
+    case _:FIFOAlmostEmpty[_] => model("FIFOAlmostEmpty")()("LatencyOf").toDouble
+    case _:FIFOAlmostFull[_]  => model("FIFOAlmostFull")()("LatencyOf").toDouble
+    case _:FIFOEmpty[_]       => model("FIFOEmpty")()("LatencyOf").toDouble
+    case _:FIFOFull[_]        => model("FIFOFull")()("LatencyOf").toDouble
 
     // SRAMs
     // TODO: Should be a function of number of banks?
-    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("LatencyOf").toLong else model("SRAMLoad")()("LatencyOf").toLong
-    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("LatencyOf").toLong else model("ParSRAMLoad")()("LatencyOf").toLong
-    case _:SRAMStore[_]    => model("SRAMStore")()("LatencyOf").toLong
-    case _:ParSRAMStore[_] => model("ParSRAMStore")()("LatencyOf").toLong
+    case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("LatencyOf").toDouble else model("SRAMLoad")()("LatencyOf").toDouble
+    case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("LatencyOf").toDouble else model("ParSRAMLoad")()("LatencyOf").toDouble
+    case _:SRAMStore[_]    => model("SRAMStore")()("LatencyOf").toDouble
+    case _:ParSRAMStore[_] => model("ParSRAMStore")()("LatencyOf").toDouble
 
     // LineBuffer
-    case _:LineBufferEnq[_]     => model("LineBufferEnq")()("LatencyOf").toLong
-    case _:ParLineBufferEnq[_]  => model("ParLineBufferEnq")()("LatencyOf").toLong
-    case _:LineBufferLoad[_]    => model("LineBufferLoad")()("LatencyOf").toLong
-    case _:ParLineBufferLoad[_] => model("ParLineBufferLoad")()("LatencyOf").toLong
+    case _:LineBufferEnq[_]     => model("LineBufferEnq")()("LatencyOf").toDouble
+    case _:ParLineBufferEnq[_]  => model("ParLineBufferEnq")()("LatencyOf").toDouble
+    case _:LineBufferLoad[_]    => model("LineBufferLoad")()("LatencyOf").toDouble
+    case _:ParLineBufferLoad[_] => model("ParLineBufferLoad")()("LatencyOf").toDouble
 
     // Shift Register
-    case DelayLine(size, data) => model("DelayLine")()("LatencyOf").toLong // TODO: Should use different model once these are added?
+    case DelayLine(size, data) => model("DelayLine")()("LatencyOf").toDouble // TODO: Should use different model once these are added?
 
     // DRAM
-    case GetDRAMAddress(_) => model("GetDRAMAddress")()("LatencyOf").toLong
+    case GetDRAMAddress(_) => model("GetDRAMAddress")()("LatencyOf").toDouble
 
     // Boolean operations
-    case Not(_)     => model("Not")()("LatencyOf").toLong
-    case And(_,_)   => model("And")()("LatencyOf").toLong
-    case Or(_,_)    => model("Or")()("LatencyOf").toLong
-    case XOr(_,_)   => model("XOr")()("LatencyOf").toLong
-    case XNor(_,_)  => model("XNor")()("LatencyOf").toLong
+    case Not(_)     => model("Not")()("LatencyOf").toDouble
+    case And(_,_)   => model("And")()("LatencyOf").toDouble
+    case Or(_,_)    => model("Or")()("LatencyOf").toDouble
+    case XOr(_,_)   => model("XOr")()("LatencyOf").toDouble
+    case XNor(_,_)  => model("XNor")()("LatencyOf").toDouble
 
     // Fixed point math
     // TODO: Have to get numbers for non-32 bit multiplies and divides
-    case FixNeg(_)   => model("FixNeg")()("LatencyOf").toLong
-    case FixInv(_)   => model("FixInv")()("LatencyOf").toLong
-    case FixAdd(_,_) => model("FixAdd")()("LatencyOf").toLong
-    case FixSub(_,_) => model("FixSub")()("LatencyOf").toLong
-    case FixMul(_,_) => model("FixMul")()("LatencyOf").toLong  // TODO
-    case FixDiv(_,_) => model("FixDiv")()("LatencyOf").toLong // TODO
-    case FixMod(_,_) => model("FixMod")()("LatencyOf").toLong
-    case FixLt(_,_)  => model("FixLt")()("LatencyOf").toLong
-    case FixLeq(_,_) => model("FixLeq")()("LatencyOf").toLong
-    case FixNeq(_,_) => model("FixNeq")()("LatencyOf").toLong
-    case FixEql(_,_) => model("FixEql")()("LatencyOf").toLong
-    case FixAnd(_,_) => model("FixAnd")()("LatencyOf").toLong
-    case FixOr(_,_)  => model("FixOr")()("LatencyOf").toLong
-    case FixXor(_,_) => model("FixXor")()("LatencyOf").toLong
-    case FixLsh(_,_) => model("FixLsh")()("LatencyOf").toLong // TODO
-    case FixRsh(_,_) => model("FixRsh")()("LatencyOf").toLong // TODO
-    case FixURsh(_,_) => model("FixURsh")()("LatencyOf").toLong // TODO
-    case FixAbs(_)    => model("FixAbs")()("LatencyOf").toLong
+    case FixNeg(_)   => model("FixNeg")("b" -> nbits(s))("LatencyOf").toDouble
+    case FixInv(_)   => model("FixInv")()("LatencyOf").toDouble
+    case FixAdd(_,_) => model("FixAdd")("b" -> nbits(s))("LatencyOf").toDouble
+    case FixSub(_,_) => model("FixSub")("b" -> nbits(s))("LatencyOf").toDouble
+    case FixMul(_,_) => model("FixMul")("b" -> nbits(s))("LatencyOf").toDouble  // TODO
+    case FixDiv(_,_) => model("FixDiv")("b" -> nbits(s))("LatencyOf").toDouble // TODO
+    case FixMod(_,_) => model("FixMod")("b" -> nbits(s))("LatencyOf").toDouble
+    case FixLt(_,_)  => model("FixLt")()("LatencyOf").toDouble
+    case FixLeq(_,_) => model("FixLeq")()("LatencyOf").toDouble
+    case FixNeq(_,_) => model("FixNeq")()("LatencyOf").toDouble
+    case FixEql(_,_) => model("FixEql")()("LatencyOf").toDouble
+    case FixAnd(_,_) => model("FixAnd")()("LatencyOf").toDouble
+    case FixOr(_,_)  => model("FixOr")()("LatencyOf").toDouble
+    case FixXor(_,_) => model("FixXor")()("LatencyOf").toDouble
+    case FixLsh(_,_) => model("FixLsh")()("LatencyOf").toDouble // TODO
+    case FixRsh(_,_) => model("FixRsh")()("LatencyOf").toDouble // TODO
+    case FixURsh(_,_) => model("FixURsh")()("LatencyOf").toDouble // TODO
+    case FixAbs(_)    => model("FixAbs")()("LatencyOf").toDouble
 
     // Saturating and/or unbiased math
-    case SatAdd(x,y) => model("SatAdd")()("LatencyOf").toLong
-    case SatSub(x,y) => model("SatSub")()("LatencyOf").toLong
-    case SatMul(x,y) => model("SatMul")()("LatencyOf").toLong
-    case SatDiv(x,y) => model("SatDiv")()("LatencyOf").toLong
-    case UnbMul(x,y) => model("UnbMul")()("LatencyOf").toLong
-    case UnbDiv(x,y) => model("UnbDiv")()("LatencyOf").toLong
-    case UnbSatMul(x,y) => model("UnbSatMul")()("LatencyOf").toLong
-    case UnbSatDiv(x,y) => model("UnbSatDiv")()("LatencyOf").toLong
+    case SatAdd(x,y) => model("SatAdd")()("LatencyOf").toDouble
+    case SatSub(x,y) => model("SatSub")()("LatencyOf").toDouble
+    case SatMul(x,y) => model("SatMul")()("LatencyOf").toDouble
+    case SatDiv(x,y) => model("SatDiv")()("LatencyOf").toDouble
+    case UnbMul(x,y) => model("UnbMul")()("LatencyOf").toDouble
+    case UnbDiv(x,y) => model("UnbDiv")()("LatencyOf").toDouble
+    case UnbSatMul(x,y) => model("UnbSatMul")()("LatencyOf").toDouble
+    case UnbSatDiv(x,y) => model("UnbSatDiv")()("LatencyOf").toDouble
 
     // Floating point math
     // TODO: Floating point for things besides single precision
-    case FltAbs(_)  => model("FltAbs")()("LatencyOf").toLong
-    case FltNeg(_)  => model("FltNeg")()("LatencyOf").toLong
-    case FltAdd(_,_) if s.tp == FloatType => model("FltAddFloat")()("LatencyOf").toLong
-    case FltSub(_,_) if s.tp == FloatType => model("FltSubFloat")()("LatencyOf").toLong
-    case FltMul(_,_) if s.tp == FloatType => model("FltMulFloat")()("LatencyOf").toLong
-    case FltDiv(_,_) if s.tp == FloatType => model("FltDivFloat")()("LatencyOf").toLong
+    case FltAbs(_)  => model("FltAbs")()("LatencyOf").toDouble
+    case FltNeg(_)  => model("FltNeg")()("LatencyOf").toDouble
+    case FltAdd(_,_) if s.tp == FloatType => model("FltAddFloat")()("LatencyOf").toDouble
+    case FltSub(_,_) if s.tp == FloatType => model("FltSubFloat")()("LatencyOf").toDouble
+    case FltMul(_,_) if s.tp == FloatType => model("FltMulFloat")()("LatencyOf").toDouble
+    case FltDiv(_,_) if s.tp == FloatType => model("FltDivFloat")()("LatencyOf").toDouble
 
-    case FltLt(a,_)  if a.tp == FloatType => model("FltLtFloat")()("LatencyOf").toLong
-    case FltLeq(a,_) if a.tp == FloatType => model("FltLeqFloat")()("LatencyOf").toLong
+    case FltLt(a,_)  if a.tp == FloatType => model("FltLtFloat")()("LatencyOf").toDouble
+    case FltLeq(a,_) if a.tp == FloatType => model("FltLeqFloat")()("LatencyOf").toDouble
 
-    case FltNeq(a,_) if a.tp == FloatType => model("FltNeqFloat")()("LatencyOf").toLong
-    case FltEql(a,_) if a.tp == FloatType => model("FltEqlFloat")()("LatencyOf").toLong
+    case FltNeq(a,_) if a.tp == FloatType => model("FltNeqFloat")()("LatencyOf").toDouble
+    case FltEql(a,_) if a.tp == FloatType => model("FltEqlFloat")()("LatencyOf").toDouble
 
-    case FltLog(_) if s.tp == FloatType => model("FltLogFloat")()("LatencyOf").toLong
-    case FltExp(_) if s.tp == FloatType => model("FltExpFloat")()("LatencyOf").toLong
-    case FltSqrt(_) if s.tp == FloatType => model("FltSqrtFloat")()("LatencyOf").toLong
+    case FltLog(_) if s.tp == FloatType => model("FltLogFloat")()("LatencyOf").toDouble
+    case FltExp(_) if s.tp == FloatType => model("FltExpFloat")()("LatencyOf").toDouble
+    case FltSqrt(_) if s.tp == FloatType => model("FltSqrtFloat")()("LatencyOf").toDouble
 
-    case Mux(_,_,_)  => model("Mux")()("LatencyOf").toLong
-    case Min(_,_)    => model("Min")()("LatencyOf").toLong
-    case Max(_,_)    => model("Max")()("LatencyOf").toLong
+    case Mux(_,_,_)  => model("Mux")()("LatencyOf").toDouble
+    case Min(_,_)    => model("Min")()("LatencyOf").toDouble
+    case Max(_,_)    => model("Max")()("LatencyOf").toDouble
 
-    case FixConvert(_)  => model("FixConvert")()("LatencyOf").toLong
-    case FltConvert(_)  => model("FltConvert")()("LatencyOf").toLong // TODO
+    case FixConvert(_)  => model("FixConvert")()("LatencyOf").toDouble
+    case FltConvert(_)  => model("FltConvert")()("LatencyOf").toDouble // TODO
 
-    case FltPtToFixPt(x) if x.tp == FloatType => model("FltPtToFixPtFloat")()("LatencyOf").toLong
-    case FixPtToFltPt(x) if s.tp == FloatType => model("FixPtToFltPtFloat")()("LatencyOf").toLong
+    case FltPtToFixPt(x) if x.tp == FloatType => model("FltPtToFixPtFloat")()("LatencyOf").toDouble
+    case FixPtToFltPt(x) if s.tp == FloatType => model("FixPtToFltPtFloat")()("LatencyOf").toDouble
 
-    case _:Hwblock             => model("Hwblock")()("LatencyOf").toLong
-    case _:ParallelPipe        => model("ParallelPipe")()("LatencyOf").toLong
-    case _:UnitPipe            => model("UnitPipe")()("LatencyOf").toLong
-    case _:OpForeach           => model("OpForeach")()("LatencyOf").toLong
-    case _:OpReduce[_]         => model("OpReduce")()("LatencyOf").toLong
-    case _:OpMemReduce[_,_]    => model("OpMemReduce")()("LatencyOf").toLong
-    case _:UnrolledForeach     => model("UnrolledForeach")()("LatencyOf").toLong
-    case _:UnrolledReduce[_,_] => model("UnrolledReduce")()("LatencyOf").toLong
-    case _:Switch[_]           => model("Switch")()("LatencyOf").toLong
-    case _:SwitchCase[_]       => model("SwitchCase")()("LatencyOf").toLong
+    case _:Hwblock             => model("Hwblock")()("LatencyOf").toDouble
+    case _:ParallelPipe        => model("ParallelPipe")()("LatencyOf").toDouble
+    case _:UnitPipe            => model("UnitPipe")()("LatencyOf").toDouble
+    case _:OpForeach           => model("OpForeach")()("LatencyOf").toDouble
+    case _:OpReduce[_]         => model("OpReduce")()("LatencyOf").toDouble
+    case _:OpMemReduce[_,_]    => model("OpMemReduce")()("LatencyOf").toDouble
+    case _:UnrolledForeach     => model("UnrolledForeach")()("LatencyOf").toDouble
+    case _:UnrolledReduce[_,_] => model("UnrolledReduce")()("LatencyOf").toDouble
+    case _:Switch[_]           => model("Switch")()("LatencyOf").toDouble
+    case _:SwitchCase[_]       => model("SwitchCase")()("LatencyOf").toDouble
 
       // Host/Debugging/Unsynthesizable nodes
-    case _:ExitIf  => model("ExitIf")()("LatencyOf").toLong
-    case _:BreakpointIf  => model("BreakpointIf")()("LatencyOf").toLong
-    case _:PrintIf   => model("PrintIf")()("LatencyOf").toLong
-    case _:PrintlnIf => model("PrintlnIf")()("LatencyOf").toLong
-    case _:AssertIf  => model("AssertIf")()("LatencyOf").toLong
-    case _:ToString[_] => model("ToString")()("LatencyOf").toLong
-    case _:StringConcat => model("StringConcat")()("LatencyOf").toLong
-    case FixRandom(_) => model("FixRandom")()("LatencyOf").toLong  // TODO: This is synthesizable now?
-    case FltRandom(_) => model("FltRandom")()("LatencyOf").toLong  // TODO: This is synthesizable now?
+    case _:ExitIf  => model("ExitIf")()("LatencyOf").toDouble
+    case _:BreakpointIf  => model("BreakpointIf")()("LatencyOf").toDouble
+    case _:PrintIf   => model("PrintIf")()("LatencyOf").toDouble
+    case _:PrintlnIf => model("PrintlnIf")()("LatencyOf").toDouble
+    case _:AssertIf  => model("AssertIf")()("LatencyOf").toDouble
+    case _:ToString[_] => model("ToString")()("LatencyOf").toDouble
+    case _:StringConcat => model("StringConcat")()("LatencyOf").toDouble
+    case FixRandom(_) => model("FixRandom")()("LatencyOf").toDouble  // TODO: This is synthesizable now?
+    case FltRandom(_) => model("FltRandom")()("LatencyOf").toDouble  // TODO: This is synthesizable now?
 
     case _ =>
       miss(u"${d.getClass} (rule)")

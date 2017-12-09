@@ -93,9 +93,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${swap(writer, DatapathEn)}"
       if (spatialConfig.useCheapFifos) {
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}.toInt) & $en)""")
       } else {
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), Vec(List(($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)))""")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), Vec(List(($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}.toInt) & $en)))""")
       }
       
 
@@ -104,8 +104,8 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val bug202delay = reader match {
         case Def(op@SwitchCase(_)) => 
-          if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}" 
-        case _ => src"${symDelay(lhs)}" 
+          if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}.toInt" 
+        case _ => src"${symDelay(lhs)}.toInt" 
       }
       val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
@@ -122,9 +122,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       if (spatialConfig.useCheapFifos){
         val en = ens.map(quote).mkString("&")
-        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}.toInt) & $en)""")  
       } else {
-        val en = ens.map{i => src"$i & (${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)})"}
+        val en = ens.map{i => src"$i & (${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}.toInt)"}
         emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
       }
       
@@ -146,9 +146,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       if (spatialConfig.useCheapFifos) {
         val en = ens.map(quote).mkString("&")
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")  
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}.toInt) & $en)""")  
       } else {
-        val en = ens.map{i => src"$i & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)})"}
+        val en = ens.map{i => src"$i & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}.toInt)"}
         emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), Vec(List($en)))""")
       }
       
