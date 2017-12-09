@@ -92,7 +92,9 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
     case _:RegRead[_]  => accessPatternOf(lhs) = ZERO
     case _:RegWrite[_] => accessPatternOf(lhs) = ZERO
 
-    case e: DenseTransfer[_,_] => accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
+    case e: DenseTransfer[_,_] =>
+
+      accessPatternOf(lhs) = e.iters.map{i => LinearAccess(i) }
     case e: SparseTransfer[_]  => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case e: SparseTransferMem[_,_,_] => accessPatternOf(lhs) = List(LinearAccess(e.i))
     case _ => super.visit(lhs, rhs)

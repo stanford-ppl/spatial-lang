@@ -6,6 +6,8 @@
 *.dat
 *__*.scala
 
+isl-bin/emptiness
+
 # sbt specific
 .cache
 .history
@@ -22,6 +24,7 @@ chisel_test/*
 test_all.sh
 target/
 logs/*
+report/*
 lib_managed/
 apps/src/hotfix.scala
 src_managed/

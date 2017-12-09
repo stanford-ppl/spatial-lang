@@ -14,6 +14,7 @@ trait BankingStrategy {
     dimGrps: Seq[Seq[Seq[Int]]]            // Sequence of dimension groupings
                                            // Seq(Seq(0), Seq(1)) is hierarchical banking for a 2D memory
                                            // Seq(Seq(0,1)) is flattened banking for a 2D memory
-  ): Seq[ModBanking]
+
+  ): Seq[Seq[ModBanking]]                  // Sequence of possible multidimensional banking
 
 }

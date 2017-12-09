@@ -4,7 +4,15 @@ import argon.core._
 import forge._
 import spatial.aliases._
 import spatial.metadata._
+import spatial.poly.Polytope
 import spatial.utils._
+
+case class IndexDomain(domain: Array[Array[Int]]) {
+  lazy val str: String = domain.map{vec => s"""1 ${vec.mkString(" ")}""" }.mkString("\n") + "\n"
+  def map[T](func: Array[Int] => T): Seq[T] = domain.map(func)
+  def headOption: Option[Array[Int]] = domain.headOption
+  def length: Int = domain.length
+}
 
 abstract class AccessVector {
   def is: Seq[Exp[Index]]
@@ -51,6 +59,25 @@ case class CompactMatrix(vectors: Array[AccessVector], access: Access, vecId: Op
   }
 }
 
+case class AccessPair(a: Matrix, c: Seq[Int]) {
+  @stateful def printWithTab(tab: String): Unit = {
+    val data = a.data
+
+    val entries = data.map{x => x.map(_.toString) }
+    val maxCol  = entries.map{_.map(_.length).fold(0){Math.max}}.fold(0){Math.max}
+    entries.zip(c).foreach{case (row,rc) =>
+      dbg(tab + row.map{x => " "*(maxCol - x.length + 1) + x}.mkString(" ") + " " + rc)
+    }
+  }
+
+  /*override def equals(o: Any): Boolean = o match {
+    case AccessPair(a1,c1) => true
+      //c.zip(c1).forall{case (b0,b1) => b0 == b1 } &&
+      //  a.data.zip(a1.data).forall{case (v0,v1) => v0.zip(v1).forall{case (x0,x1) => x0 == x1 }}
+    case _ => false
+  }*/
+}
+
 
 case class AccessMatrix(
   vectors: Array[AccessVector],
@@ -71,11 +98,9 @@ case class AccessMatrix(
     val vecs = Array.tabulate(dims.length){i => vectors(dims(i)) }
     if (vecs.forall(_.isInstanceOf[AffineVector])) {
       val affineVectors = vecs.map(_.asInstanceOf[AffineVector])
-      val a = Matrix(affineVectors.map{row => row.as})
+      val a = Matrix(affineVectors.map{row => row.as.toSeq })
       val c = affineVectors.map{row => row.b}
-      val pair = (a,c)
-      //pair.printWithTab("      ")
-      Option(pair)
+      Some(AccessPair(a,c))
     }
     else {
       //dbg(s"NOT AFFINE (RANDOM ACCESS?)")
@@ -83,26 +108,44 @@ case class AccessMatrix(
     }
   }
 
-  // TODO
   /**
     * Returns true if the space of addresses in a is statically known to include all of the addresses in b
+    * TODO: Used for reaching write calculation
     */
-  def containsSpace(b: AccessMatrix, domain: IndexDomain): Boolean = {
+  @stateful def containsSpace(b: AccessMatrix, domain: IndexDomain): Boolean = {
     false
   }
 
   /**
     * Returns true if the space of addresses in a and b may have at least one element in common
+    * TODO: Used for reaching write calculation
     */
-  def intersectsSpace(b: AccessMatrix, domain: IndexDomain): Boolean = {
+  @stateful def intersectsSpace(b: AccessMatrix, domain: IndexDomain): Boolean = {
     true
   }
 
   /**
     * Returns true if there exists a reachable multi-dimensional index I such that addr_a(I) = addr_b(I)
+    *
+    * True if all given dimensions may intersect. Trivially true for random accesses (at least for now)
     */
-  def intersects(b: AccessMatrix, domain: IndexDomain): Boolean = {
-    true
+  @stateful def intersects(b: AccessMatrix, domain: IndexDomain): Boolean = {
+    val vecs = this.vectors.zip(b.vectors).collect{
+      case (AffineVector(a0,_,c0), AffineVector(a1,_,c1)) =>
+        val dA = Array.tabulate(a0.length){i => a0(i) - a1(i) }
+        val dC = c0 - c1
+        s"""0 ${dA.mkString(" ")} $dC"""
+
+      // Other cases are trivially true (for now)
+    }
+    if (vecs.isEmpty) true
+    else {
+      val nCols = domain.headOption.map(_.length).getOrElse(0) + 1
+      val nRows = vecs.length + domain.length
+
+      val mat = s"$nRows $nCols\n" + domain.str + vecs.mkString("\n")
+      !Polytope.isEmpty(mat)
+    }
   }
 
   @stateful def printWithTab(tab: String): Unit = {
@@ -116,12 +159,11 @@ case class AccessMatrix(
       dbg(tab + row.map{x => " "*(maxCol - x.length + 1) + x }.mkString(" "))
     }
   }
-
 }
 
 
 case class Matrix(
-  data: Array[Array[Int]],
+  data: Seq[Seq[Int]],
   rows: Int,
   cols: Int
 ) {
@@ -129,5 +171,5 @@ case class Matrix(
 }
 
 object Matrix {
-  def apply(data: Array[Array[Int]]) = new Matrix(data, data.length, data.head.length)
+  def apply(data: Seq[Seq[Int]]) = new Matrix(data, data.length, data.head.length)
 }

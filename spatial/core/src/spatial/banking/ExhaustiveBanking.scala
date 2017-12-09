@@ -30,12 +30,12 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     Alphas2(1, Nil) ++ AlphasX(1, Nil)
   }
 
-  def checkConflicts(grp: Seq[AccessPair])(func: (Matrix,Matrix,Array[Int],Array[Int]) => Boolean): Boolean = {
+  def checkConflicts(grp: Seq[AccessPair])(func: (Matrix,Matrix,Seq[Int],Seq[Int]) => Boolean): Boolean = {
     grp.indices.forall{i =>
-      val (a0,c0) = grp(i)
+      val m0 = grp(i)
       (i+1 until grp.size).forall{j =>
-        val (a1,c1) = grp(j)
-        func(a0,a1,c0,c1)
+        val m1 = grp(j)
+        func(m0.a, m1.a, m0.c, m1.c)
       }
     }
   }
@@ -98,7 +98,9 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
 
     val Nmin = grps.map(_.size).max
     val (n2,nx) = (Nmin to 8*Nmin).partition(x => isPow2(x) || x == 1)
-    val Ns = (n2 ++ nx).iterator
+    // TODO: Magic number. What should the cutoff point be here, if any?
+    val n2Head = if (n2.head.toDouble/Nmin > 1.4) Seq(Nmin) else Nil
+    val Ns = (n2Head ++ n2 ++ nx).iterator
 
     dbg(s"    FIND BANKING: Nmin = $Nmin")
     dbg("")
@@ -135,7 +137,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     banking
   }
 
-  def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain, dimGrps: Seq[Seq[Seq[Int]]]): Seq[ModBanking] = {
+  def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain, dimGrps: Seq[Seq[Seq[Int]]]): Seq[Seq[ModBanking]] = {
     val cyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, a.last))) }
     val blockCyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, 0, a.last))) }
     val nIters = domain.headOption.map(_.length - 1).getOrElse(0)
@@ -158,7 +160,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       // Only a single bank needed, since only 1 access per group
       // Note this case is required for banking random accesses
       // TODO: Assumes random accesses should never be grouped together; we assume they can never be banked together
-      Seq(ModBanking(1, 1, List.fill(dims.length){1}, List.tabulate(dims.length){i => i}))
+      Seq(Seq(ModBanking(1, 1, List.fill(dims.length){1}, List.tabulate(dims.length){i => i})))
     }
     else {
       val options = dimGrps.flatMap { strategy =>
@@ -167,12 +169,9 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
         // Then, for each dimension group, determine the banking
         val banking = strategy.map { dimensions => // Set of dimensions to bank together
           //dbg(s"    Creating affine access pairs..")
-          val accesses = groups.zipWithIndex.map { case (grp, i) =>
+          val accesses = groups.map{grp =>
             // Convert all AccessMatrix instances into pairs of (Matrix, Offset Vector)
-            grp.toSeq.flatMap { access =>
-              //access.printWithTab("      ")
-              access.getAccessPairsIfAffine(dimensions)
-            }
+            grp.toSeq.flatMap{access => access.getAccessPairsIfAffine(dimensions) }.distinct
           }
           dbg(s"    Dimension group: $dimensions")
           findBanking(dims.length, accesses, dimensions, dC, dBC)
@@ -182,13 +181,14 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
 
       // TODO: Replace with cost model
       // TODO: What to do in the case where banking fails? Fall back to duplication/time multiplexing?
-      options.headOption.getOrElse {
+      /*options.headOption.getOrElse {
         dbg(c"BANKING FAILED")
         bug(mem.ctx, c"Could not bank reads of memory $mem: ")
         reads.flatten.map(_.access).foreach { rd => bug(s"  ${str(rd.node)}") }
         bug(mem.ctx)
         Nil
-      }
+      }*/
+      options
     }
   }
 

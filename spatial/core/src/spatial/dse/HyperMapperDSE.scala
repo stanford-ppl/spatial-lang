@@ -96,7 +96,7 @@ trait HyperMapperDSE { this: DSE =>
 
     val startTime = System.currentTimeMillis
     println("Starting up HyperMapper...")
-    hm.block(Some(workDir))
+    hm.block(workDir)
 
     println("Ending work queue.")
 

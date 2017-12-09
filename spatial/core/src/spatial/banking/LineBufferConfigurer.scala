@@ -13,6 +13,18 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
   // Only hierarchically bank LineBuffers on the second dimension
   override protected def dimensionGroupings: Seq[Seq[Seq[Int]]] = Seq(Seq(Seq(1)))
 
+  override def getAccessVector(access: Access): Seq[CompactMatrix] = {
+    val mats = super.getAccessVector(access)
+    mats.map{mat =>
+      // Add a random access in the rows dimension if less than 2 dimensions
+      if (mat.vectors.length == 1) {
+        val rand = RandomVector(None, Map(Seq(0) -> fresh[Index]), None)
+        CompactMatrix(rand +: mat.vectors, access)
+      }
+      else mat
+    }
+  }
+
   override protected def createStreamingVector(access: Access): CompactMatrix = {
     val mat = super.createStreamingVector(access)
     mat.copy(vectors = AffineVector(Array.empty,Nil,0) +: mat.vectors)

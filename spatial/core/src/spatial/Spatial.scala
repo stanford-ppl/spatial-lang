@@ -18,6 +18,7 @@ import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
 import spatial.interpreter.Interpreter
 import spatial.lang.cake.SpatialExternal
+import spatial.report.MemoryReporter
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
 import spatial.transform.unrolling.UnrollingTransformer
 
@@ -114,6 +115,8 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val treegen = new TreeGenSpatial { var IR = state }
     lazy val dotgen = new DotGenSpatial { var IR = state }
     lazy val interpreter = new Interpreter { var IR = state }
+
+    lazy val memReport = MemoryReporter(state)
 
     passes += printer
     passes += friendlyTransformer
@@ -242,6 +245,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += sanityCheck        // Check that illegal host values are not used in the accel block
     passes += controlSanityCheck
     passes += finalizer         // Finalize any remaining parameters
+    passes += memReport
 
     // --- Code generation
     if (spatialConfig.enableTree)  passes += treegen

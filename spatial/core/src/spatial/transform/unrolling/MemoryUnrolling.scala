@@ -75,10 +75,11 @@ trait MemoryUnrolling extends UnrollingBase {
     }
   }
 
-  sealed abstract class UnrolledAccess[T] { def s: Exp[_] }
-  case class Read[T](v: Exp[T]) extends UnrolledAccess[T] { def s = v }
-  case class Vec[T](v: Exp[VectorN[T]]) extends UnrolledAccess[T] { def s = v }
-  case class Write[T](v: Exp[MUnit]) extends UnrolledAccess[T] { def s = v }
+  sealed abstract class UnrolledAccess[T] { def s: Seq[Exp[_]] }
+  case class Read[T](v: Exp[T]) extends UnrolledAccess[T] { def s = Seq(v) }
+  case class Vec[T](v: Exp[VectorN[T]]) extends UnrolledAccess[T] { def s = Seq(v) }
+  case class Write[T](v: Exp[MUnit]) extends UnrolledAccess[T] { def s = Seq(v) }
+  case class MultiWrite[T](vs: Seq[Write[T]]) extends UnrolledAccess[T] { def s = vs.flatMap(_.s) }
 
   sealed abstract class DataOption { def s: Option[Exp[_]] }
   case object NoData extends DataOption { def s = None }
@@ -124,11 +125,11 @@ trait MemoryUnrolling extends UnrollingBase {
     case Def(_:LineBufferRowSlice[_]) => Vec(LineBuffer.banked_load(mem.asInstanceOf[Exp[LineBuffer[T]]], bank.get, addr.get, ens.get))
 
     case Def(op:RegFileVectorShiftIn[_]) =>
-      data.map{d => d.zipWithIndex.map{case (vec,i) =>
+      MultiWrite(data.map{d => d.zipWithIndex.map{case (vec,i) =>
         val addr = bank.get.apply(i)
         val en = ens.get.apply(i)
         Write[T](RegFile.vector_shift_in(mem.asInstanceOf[Exp[RegFile[T]]],vec.asInstanceOf[Exp[Vector[T]]], addr, en, op.ax))
-      }}.get.head
+      }}.get)
 
     // Special case rotateEnq because I'm lazy and don't want to duplicate unrolling code just for this one node
     case Def(_:LineBufferRotateEnq[_]) =>
@@ -233,21 +234,24 @@ trait MemoryUnrolling extends UnrollingBase {
       val ports = dispatchIds.flatMap{d => portsOf(access, mem, d) }.toSet
 
       val banked = bankedAccess[T](access, mem2, data2, bank, ofs, ens)
+      banked.s.foreach{s =>
+        portsOf(s,mem2,0) = ports
+        muxIndexOf(s,Seq(0),mem2) = muxIndex
+        dbgs(s"  ${str(s)}"); strMeta(s, tab+1)
+      }
 
-      portsOf(banked.s,mem2,0) = ports
-      muxIndexOf(banked.s,Seq(0),mem2) = muxIndex
-
-      dbgs(s"  ${str(banked.s)}"); strMeta(banked.s, tab+1)
       if (config.verbosity > 0) banked match {
         case Vec(vec) => map.foreach{case (id,vecId) => dbgs(s"    $id -> $vec($vecId)") }
         case Read(v)  => map.foreach{case (id,vecId) => dbgs(s"    $id -> $v") }
         case Write(w) => map.foreach{case (id,vecId) => dbgs(s"    $id -> $w") }
+        case MultiWrite(w) => map.foreach{case (id,vecId) => w.foreach{wr => dbgs(s"    $id -> $w") }}
       }
 
       banked match {
         case Vec(vec) => map.map{case (id,vecId) => id -> Read(Vector.select[T](vec,vecId)) }
         case Read(v)  => map.map{case (id,vecId) => id -> Read(v) }
         case Write(w) => map.map{case (id,vecId) => id -> Write(w) }
+        case MultiWrite(w) => map.map{case (id,vecId) => id -> w.head }
       }
     }.toMap
 
@@ -329,10 +333,11 @@ trait MemoryUnrolling extends UnrollingBase {
 
       val banked = bankedAccess[T](access, mem2, data2.asInstanceOf[Option[Seq[Exp[T]]]], bank, ofs, ens)
 
-      portsOf(banked.s,mem2,0) = ports
-      muxIndexOf(banked.s,Seq(0),mem2) = muxIndex
-
-      dbgs(s"  ${str(banked.s)}"); strMeta(banked.s, tab)
+      banked.s.foreach{s =>
+        portsOf(s,mem2,0) = ports
+        muxIndexOf(s,Seq(0),mem2) = muxIndex
+        dbgs(s"  ${str(s)}"); strMeta(s, tab)
+      }
 
       banked match{
         case Vec(vec) =>
@@ -344,6 +349,7 @@ trait MemoryUnrolling extends UnrollingBase {
           }
         case Read(v)      => lanes.unifyLanes(laneIds)(access,v)
         case Write(write) => lanes.unifyLanes(laneIds)(access,write)
+        case MultiWrite(vs) => lanes.unifyLanes(laneIds)(access, vs.head.s.head)
       }
     }
   }

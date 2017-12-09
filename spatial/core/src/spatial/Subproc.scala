@@ -4,34 +4,13 @@ import java.io._
 import java.util.concurrent.Executors
 
 // TODO: Asynchronous error response
-// TODO: Should give an iterator rather than the reader directly
-
-class ExceptionWatcher(reader: BufferedReader) extends Runnable {
-  //val log = new PrintStream("subproc.log")
-  var isRunning = true
-
-  def run(): Unit = while (isRunning) {
-    val g = reader.readLine()
-    //log.print(g)
-    //log.flush()
-    if (g ne null) println("[Subproc] " + g)
-    /*if (lines.contains("Traceback")) {
-      Thread.sleep(1000)
-      while (reader.ready()) {
-        println(reader.readLine())
-      }
-      throw new Exception("Child process failed")
-    }*/
-  }
-}
+// TODO: Should give an iterator rather than the reader directly?
 
 case class Subproc(args: String*)(react: (String,BufferedReader) => Option[String]) {
   private var reader: BufferedReader = _
   private var writer: BufferedWriter = _
   private var logger: BufferedReader = _
   private var p: Process = _
-  private val pool = Executors.newFixedThreadPool(1)
-  private var watcher: ExceptionWatcher = _
 
   private def println(x: String): Unit = {
     writer.write(x)
@@ -39,22 +18,23 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     writer.flush()
   }
 
-  def run(dir: Option[String] = None): Unit = if (p eq null) {
+  def run(dir: String = ""): Unit = if (p eq null) {
     val pb = new ProcessBuilder(args:_*)
-    dir.foreach{d => pb.directory(new File(d)) }
+    pb.redirectError(ProcessBuilder.Redirect.INHERIT)
+    if (dir.nonEmpty) pb.directory(new File(dir))
     p = pb.start()
     reader = new BufferedReader(new InputStreamReader(p.getInputStream))
     writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream))
     logger = new BufferedReader(new InputStreamReader(p.getErrorStream))
-    watcher = new ExceptionWatcher(logger)
-    pool.submit(watcher)
+    //watcher = new ExceptionWatcher(logger)
+    //pool.submit(watcher)
   } else {
     throw new Exception(s"Cannot run process $args while it is already running.")
   }
 
   def send(line: String): Unit = println(line)
 
-  def block(dir: Option[String] = None): Int = {
+  def block(dir: String = ""): Int = {
     if (p eq null) run(dir)
     var isConnected = true
     while (isConnected) {
@@ -68,14 +48,12 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
         isConnected = false // Process ended (TODO: unexpectedly?)
       }
     }
-    watcher.isRunning = false
-    pool.shutdownNow()
-    p.exitValue()
+    p.waitFor() // This is a java.lang.Process
   }
 
-  def blockAndReturnOut(dir: Option[String] = None): Seq[String] = {
+  def blockAndReturnOut(dir: String = ""): Seq[String] = {
     if (p eq null) run(dir)
-    p.exitValue()
+    p.waitFor()
     var lines: Seq[String] = Nil
     var line = ""
     while (reader.ready && (line ne null)) {
@@ -85,4 +63,5 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     lines.reverse
   }
 
+  def kill(): Unit = if (p eq null) throw new Exception("Process has not started") else p.destroy()
 }

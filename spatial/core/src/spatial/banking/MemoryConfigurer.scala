@@ -255,7 +255,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     *
     * TODO: The bounds logic should eventually be moved elsewhere (to ScalarAnalyzer)?
     */
-  def getIterDomain(indices: Seq[Exp[Index]]): IndexDomain = indices.zipWithIndex.flatMap{case (i,iIdx) =>
+  def getIterDomain(indices: Seq[Exp[Index]]): IndexDomain = IndexDomain(indices.zipWithIndex.flatMap{case (i,iIdx) =>
     def sparseBound(i: Option[IndexPattern], default: Int): AffineVector = i match {
       case Some(Affine(as,is,b)) => AffineVector(as,is,b).remap(indices)
       case _ => AffineVector(Array.empty,Nil,default).remap(indices)
@@ -274,7 +274,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val maxA = max.as; maxA(iIdx) = -1
     val maxC = max.b
     Seq(minA :+ minC, maxA :+ maxC)
-  }.toArray
+  }.toArray)
 
 
   /**
@@ -507,13 +507,14 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val reads  = readGroups.flatten.map(_.access)
     val writes = writeGroups.flatten.map(_.access)
     val ctrls  = reads.map(_.ctrl).toSet
-    val groupWrites = if (readGroups.nonEmpty) reachingWrites(readGroups, writeGroups, domain) else writeGroups
-    val groupBanking = strategy.bankAccesses(mem, dims, readGroups, groupWrites, domain, dimensionGroupings)
+    val reachWrites = if (readGroups.nonEmpty) reachingWrites(readGroups, writeGroups, domain) else writeGroups
+    val bankings = strategy.bankAccesses(mem, dims, readGroups, reachWrites, domain, dimensionGroupings)
     // TODO: Multiple metapipe parents should cause backtrack eventually
-    val (groupMetapipe, groupPorts) = findMetaPipe(mem, reads, writes)
-    val groupDepth = groupPorts.values.max + 1
-    val groupCost = cost(groupBanking, groupDepth)
-    InstanceGroup(readGroups,groupWrites,ctrls,groupMetapipe,groupBanking,groupDepth,groupCost,groupPorts)
+    val (metapipe, ports) = findMetaPipe(mem, reads, writes)
+    val depth = ports.values.max + 1
+    val bankingCosts = bankings.map{b => (b, cost(b,depth)) }
+    val (banking,bankCost) = bankingCosts.minBy(_._2)
+    InstanceGroup(readGroups,reachWrites,ctrls,metapipe,banking,depth,bankCost,ports)
   }
 
   protected def crossControlCompatible(candidate: Set[Ctrl], ctrls: Set[Ctrl]): Boolean = {
