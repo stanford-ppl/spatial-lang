@@ -12,6 +12,10 @@ package object models {
       case Left(model) => Math.max(0.0, Math.ceil(model.eval(args:_*)))
       case Right(num) => Math.max(0.0, Math.ceil(num))
     }
+    def exactEval(args: (String,Double)*): Double = x match {
+      case Left(model) => Math.max(0.0, model.eval(args:_*))
+      case Right(num) => Math.max(0.0, num)      
+    }
   }
   implicit class ModelOps(x: Model) {
     implicit val dbl: AreaConfig[Double] = x.config.copy(default = 0.0)
@@ -20,7 +24,7 @@ package object models {
 
   implicit class LModelOps(x: LModel) {
     implicit val dbl: LatencyConfig[Double] = x.config.copy(default = 0.0)
-    def eval(args: (String,Double)*): Latency = x.map{model => model.eval(args:_*) }
+    def eval(args: (String,Double)*): Latency = x.map{model => model.exactEval(args:_*) }
   }
 
   implicit class SeqAreaOps[T](areas: Seq[AreaMap[T]]) {

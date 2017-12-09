@@ -355,10 +355,10 @@ trait ChiselGenController extends ChiselGenCounter{
       val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat}.toInt + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat}.toInt + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat}.toInt + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${swap(fifo, Valid)}"
@@ -368,13 +368,13 @@ trait ChiselGenController extends ChiselGenCounter{
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo,Ready)}"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
@@ -547,8 +547,8 @@ trait ChiselGenController extends ChiselGenCounter{
           }}.reduce{_&&_}
       }
     } else true
-    emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}")
-    emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
+    emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}.toInt")
+    emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat}.toInt // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
     emitGlobalModuleMap(src"${sym}_sm", src"Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
     emit(src"// This is now global: val ${swap(sym, SM)} = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
     emit(src"""${swap(sym, SM)}.io.input.enable := ${swap(sym, En)} & retime_released""")
@@ -561,7 +561,7 @@ trait ChiselGenController extends ChiselGenCounter{
     emitGlobalWireMap(src"""${swap(sym, RstEn)}""", """Wire(Bool())""") // TODO: Is this legal?
     emit(src"""${swap(sym, RstEn)} := ${swap(sym, SM)}.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${swap(sym, SM)}.io.input.numIter := (${numIter.mkString(" *-* ")}).raw.asUInt // Unused for inner and parallel""")
-    if (spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt * numIter.length > maxretime) maxretime = spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt * numIter.length
+    if (spatialConfig.target.latencyModel.model("FixMul")("b" -> 32)("LatencyOf").toInt * numIter.length > maxretime) maxretime = spatialConfig.target.latencyModel.model("FixMul")("b" -> 32)("LatencyOf").toInt * numIter.length
     emit(src"""${swap(sym, SM)}.io.input.rst := ${swap(sym, Resetter)} // generally set by parent""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
@@ -781,7 +781,7 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${swap(lhs, Retime)})));""")
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs,En)}""")
-        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${swap(lhs, Retime)}.S""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.toInt.S // ${swap(lhs, Retime)}.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }

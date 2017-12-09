@@ -64,7 +64,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
     val (latencies, cycles) = latenciesAndCycles(block, verbose = false)
     val cycleSyms = cycles.flatMap(_.symbols)
     val scope = latencies.keySet
-    def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0L).toInt
+    def delayOf(x: Exp[_]): Int = latencies.getOrElse(x, 0.0).toInt
     /*
     Alternative (functional) implementation (it's a groupByReduce! plus a map, plus a reduce):
     scope.flatMap{
@@ -81,7 +81,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
      .fold(NoArea){_+_}
    */
 
-    val delayLines = mutable.HashMap[Exp[_],Long]()
+    val delayLines = mutable.HashMap[Exp[_],Double]()
 
     scope.foreach{
       case s@Def(d) =>
@@ -90,7 +90,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
           val inReduce = cycleSyms.contains(in)
           val size = retimingDelay(in, inReduce) + criticalPath - delayOf(in)
           if (size > 0) {
-            delayLines(in) = Math.max(delayLines.getOrElse(in, 0L), size)
+            delayLines(in) = Math.max(delayLines.getOrElse(in, 0.0), size)
           }
         }
       case _ => // No inputs so do nothing

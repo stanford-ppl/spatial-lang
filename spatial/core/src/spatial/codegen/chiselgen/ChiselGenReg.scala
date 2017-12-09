@@ -180,7 +180,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(reg).map{_._1}.indexOf(lhs)
-      emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}) ")
+      emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}.toInt) ")
 
     case RegWrite(reg,v,en) => 
       val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
@@ -204,14 +204,14 @@ trait ChiselGenReg extends ChiselGenSRAM {
             case _ => 
               emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
             }
-          emit(src"""${swap(reg, EnOptions)}(${lhs}_wId) := $en & Utils.getRetimed(${swap(parent, DatapathEn)}, ${symDelay(lhs)})""")
+          emit(src"""${swap(reg, EnOptions)}(${lhs}_wId) := $en & Utils.getRetimed(${swap(parent, DatapathEn)}, ${symDelay(lhs)}.toInt)""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator
             // Make sure this was not stripped of its accumulation from full unroll
             if (fully_unrolled_accum) {
               emitGlobalWireMap(src"""${reg}_wren""", "Wire(Bool())");emit(src"${swap(reg, Wren)} := ${swap(parentOf(lhs).get, DatapathEn)}")
-              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}.D(${symDelay(lhs)}, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before""")
+              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}.D(${symDelay(lhs)}.toInt, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before""")
             }
             emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(reg.tp.typeArguments.head)})""")
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
@@ -219,22 +219,22 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 case FixPtSum =>
                   if (dup.isAccum) {
                     emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.next := ${v}.number""")
-                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.enable := ${swap(reg, Wren)}.D(${symDelay(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.enable := ${swap(reg, Wren)}.D(${symDelay(lhs)}.toInt)""")
                     emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.init := ${reg}_initval.number""")
-                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}, rr)""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.io.input.reset := reset.toBool | (${swap(reg, Resetter)} ${manualReset}).D(${symDelay(lhs)}.toInt, rr)""")
                     emit(src"""${lhs} := ${swap(src"${reg}_${ii}", Blank)}.io.output""")
                   } else {
                     val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write(${data_string}, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write(${data_string}, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}.toInt+1), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                   }
                 case _ =>
                   val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
                   val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                   if (dup.isAccum) {
-                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool | ${swap(reg, Resetter)}.D(${symDelay(lhs)}) ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}.toInt), reset.toBool | ${swap(reg, Resetter)}.D(${symDelay(lhs)}.toInt) ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                   } else {
-                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
+                    emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(reg, Wren)} & ${swap(parent, IIDone)}.D($dlay)).D(${symDelay(lhs)}.toInt), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                   }
                   
               }
@@ -242,7 +242,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             duplicatesOf(reg).zipWithIndex.foreach { case (dup, ii) =>
               val ports = portsOf(lhs, reg, ii) // Port only makes sense if it is not the accumulating duplicate
-              emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
+              emit(src"""${swap(src"${reg}_${ii}", Blank)}.write($v, $en & (${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}.toInt), reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
             }
         }
       }
