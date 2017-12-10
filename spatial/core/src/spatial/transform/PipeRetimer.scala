@@ -26,7 +26,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
   var hierarchy: Int = 0
   var inInnerScope: Boolean = false
 
-  def delayOf(x: Exp[_]): Double = latencies.getOrElse(x, 0.0).toInt
+  def delayOf(x: Exp[_]): Double = latencies.getOrElse(x, 0.0)
 
   def inBlock[A](block: Block[_])(func: => A): A = {
     val prevDelayLines = delayLines
