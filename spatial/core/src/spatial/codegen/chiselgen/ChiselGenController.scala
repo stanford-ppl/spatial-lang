@@ -521,7 +521,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
-    val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ => 32}
+    val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ if (childrenOf(sym).length <= 1) => 3; case _ => (scala.math.log(childrenOf(sym).length) / scala.math.log(2)).toInt + 2}
     val ctrdepth = if (cchain.isDefined) {cchain.get match {case Def(CounterChainNew(ctrs)) => ctrs.length; case _ => 0}} else 0
     val static = if (cchain.isDefined) {
       cchain.get match {
