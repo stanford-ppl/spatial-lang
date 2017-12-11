@@ -25,6 +25,12 @@ trait ChiselGenMath extends ChiselGenSRAM {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+    case FixMul(x,y) => alphaconv_register(src"$lhs"); emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := ($x.*-*($y, Some(${spatialConfig.target.latencyModel.model("FixMul")("b" -> bitWidth(lhs.tp))("LatencyOf")})).r)")
+
+    case FixDiv(x,y) => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := ($x./-/($y, Some(${spatialConfig.target.latencyModel.model("FixDiv")("b" -> bitWidth(lhs.tp))("LatencyOf")})).r)")
+
+    case FixMod(x,y) => emitGlobalWireMap(src"$lhs",src"Wire(${newWire(lhs.tp)})");emit(src"$lhs := $x.%-%($y, Some(${spatialConfig.target.latencyModel.model("FixMod")("b" -> bitWidth(lhs.tp))("LatencyOf")}))")
+
     case FixAbs(x)  => emitGlobalWireMap(src"$lhs", src"Wire(${newWire(lhs.tp)})");emit(src"${lhs}.r := Mux(${x} < 0.U, -$x, $x).r")
 
     case FltAbs(x)  => 
