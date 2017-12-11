@@ -58,15 +58,15 @@ object utils {
     * Returns a list of controllers between the given access's parent (inclusive) and the end controller (non-inclusive)
     * Access's parent is last in the list
     */
-  @stateful def ctrlBetween(start: Ctrl, end: Ctrl): List[Ctrl] = {
+  /*@stateful def ctrlBetween(start: Ctrl, end: Ctrl): List[Ctrl] = {
     allParents[Ctrl](start, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
-  }
+  }*/
 
   @stateful def blksBetween(start: Blk, end: Blk): List[Blk] = {
-    def blkParent(blk: Blk): Option[Blk] = {
-      if (blk.block >= 0) Some((blk.node,-1)) else blkOf.get(blk.node)
-    }
-    allParents[Blk](start, {c:Blk => blkParent(c) }, Some(end)).map(_.get).drop(1)
+    def blkParent(blk: Blk): Option[Blk] = if (blk.block >= 0) Some((blk.node,-1)) else blkOf.get(blk.node)
+
+    val blks = allParents[Blk](start, {c:Blk => blkParent(c) }, Some(end)).flatten
+    if (blks.lastOption.contains(end)) blks.drop(1) else blks
   }
 
   /**

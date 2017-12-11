@@ -18,7 +18,9 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
     mats.map{mat =>
       // Add a random access in the rows dimension if less than 2 dimensions
       if (mat.vectors.length == 1) {
-        val rand = RandomVector(None, Map(Seq(0) -> fresh[Index]), None)
+        val is = accessIterators(access.node, mem)
+        val k = Seq.fill(is.length){0}
+        val rand = RandomVector(None, Map(k -> fresh[Index]), None)
         CompactMatrix(rand +: mat.vectors, access)
       }
       else mat

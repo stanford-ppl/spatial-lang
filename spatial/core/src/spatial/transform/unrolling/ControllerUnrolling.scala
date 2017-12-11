@@ -30,9 +30,23 @@ trait ControllerUnrolling extends UnrollingBase {
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
     case e:Hwblock          => unrollAccel(lhs,e)
     case e:UnitPipe         => unrollUnit(lhs,e)
+    case e:SwitchCase[_]    => unrollCase(lhs,e)
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
 
+  def unrollCase[T](lhs: Sym[T], rhs: SwitchCase[T]): Exp[T] = {
+    implicit val mT: Type[T] = lhs.tp
+    val lanes = UnitUnroller(isInnerControl(lhs))
+    val block = rhs.body
+    val block2 = stageSealedBlock {
+      mangleBlock(block, {stms => stms.foreach{stm => unroll(stm,lanes) }})
+      lanes.map{_ => f(block.result) }.head
+    }
+    val effects = block2.effects andAlso Simple
+    val lhs2 = stageEffectful(SwitchCase(block2), effects)(ctx)
+    transferMetadata(lhs -> lhs2)
+    lhs2.asInstanceOf[Exp[T]]
+  }
 
   def unrollAccel[T](lhs: Sym[T], rhs: Hwblock): Exp[T] = {
     val lanes = UnitUnroller(isInnerControl(lhs))
@@ -464,11 +478,13 @@ trait ControllerUnrolling extends UnrollingBase {
           logs(c"  memories: $mems")
 
           val values: Seq[Seq[Exp[T]]] = inReduction(false){
-            mems.map{mem =>
-              withSubstScope(partial -> mem) {
-                unrollMap(loadRes, reduceLanes)(mT,ctx)
-              }
+            //mems.map{mem =>
+            //  withSubstScope(partial -> mem) {
+            mapLanes.map{ _ =>
+              unrollMap(loadRes, reduceLanes)(mT, ctx)
             }
+            //  }
+            //}
           }
 
           logs(s"[Accum-fold $lhs] Unrolling accum loads")

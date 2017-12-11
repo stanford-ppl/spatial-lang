@@ -19,6 +19,7 @@ trait MemoryUnrolling extends UnrollingBase {
     case Def(_:LineBufferRotateEnq[_])  => addr
     // The unrolled version of register file shifting currently doesn't take a banked address
     case Def(_:RegFileVectorShiftIn[_]) => addr
+    case Def(_:RegFileShiftIn[_])       => addr
     case _ => addr.map{laneAddr => inst.bankAddress(laneAddr) }
   }
 
@@ -131,7 +132,13 @@ trait MemoryUnrolling extends UnrollingBase {
         Write[T](RegFile.vector_shift_in(mem.asInstanceOf[Exp[RegFile[T]]],vec.asInstanceOf[Exp[Vector[T]]], addr, en, op.ax))
       }}.get)
 
-    // Special case rotateEnq because I'm lazy and don't want to duplicate unrolling code just for this one node
+    case Def(op:RegFileShiftIn[_]) =>
+      MultiWrite(data.map{d => d.zipWithIndex.map{case (d,i) =>
+        val addr = bank.get.apply(i)
+        val en = ens.get.apply(i)
+        Write[T](RegFile.shift_in(mem.asInstanceOf[Exp[RegFile[T]]], d, addr, en, op.ax))
+      }}.get)
+
     case Def(_:LineBufferRotateEnq[_]) =>
       val rows = bank.get.flatten.distinct
       if (rows.length > 1) {
