@@ -72,7 +72,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case b: Bound[_] => 0.0
       case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
     }
-    symDelay(en) + last_def_delay
+    if (spatialConfig.enableRetiming) symDelay(en) + last_def_delay else 0.0
   }
 
   protected def computeSuffix(s: Bound[_]): String = {
