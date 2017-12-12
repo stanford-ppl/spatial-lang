@@ -70,6 +70,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Const(_) => 0.0
       case Def(DelayLine(size,_)) => size.toDouble // Undo subtraction
       case Def(RegRead(_)) => latencyOption("RegRead", None)
+      case Def(FixEql(a,_)) => latencyOption("FixEql", Some(bitWidth(a.tp)))
       case b: Bound[_] => 0.0
       case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
     }
