@@ -79,6 +79,27 @@ trait ChiselGenSRAM extends ChiselCodegen {
     result
   }
 
+  def latencyOption(op: String, b: Option[Int]): Double = {
+    if (spatialConfig.enableRetiming) {
+      if (b.isDefined) {spatialConfig.target.latencyModel.model(op)("b" -> b.get)("LatencyOf")}
+      else spatialConfig.target.latencyModel.model(op)()("LatencyOf") 
+    } else {
+      0.0
+    }
+  }
+  def latencyOptionString(op: String, b: Option[Int]): String = {
+    if (spatialConfig.enableRetiming) {
+      val latency = latencyOption(op, b)
+      if (b.isDefined) {
+        s"""Some(${latency}.toInt)"""
+      } else {
+        s"""Some(${latency}.toInt)"""
+      }
+    } else {
+      "None"      
+    }
+  }
+
   def swap(lhs: Exp[_], s: RemapSignal): String = {
     s match {
       case En => wireMap(src"${lhs}_en")
@@ -644,15 +665,15 @@ trait ChiselGenSRAM extends ChiselCodegen {
       // emit(src"val fu32_0 = List.fill(${fixu32_0Map.size}){Wire(new FixedPoint(false, 32, 0))}")
       // emit(src"val fs10_22 = List.fill(${fixs10_22Map.size}){Wire(new FixedPoint(true, 10, 22))}")
 
-      emit(s"Utils.fixmul_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMul")("b" -> 32)("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixdiv_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixDiv")("b" -> 32)("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixadd_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixAdd")("b" -> 32)("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixsub_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixSub")("b" -> 32)("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixmod_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMod")("b" -> 32)("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixeql_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixEql")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.mux_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("Mux")()("LatencyOf").toInt    else 0}")
-      emit(s"Utils.sramload_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMLoad")()("LatencyOf").toInt    else 0}")
-      emit(s"Utils.sramstore_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMStore")()("LatencyOf").toInt    else 0}")
+      emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(32))}.toInt")
+      emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(32))}.toInt")
+      emit(s"Utils.fixadd_latency = ${latencyOption("FixAdd", Some(32))}.toInt")
+      emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(32))}.toInt")
+      emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(32))}.toInt")
+      emit(s"Utils.fixeql_latency = ${latencyOption("FixEql", None)}.toInt")
+      emit(s"Utils.mux_latency    = ${latencyOption("Mux", None)}.toInt")
+      emit(s"Utils.sramload_latency    = ${latencyOption("SRAMLoad", None)}.toInt")
+      emit(s"Utils.sramstore_latency    = ${latencyOption("SRAMStore", None)}.toInt")
       emit(s"Utils.SramThreshold = 4")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")
