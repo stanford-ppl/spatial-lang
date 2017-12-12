@@ -35,8 +35,8 @@ trait FunctionScheduler extends CompilerPass {
       val grpId = groups.indexWhere{grp => grp.forall{r => canHaveSameImpl(call, r) }}
       if (grpId != -1) groups(grpId) += call  else groups += ArrayBuffer(call)
     }
-    if (hostCalls.nonEmpty && !spatialConfig.inline) groups += ArrayBuffer(hostCalls:_*)
-    else if (hostCalls.nonEmpty) groups ++= hostCalls.map{call => ArrayBuffer(call) }
+    if (hostCalls.nonEmpty) groups += ArrayBuffer(hostCalls:_*)
+    //else if (hostCalls.nonEmpty) groups ++= hostCalls.map{call => ArrayBuffer(call) }
 
     groups.filterNot(_.isEmpty)
   }

@@ -18,7 +18,7 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
     val oldTrace = trace
     val blk = (lhs,0)
     val ctrl = blkToCtrl(blk)
-    trace = ctrl +: trace
+    trace = if (inHw) ctrl +: trace else Nil
     val result = block
     trace = oldTrace
     result
@@ -41,14 +41,14 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       val iters2  = iters.map{is => is.map{i => fresh[Index] }}
       val valids2 = valids.map{vs => vs.map{v => fresh[Bit] }}
       val substs = iters.flatten.zip(iters2.flatten) ++ valids.flatten.zip(valids2.flatten)
-      val func2 = () => withSubstScope(substs:_*){ inlineBlock(func) }
+      val func2 = () => inTrace(lhs){ withSubstScope(substs:_*){ inlineBlock(func) } }
       Foreach.op_unrolled_foreach(f(en),f(cchain),func2,iters2,valids2).asInstanceOf[Exp[T]]
 
     case op @ UnrolledReduce(en,cchain,accum,func,iters,valids) =>
       val iters2  = iters.map{is => is.map{i => fresh[Index] }}
       val valids2 = valids.map{vs => vs.map{v => fresh[Bit] }}
       val substs = iters.flatten.zip(iters2.flatten) ++ valids.flatten.zip(valids2.flatten)
-      val func2 = () => withSubstScope(substs:_*){ inlineBlock(func) }
+      val func2 = () => inTrace(lhs){ withSubstScope(substs:_*){ inlineBlock(func) } }
       Reduce.op_unrolled_reduce(f(en),f(cchain),f(accum),func2,iters2,valids2)(op.mT,op.mC,ctx,state).asInstanceOf[Exp[T]]
 
     case op @ StateMachine(en,start,notDone,action,nextState,state) =>
@@ -63,20 +63,32 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       dbgs(s"${str(lhs)}")
       dbgs(s"  Creating $copies copies of function: ")
       (0 until copies).foreach { i =>
+        dbgs(s"    Copy #$i:")
         val dispatchCalls = calls.filter{call => funcDispatch(call) == i }
         val dispatches = dispatchCalls.length
-        //val isHostCall = dispatchCalls.forall{call => call._2.isEmpty }
+        val isHostCall = dispatchCalls.forall{call => call.trace.isEmpty }
 
-        if (dispatches > 1) {
+        dbgs(s"    Calls: ")
+        dispatchCalls.foreach{call =>
+          dbgs(s"      ${call.node} [${call.trace}]")
+        }
+
+        if ((dispatches > 1 || isHostCall) && !spatialConfig.inline) {
           val ins2 = ins.map{in => newFresh(in.tp) }
+          val oldTrace = trace
+          val newTrace = dispatchCalls.head.trace.dropWhile{c => c != (lhs,0) }
+          dbgs(s"      Using trace: $trace")
+          trace = newTrace
           val copy = Func.decl(ins2, () => withSubstScope(ins.zip(ins2):_*){ inlineBlock(block) })(op.mRet,ctx,state)
-          isHWModule(copy) = true
+          trace = oldTrace
+          isHWModule(copy) = !isHostCall
           levelOf(copy) = levelOf(lhs)
+          styleOf(copy) = FuncBody
           modules += (lhs, i) -> copy
-          dbg(s"$i: ${str(copy)}")
+          dbgs(s"      ${str(copy)}")
         }
         else {
-          dbg(s"$i: $dispatchCalls calls - will inline at call site")
+          dbgs(s"      $dispatchCalls calls - will inline at call site")
         }
       }
       constant(typ[T])(MissingFunctionDecl)
@@ -86,22 +98,23 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       dbgs(s"  Trace: $trace")
       val call = (lhs,trace)
       val dispatch = funcDispatch(call)
-      val dispatchCalls = callsTo(func).count{call => funcDispatch(call) == dispatch }
+      val dispatches = callsTo(func).count{call => funcDispatch(call) == dispatch }
+      val isHostCall = trace.isEmpty
       dbgs(s"  Dispatch: $dispatch")
-      dbgs(s"  Other calls w/ this dispatch: $dispatchCalls")
+      dbgs(s"  Other calls w/ this dispatch: $dispatches")
 
       // Inline function calls with only one dispatch at the call site
-      if (dispatchCalls == 1) {
+      if ((dispatches > 1 || isHostCall) && !spatialConfig.inline) {
+        dbgs(s"Creating function dispatch to #$dispatch")
+        val copy = modules((func, dispatch))
+        withSubstScope(func -> copy) { inTrace(func){ super.transform(lhs, rhs) }}
+      }
+      else {
         dbgs(s"Inlining single function call: ")
         val Op(FuncDecl(l,block)) = func
         withSubstScope(l.zip(f.tx(inputs)):_*){
           inTrace(func){ inlineBlock(block) }
         }
-      }
-      else {
-        dbgs(s"Creating function dispatch to #$dispatch")
-        val copy = modules((func, dispatch))
-        withSubstScope(func -> copy) { inTrace(func){ super.transform(lhs, rhs) }}
       }
 
     case _ => super.transform(lhs,rhs)

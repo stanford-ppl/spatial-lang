@@ -52,8 +52,12 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
-      localMems.filterNot(isOffChipMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = null") }
-      localMems.filter(isInternalStreamMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = new ${lhs.tp}") }
+      localMems.filterNot(isOffChipMemory).distinct.foreach{case lhs@Op(rhs) =>
+        emit(src"var $lhs: ${lhs.tp} = null")
+      }
+      localMems.filter(isInternalStreamMemory).distinct.foreach{case lhs@Op(rhs) =>
+        emit(src"var $lhs: ${lhs.tp} = new ${lhs.tp}")
+      }
 
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       globalMems = true
