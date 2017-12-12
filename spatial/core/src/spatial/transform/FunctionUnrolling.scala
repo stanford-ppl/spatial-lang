@@ -65,9 +65,9 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       (0 until copies).foreach { i =>
         val dispatchCalls = calls.filter{call => funcDispatch(call) == i }
         val dispatches = dispatchCalls.length
-        val isHostCall = dispatchCalls.forall{call => call._2.isEmpty }
+        //val isHostCall = dispatchCalls.forall{call => call._2.isEmpty }
 
-        if (dispatches > 1 || isHostCall) {
+        if (dispatches > 1) {
           val ins2 = ins.map{in => newFresh(in.tp) }
           val copy = Func.decl(ins2, () => withSubstScope(ins.zip(ins2):_*){ inlineBlock(block) })(op.mRet,ctx,state)
           isHWModule(copy) = true
@@ -91,7 +91,7 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       dbgs(s"  Other calls w/ this dispatch: $dispatchCalls")
 
       // Inline function calls with only one dispatch at the call site
-      if (dispatchCalls == 1 && inHw) {
+      if (dispatchCalls == 1) {
         dbgs(s"Inlining single function call: ")
         val Op(FuncDecl(l,block)) = func
         withSubstScope(l.zip(f.tx(inputs)):_*){

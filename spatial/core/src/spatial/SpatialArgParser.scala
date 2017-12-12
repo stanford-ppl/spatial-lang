@@ -159,4 +159,8 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.useAffine = true
   }
 
+  parser.opt[Unit]("inline").action{ (_,_) =>
+    spatialConfig.inline = true
+  }
+
 }

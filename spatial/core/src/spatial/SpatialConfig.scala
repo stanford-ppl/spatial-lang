@@ -85,6 +85,8 @@ class SpatialConfig extends argon.core.Config {
 
   var threads: Int = 8
 
+  var inline: Boolean = false
+
   override def printer():String = {
     val vars = this.getClass.getDeclaredFields
     var cmd = ""

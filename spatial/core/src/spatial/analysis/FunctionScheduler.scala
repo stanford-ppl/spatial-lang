@@ -24,7 +24,7 @@ trait FunctionScheduler extends CompilerPass {
     dbgs(s"LCA:    " + lca)
     // Mutually exclusive if occurs in two separate parts of a switch, or in a sequential
     // TODO: Assumes unit pipe is still pipelined for now (no control signals for sequential execution of inner pipe)
-    lca.exists{p => !isInnerControl(p.node) && (isSeqPipe(p.node) || isSwitch(p.node)) }
+    !spatialConfig.inline && lca.exists{p => !isInnerControl(p.node) && (isSeqPipe(p.node) || isSwitch(p.node)) }
   }
 
   protected def createGroups(calls: Seq[Trace]): Seq[Seq[Trace]] = {
@@ -35,7 +35,8 @@ trait FunctionScheduler extends CompilerPass {
       val grpId = groups.indexWhere{grp => grp.forall{r => canHaveSameImpl(call, r) }}
       if (grpId != -1) groups(grpId) += call  else groups += ArrayBuffer(call)
     }
-    if (hostCalls.nonEmpty) groups += ArrayBuffer(hostCalls:_*)
+    if (hostCalls.nonEmpty && !spatialConfig.inline) groups += ArrayBuffer(hostCalls:_*)
+    else if (hostCalls.nonEmpty) groups ++= hostCalls.map{call => ArrayBuffer(call) }
 
     groups.filterNot(_.isEmpty)
   }
