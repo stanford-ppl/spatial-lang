@@ -762,6 +762,52 @@ trait ChiselGenController extends ChiselGenCounter{
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
+
+    // Staged function codegen commented until compiling
+    /* 
+    case Def(func: FuncDecl[_]) =>
+    
+      val inputs = func.inputs
+      val body = func.block
+
+      // Still need way to get function calls
+      val calls = callsTo(func)
+    
+      val nInputs = inputs.length
+
+      val allInputs = calls.map{
+        case Def(FuncCall(_,inputs)) => inputs
+      }
+
+      val inputSets = (0 until nInputs).map{i =>
+        allInputs.map{inputSet => inputSet(i)}
+      }
+
+      inputSets.indices.foreach{i =>
+          val set = inputSets(i)
+          val arg = inputs(i)
+
+          // Still needs to be connected to arg from body
+          // Need call id for function
+          emit(src"""${arg} := Mux(Utils.risingEdge(${swap(lhs, En)}), ${call_ids}, ${set})""")
+      }
+
+
+      emitBlock(body)
+
+    case ParSRAMLoad(sram: Bound[_], inds, ens) =>
+      // Need way to get selects and aliases from FuncDecl
+      val selects = ...
+      val aliases = ...
+      aliases.zip(selects).zipWithIndex
+                          .foreach{
+                            case ((_sram, _select), id) => emitParSRAMLoad(...)
+      }
+      
+      emit(src"""${arg} := Mux(Utils.risingEdge(${swap(lhs, En)}), ${call_ids}, ${set})""")
+
+    case ParSRAMLoad(sram, inds, en) => emitParSRAMLoad(...)
+    */
     case Hwblock(func,isForever) =>
       hwblock_sym = hwblock_sym :+ lhs.asInstanceOf[Exp[_]]
       controllerStack.push(lhs)
