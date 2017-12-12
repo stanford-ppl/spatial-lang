@@ -155,10 +155,12 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
       dbgs(c"[$criticalPath = ${delayOf(reader)} - ${latencyOf(reader,inReduce)}] ${str(reader)}")
       //logs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
       inputs.flatMap{in =>
-        val delay = scrubNoise(retimingDelay(in) + criticalPath - delayOf(in))
-        val delay_matched = if (scrubNoise(delay % 1.0) == 0) delay else delay.toInt+1
-        dbgs(c"..[$delay (-> ${delay_matched}) = ${retimingDelay(in)} + $criticalPath - ${delayOf(in)}] ${str(in)}")
-        if (delay_matched.toInt != 0) Some(in -> (reader, delay_matched.toInt)) else None
+        val delay_required = scrubNoise(retimingDelay(in) + criticalPath).toInt
+        val delay_contributed = scrubNoise(delayOf(in)).toInt
+        val delay_exact = scrubNoise(retimingDelay(in) + criticalPath - delayOf(in))
+        val delay = delay_required - delay_contributed
+        dbgs(c"..[${delay_exact} (-> ${delay}) = ${retimingDelay(in)} + $criticalPath - ${delayOf(in)} (-> ${delay_required} - ${delay_contributed})] ${str(in)}")
+        if (delay.toInt != 0) Some(in -> (reader, delay.toInt)) else None
       }
     }
     val inputDelays = consumerDelays.groupBy(_._1).mapValues(_.map(_._2)).toSeq
