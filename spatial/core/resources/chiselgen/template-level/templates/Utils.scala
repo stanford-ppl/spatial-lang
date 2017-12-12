@@ -55,9 +55,15 @@ object ops {
   }
 
   implicit class BoolOps(val b:Bool) {
-    def D(delay: Int, retime_released: Bool = true.B) = {
+    def D(delay: Int, retime_released: Bool): Bool = {
 //      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
       Mux(retime_released, Utils.getRetimed(b, delay), false.B)
+    }
+    def D(delay: Double, retime_released: Bool): Bool = {
+      b.D(delay.toInt, retime_released)
+    }
+    def D(delay: Double): Bool = {
+      b.D(delay.toInt, true.B)
     }
 
   }
@@ -826,7 +832,7 @@ object Utils {
     ff.io.out
   }
 
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int) = {
+  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int): T = {
     if (delay == 0) {
       sig
     }
@@ -839,6 +845,9 @@ object Utils {
         sig.cloneType.fromBits(sr.io.out)
       }
     }
+  }
+  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Double): T = {
+    getRetimed(sig, delay.toInt)
   }
 
   class PrintStackTraceException extends Exception
