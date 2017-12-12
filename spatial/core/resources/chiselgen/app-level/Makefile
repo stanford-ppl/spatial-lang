@@ -271,6 +271,8 @@ arria10-hw:
 
 arria10-sw:
 	cp arria10.mk cpp/Makefile
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/generated_debugRegs.h cpp/fringeArria10
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
 
