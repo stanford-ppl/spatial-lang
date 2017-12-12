@@ -296,7 +296,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     dbgs("")
     dbgs("")
     dbgs("Sym Delays:")
-    newLatencies.toList.map{case (s,l) => s -> (l - latencyOf(s, inReduce = cycles.contains(s))) }
+    newLatencies.toList.map{case (s,l) => s -> (scrubNoise(l - latencyOf(s, inReduce = cycles.contains(s)))) }
                        .sortBy(_._2)
                        .foreach{case (s,l) =>
                          symDelay(s) = l

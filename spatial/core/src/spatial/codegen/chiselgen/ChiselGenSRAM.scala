@@ -62,6 +62,19 @@ trait ChiselGenSRAM extends ChiselCodegen {
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
   protected def getConstValue(one: Exp[_]): Any = one match {case Const(c) => c }
 
+  protected def enableRetimeMatch(en: Exp[_], lhs: Exp[_]): Double = { // With partial retiming, the delay on standard signals needs to match the delay of the enabling input, not necessarily the symDelay(lhs) if en is delayed partially
+    val last_def_delay = en match {
+      case Def(And(_,_)) => latencyOption("And", None)
+      case Def(Or(_,_)) => latencyOption("Or", None)
+      case Def(Not(_)) => latencyOption("Not", None)
+      case Const(_) => 0.0
+      case Def(DelayLine(size,_)) => size.toDouble // Undo subtraction
+      case b: Bound[_] => 0.0
+      case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
+    }
+    symDelay(en) + last_def_delay
+  }
+
   protected def computeSuffix(s: Bound[_]): String = {
     var result = if (config.enableNaming) super.quote(s) else wireMap(super.quote(s)) // TODO: Playing with fire here.  Probably just make the quote and name of bound in Codegen.scala do the wireMap themselves instead of doing it here!
     if (itersMap.contains(s)) {
@@ -509,7 +522,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
         emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${symDelay(lhs)}.toInt) & $en""")
+        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${enableRetimeMatch(en, lhs)}.toInt) & $en""")
         is.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
         }
@@ -527,7 +540,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"""// Assemble multidimW vector""")
       emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
       emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
-      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}.toInt, rr)""")
+      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt, rr)""")
       is.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
       }
@@ -548,7 +561,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${symDelay(lhs)}.toInt,rr) & ${ens(i)}")
+          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${enableRetimeMatch(ens(i), lhs)}.toInt,rr) & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${swap(lhs, RVec)}($i).addr($j) := ${a}.raw """)
           }
@@ -598,7 +611,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""${swap(lhs, WVec)}($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)}.toInt)")
+        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(ens(i), lhs)}.toInt)")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${swap(lhs, WVec)}($i).addr($j) := ${a}.r """)
         }
