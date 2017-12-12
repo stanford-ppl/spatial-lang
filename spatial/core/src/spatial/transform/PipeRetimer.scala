@@ -52,6 +52,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     result
   }
 
+  def scrubNoise(x: Double): Double = {if ( (x*1000) % 1 == 0) x else if ( (x*1000) % 1 < 0.5) (x*1000).toInt.toDouble/1000.0 else ((x*1000).toInt + 1).toDouble/1000.0 } // Round out to nearest 1/1000 because numbers like 1.1999999997 - 0.2 < 1.0 and screws things up
   def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x, cycles.contains(x))
   def retimingDelay(x: Exp[_]): Double = if (requiresRegisters(x)) latencyOf(x, cycles.contains(x)).toInt else 0.0
 
@@ -146,7 +147,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
 
     val consumerDelays = scope.flatMap{case TP(reader, d) =>
       val inReduce = cycles.contains(reader)
-      val criticalPath = delayOf(reader) - latencyOf(reader, inReduce)  // All inputs should arrive at this offset
+      val criticalPath = scrubNoise(delayOf(reader) - latencyOf(reader, inReduce))  // All inputs should arrive at this offset
 
       // Ignore non-bit based values
       val inputs = bitBasedInputs(d) //diff d.blocks.flatMap(blk => exps(blk))
