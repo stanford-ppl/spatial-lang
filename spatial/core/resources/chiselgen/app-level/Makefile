@@ -269,6 +269,16 @@ arria10-hw:
 	cat ./chisel/template-level/fringeArria10/*.v >> verilog-arria10/Top.v
 
 
+arria10-sw:
+	cp arria10.mk cpp/Makefile
+	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
+	make -C cpp -j8
+
+
+arria10-sw-clean:
+	cd cpp && make clean
+
+
 zcu: zcu-hw zcu-sw
 
 zcu-sw:

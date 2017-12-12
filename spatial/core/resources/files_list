@@ -67,6 +67,16 @@
 ./cppgen/datastructures/cppDeliteArraystring.h
 ./cppgen/datastructures/cppRefint32_t.h
 ./cppgen/datastructures/cppDeliteVariables.h
+./cppgen/fringeArria10/FringeContextBase.h
+./cppgen/fringeArria10/Makefile
+./cppgen/fringeArria10/Arria10AddressMap.h
+./cppgen/fringeArria10/utils/setClocks.sh
+./cppgen/fringeArria10/utils/set_perms
+./cppgen/fringeArria10/utils/run.sh
+./cppgen/fringeArria10/FringeContextArria10.h
+./cppgen/fringeArria10/Arria10Utils.cpp
+./cppgen/fringeArria10/FringeContext.h
+./cppgen/fringeArria10/Arria10Utils.h
 ./cppgen/testdata/slacsample1d.csv
 ./cppgen/testdata/1d.ssv
 ./cppgen/testdata/slacsample2d.csv
@@ -933,6 +943,7 @@
 ./chiselgen/template-level/project/build.properties
 ./chiselgen/app-level/zynq.mk
 ./chiselgen/app-level/scrape.sh
+./chiselgen/app-level/arria10.mk
 ./chiselgen/app-level/Makefile
 ./chiselgen/app-level/xsim.mk
 ./chiselgen/app-level/findDiff.sh
