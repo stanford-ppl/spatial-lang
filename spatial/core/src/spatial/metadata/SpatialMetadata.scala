@@ -85,6 +85,7 @@ case object MetaPipe   extends ControlStyle
 case object StreamPipe extends ControlStyle
 case object ForkJoin   extends ControlStyle
 case object ForkSwitch extends ControlStyle
+case object FuncBody   extends ControlStyle
 
 sealed abstract class ControlLevel
 case object InnerControl extends ControlLevel

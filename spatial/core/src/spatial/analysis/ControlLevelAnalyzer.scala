@@ -1,11 +1,11 @@
 package spatial.analysis
 
 import argon.core._
+import argon.nodes._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import spatial.SpatialConfig
 
 /**
   * Basic control style annotation checking / fixing.
@@ -81,6 +81,11 @@ trait ControlLevelAnalyzer extends SpatialTraversal {
       case _: SparseTransfer[_]  => annotateLeafControl(lhs)
       case _: SparseTransferMem[_,_,_] => annotateLeafControl(lhs)
 
+      case _: FuncDecl[_] =>
+        levelOf(lhs) = if (isOuter) OuterControl else InnerControl
+        styleOf(lhs) = FuncBody
+
+      case FuncCall(func,_) => levelOf(lhs) = levelOf(func)
       case _ =>
     }
 
@@ -89,12 +94,13 @@ trait ControlLevelAnalyzer extends SpatialTraversal {
       (isControlNode(lhs) && !isSwitchCase(lhs)) || isOuter || isSwitch(lhs) || isIfThenElse(lhs)
     }
     else {
-      (isControlNode(lhs) && !isSwitch(lhs) && !isSwitchCase(lhs)) || isOuter
+      (isControlNode(lhs) && !isSwitch(lhs) && !isSwitchCase(lhs)) || isOuter || (isFuncCall(lhs) && levelOf(lhs) == OuterControl)
     }
   }
 
   override def visit(lhs: Sym[_], rhs: Op[_]) = rhs match {
     case Hwblock(blk,_) => markControlNodes(lhs, rhs)
+    case FuncDecl(_,_)  => markControlNodes(lhs, rhs)
     case _ => super.visit(lhs, rhs)
   }
 }

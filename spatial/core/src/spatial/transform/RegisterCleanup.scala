@@ -1,6 +1,7 @@
 package spatial.transform
 
 import argon.core._
+import argon.nodes.FuncDecl
 import argon.transform.ForwardTransformer
 import spatial.aliases._
 import spatial.metadata._
@@ -111,6 +112,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
       else mirrorWithDuplication(lhs, rhs)
 
     case _ if isControlNode(lhs) => withCtrl(lhs){ mirrorWithDuplication(lhs, rhs) }
+    case FuncDecl(_,_) => withCtrl(lhs){ mirrorWithDuplication(lhs,rhs) }
     case _ => mirrorWithDuplication(lhs, rhs)
   }
 

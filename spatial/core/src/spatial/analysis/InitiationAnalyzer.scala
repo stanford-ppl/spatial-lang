@@ -40,6 +40,9 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
   override protected def visit(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case _:Hwblock => inHw { visitControl(lhs,rhs) }
 
+    case FuncDecl(_,block) if isHWModule(lhs) && isInnerControl(lhs) =>
+      visitInnerControl(lhs,rhs)
+
     // TODO: Still need to verify that this rule is generally correct
     case StateMachine(_,_,notDone,action,nextState,_) if isInnerControl(lhs) =>
       dbgs(str(lhs))

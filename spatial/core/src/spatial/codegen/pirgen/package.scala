@@ -338,6 +338,7 @@ package object pirgen {
     case StreamPipe     => StreamCU
     case ForkJoin       => throw new Exception(s"Do not support ForkJoin in PIR")
     case ForkSwitch     => throw new Exception("Do not support ForkSwitch in PIR")
+    case FuncBody       => throw new Exception("Do not support functions in PIR")
   }
 
   // HACK Not used

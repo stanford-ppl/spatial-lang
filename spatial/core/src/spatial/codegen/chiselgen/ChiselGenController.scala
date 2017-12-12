@@ -414,6 +414,7 @@ trait ChiselGenController extends ChiselGenCounter{
         case SeqPipe => s"Seqpipe"
         case ForkJoin => s"Parallel"
         case ForkSwitch => s"Match"
+        case FuncBody => "Function"
       }
     }
 
@@ -672,6 +673,7 @@ trait ChiselGenController extends ChiselGenCounter{
         case SeqPipe => s"Seqpipe"
         case ForkJoin => s"Parallel"
         case ForkSwitch => s"Match"
+        case FuncBody => "Function"
       }
     }
 

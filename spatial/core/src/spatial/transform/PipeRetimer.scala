@@ -337,6 +337,9 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
     }
     else rhs match {
       case _:StateMachine[_] => withRetime(List(true,false,true), ctx){ super.transform(lhs, rhs) }
+      case _:FuncDecl[_] if isHWModule(lhs) && isInnerControl(lhs) =>
+        withRetime(List(true), ctx){ super.transform(lhs,rhs) }
+
       case _ => withRetime(Nil, ctx){ super.transform(lhs, rhs) }
     }
   }

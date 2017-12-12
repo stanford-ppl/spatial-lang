@@ -1,6 +1,7 @@
 package spatial.analysis
 
 import argon.core._
+import argon.nodes._
 import org.virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
@@ -35,6 +36,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var loopIterators: List[Bound[Index]] = Nil             // Loop iterators (last = innermost)
   var inInnerLoop: Boolean = false                        // Is the innermost loop iterator an inner controller?
 
+  var modules: List[Exp[_]] = Nil
   var localMems: List[Exp[_]] = Nil
   var metapipes: List[Exp[_]] = Nil
   var streampipes: List[Exp[_]] = Nil
@@ -44,8 +46,24 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   var streamEnablers: List[Exp[_]] = Nil // Pops
   var streamHolders: List[Exp[_]] = Nil // Pushes
   var top: Option[Exp[_]] = None
+  var inHw: Boolean = false
+
+  var aliases: Map[Exp[_], Exp[_]] = Map.empty
+  var trace: Seq[Ctrl] = Nil
 
   val instrument = new argon.util.NoInstrument("total")
+
+  def alias(x: Exp[_]): Exp[_] = aliases.getOrElse(x, x)
+  object Alias {
+    def unapply(arg: Exp[_]): Option[Exp[_]] = Some(alias(arg))
+  }
+  def withAliases[R](ss: Seq[(Exp[_],Exp[_])])(blk: => R): R = {
+    val oldAliases = aliases
+    aliases ++= ss
+    val result = blk
+    aliases = oldAliases
+    result
+  }
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = instrument("preprocess"){
     instrument.reset()
@@ -68,7 +86,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     metadata.clearAll[ReadUsers]
     metadata.clearAll[Resetters]
     metadata.clearAll[MShouldDuplicate]
-
+    metadata.clearAll[FunctionCalls]
     super.preprocess(block)
   }
 
@@ -92,12 +110,15 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val prevCtrl = controller
     val prevBlock = curBlock
     val prevReads = pendingNodes
+    val prevTrace = trace
 
     curBlock = Some(blk)
     controller = Some(blkToCtrl(blk))
+    trace = controller.get +: trace
     dbgs(c"  Setting controller to ${str(blk.node)} [block #${blk.block}, child #${controller.get.block}, isInner: ${controller.get.isInner}]")
     func
 
+    trace = prevTrace
     controller = prevCtrl
     curBlock = prevBlock
     pendingNodes = prevReads
@@ -131,7 +152,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   /** Helper methods **/
   def appendReader(reader: Exp[_], ctrl: Ctrl) = instrument("appendReader"){
     val LocalReader(reads) = reader
-    reads.foreach{case (mem, addr, en) =>
+    reads.foreach{case (Alias(mem), addr, en) =>
       val access = (reader, ctrl)
 
       if (!readersOf(mem).contains(access))
@@ -151,7 +172,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   def appendWriter(writer: Exp[_], ctrl: Ctrl) = instrument("appendWriter"){
     val LocalWriter(writes) = writer
     val Def(writeDef) = writer
-    writes.foreach{case (mem,value,addr,en) =>
+    writes.foreach{case (Alias(mem),value,addr,en) =>
       writersOf(mem) = (writer,ctrl) +: writersOf(mem)      // (5)
       writtenIn(ctrl) = mem +: writtenIn(ctrl)              // (10)
       //val isAccumulatingWrite = writeDef.inputs.filterNot(_ == mem).exists{_.dependsOn(mem, curScope) }
@@ -177,7 +198,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   def appendResetter(resetter: Exp[_], ctrl: Ctrl) = instrument("appendResetter"){
     val LocalResetter(resetters) = resetter
-    resetters.foreach{case (mem,en) =>
+    resetters.foreach{case (Alias(mem),en) =>
       val access = (resetter, ctrl)
 
       if (!resettersOf(mem).contains(access))
@@ -295,6 +316,14 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
   }
 
+  def addFuncCall(call: Exp[_], parent: Ctrl): Unit = call match {
+    case Def(FuncCall(func,_)) =>
+      val t = if (inHw) trace else Nil
+      dbgs(s"  Adding function call $call to function calls of $func")
+      dbgs(s"  Trace: $t")
+      callsTo.add(func, (call,t))
+  }
+
   /** Common method for all nodes **/
   def addCommonControlData(lhs: Sym[_], rhs: Op[_]) = instrument("addCommonControlData"){
     if (controller.isDefined) {
@@ -349,6 +378,9 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       if (isMetaPipe(lhs)) metapipes ::= lhs // (8)
       if (isStreamPipe(lhs)) streampipes ::= lhs
     }
+
+    if (isFuncDecl(lhs)) modules ::= lhs
+    if (isFuncCall(lhs)) addFuncCall(lhs, controller.getOrElse(null))
   }
 
   def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = instrument("addChildDependencyData"){
@@ -382,8 +414,10 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
   protected def analyze(lhs: Sym[_], rhs: Op[_]): Unit = instrument("analyze"){ rhs match {
     case Hwblock(blk,_) =>
+      inHw = true
       visitBlk(lhs){ visitBlock(blk) }
       addChildDependencyData(lhs, blk)
+      inHw = false
 
     case UnitPipe(_,blk) =>
       visitBlk(lhs){ visitBlock(blk) }
@@ -481,6 +515,20 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     case e if isFringe(lhs) =>
       rhs.allInputs.filter(isStream).foreach { stream => fringeOf(stream) = lhs }
+
+    case FuncDecl(_,_) => // Do nothing at this time
+
+
+    case FuncCall(func @ Def(FuncDecl(ins,block)),inputs) =>
+      withAliases(ins.zip(inputs)) {
+        visitBlk((func, 0)) {
+          visitBlock(block)
+          pendingNodes.get(block.result).foreach { nodes =>
+            // Logically, the function result is used by whatever uses the function call
+            addPendingUse(func, blkToCtrl((func, 0)), (func, 0), nodes, isBlockResult = true)
+          }
+        }
+      }
 
     case _ => super.visit(lhs, rhs)
   }}

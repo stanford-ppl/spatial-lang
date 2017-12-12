@@ -3,7 +3,7 @@ package spatial
 import argon.ArgonApp
 import argon.ArgonCompiler
 import argon.analysis.ParamFinalizer
-import argon.core.{Config, State}
+import argon.core.{Block, Config, Exp, State, Type}
 import argon.traversal.IRPrinter
 import argon.util.Report
 import spatial.aliases._
@@ -106,6 +106,9 @@ trait SpatialCompiler extends ArgonCompiler {
       def genericStreams = uctrlAnalyzer.genericStreams
     }
 
+    lazy val funcAnalyzer   = new FunctionScheduler {var IR = state; def modules = uctrlAnalyzer.modules }
+    lazy val funcUnrolling  = FunctionUnrolling(state)
+
     lazy val scalagen = new ScalaGenSpatial { var IR = state; def localMems = uctrlAnalyzer.localMems }
     lazy val chiselgen = new ChiselGenSpatial { var IR = state }
     lazy val pirgen = new PIRGenSpatial { var IR = state }
@@ -148,7 +151,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += affineAnalyzer    // Memory access patterns
     passes += ctrlAnalyzer      // Control signal analysis
     passes += printer
-    passes += memAnalyzer       // Memory banking/buffering
+    //passes += memAnalyzer       // Memory banking/buffering
 
     passes += printer
     // passes += areaAnalyzer
@@ -207,6 +210,11 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += unroller          // Unrolling
     passes += printer
     passes += uctrlAnalyzer     // Readers/writers for CSE
+
+    passes += funcAnalyzer
+    passes += funcUnrolling
+    passes += printer
+
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += printer
     passes += uctrlAnalyzer

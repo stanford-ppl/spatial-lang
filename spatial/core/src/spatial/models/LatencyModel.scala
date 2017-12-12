@@ -357,6 +357,8 @@ trait LatencyModel {
     case _:Switch[_]           => model("Switch")()("LatencyOf").toLong
     case _:SwitchCase[_]       => model("SwitchCase")()("LatencyOf").toLong
 
+    case FuncCall(func,_)      => bodyLatency.sum(func)
+
       // Host/Debugging/Unsynthesizable nodes
     case _:ExitIf  => model("ExitIf")()("LatencyOf").toLong
     case _:BreakpointIf  => model("BreakpointIf")()("LatencyOf").toLong

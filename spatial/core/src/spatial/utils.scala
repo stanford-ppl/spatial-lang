@@ -504,6 +504,7 @@ object utils {
       case 1 => -1
       case 2 => 1
     }
+    case Op(_:FuncDecl[_]) => blockNum
     case _ if isInnerControl(e) => blockNum
     case _ if isOuterControl(e) => -1
   }
@@ -555,6 +556,9 @@ object utils {
   @stateful def isStreamPipe(e: Ctrl): Boolean = !e.isInner && isStreamPipe(e.node)
 
   @stateful def isInnerSwitch(e: Exp[_]): Boolean = isInnerControl(e) && isSwitch(e)
+
+  @stateful def isInnerCall(e: Exp[_]): Boolean = isInnerControl(e) && isFuncCall(e)
+  @stateful def isOuterCall(e: Exp[_]): Boolean = isOuterControl(e) && isFuncCall(e)
 
   @stateful def isSwitch(e: Exp[_]): Boolean = getDef(e).exists(isSwitch)
   def isSwitch(d: Def): Boolean = d.isInstanceOf[Switch[_]]
@@ -831,12 +835,17 @@ object utils {
   @stateful def isPrimitiveNode(e: Exp[_]): Boolean = e match {
     case Const(_) => false
     case Param(_) => false
-    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e) && !isFringeNode(e)
+    case _        => !isControlNode(e) && !isAllocation(e) && !isStateless(e) && !isGlobal(e) && !isFringeNode(e) && !isFuncCall(e)
   }
 
   @stateful def isNestedPrimitive(e: Exp[_]): Boolean = (isSwitch(e) || isSwitchCase(e)) && isInnerControl(e)
 
   /** Accesses **/
+  implicit class TraceOps(x: Trace) {
+    def node: Exp[_] = x._1
+    def trace: Seq[Ctrl] = x._2
+  }
+
   implicit class AccessOps(x: Access) {
     def node: Exp[_] = x._1
     def ctrl: Ctrl = x._2 // read or write enabler
@@ -943,6 +952,12 @@ object utils {
 
   @stateful def isResetter(x: Exp[_]): Boolean = LocalResetter.unapply(x).isDefined
   def isResetter(d: Def): Boolean = LocalResetter.unapply(d).isDefined
+
+  @stateful def isFuncDecl(x: Exp[_]): Boolean = getDef(x).exists(isFuncDecl)
+  def isFuncDecl(d: Def): Boolean = d.isInstanceOf[FuncDecl[_]]
+
+  @stateful def isFuncCall(x: Exp[_]): Boolean = getDef(x).exists(isFuncCall)
+  def isFuncCall(d: Def): Boolean = d.isInstanceOf[FuncCall[_]]
   /*@stateful def getAccess(x:Exp[_]):Option[Access] = x match {
     case LocalReader(reads) =>
       val ras = reads.flatMap{ case (mem, _, _) => readersOf(mem).filter { _.node == x } }
