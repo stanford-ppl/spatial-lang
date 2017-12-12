@@ -62,6 +62,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
   protected def getConstValue(one: Exp[_]): Any = one match {case Const(c) => c }
 
+  // TODO: Should this be deprecated?
   protected def enableRetimeMatch(en: Exp[_], lhs: Exp[_]): Double = { // With partial retiming, the delay on standard signals needs to match the delay of the enabling input, not necessarily the symDelay(lhs) if en is delayed partially
     val last_def_delay = en match {
       case Def(And(_,_)) => latencyOption("And", None)
@@ -74,7 +75,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case b: Bound[_] => 0.0
       case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
     }
-    if (spatialConfig.enableRetiming) symDelay(en) + last_def_delay else 0.0
+    // if (spatialConfig.enableRetiming) symDelay(en) + last_def_delay else 0.0
+    if (spatialConfig.enableRetiming) symDelay(lhs) else 0.0
   }
 
   protected def computeSuffix(s: Bound[_]): String = {
