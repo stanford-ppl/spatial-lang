@@ -28,7 +28,7 @@ sh = gc.open(sys.argv[1] + " Performance")
 # Get column
 worksheet = sh.worksheet('Timestamps') # Select worksheet by index
 lol = worksheet.get_all_values()
-if (sys.argv[2] in lol[0]):
+if (sys.argv[3] in lol[0]):
 	col=lol[0].index(sys.argv[3])+1
 	print("Col is %d" % col)
 else:
