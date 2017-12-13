@@ -784,7 +784,6 @@ trait ChiselGenController extends ChiselGenCounter{
       }
 
       emit(src"val ${lhs}_1H_func_selects = Wire(Vec(${inputSets(0).length}, Bool()))")
-      emit(src"val ${lhs}_1H_func_selects = Wire(Vec(${inputSets(0).length}, Bool()))")
 
       /*
       inputSets(0).indices.foreach{ i=>
@@ -792,6 +791,12 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       */
 
+      /*
+      print("\n\n===================\n\n")
+      println("inputs.length = " + inputs.length.toString() + "\n")
+      println("inputSets.length = " + inputSets.length.toString())
+      print("\n\n===================\n\n")
+      */
 
       inputSets.indices.foreach{i =>
           val arg = inputs(i)
@@ -803,7 +808,7 @@ trait ChiselGenController extends ChiselGenCounter{
           set.indices.foreach { j =>
             //emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
             emit(src"${lhs}_1H_func_selects_${i}($j) := ${swap(calls(j).node, En)}")
-            emit(src"${lhs}_1H_func_options_${i}($j) := ${set(i)}")
+            emit(src"${lhs}_1H_func_options_${i}($j) := ${set(j)}")
           }
           emitGlobalWire(src"val ${arg} = Wire(${newWire(op.mRet)})")
           emit(src"${arg} := Mux1H(${lhs}_1H_func_selects_${i}, ${lhs}_1H_func_options_${i}).r")
@@ -849,13 +854,15 @@ trait ChiselGenController extends ChiselGenCounter{
       
       //emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
       emit(src"""${swap(lhs, En)} := ${swap(parent_kernel,En)}""")
+      
+      /*
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       emit(src"""${swap(lhs, Mask)} := true.B // No enable associated with switch, never mask it""")
       emit(src"""${swap(lhs, Resetter)} := ${swap(parent_kernel, Resetter)}""")
       emit(src"""${swap(lhs, DatapathEn)} := ${swap(parent_kernel, DatapathEn)}""")
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(parent_kernel, CtrTrivial)} | false.B""")
-      
+      */
 
       /*
       if (levelOf(lhs) == InnerControl) {
