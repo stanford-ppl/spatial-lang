@@ -784,10 +784,13 @@ trait ChiselGenController extends ChiselGenCounter{
       }
 
       emit(src"val ${lhs}_1H_func_selects = Wire(Vec(${inputSets(0).length}, Bool()))")
+      emit(src"val ${lhs}_1H_func_selects = Wire(Vec(${inputSets(0).length}, Bool()))")
 
+      /*
       inputSets(0).indices.foreach{ i=>
         emitGlobalWire(src"""val ${lhs}_func_call_en_${i} = Wire(Bool())""")
       }
+      */
 
 
       inputSets.indices.foreach{i =>
@@ -846,8 +849,6 @@ trait ChiselGenController extends ChiselGenCounter{
       
       //emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
       emit(src"""${swap(lhs, En)} := ${swap(parent_kernel,En)}""")
-      
-      
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       emit(src"""${swap(lhs, Mask)} := true.B // No enable associated with switch, never mask it""")
