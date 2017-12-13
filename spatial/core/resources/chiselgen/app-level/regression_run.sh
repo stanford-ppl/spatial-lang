@@ -23,7 +23,7 @@ else
 	runtime=$runtime_string
 fi
 
-tid=`cat ${SPATIAL_HOME}/tid`
+tid=`cat ../../../../tid`
 appname=`basename \`pwd\``
 
 python3 regression_report.py $1 $tid $appname $pass $runtime
