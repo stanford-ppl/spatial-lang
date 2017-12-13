@@ -32,10 +32,10 @@ if (sys.argv[2] in lol[0]):
 	col=lol[0].index(sys.argv[3])+1
 else:
 	col=len(lol[0])+1
-	numsheets = len(sh.worksheets())
-	for x in range(0,numsheets):
-		worksheet = sh.get_worksheet(x)
-		worksheet.update_cell(1,col,sys.argv[3])
+	worksheet = sh.worksheet('Timestamps')
+	worksheet.update_cell(1,col,sys.argv[3])
+	worksheet = sh.worksheet('Runtime')
+	worksheet.update_cell(1,2*col-7,sys.argv[3])
 
 
 # Page 0 - Timestamps
