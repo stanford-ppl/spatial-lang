@@ -539,7 +539,8 @@ launch_tests_sbt() {
     export timestamp=`git show -s --format=%ci`
     # Update perf spreadsheet
     echo "python3 ${SPATIAL_HOME}/bin/tid.py \"$spatial_hash\" \"$apps_hash\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
-    tid=`python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch"`
+    python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch" | tee ${SPATIAL_HOME}/dbg2
+    tid=5
     echo $tid > ${SPATIAL_HOME}/data/tid
   else
     captype="Scala"
