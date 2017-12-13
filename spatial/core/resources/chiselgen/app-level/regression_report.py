@@ -30,8 +30,10 @@ worksheet = sh.worksheet('Timestamps') # Select worksheet by index
 lol = worksheet.get_all_values()
 if (sys.argv[2] in lol[0]):
 	col=lol[0].index(sys.argv[3])+1
+	print("Col is %d" % col)
 else:
 	col=len(lol[0])+1
+	print("Col is %d" % col)
 	worksheet = sh.worksheet('Timestamps')
 	worksheet.update_cell(1,col,sys.argv[3])
 	worksheet = sh.worksheet('Runtime')
