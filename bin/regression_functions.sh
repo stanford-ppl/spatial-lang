@@ -536,11 +536,12 @@ launch_tests_sbt() {
   cd ${SPATIAL_HOME}
   if [[ $type_todo = "chisel" ]]; then
     captype="Chisel"
+    export CLOCK_FREQ_MHZ="NA"
     export timestamp=`git show -s --format=%ci`
     # Update perf spreadsheet
-    echo "python3 ${SPATIAL_HOME}/bin/tid.py \"$spatial_hash\" \"$apps_hash\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
-    python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
-    tid=5
+    # echo "python3 ${SPATIAL_HOME}/bin/tid.py \"$spatial_hash\" \"$apps_hash\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
+    # python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
+    tid=`python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch"`
     echo $tid > ${SPATIAL_HOME}/data/tid
   else
     captype="Scala"
