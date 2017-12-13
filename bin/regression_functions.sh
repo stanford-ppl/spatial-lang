@@ -384,10 +384,31 @@ fi
 echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
-pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
-# echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
-echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
-# echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
+
+if [[ $branch = "fpga" ]]; then
+  gspread_hash='1CMeHtxCU4D2u12m5UzGyKfB3WGlZy_Ycw_hBEi59XH8'
+elif [[ $branch = "develop" ]]; then
+  gspread_hash='13GW9IDtg0EFLYEERnAVMq4cGM7EKg2NXF4VsQrUp0iw'
+elif [[ $branch = "retime" ]]; then
+  gspread_hash='16KFAJlH9K1KuPYJXkyNyLPEHcKmZTRCMCaGZv1gz7Ko'
+elif [[ $branch = "syncMem" ]]; then
+  gspread_hash='185eQH1xWGTabWIsbwab0HcxMdRZZuzNjD69DMj9bvqo'
+elif [[ $branch = "pre-master" ]]; then
+  gspread_hash='1suh5eJcIRCmpTnEbyhGC1vnuFOmie-7saovvGH-gv-s'
+elif [[ $branch = "master" ]]; then
+  gspread_hash='1Wa2K46CunhgqYbDe7o8e7K3-NHHmP3Nc0JLYgiBff4E'
+else
+  gspread_hash='NA'
+fi
+
+if [[ $gspread_hash != "NA" ]]; then
+  gspread_link="https://docs.google.com/spreadsheets/d/${gspread_hash}"
+  echo -e "\n## [Performance Results](${gspread_link}) \n" >> $wiki_file
+fi
+# pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
+# # echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
+# echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
+# # echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
 
 stamp_app_comments
 stamp_commit_msgs
@@ -515,6 +536,10 @@ launch_tests_sbt() {
   cd ${SPATIAL_HOME}
   if [[ $type_todo = "chisel" ]]; then
     captype="Chisel"
+    export timestamp=`git show -s --format=%ci`
+    # Update perf spreadsheet
+    tid=`$SPATIAL_HOME/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch"`
+    echo $tid > ${SPATIAL_HOME}/data/tid
   else
     captype="Scala"
   fi
