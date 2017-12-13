@@ -85,7 +85,10 @@ trait ControlLevelAnalyzer extends SpatialTraversal {
         levelOf(lhs) = if (isOuter) OuterControl else InnerControl
         styleOf(lhs) = FuncBody
 
-      case FuncCall(func,_) => levelOf(lhs) = levelOf(func)
+      case FuncCall(func,_) =>
+        levelOf(lhs) = levelOf(func)
+        styleOf(lhs) = if (levelOf(func) == OuterControl) SeqPipe else InnerPipe
+
       case _ =>
     }
 

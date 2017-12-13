@@ -110,7 +110,9 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       if ((dispatches > 1 || isHostCall) && !spatialConfig.inline) {
         dbgs(s"Creating function dispatch to #$dispatch")
         val copy = modules((func, dispatch))
-        withSubstScope(func -> copy) { inTrace(func){ super.transform(lhs, rhs) }}
+        val lhs2 = withSubstScope(func -> copy) { inTrace(func){ super.transform(lhs, rhs) }}
+        callsTo.add(copy, (lhs2,Nil))
+        lhs2
       }
       else {
         dbgs(s"Inlining single function call: ")

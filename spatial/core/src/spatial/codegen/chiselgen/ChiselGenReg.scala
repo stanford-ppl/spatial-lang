@@ -183,7 +183,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}) ")
 
     case RegWrite(reg,v,en) => 
-      val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
+      val fully_unrolled_accum = duplicatesOf(reg).exists{mem => mem.isAccum } //!writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
       val manualReset = if (resettersOf(reg).length > 0) {s"| ${quote(reg)}_manual_reset"} else ""
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {

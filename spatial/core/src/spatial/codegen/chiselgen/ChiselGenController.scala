@@ -894,7 +894,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"${swap(lhs, Mask)} := $en")
       controllerStack.pop()
 
-    case op@Switch(body,selects,cases) =>
+    case op@Switch(body,selects,cases) if controllerStack.nonEmpty =>
       // emitBlock(body)
       val parent_kernel = controllerStack.head 
       controllerStack.push(lhs)

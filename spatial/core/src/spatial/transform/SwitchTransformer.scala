@@ -98,6 +98,18 @@ case class SwitchTransformer(var IR: State) extends ForwardTransformer with Spat
       inAccel = false
       lhs2
 
+    case FuncDecl(_,_) =>
+      val prevStyle = controlStyle
+      val prevLevel = controlLevel
+      inAccel = true
+      controlStyle = styleOf.get(lhs)
+      controlLevel = levelOf.get(lhs)
+      val lhs2 = super.transform(lhs, rhs)
+      inAccel = false
+      controlStyle = prevStyle
+      controlLevel = prevLevel
+      lhs2
+
     case _ if isControlNode(lhs) =>
       val prevStyle = controlStyle
       val prevLevel = controlLevel

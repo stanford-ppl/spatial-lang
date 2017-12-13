@@ -380,7 +380,10 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     }
 
     if (isFuncDecl(lhs)) modules ::= lhs
-    if (isFuncCall(lhs)) addFuncCall(lhs, controller.getOrElse(null))
+    if (isFuncCall(lhs)) {
+      addFuncCall(lhs, controller.getOrElse(null))
+      if (controller.isDefined) addChild(lhs, controller.get.node)
+    }
   }
 
   def addChildDependencyData(lhs: Sym[_], block: Block[_]): Unit = instrument("addChildDependencyData"){
