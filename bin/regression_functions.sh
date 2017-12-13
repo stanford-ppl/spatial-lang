@@ -538,7 +538,7 @@ launch_tests_sbt() {
     captype="Chisel"
     export timestamp=`git show -s --format=%ci`
     # Update perf spreadsheet
-    tid=`$SPATIAL_HOME/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch"`
+    tid=`python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch"`
     echo $tid > ${SPATIAL_HOME}/data/tid
   else
     captype="Scala"
