@@ -671,6 +671,16 @@ object utils {
     case Def(RegFileNew(dims,_)) => dims
     case Def(FIFONew(size)) => Seq(size)
     case Def(FILONew(size)) => Seq(size)
+
+    // This doesn't work - causes weird issues with scoping
+    /*case _:Bound[_] =>
+      implicit val ctx: SrcCtx = x.ctx
+      x.tp match {
+        case _:SRAM1Type[_] => Seq.tabulate(1){i => memAliasDim(x,i) }
+        case _:DRAM1Type[_] => Seq.tabulate(1){i => memAliasDim(x,i) }
+        case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
+      }*/
+
     case _ => throw new spatial.UndefinedDimensionsException(x, None)(x.ctx, state)
   }
 

@@ -66,7 +66,7 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
         dbgs(s"    Copy #$i:")
         val dispatchCalls = calls.filter{call => funcDispatch(call) == i }
         val dispatches = dispatchCalls.length
-        val isHostCall = dispatchCalls.forall{call => call.trace.isEmpty }
+        val isHostCall = dispatchCalls.forall{call => call.trace.isEmpty } && dispatchCalls.nonEmpty
 
         dbgs(s"    Calls: ")
         dispatchCalls.foreach{call =>
@@ -87,8 +87,11 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
           modules += (lhs, i) -> copy
           dbgs(s"      ${str(copy)}")
         }
-        else {
+        else if (dispatches > 0) {
           dbgs(s"      $dispatchCalls calls - will inline at call site")
+        }
+        else {
+          dbgs(s"      $dispatchCalls calls - nobody uses this...")
         }
       }
       constant(typ[T])(MissingFunctionDecl)
