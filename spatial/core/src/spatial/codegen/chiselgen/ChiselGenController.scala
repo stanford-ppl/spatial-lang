@@ -798,7 +798,8 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"val ${lhs}_1H_func_options_${i} = Wire(Vec(${set.length}, ${newWire(op.mRet)}))")
            
           set.indices.foreach { j =>
-            emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
+            //emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
+            emit(src"${lhs}_1H_func_selects_${i}($j) := ${swap(calls(j).node, En)}")
             emit(src"${lhs}_1H_func_options_${i}($j) := ${set(i)}")
           }
           emitGlobalWire(src"val ${arg} = Wire(${newWire(op.mRet)})")
@@ -809,9 +810,18 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWire(src"val $lhs = Wire(${newWire(op.mRet)})")
       emit(src"$lhs.r := ${body.result}.r")
       emitBlock(body)
+
+      val children = childrenOf(lhs)
+      if (children.isEmpty) {
+        calls.map(_.node).map {node =>
+          emit(src"""${swap(lhs, Done)} := ${swap(node, En)} // Route through""")
+        }
+      }
+      else
+      {
+        emit(src"""${swap(lhs, Done)} := ${swap(childrenOf(lhs).last, Done)} // Route through""")
+      }
     
-      emit(src"""${swap(lhs, Done)} := ${swap(childrenOf(lhs), Done)} // Route through""")
-      emitGlobalWire(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       
       toggleEn()
 
@@ -827,12 +837,17 @@ trait ChiselGenController extends ChiselGenCounter{
         }
       }
 
-      val call_str = src"""${func}_func_call_en_${call_id}"""
+      //val call_str = src"""${func}_func_call_en_${call_id}"""
 
       val parent_kernel = controllerStack.head 
       //controllerStack.push(lhs)
       emitStandardSignals(lhs)
-      emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
+
+      
+      //emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
+      emit(src"""${swap(lhs, En)} := ${swap(parent_kernel,En)}""")
+      
+      
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       emit(src"""${swap(lhs, Mask)} := true.B // No enable associated with switch, never mask it""")
@@ -840,6 +855,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${swap(lhs, DatapathEn)} := ${swap(parent_kernel, DatapathEn)}""")
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(parent_kernel, CtrTrivial)} | false.B""")
       
+
       /*
       if (levelOf(lhs) == InnerControl) {
         val realctrl = findCtrlAncestor(lhs) // TODO: I don't think this search is needed anymore
@@ -847,7 +863,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       */
 
-      emit(src"""${swap(lhs, Done)} := ${swap(parent_kernel, Done)} // Route through""")
+      emit(src"""${swap(lhs, Done)} := ${swap(func, Done)} // Route through""")
       emitGlobalWire(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
 
         
