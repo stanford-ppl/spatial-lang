@@ -537,6 +537,7 @@ launch_tests_sbt() {
   if [[ $type_todo = "chisel" ]]; then
     cd apps
     ah=`git rev-parse HEAD`
+    cd ${SPATIAL_HOME}
     captype="Chisel"
     export CLOCK_FREQ_MHZ="NA"
     export timestamp=`git show -s --format=%ci`
