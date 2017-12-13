@@ -117,10 +117,14 @@ object Reduce extends ReduceClass(InnerPipe) {
     val rV = (fresh[T], fresh[T])
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
 
+    argon.core.log(s"Staging map function for reduce")
     val mBlk  = stageSealedBlock{ map(wrap(iters)).s }
-    val ldBlk = stageColdLambda1(reg.s) { reg.value.s }
-    val rBlk  = stageColdLambda2(rV._1,rV._2){ reduce(wrap(rV._1),wrap(rV._2)).s }
-    val stBlk = stageColdLambda2(reg.s, rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
+    argon.core.log(s"Staging load function for reduce")
+    val ldBlk = stageSealedLambda1(reg.s) { reg.value.s }
+    argon.core.log(s"Staging reduce function for reduce")
+    val rBlk  = stageSealedLambda2(rV._1,rV._2){ reduce(wrap(rV._1),wrap(rV._2)).s }
+    argon.core.log(s"Staging store function for reduce")
+    val stBlk = stageSealedLambda2(reg.s, rBlk.result){ unwrap( reg := wrap(rBlk.result) ) }
 
     val cchain = CounterChain(domain: _*)
     val z = ident.map(_.s)
@@ -149,9 +153,9 @@ object Reduce extends ReduceClass(InnerPipe) {
   ): Sym[Controller] = {
 
     val mBlk  = stageSealedBlock{ map() }
-    val ldBlk = stageColdLambda1(reg){ load(reg) }
-    val rBlk  = stageColdLambda2(rV._1,rV._2){ reduce(rV._1,rV._2) }
-    val stBlk = stageColdLambda2(reg, rBlk.result){ store(reg, rBlk.result) }
+    val ldBlk = stageSealedLambda1(reg){ load(reg) }
+    val rBlk  = stageSealedLambda2(rV._1,rV._2){ reduce(rV._1,rV._2) }
+    val stBlk = stageSealedLambda2(reg, rBlk.result){ store(reg, rBlk.result) }
 
     val effects = mBlk.effects andAlso ldBlk.effects andAlso rBlk.effects andAlso stBlk.effects
     stageEffectful( OpReduce[T](ens, cchain, reg, mBlk, ldBlk, rBlk, stBlk, ident, fold, rV, iters), effects)(ctx)

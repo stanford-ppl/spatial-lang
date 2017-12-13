@@ -67,10 +67,10 @@ object MemReduce extends MemReduceClass(MetaPipe) {
     val itersRed = ctrsRed.map{_ => fresh[Index] }
 
     val mBlk  = stageSealedBlock{ map(wrap(itersMap)).s }
-    val rBlk  = stageColdLambda2(rV._1,rV._2){ reduce(wrap(rV._1), wrap(rV._2)).s }
-    val ldResBlk = stageColdLambda1(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
-    val ldAccBlk = stageColdLambda1(accum.s) { mem.load(accum, wrap(itersRed), true).s }
-    val stAccBlk = stageColdLambda2(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
+    val rBlk  = stageSealedLambda2(rV._1,rV._2){ reduce(wrap(rV._1), wrap(rV._2)).s }
+    val ldResBlk = stageSealedLambda1(mBlk.result){ mem.load(wrap(mBlk.result), wrap(itersRed), true).s }
+    val ldAccBlk = stageSealedLambda1(accum.s) { mem.load(accum, wrap(itersRed), true).s }
+    val stAccBlk = stageSealedLambda2(accum.s, rBlk.result){ mem.store(accum, wrap(itersRed), wrap(rBlk.result), true).s }
 
     val cchainMap = CounterChain(domain: _*)
     val cchainRed = CounterChain(ctrsRed: _*)
@@ -101,10 +101,10 @@ object MemReduce extends MemReduceClass(MetaPipe) {
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Type[C[T]]): Sym[Controller] = {
 
     val mBlk = stageSealedBlock{ map() }
-    val ldResBlk = stageColdLambda1(mBlk.result){ loadRes(mBlk.result) }
-    val ldAccBlk = stageColdLambda1(accum){ loadAcc(accum) }
-    val rBlk = stageColdLambda2(rV._1,rV._2){ reduce(rV._1,rV._2) }
-    val stBlk = stageColdLambda2(accum, rBlk.result){ storeAcc(accum, rBlk.result) }
+    val ldResBlk = stageSealedLambda1(mBlk.result){ loadRes(mBlk.result) }
+    val ldAccBlk = stageSealedLambda1(accum){ loadAcc(accum) }
+    val rBlk = stageSealedLambda2(rV._1,rV._2){ reduce(rV._1,rV._2) }
+    val stBlk = stageSealedLambda2(accum, rBlk.result){ storeAcc(accum, rBlk.result) }
 
     val effects = mBlk.effects andAlso ldResBlk.effects andAlso ldAccBlk.effects andAlso rBlk.effects andAlso stBlk.effects
     stageEffectful( OpMemReduce[T,C](en, cchainMap, cchainRed, accum, mBlk, ldResBlk, ldAccBlk, rBlk, stBlk, ident, fold, rV, itersMap, itersRed), effects)(ctx)
