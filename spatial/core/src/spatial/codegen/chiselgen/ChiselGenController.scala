@@ -1,6 +1,7 @@
 package spatial.codegen.chiselgen
 
 import argon.core._
+import argon.nodes._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
@@ -764,18 +765,13 @@ trait ChiselGenController extends ChiselGenCounter{
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
 
     // Staged function codegen commented until compiling
-    /* 
-    case Def(func: FuncDecl[_]) =>
+     
+    case FuncDecl(inputs, body) =>
     
-      val inputs = func.inputs
-      val body = func.block
-
-      // Still need way to get function calls
-      val calls = callsTo(func)
-    
+      val calls = callsTo(lhs)
       val nInputs = inputs.length
 
-      val allInputs = calls.map{
+      val allInputs = calls.map(_.node).map{
         case Def(FuncCall(_,inputs)) => inputs
       }
 
@@ -788,26 +784,13 @@ trait ChiselGenController extends ChiselGenCounter{
           val arg = inputs(i)
 
           // Still needs to be connected to arg from body
-          // Need call id for function
-          emit(src"""${arg} := Mux(Utils.risingEdge(${swap(lhs, En)}), ${call_ids}, ${set})""")
+          emit(src"""${arg} := MuxCase(${set(0)}, ${calls.indices.zip(set)})""")
       }
 
 
       emitBlock(body)
-
-    case ParSRAMLoad(sram: Bound[_], inds, ens) =>
-      // Need way to get selects and aliases from FuncDecl
-      val selects = ...
-      val aliases = ...
-      aliases.zip(selects).zipWithIndex
-                          .foreach{
-                            case ((_sram, _select), id) => emitParSRAMLoad(...)
-      }
-      
-      emit(src"""${arg} := Mux(Utils.risingEdge(${swap(lhs, En)}), ${call_ids}, ${set})""")
-
-    case ParSRAMLoad(sram, inds, en) => emitParSRAMLoad(...)
-    */
+    
+        
     case Hwblock(func,isForever) =>
       hwblock_sym = hwblock_sym :+ lhs.asInstanceOf[Exp[_]]
       controllerStack.push(lhs)
