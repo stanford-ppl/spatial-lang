@@ -769,6 +769,7 @@ trait ChiselGenController extends ChiselGenCounter{
       toggleEn()
 
       controllerStack.push(lhs)
+      emitStandardSignals(lhs)
 
 
       val calls = callsTo(lhs)
@@ -805,8 +806,13 @@ trait ChiselGenController extends ChiselGenCounter{
 
       }
 
+      emitGlobalWire(src"val $lhs = Wire(${newWire(op.mRet)})")
+      emit(src"$lhs.r := ${body.result}.r")
       emitBlock(body)
     
+      emit(src"""${swap(lhs, Done)} := ${swap(childrenOf(lhs), Done)} // Route through""")
+      emitGlobalWire(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      
       toggleEn()
 
     case op@FuncCall(func, inputs) =>
@@ -842,7 +848,7 @@ trait ChiselGenController extends ChiselGenCounter{
       */
 
       emit(src"""${swap(lhs, Done)} := ${swap(parent_kernel, Done)} // Route through""")
-        
+      emitGlobalWire(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
 
         
     case Hwblock(func,isForever) =>
