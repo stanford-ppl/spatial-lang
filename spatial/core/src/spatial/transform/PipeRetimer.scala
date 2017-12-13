@@ -54,7 +54,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
 
   def scrubNoise(x: Double): Double = {if ( (x*1000) % 1 == 0) x else if ( (x*1000) % 1 < 0.5) (x*1000).toInt.toDouble/1000.0 else ((x*1000).toInt + 1).toDouble/1000.0 } // Round out to nearest 1/1000 because numbers like 1.1999999997 - 0.2 < 1.0 and screws things up
   def requiresRegisters(x: Exp[_]): Boolean = latencyModel.requiresRegisters(x, cycles.contains(x))
-  def retimingDelay(x: Exp[_]): Double = if (requiresRegisters(x)) latencyOf(x, cycles.contains(x)).toInt else 0.0
+  def retimingDelay(x: Exp[_]): Double = if (requiresRegisters(x)) latencyOf(x, cycles.contains(x)) else 0.0
 
   def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
 
@@ -155,11 +155,12 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
       dbgs(c"[$criticalPath = ${delayOf(reader)} - ${latencyOf(reader,inReduce)}] ${str(reader)}")
       //logs(c"  " + inputs.map{in => c"in: ${delayOf(in)}"}.mkString(", ") + "[max: " + criticalPath + "]")
       inputs.flatMap{in =>
-        val delay_required = scrubNoise(retimingDelay(in) + criticalPath).toInt
-        val delay_contributed = scrubNoise(delayOf(in)).toInt
-        val delay_exact = scrubNoise(retimingDelay(in) + criticalPath - delayOf(in))
-        val delay = delay_required - delay_contributed
-        dbgs(c"..[${delay_exact} (-> ${delay}) = ${retimingDelay(in)} + $criticalPath - ${delayOf(in)} (-> ${delay_required} - ${delay_contributed})] ${str(in)}")
+        val latency_required = scrubNoise(criticalPath)    // Target latency required upon reaching this reader
+        val latency_achieved = scrubNoise(delayOf(in))                       // Latency already achieved at the output of this in (assuming latency_missing is already injected)
+        val latency_missing  = scrubNoise(retimingDelay(in))                                   // Latency of this input that still requires manually register injection
+        val latency_actual   = scrubNoise(latency_achieved - latency_missing)
+        val delay = latency_required.toInt - latency_actual.toInt
+        dbgs(c"..[${latency_required - latency_actual} (-> ${delay}) = ${latency_required} - (${latency_achieved} - ${latency_missing}) (-> ${latency_required.toInt} - ${latency_actual.toInt})] ${str(in)}")
         if (delay.toInt != 0) Some(in -> (reader, delay.toInt)) else None
       }
     }
