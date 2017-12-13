@@ -23,9 +23,32 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(json_key, scope)
 gc = gspread.authorize(credentials)
 
 if (sys.argv[4] == "Zynq"):
+	perf=False
 	sh = gc.open("Zynq Regression") # Open by name
 elif (sys.argv[4] == "AWS"):
+	perf=False
 	sh = gc.open("AWS Regression") # Open by name
+elif (sys.argv[4] == "fpga"):
+	perf=True
+	sh = gc.open("fpga Performance") # Open by name
+elif (sys.argv[4] == "develop"):
+	perf=True
+	sh = gc.open("develop Performance") # Open by name
+elif (sys.argv[4] == "retime"):
+	perf=True
+	sh = gc.open("retime Performance") # Open by name
+elif (sys.argv[4] == "syncMem"):
+	perf=True
+	sh = gc.open("syncMem Performance") # Open by name
+elif (sys.argv[4] == "pre-master"):
+	perf=True
+	sh = gc.open("pre-master Performance") # Open by name
+elif (sys.argv[4] == "master"):
+	perf=True
+	sh = gc.open("master Performance") # Open by name
+else:
+	print("No spreadsheet for " + sys.argv[4])
+	exit()
 
 t=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
@@ -45,7 +68,11 @@ lasthash=lol[id-2][hcol]
 lastapphash=lol[id-2][acol]
 lasttime=lol[id-2][ttcol]
 
-if (lasthash != sys.argv[1] or lastapphash != sys.argv[2]):
+if (perf):
+	new_entry=True
+else:
+	new_entry=(lasthash != sys.argv[1] or lastapphash != sys.argv[2])
+if (new_entry):
 	link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/tree/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
 	alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-apps/tree/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 	numsheets = len(sh.worksheets())
