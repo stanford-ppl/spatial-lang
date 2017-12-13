@@ -50,19 +50,6 @@ trait CppGenUnrolled extends CppGenController {
       emitBlock(func)
       controllerStack.pop()
 
-    case op@Switch(_,selects,cases) =>
-      val isBits = Bits.unapply(op.mT).isDefined
-      emit(src"/** BEGIN SWITCH $lhs **/")
-      if (isBits) emit(src"${lhs.tp} $lhs;")
-      selects.indices.foreach { i =>
-        open(src"""${if (i == 0) "if" else "else if"} (${selects(i)}) {""")
-        val Def(SwitchCase(body)) = cases(i)
-        emitBlock(body)
-        if (isBits) emit(src"$lhs = ${body.result}")
-        close("}")
-      }
-      emit(src"/** END SWITCH $lhs **/")
-
     case _ => super.emitNode(lhs, rhs)
   }
 }
