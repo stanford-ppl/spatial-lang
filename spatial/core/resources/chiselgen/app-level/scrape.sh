@@ -91,12 +91,12 @@ echo "LUT: $lutraw (${lutpcnt}%) Regs: $regraw (${regpcnt}%) BRAM: $ramraw (${ra
 # Run on board
 if [[ $1 = "Zynq" ]]; then
 	APP=$(basename $(pwd))
-	scp $(basename $(pwd)).tar.gz regression@holodeck-zc706:
-	ssh regression@holodeck-zc706 "
+	scp $(basename $(pwd)).tar.gz dkoeplin@holodeck-zc706:
+	ssh dkoeplin@holodeck-zc706 "
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
-	    rm -rf /home/regression/${APP}*
+	    rm -rf /home/dkoeplin/${APP}*
 	  else
 	    mkdir $APP
 	    tar -xvf ${APP}.tar.gz -C $APP
@@ -108,7 +108,7 @@ if [[ $1 = "Zynq" ]]; then
 	    touch /home/sync/\$(whoami)
 	    sudo ./Top $2 $3 $4 $5 $6 $7 $8
 	    rm /home/sync/\$(whoami)
-	    rm -rf /home/regression/${APP}*	  
+	    rm -rf /home/dkoeplin/${APP}*
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
