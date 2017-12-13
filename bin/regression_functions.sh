@@ -535,13 +535,15 @@ push_travis_ci() {
 launch_tests_sbt() {
   cd ${SPATIAL_HOME}
   if [[ $type_todo = "chisel" ]]; then
+    cd apps
+    ah=`git rev-parse HEAD`
     captype="Chisel"
     export CLOCK_FREQ_MHZ="NA"
     export timestamp=`git show -s --format=%ci`
     # Update perf spreadsheet
-    # echo "python3 ${SPATIAL_HOME}/bin/tid.py \"$spatial_hash\" \"$apps_hash\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
-    python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
-    tid=`python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$apps_hash" "$timestamp" "$branch"`
+    # echo "python3 ${SPATIAL_HOME}/bin/tid.py \"$spatial_hash\" \"$ah\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
+    # python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
+    tid=`python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch"`
     echo $tid > ${SPATIAL_HOME}/tid
   else
     captype="Scala"
