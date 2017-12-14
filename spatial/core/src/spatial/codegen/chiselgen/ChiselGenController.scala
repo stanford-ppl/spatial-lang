@@ -830,8 +830,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
     case FuncDecl(_,_) => emit(src"// Host-only function declaration $lhs")
 
-    case op@FuncCall(func, inputs) =>
-
+    case op@FuncCall(func, inputs) if controllerStack.nonEmpty =>
       val calls = callsTo(func)
 
       var call_id = 0
@@ -843,6 +842,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
 
       //val call_str = src"""${func}_func_call_en_${call_id}"""
+      if (controllerStack.isEmpty) throw new Exception(s"Controller stack was empty when emitting function call $lhs")
 
       val parent_kernel = controllerStack.head 
       //controllerStack.push(lhs)
