@@ -15,7 +15,7 @@ import scala.util.Try
 
 trait LatencyModel {
   val FILE_NAME: String
-  var clockRate = 150.0f        // Frequency in MHz
+  var clockRate = 125.0f        // Frequency in MHz
   var baseCycles = 43000        // Number of cycles required for startup
   var addRetimeRegisters = true // Enable adding registers after specified comb. logic
   var modelVerbosity = 1

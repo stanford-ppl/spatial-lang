@@ -249,6 +249,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += sanityCheck        // Check that illegal host values are not used in the accel block
     passes += controlSanityCheck
     passes += finalizer         // Finalize any remaining parameters
+    passes += latencyAnalyzer
 
     // --- Code generation
     if (spatialConfig.enableTree)  passes += treegen

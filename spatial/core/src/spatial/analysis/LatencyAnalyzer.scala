@@ -1,6 +1,7 @@
 package spatial.analysis
 
 import argon.core._
+import argon.nodes._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models.LatencyModel
@@ -72,7 +73,8 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
     cycleScope = Nil
     intervalScope = Nil
     tab += 1
-    getControlNodes(b).foreach{
+    val stages = getStages(b).filter{node => isControlNode(node) || isFuncCall(node) }
+    stages.foreach{
       case s@Op(d) => visit(s.asInstanceOf[Sym[_]], d)
       case _ =>
     }
@@ -348,6 +350,12 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         val ii = (1L +: iis).max
         dbgs(s"Case $lhs: (II = $ii, D = $delay)")
         stages.reverse.zipWithIndex.foreach{case (dly,i) => dbgs(s" - $i. $dly") }
+        (delay, ii)
+
+      case FuncCall(func,_) =>
+        val delay = bodyLatency.sum(func)
+        val ii = iiOf(func)
+        dbgs(s"Function Call $lhs: (II = $ii, D = $delay)")
         (delay, ii)
 
       case _ =>
