@@ -716,9 +716,9 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""${swap(src"${cchain.get}_copy${c}", Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr)""")
         }
         if (c match { case Def(StateMachine(_,_,_,_,_,_)) => true; case _ => false}) { // If this is an fsm, we want it to reset with each iteration, not with the reset of the parent
-          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en | ${swap(c, Done)}.D(1,rr)""")
+          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr) | ${swap(c, Done)}.D(1,rr)""") //changed on 12/13
         } else {
-          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en""")  
+          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr)""")   //changed on 12/13
         }
         
       }
