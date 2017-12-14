@@ -12,13 +12,13 @@ import spatial.utils._
 case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
 
   var modules: Map[(Exp[_],Int),Exp[_]] = Map.empty
-  var trace: Seq[Ctrl] = Nil
+  var trace: Seq[Seq[Ctrl]] = Seq(Nil)
   var inHw: Boolean = false
   def inTrace[R](lhs: Exp[_])(block: => R): R = {
     val oldTrace = trace
     val blk = (lhs,0)
     val ctrl = blkToCtrl(blk)
-    trace = if (inHw) ctrl +: trace else Nil
+    trace = if (inHw) trace.map{t => ctrl +: t} else Seq(Nil)
     val result = block
     trace = oldTrace
     result
@@ -76,9 +76,15 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
         if ((dispatches > 1 || isHostCall) && !spatialConfig.inline) {
           val ins2 = ins.map{in => newFresh(in.tp) }
           val oldTrace = trace
-          val newTrace = dispatchCalls.head.trace.dropWhile{c => c != (lhs,0) }
-          dbgs(s"      Using trace: $trace")
-          trace = newTrace
+          // We could have reached this point from any of these traces
+          val newTraces = dispatchCalls.map{call =>
+            if (call.trace.isEmpty) Nil else (lhs,0) +: call.trace
+          }
+          trace = newTraces
+
+          dbgs(s"      Using trace:")
+          trace.foreach{t => dbgs(s"      $t") }
+
           val copy = Func.decl(ins2, () => withSubstScope(ins.zip(ins2):_*){ inlineBlock(block) })(op.mRet,ctx,state)
           trace = oldTrace
           isHWModule(copy) = !isHostCall
@@ -98,16 +104,28 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
 
     case FuncCall(func,inputs) =>
       dbgs(s"${str(lhs)}")
-      dbgs(s"  Trace: $trace")
-      val call = (lhs,trace)
-      val dispatch = funcDispatch(call)
-      val dispatches = callsTo(func).count{call => funcDispatch(call) == dispatch }
+      dbgs(s"  Trace:")
+      trace.foreach{t =>
+        dbgs(s"    $t")
+      }
+      // Possible calls corresponding to this point
+      val calls = trace.map{ t => (lhs,t) }
+      val registeredCalls = callsTo(func)
+      calls.foreach{call => if (!registeredCalls.contains(call)) throw new Exception(s"Weird trace $call - never created...") }
+      val dispatches = calls.map{call => funcDispatch(call) }
       val isHostCall = trace.isEmpty
-      dbgs(s"  Dispatch: $dispatch")
-      dbgs(s"  Other calls w/ this dispatch: $dispatches")
+      dbgs(s"  Dispatch: $dispatches")
+
+      if (dispatches.distinct.length > 1) throw new Exception(s"Had more than one dispatch?")
+      val dispatch = dispatches.distinct.head
+
+      // Find everything that actually uses this copy
+      val actualCalls = callsTo(func).filter{call => funcDispatch(call) == dispatch }
+      val nDispatches = actualCalls.length
+      dbgs(s"  Other calls w/ this dispatch: $nDispatches")
 
       // Inline function calls with only one dispatch at the call site
-      if ((dispatches > 1 || isHostCall) && !spatialConfig.inline) {
+      if ((nDispatches > 1 || isHostCall) && !spatialConfig.inline) {
         dbgs(s"Creating function dispatch to #$dispatch")
         val copy = modules((func, dispatch))
         val lhs2 = withSubstScope(func -> copy) { inTrace(func){ super.transform(lhs, rhs) }}
