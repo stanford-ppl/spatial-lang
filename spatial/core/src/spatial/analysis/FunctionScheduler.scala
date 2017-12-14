@@ -16,12 +16,19 @@ trait FunctionScheduler extends CompilerPass {
   protected def canHaveSameImpl(a: Trace, b: Trace): Boolean = {
     val pathA = a._2.reverse
     val pathB = b._2.reverse
-    val lca = pathA.zip(pathB).filter{case (x,y) => x == y && !isFuncDecl(x.node) }.lastOption.map(_._1)
+    val firstDiverge = pathA.zip(pathB).indexWhere{case (x,y) => x != y }
+    val lca = {
+      if (firstDiverge == -1) pathA.lastOption
+      else if (firstDiverge == 0) None
+      else if (firstDiverge - 1 < pathA.length) Some(pathA.apply(firstDiverge - 1)) // The node above where these first diverge
+      else None
+    }
+    //val lca = pathA.zip(pathB).filter{case (x,y) => x == y && !isFuncDecl(x.node) && !isFuncCall(x.node) }.lastOption.map(_._1)
     //val pathToA = lca.map{p => pathA.drop(pathA.indexOf(p)+1) }
     //val pathToB = lca.map{p => pathB.drop(pathB.indexOf(p)+1) }
-    dbgs(s"A: ${a.node}, Path A: " + pathA.mkString(", "))
-    dbgs(s"B: ${b.node}, Path B: " + pathB.mkString(", "))
-    dbgs(s"LCA:    " + lca)
+    //dbgs(s"A: ${a.node}, Path A: " + pathA.mkString(", "))
+    //dbgs(s"B: ${b.node}, Path B: " + pathB.mkString(", "))
+    //dbgs(s"LCA:    " + lca)
     // Mutually exclusive if occurs in two separate parts of a switch, or in a sequential
     // TODO: Assumes unit pipe is still pipelined for now (no control signals for sequential execution of inner pipe)
     !spatialConfig.inline && lca.exists{p => !isInnerControl(p.node) && (isSeqPipe(p.node) || isSwitch(p.node)) }
@@ -56,7 +63,7 @@ trait FunctionScheduler extends CompilerPass {
       groups.zipWithIndex.foreach{case (grp,id) =>
         grp.foreach{call => funcDispatch(call) = id }
         dbg(s"  Instance #$id: ")
-        grp.foreach{call => dbg(s"    ${str(call.node)} [${call.node.ctx}]")}
+        grp.foreach{call => dbg(s"    ${str(call.node)} [${call.trace}]")}
       }
       dbg("")
       dbg("")

@@ -768,9 +768,12 @@ trait ChiselGenController extends ChiselGenCounter{
       toggleEn()
       controllerStack.push(lhs)
       emitStandardSignals(lhs)
+      emitGlobalWireMap(src"""${swap(lhs,IIDone)}""", """Wire(Bool())""")
+      emitGlobalWireMap(src"""${swap(lhs,Inhibitor)}""", "Wire(Bool())")
 
       val calls = callsTo(lhs)
       val nInputs = inputs.length
+      val nCalls = calls.length
 
       val allInputs = calls.map(_.node).map{
         case Def(FuncCall(_,inputs)) => inputs
@@ -780,51 +783,59 @@ trait ChiselGenController extends ChiselGenCounter{
         allInputs.map{inputSet => inputSet(i)}
       }
 
-      emit(src"val ${lhs}_1H_func_selects = Wire(Vec(${inputSets(0).length}, Bool()))")
+      // What should parent be here?
+      val parent = parentOf(lhs).get
+      withSubStream(src"${lhs}", src"$parent", levelOf(lhs) == InnerControl) {
 
-      /*
-      inputSets(0).indices.foreach{ i=>
-        emitGlobalWire(src"""val ${lhs}_func_call_en_${i} = Wire(Bool())""")
-      }
-      */
+        emit(src"val ${lhs}_1H_call_selects = Wire(Vec($nCalls, Bool()))")
+        emit(src"val ${lhs}_1H_done_options = Wire(Vec($nCalls, Bool()))")
 
-      /*
-      print("\n\n===================\n\n")
-      println("inputs.length = " + inputs.length.toString() + "\n")
-      println("inputSets.length = " + inputSets.length.toString())
-      print("\n\n===================\n\n")
-      */
-      inputSets.indices.foreach{i =>
+        (0 until nCalls).foreach{i =>
+          emit(src"${lhs}_1H_call_selects($i) := ${swap(calls(i).node, En)}")
+        }
+        val enables = calls.map(_.node).map{node => src"${swap(node, En)}"}
+        val denables = calls.map(_.node).map{node => src"${swap(node, DatapathEn)}"}
+        val trivials = calls.map(_.node).map{node => src"${swap(node, CtrTrivial)}"}
+        val iidones  = calls.map(_.node).map{node => src"${swap(node, IIDone)}"}
+
+        val anyEnable = enables.mkString(" | ")
+        val anyDEnable = denables.mkString(" | ")
+        val ctrTrivial = trivials.mkString(" | ")
+        val anyIIDone  = iidones.mkString(" | ")
+
+        emit(src"${swap(lhs, En)} := $anyEnable")
+        emit(src"""${swap(lhs, Mask)} := true.B""")
+        emit(src"""${swap(lhs, IIDone)} := $anyIIDone""")
+        emit(src"""${swap(lhs, Resetter)} := false.B""") // TODO
+        emit(src"""${swap(lhs, DatapathEn)} := $anyDEnable""")
+        emit(src"""${swap(lhs, CtrTrivial)} := $ctrTrivial""")
+        emit(src"""${swap(lhs, Inhibitor)} := false.B""") // TODO
+
+        inputSets.indices.foreach {i =>
           val arg = inputs(i)
-
           val set = inputSets(i)
-          emit(src"val ${lhs}_1H_func_selects_${i} = Wire(Vec(${set.length}, Bool()))")
-          emit(src"val ${lhs}_1H_func_options_${i} = Wire(Vec(${set.length}, ${newWire(op.mRet)}))")
-           
+          emit(src"val ${lhs}_1H_input_options_$i = Wire(Vec(${set.length}, ${newWire(op.mRet)}))")
+
           set.indices.foreach { j =>
-            //emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
-            emit(src"${lhs}_1H_func_selects_${i}($j) := ${swap(calls(j).node, En)}")
-            emit(src"${lhs}_1H_func_options_${i}($j) := ${set(j)}")
+            emit(src"${lhs}_1H_input_options_$i($j) := ${set(j)}")
           }
-          emitGlobalWire(src"val ${arg} = Wire(${newWire(op.mRet)})")
-          emit(src"${arg} := Mux1H(${lhs}_1H_func_selects_${i}, ${lhs}_1H_func_options_${i}).r")
+          emitGlobalWire(src"val $arg = Wire(${newWire(op.mRet)})")
+          emit(src"$arg := Mux1H(${lhs}_1H_call_selects, ${lhs}_1H_input_options_$i).r")
+        }
 
-      }
+        emitGlobalWire(src"val $lhs = Wire(${newWire(op.mRet)})") // Result of function
+        emitBlock(body)
+        emit(src"$lhs.r := ${body.result}.r")
 
-      emitGlobalWire(src"val $lhs = Wire(${newWire(op.mRet)})")
-      emit(src"$lhs.r := ${body.result}.r")
-      emitBlock(body)
-
-      val children = childrenOf(lhs)
-      if (children.isEmpty) {
-        calls.map(_.node).foreach{node =>
-          emit(src"""${swap(lhs, Done)} := ${swap(node, En)} // Route through""")
+        val children = childrenOf(lhs)
+        // Don't use last child if this is an inner control (including containing switches)
+        if (children.isEmpty || levelOf(lhs) == InnerControl) {
+          emit(src"""${swap(lhs, Done)} := $anyEnable // Route through""")
+        }
+        else {
+          emit(src"""${swap(lhs, Done)} := ${swap(childrenOf(lhs).last, Done)} // Route through""")
         }
       }
-      else {
-        emit(src"""${swap(lhs, Done)} := ${swap(childrenOf(lhs).last, Done)} // Route through""")
-      }
-
       toggleEn()
       controllerStack.pop()
 
@@ -847,29 +858,18 @@ trait ChiselGenController extends ChiselGenCounter{
       val parent_kernel = controllerStack.head 
       //controllerStack.push(lhs)
       emitStandardSignals(lhs)
+      emitGlobalWireMap(src"""${swap(lhs,IIDone)}""", """Wire(Bool())""")
 
-      
-      //emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
       emit(src"""${swap(lhs, En)} := ${swap(parent_kernel,En)}""")
-      
-      /*
-      emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       emit(src"""${swap(lhs, Mask)} := true.B // No enable associated with switch, never mask it""")
       emit(src"""${swap(lhs, Resetter)} := ${swap(parent_kernel, Resetter)}""")
       emit(src"""${swap(lhs, DatapathEn)} := ${swap(parent_kernel, DatapathEn)}""")
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(parent_kernel, CtrTrivial)} | false.B""")
-      */
-
-      /*
-      if (levelOf(lhs) == InnerControl) {
-        val realctrl = findCtrlAncestor(lhs) // TODO: I don't think this search is needed anymore
-        emitInhibitor(lhs, None, None, parentOf(parent_kernel))
-      }
-      */
 
       emit(src"""${swap(lhs, Done)} := ${swap(func, Done)} // Route through""")
-      emitGlobalWire(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emitGlobalWire(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emit(src"$lhs.r := $func.r")
 
         
     case Hwblock(func,isForever) =>

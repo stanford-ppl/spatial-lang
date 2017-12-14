@@ -525,6 +525,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     case FuncCall(func @ Def(FuncDecl(ins,block)),inputs) =>
       withAliases(ins.zip(inputs)) {
+        val oldTrace = trace
+        trace = (lhs,0) +: trace // Add the function call to the trace
         visitBlk((func, 0)) {
           visitBlock(block)
           pendingNodes.get(block.result).foreach { nodes =>
@@ -532,6 +534,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
             addPendingUse(func, blkToCtrl((func, 0)), (func, 0), nodes, isBlockResult = true)
           }
         }
+        trace = oldTrace
       }
 
     case _ => super.visit(lhs, rhs)

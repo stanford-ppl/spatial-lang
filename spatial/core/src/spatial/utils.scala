@@ -505,6 +505,7 @@ object utils {
       case 2 => 1
     }
     case Op(_:FuncDecl[_]) => blockNum
+    case Op(_:FuncCall[_]) => blockNum
     case _ if isInnerControl(e) => blockNum
     case _ if isOuterControl(e) => -1
   }

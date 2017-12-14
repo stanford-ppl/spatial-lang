@@ -58,63 +58,72 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       FSM.op_state_machine(f(en),f(start),f(notDone),f(action),f(nextState),state2).asInstanceOf[Exp[T]]
 
     case op @ FuncDecl(ins,block) =>
+      dbgs(s"${str(lhs)}")
       val calls = callsTo(lhs)
       val copies = funcInstances(lhs)
-      dbgs(s"${str(lhs)}")
-      dbgs(s"  Creating $copies copies of function: ")
+      //dbgs(s"Calls: ")
+      //calls.foreach{call => dbgs(s"  ${call.node} [${call.trace}] => [${funcDispatch(call)}]") }
+      //dbgs(s"  Creating $copies copies of function: ")
+      var results: Seq[String] = Nil
       (0 until copies).foreach { i =>
-        dbgs(s"    Copy #$i:")
+        //dbgs(s"    Copy #$i:")
         val dispatchCalls = calls.filter{call => funcDispatch(call) == i }
-        val dispatches = dispatchCalls.length
+        val nDispatches = dispatchCalls.length
         val isHostCall = dispatchCalls.forall{call => call.trace.isEmpty } && dispatchCalls.nonEmpty
 
-        dbgs(s"    Calls: ")
+        /*dbgs(s"    Calls: ")
         dispatchCalls.foreach{call =>
           dbgs(s"      ${call.node} [${call.trace}]")
-        }
+        }*/
 
-        if ((dispatches > 1 || isHostCall) && !spatialConfig.inline) {
+        if ((nDispatches > 1 || isHostCall) && !spatialConfig.inline) {
           val ins2 = ins.map{in => newFresh(in.tp) }
           val oldTrace = trace
+          val oldInHw = inHw
           // We could have reached this point from any of these traces
           val newTraces = dispatchCalls.map{call =>
-            if (call.trace.isEmpty) Nil else (lhs,0) +: call.trace
+            if (call.trace.isEmpty) Nil else Seq((lhs,0),(call.node,0)) ++ call.trace
           }
           trace = newTraces
+          inHw = !isHostCall
 
-          dbgs(s"      Using trace:")
-          trace.foreach{t => dbgs(s"      $t") }
+          dbgs(s"  $i: Using trace:")
+          trace.foreach{t => dbgs(s"    $t") }
 
           val copy = Func.decl(ins2, () => withSubstScope(ins.zip(ins2):_*){ inlineBlock(block) })(op.mRet,ctx,state)
           trace = oldTrace
+          inHw = oldInHw
           isHWModule(copy) = !isHostCall
           levelOf(copy) = levelOf(lhs)
           styleOf(copy) = FuncBody
           modules += (lhs, i) -> copy
-          dbgs(s"      ${str(copy)}")
+
+          results :+= s"  $i: ${str(copy)} [host: $isHostCall]"
         }
-        else if (dispatches > 0) {
-          dbgs(s"      $dispatchCalls calls - will inline at call site")
+
+        else if (nDispatches > 0) {
+          results :+= s"  $i: $nDispatches calls - will inline at call site"
         }
         else {
-          dbgs(s"      $dispatchCalls calls - nobody uses this...")
+          results :+= s"  $i: $nDispatches calls - nobody uses this..."
         }
       }
+      dbgs(s"${str(lhs)}")
+      results.foreach(r => dbgs(r))
       constant(typ[T])(MissingFunctionDecl)
 
     case FuncCall(func,inputs) =>
       dbgs(s"${str(lhs)}")
-      dbgs(s"  Trace:")
-      trace.foreach{t =>
-        dbgs(s"    $t")
-      }
+      //dbgs(s"  Trace:")
+      //trace.foreach{t => dbgs(s"  $t") }
       // Possible calls corresponding to this point
       val calls = trace.map{ t => (lhs,t) }
+      calls.foreach{call => dbgs(s"  ${call.node} [${call.trace}] => ${funcDispatch(call)}") }
+
       val registeredCalls = callsTo(func)
       calls.foreach{call => if (!registeredCalls.contains(call)) throw new Exception(s"Weird trace $call - never created...") }
       val dispatches = calls.map{call => funcDispatch(call) }
-      val isHostCall = trace.isEmpty
-      dbgs(s"  Dispatch: $dispatches")
+      //dbgs(s"  Dispatch: $dispatches")
 
       if (dispatches.distinct.length > 1) throw new Exception(s"Had more than one dispatch?")
       val dispatch = dispatches.distinct.head
@@ -122,21 +131,24 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       // Find everything that actually uses this copy
       val actualCalls = callsTo(func).filter{call => funcDispatch(call) == dispatch }
       val nDispatches = actualCalls.length
-      dbgs(s"  Other calls w/ this dispatch: $nDispatches")
+      val isHostCall = actualCalls.forall{call => call.trace.isEmpty } && actualCalls.nonEmpty
+
+      dbgs(s"  Dispatch: $dispatch [total: $nDispatches, host: $isHostCall]")
 
       // Inline function calls witok h only one dispatch at the call site
       if ((nDispatches > 1 || isHostCall) && !spatialConfig.inline) {
-        dbgs(s"Creating function dispatch to #$dispatch")
         val copy = modules((func, dispatch))
-        val lhs2 = withSubstScope(func -> copy) { inTrace(func){ super.transform(lhs, rhs) }}
+        dbgs(s"  Creating function dispatch to #$dispatch: $copy")
+        val lhs2 = withSubstScope(func -> copy) { inTrace(lhs){ inTrace(func){ super.transform(lhs, rhs) }}}
         callsTo.add(copy, (lhs2,Nil))
+        dbgs(s"${str(lhs2)}")
         lhs2
       }
       else {
         dbgs(s"Inlining single function call: ")
         val Op(FuncDecl(l,block)) = func
         withSubstScope(l.zip(f.tx(inputs)):_*){
-          inTrace(func){ inlineBlock(block) }
+          inTrace(lhs){ inTrace(func){ inlineBlock(block) }}
         }
       }
 

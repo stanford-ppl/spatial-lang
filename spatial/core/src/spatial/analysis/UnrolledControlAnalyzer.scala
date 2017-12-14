@@ -82,6 +82,8 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
       }
     }
 
+    modules.foreach{func => parentOf(func) = top.get }
+
     instrument.dump(s"#${state.pass-1} $name: ")
 
     block
