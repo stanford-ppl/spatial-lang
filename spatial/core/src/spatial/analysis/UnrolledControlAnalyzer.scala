@@ -130,6 +130,8 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
       visitUnrolled(lhs,e.cchain,e.iters){ visitBlock(e.func) }
       e.iters.flatten.foreach { iter => parentOf(iter) = lhs }
       e.valids.flatten.foreach { vld => parentOf(vld) = lhs }
+      // HACK: Why isn't this being added?
+      addPendingUse(lhs,(lhs,-1),(lhs,-1),Seq(e.cchain),isBlockResult = false)
 
     case e: UnrolledReduce[_,_] =>
       visitUnrolled(lhs,e.cchain,e.iters){ visitBlock(e.func) }
@@ -137,6 +139,8 @@ trait UnrolledControlAnalyzer extends ControlSignalAnalyzer {
       parentOf(e.accum) = lhs
       e.iters.flatten.foreach { iter => parentOf(iter) = lhs }
       e.valids.flatten.foreach { vld => parentOf(vld) = lhs }
+      // HACK: Why isn't this being added?
+      addPendingUse(lhs,(lhs,-1),(lhs,-1),Seq(e.cchain),isBlockResult = false)
 
     case _ => super.analyze(lhs,rhs)
   }

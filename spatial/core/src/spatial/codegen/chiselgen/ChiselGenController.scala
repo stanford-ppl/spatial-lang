@@ -764,13 +764,9 @@ trait ChiselGenController extends ChiselGenCounter{
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
 
-    case op@FuncDecl(inputs, body) =>
-    
+    case op@FuncDecl(inputs, body) if isHWModule(lhs) =>
       toggleEn()
-
       controllerStack.push(lhs)
-
-
       val calls = callsTo(lhs)
       val nInputs = inputs.length
 
@@ -788,7 +784,6 @@ trait ChiselGenController extends ChiselGenCounter{
         emitGlobalWire(src"""val ${lhs}_func_call_en_${i} = Wire(Bool())""")
       }
 
-
       inputSets.indices.foreach{i =>
           val arg = inputs(i)
 
@@ -798,7 +793,7 @@ trait ChiselGenController extends ChiselGenCounter{
            
           set.indices.foreach { j =>
             emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
-            emit(src"${lhs}_1H_func_options_${i}($j) := ${set(i)}")
+            emit(src"${lhs}_1H_func_options_${i}($j) := ${set(j)}")
           }
           emitGlobalWire(src"val ${arg} = Wire(${newWire(op.mRet)})")
           emit(src"${arg} := Mux1H(${lhs}_1H_func_selects_${i}, ${lhs}_1H_func_options_${i}).r")
@@ -806,8 +801,10 @@ trait ChiselGenController extends ChiselGenCounter{
       }
 
       emitBlock(body)
-    
       toggleEn()
+      controllerStack.pop()
+
+    case FuncDecl(_,_) => emit(src"// Host-only function declaration $lhs")
 
     case op@FuncCall(func, inputs) =>
 

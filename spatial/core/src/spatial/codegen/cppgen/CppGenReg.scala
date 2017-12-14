@@ -33,10 +33,13 @@ trait CppGenReg extends CppCodegen {
     case HostIONew(init) => 
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
       emit(src"${lhs.tp} $lhs = 0; // Initialize cpp argout ???")
+    case RegNew(init) =>
+      emit(src"${lhs.tp} $lhs = $init;")
     case RegRead(reg)    => 
       emit(src"${lhs.tp} $lhs = $reg;")
-    case RegWrite(reg,v,en) => 
-      emit(src"// $lhs $reg $v $en reg write")
+    case RegWrite(reg,v,en) =>
+      emit(src"if ($en) { $reg = $v; } // reg write ")
+      //emit(src"// $lhs $reg $v $en reg write")
     case _ => super.emitNode(lhs, rhs)
   }
 

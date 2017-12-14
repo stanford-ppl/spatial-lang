@@ -155,7 +155,8 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case CounterNew(start,end,step,par) => 
       emit(s"// $lhs = ($start to $end by $step par $par")
-    case CounterChainNew(ctrs) => 
+    case CounterChainNew(ctrs) =>
+      if (usersOf(lhs).isEmpty) throw new Exception(s"CounterChain $lhs had no users")
       val user = usersOf(lhs).head._1
       if (styleOf(user) != StreamPipe) emitCounterChain(lhs)
     case Forever() => 

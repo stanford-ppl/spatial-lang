@@ -284,6 +284,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
   }
 
   def checkPendingNodes(lhs: Sym[_], rhs: Op[_], ctrl: Option[Ctrl], blk: Option[Blk]) = instrument("checkPendingNodes"){
+    dbgs(s"Adding pending nodes used by $lhs: ")
     val pending = rhs.nonBlockInputs.flatMap{sym => pendingNodes.getOrElse(sym, Nil) }
     if (pending.nonEmpty) {
       // All nodes which could potentially use a reader outside of an inner control node
@@ -349,7 +350,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
       checkPendingNodes(lhs, rhs, Some(parent), Some(blk))
 
-      if (isStateless(lhs) && isOuterControl(parent)) addPendingNode(lhs)
+      if (isStateless(lhs) && (isOuterControl(parent) || isFuncDecl(parent.node))) addPendingNode(lhs)
 
       if (isAllocation(lhs)) addAllocation(lhs, parent.node)  // (1, 7)
       if (isStreamLoad(lhs)) addStreamLoadMem(lhs)
