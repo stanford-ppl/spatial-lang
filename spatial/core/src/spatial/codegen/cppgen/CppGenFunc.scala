@@ -34,7 +34,7 @@ trait CppGenFunc extends CppCodegen {
     case FuncDecl(_,_) =>
 
     case FuncCall(func, args) =>
-      val name = func.name.getOrElse(src"$lhs")
+      val name = func.name.getOrElse(src"$func")
       val params = args.map(quote).mkString(",")
       emit(src"${lhs.tp} $lhs = $name($params);")
 
