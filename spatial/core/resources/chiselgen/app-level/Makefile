@@ -359,6 +359,7 @@ asic-hw:
 	sbt "runMain top.Instantiator --verilog --testArgs asic"
 	cp -r chisel/template-level/fringeVCS/* verilog-asic
 	cp -r chisel/template-level/fringeASIC/build/* verilog-asic
+	touch in.txt
 	make -C verilog-asic
 	ln -sf verilog-asic verilog
 
