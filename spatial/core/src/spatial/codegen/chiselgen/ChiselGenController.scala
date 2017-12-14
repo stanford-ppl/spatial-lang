@@ -767,6 +767,8 @@ trait ChiselGenController extends ChiselGenCounter{
     case op@FuncDecl(inputs, body) if isHWModule(lhs) =>
       toggleEn()
       controllerStack.push(lhs)
+      emitStandardSignals(lhs)
+
       val calls = callsTo(lhs)
       val nInputs = inputs.length
 
@@ -780,10 +782,18 @@ trait ChiselGenController extends ChiselGenCounter{
 
       emit(src"val ${lhs}_1H_func_selects = Wire(Vec(${inputSets(0).length}, Bool()))")
 
+      /*
       inputSets(0).indices.foreach{ i=>
         emitGlobalWire(src"""val ${lhs}_func_call_en_${i} = Wire(Bool())""")
       }
+      */
 
+      /*
+      print("\n\n===================\n\n")
+      println("inputs.length = " + inputs.length.toString() + "\n")
+      println("inputSets.length = " + inputSets.length.toString())
+      print("\n\n===================\n\n")
+      */
       inputSets.indices.foreach{i =>
           val arg = inputs(i)
 
@@ -792,7 +802,8 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"val ${lhs}_1H_func_options_${i} = Wire(Vec(${set.length}, ${newWire(op.mRet)}))")
            
           set.indices.foreach { j =>
-            emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
+            //emit(src"${lhs}_1H_func_selects_${i}($j) := ${lhs}_func_call_en_${j}")
+            emit(src"${lhs}_1H_func_selects_${i}($j) := ${swap(calls(j).node, En)}")
             emit(src"${lhs}_1H_func_options_${i}($j) := ${set(j)}")
           }
           emitGlobalWire(src"val ${arg} = Wire(${newWire(op.mRet)})")
@@ -800,7 +811,20 @@ trait ChiselGenController extends ChiselGenCounter{
 
       }
 
+      emitGlobalWire(src"val $lhs = Wire(${newWire(op.mRet)})")
+      emit(src"$lhs.r := ${body.result}.r")
       emitBlock(body)
+
+      val children = childrenOf(lhs)
+      if (children.isEmpty) {
+        calls.map(_.node).foreach{node =>
+          emit(src"""${swap(lhs, Done)} := ${swap(node, En)} // Route through""")
+        }
+      }
+      else {
+        emit(src"""${swap(lhs, Done)} := ${swap(childrenOf(lhs).last, Done)} // Route through""")
+      }
+
       toggleEn()
       controllerStack.pop()
 
@@ -818,19 +842,25 @@ trait ChiselGenController extends ChiselGenCounter{
         }
       }
 
-      val call_str = src"""${func}_func_call_en_${call_id}"""
+      //val call_str = src"""${func}_func_call_en_${call_id}"""
 
       val parent_kernel = controllerStack.head 
       //controllerStack.push(lhs)
       emitStandardSignals(lhs)
-      emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
+
+      
+      //emit(src"""${call_str} := ${swap(parent_kernel,En)}""")
+      emit(src"""${swap(lhs, En)} := ${swap(parent_kernel,En)}""")
+      
+      /*
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       emit(src"""${swap(lhs, IIDone)} := ${swap(parent_kernel, IIDone)}""")
       emit(src"""${swap(lhs, Mask)} := true.B // No enable associated with switch, never mask it""")
       emit(src"""${swap(lhs, Resetter)} := ${swap(parent_kernel, Resetter)}""")
       emit(src"""${swap(lhs, DatapathEn)} := ${swap(parent_kernel, DatapathEn)}""")
       emit(src"""${swap(lhs, CtrTrivial)} := ${swap(parent_kernel, CtrTrivial)} | false.B""")
-      
+      */
+
       /*
       if (levelOf(lhs) == InnerControl) {
         val realctrl = findCtrlAncestor(lhs) // TODO: I don't think this search is needed anymore
@@ -838,8 +868,8 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       */
 
-      emit(src"""${swap(lhs, Done)} := ${swap(parent_kernel, Done)} // Route through""")
-        
+      emit(src"""${swap(lhs, Done)} := ${swap(func, Done)} // Route through""")
+      emitGlobalWire(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
 
         
     case Hwblock(func,isForever) =>
