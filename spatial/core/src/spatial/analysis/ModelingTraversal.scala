@@ -47,10 +47,17 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     val (latencies, cycles) = latenciesAndCycles(block, verbose = verbose)
     val scope = latencies.keySet
     val latency = latencies.values.fold(0.0){(a,b) => Math.max(a,b) }
-    val interval = (cycles.map(_.length) + 0).max
+    // TODO: Safer way of determining if THIS cycle is the reduceType
+    val interval = (cycles.map{c => 
+      val scopeContainsSpecial = scope.exists(x => reduceType(x).contains(FixPtSum) )
+      val cycleContainsAdd = c.symbols.exists(n => n match {case Def(FixAdd(_,_)) => true; case _ => false})
+      val length = if (cycleContainsAdd && scopeContainsSpecial) 1 else c.length
+      length
+    } + 0
+    ).max
     // HACK: Set initiation interval to 1 if it contains a specialized reduction
     // This is a workaround for chisel codegen currently specializing and optimizing certain reduction types
-    val compilerII = if (scope.exists(x => reduceType(x).contains(FixPtSum))) 1 else interval
+    val compilerII = interval
     (latency, compilerII)
   }
 
@@ -79,11 +86,13 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
   def pipeLatencies(result: Seq[Exp[_]], scope: Set[Exp[_]], oos: Map[Exp[_],Double] = Map.empty, verbose: Boolean = true): (Map[Exp[_],Double], Set[Cycle]) = {
     val knownCycles = mutable.HashMap[Exp[_],Set[(Exp[_],Exp[_])]]()
 
-    val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem }
-    val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem }
+    // TODO: FifoDeq appears as LocalReader and LocalReadModify.  Adds "fake" cycles but shouldn't impact final answer since we take max
+    val localReads  = scope.collect{case reader @ LocalReader(reads) => reader -> reads.head.mem}
+    val localWrites = scope.collect{case writer @ LocalWriter(writes) => writer -> writes.head.mem; case reader @ LocalReadModify(reads) => reader -> reads.head.mem}
+    val localStatuses = scope.collect{case reader @ LocalReadStatus(reads) => reader -> reads.head}
 
     val localAccums = localWrites.flatMap{case (writer,writtenMem) =>
-      localReads.flatMap{case (reader,readMem) =>
+      (localReads ++ localStatuses).flatMap{case (reader,readMem) =>
         if (readMem == writtenMem) {
           val path = writer.getNodesBetween(reader, scope)
 
@@ -200,7 +209,9 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
 
     val allCycles = localAccums.map{case (reader,writer,mem) =>
       val symbols = cycles(writer)
-      Cycle(reader, writer, mem, symbols, paths(writer) - paths(reader))
+      val cycleLengthExact = paths(writer) - paths(reader)
+      val cycleLength = if (localStatuses.toList.map(_._1).contains(reader)) cycleLengthExact + 1.0 else cycleLengthExact // FIFO/Stack operations need extra cycle for status update (?)
+      Cycle(reader, writer, mem, symbols, cycleLength)
     }
 
     (paths.toMap, allCycles)
