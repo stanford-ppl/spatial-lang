@@ -9,4 +9,6 @@ trait CppGenSpatial extends CppCodegen with CppFileGen
   with CppGenDRAM with CppGenHostTransfer with CppGenUnrolled with CppGenVector
   with CppGenArray with CppGenArrayExt with CppGenRange with CppGenAlteraVideo with CppGenStream
   with CppGenHashMap with CppGenStruct with CppGenDebugging with CppGenFileIO with CppGenFunc
-  with CppGenVar with CppGenAsserts
+  with CppGenVar with CppGenAsserts {
+
+}

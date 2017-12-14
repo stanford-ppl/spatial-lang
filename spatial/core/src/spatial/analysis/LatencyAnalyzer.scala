@@ -290,8 +290,8 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         val compilerII = (1L +: iis).max
         val ii = userIIOf(lhs).getOrElse(compilerII)
 
-        val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs) }
-                    else                 { stages.sum * N + latencyOf(lhs) }
+        val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs)*N }
+                    else                 { stages.sum * N + latencyOf(lhs)*N }
 
         dbgs(s"Unrolled Outer Foreach $lhs (N = $N, II = $ii, D = $delay):")
         stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}
@@ -305,7 +305,7 @@ case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends Mo
         val ii = userIIOf(lhs).getOrElse(compilerII)
 
         val delay = if (isMetaPipe(lhs)) { stages.max * (N - 1)*ii + stages.sum + latencyOf(lhs) }
-                    else                 { stages.sum * N + latencyOf(lhs) }
+                    else                 { stages.sum * N + latencyOf(lhs)*N }
 
         dbgs(s"Unrolled Outer Reduce $lhs (N = $N, II = $ii, D = $delay):")
         stages.reverse.zipWithIndex.foreach{case (s,i) => dbgs(s"- $i. $s")}

@@ -348,7 +348,7 @@ trait LatencyModel {
 
     case _:Hwblock             => model("Hwblock")()("LatencyOf").toLong
     case _:ParallelPipe        => model("ParallelPipe")()("LatencyOf").toLong
-    case _:UnitPipe            => model("UnitPipe")()("LatencyOf").toLong
+    case _:UnitPipe            => if (isOuterControl(s)) model("UnitPipe")()("LatencyOf").toLong else 2L
     case _:OpForeach           => model("OpForeach")()("LatencyOf").toLong
     case _:OpReduce[_]         => model("OpReduce")()("LatencyOf").toLong
     case _:OpMemReduce[_,_]    => model("OpMemReduce")()("LatencyOf").toLong
