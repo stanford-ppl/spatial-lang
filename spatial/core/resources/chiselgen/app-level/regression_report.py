@@ -50,3 +50,8 @@ worksheet.update_cell(tid,col, stamp)
 worksheet = sh.worksheet('Runtime') # Select worksheet by index
 worksheet.update_cell(tid,2*col-7,sys.argv[5])
 worksheet.update_cell(tid,2*col-6,sys.argv[4])
+
+# Page 2 - STATUS
+worksheet = sh.worksheet('STATUS')
+worksheet.update_cell(22,3,stamp)
+worksheet.update_cell(22,4,os.uname()[1])
