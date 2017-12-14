@@ -124,7 +124,7 @@ case class FunctionUnrolling(var IR: State) extends ForwardTransformer {
       val nDispatches = actualCalls.length
       dbgs(s"  Other calls w/ this dispatch: $nDispatches")
 
-      // Inline function calls with only one dispatch at the call site
+      // Inline function calls witok h only one dispatch at the call site
       if ((nDispatches > 1 || isHostCall) && !spatialConfig.inline) {
         dbgs(s"Creating function dispatch to #$dispatch")
         val copy = modules((func, dispatch))
