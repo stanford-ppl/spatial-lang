@@ -99,7 +99,7 @@ class Fringe(
     val loadStreams = loadStreamIDs.map { io.memStreams.loads(_) }
     val storeStreams = storeStreamIDs.map { io.memStreams.stores(_) }
 
-    val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, blockingDRAMIssue, debugChannelID == i))
+    val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, debugChannelID == i))
     mag.io.app.loads.zip(loadStreams) foreach { case (l, ls) => l <> ls }
     mag.io.app.stores.zip(storeStreams) foreach { case (s, ss) => s <> ss }
     mag
@@ -107,8 +107,7 @@ class Fringe(
 
   val debugChannelID = 0
 
-  //val numDebugs = mags(debugChannelID).numDebugs
-  val numDebugs = 0
+  val numDebugs = mags(debugChannelID).numDebugs
   val numRegs = numArgIns + numArgOuts + 2 - numArgIOs + numDebugs // (command, status registers)
 
   // Scalar, command, and status register file
@@ -159,7 +158,7 @@ class Fringe(
       argOutReg.bits := io.argOuts(i-1).bits
       argOutReg.valid := io.argOuts(i-1).valid
     } else {
-      //argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
+      argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
       argOutReg.valid := 1.U
     }
   }
