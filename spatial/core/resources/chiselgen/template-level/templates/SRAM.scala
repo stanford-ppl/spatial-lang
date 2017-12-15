@@ -116,7 +116,7 @@ class Mem1D(val size: Int, bitWidth: Int, syncMem: Boolean = false) extends Modu
 
 // Last dimension is the leading-dim
 class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) extends Module { 
-  val depth = dims.reduce{_*-*_} // Size of memory
+  val depth = dims.reduce{_*_} // Size of memory
   val N = dims.length // Number of dimensions
   val addrWidth = dims.map{Utils.log2Up(_)}.max
 
@@ -141,12 +141,12 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
 
   // Address flattening
   m.io.w.addr := Utils.getRetimed(io.w.addr.zipWithIndex.map{ case (addr, i) =>
-    // FringeGlobals.bigIP.multiply(addr, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0)
-   addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
+    // FringeGlobals.bigIP.multiply(addr, (banks.drop(i).reduce{_.*-*(_,None)}/-/banks(i)).U, 0)
+   addr.*-*((dims.drop(i).reduce{_*_}/dims(i)).U, None)
   }.reduce{_+_}, 0 max Utils.sramstore_latency - 1)
   m.io.r.addr := Utils.getRetimed(io.r.addr.zipWithIndex.map{ case (addr, i) =>
-    // FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_*-*_}/dims(i)).U, 0)
-   addr *-* (dims.drop(i).reduce{_*-*_}/dims(i)).U
+    // FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_.*-*(_,None)}/dims(i)).U, 0)
+   addr.*-*((dims.drop(i).reduce{_*_}/dims(i)).U, None)
   }.reduce{_+_}, 0 max {Utils.sramload_latency - 1}) // Latency set to 2, give 1 cycle for bank to resolve
 
   // Connect the other ports
@@ -195,7 +195,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
            banks: Int, strides: Int, 
            wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, List(banks), List(strides), wPar, rPar, BankedMemory)
 
-  val depth = logicalDims.reduce{_*-*_} // Size of memory
+  val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
   val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
@@ -226,7 +226,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   }
   val numMems = bankingMode match {
     case DiagonalMemory => banks.head
-    case BankedMemory => banks.reduce{_*-*_}
+    case BankedMemory => banks.reduce{_*_}
   }
 
   // Create physical mems
@@ -241,18 +241,18 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     // Writer conversion
     val convertedW = Wire(new multidimW(N,logicalDims,bitWidth))
     val physicalAddrs = bankingMode match {
-      case DiagonalMemory => wbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical /-/ banks.head.U else logical}
-      case BankedMemory => wbundle.addr.zip(banks).map{ case (logical, b) => logical /-/ b.U }
+      case DiagonalMemory => wbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical./-/(banks.head.U,None) else logical}
+      case BankedMemory => wbundle.addr.zip(banks).map{ case (logical, b) => logical./-/(b.U,None) }
     }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedW.addr(i) := calculatedAddr}
     convertedW.data := wbundle.data
     convertedW.en := wbundle.en
     val flatBankId = bankingMode match {
-      case DiagonalMemory => wbundle.addr.reduce{_+_} %-% banks.head.U
+      case DiagonalMemory => wbundle.addr.reduce{_+_}.%-%(banks.head.U, None)
       case BankedMemory => 
-        val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical %-% b.U }
-       bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
-        // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
+        val bankCoords = wbundle.addr.zip(banks).map{ case (logical, b) => logical.%-%(b.U,None) }
+       bankCoords.zipWithIndex.map{ case (c, i) => c.*-*((banks.drop(i).reduce{_*_}/banks(i)).U,None) }.reduce{_+_}
+        // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_.*-*(_,None)}/-/banks(i)).U, 0) }.reduce{_+_}
     }
 
     (convertedW, flatBankId)
@@ -264,18 +264,18 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
     // Reader conversion
     val convertedR = Wire(new multidimR(N,logicalDims,bitWidth))
     val physicalAddrs = bankingMode match {
-      case DiagonalMemory => rbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical /-/ banks.head.U else logical}
-      case BankedMemory => rbundle.addr.zip(banks).map{ case (logical, b) => logical /-/ b.U }
+      case DiagonalMemory => rbundle.addr.zipWithIndex.map {case (logical, i) => if (i == N - 1) logical./-/(banks.head.U,None) else logical}
+      case BankedMemory => rbundle.addr.zip(banks).map{ case (logical, b) => logical./-/(b.U,None) }
     }
     physicalAddrs.zipWithIndex.foreach { case (calculatedAddr, i) => convertedR.addr(i) := calculatedAddr}
     convertedR.en := rbundle.en
     val syncDelay = 0//if (syncMem) 1 else 0
     val flatBankId = bankingMode match {
-      case DiagonalMemory => Utils.getRetimed(rbundle.addr.reduce{_+_}, syncDelay) %-% banks.head.U
+      case DiagonalMemory => Utils.getRetimed(rbundle.addr.reduce{_+_}, syncDelay).%-%(banks.head.U, None)
       case BankedMemory => 
-        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => Utils.getRetimed(logical, syncDelay) %-% b.U }
-       bankCoords.zipWithIndex.map{ case (c, i) => c*-*(banks.drop(i).reduce{_*-*_}/-/banks(i)).U }.reduce{_+_}
-        // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_*-*_}/-/banks(i)).U, 0) }.reduce{_+_}
+        val bankCoords = rbundle.addr.zip(banks).map{ case (logical, b) => Utils.getRetimed(logical, syncDelay).%-%(b.U,None) }
+       bankCoords.zipWithIndex.map{ case (c, i) => c.*-*((banks.drop(i).reduce{_*_}/banks(i)).U,None) }.reduce{_+_}
+        // bankCoords.zipWithIndex.map{ case (c, i) => FringeGlobals.bigIP.multiply(c, (banks.drop(i).reduce{_.*-*(_,None)}/-/banks(i)).U, 0) }.reduce{_+_}
     }
     (convertedR, flatBankId)
   }
@@ -375,7 +375,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
            wPar: List[Int], rPar: List[Int], 
            wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
 
-  val depth = logicalDims.reduce{_*-*_} // Size of memory
+  val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
   val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
@@ -389,7 +389,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
     val broadcast = Vec(bPar.reduce{_+_}, Input(new multidimW(N, logicalDims, bitWidth)))
     val r = Vec(rPar.reduce{_+_},Input(new multidimR(N, logicalDims, bitWidth))) // TODO: Spatial allows only one reader per mem
     val output = new Bundle {
-      val data  = Vec(numBufs *-* maxR, Output(UInt(bitWidth.W)))  
+      val data  = Vec(numBufs*maxR, Output(UInt(bitWidth.W)))  
     }
     val debug = new Bundle {
       val invalidRAddr = Output(Bool())
@@ -411,7 +411,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
   val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
-  val numMems = banks.reduce{_*-*_}
+  val numMems = banks.reduce{_*_}
 
   // Create physical mems
   val srams = (0 until numBufs).map{ i => Module(
@@ -608,7 +608,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
            wPar: List[Int], rPar: List[Int], 
            wBundling: List[Int], rBundling: List[Int], bPar: List[Int]) = this(logicalDims, numBufs, bitWidth, List(banks), List(strides), wPar, rPar, wBundling, rBundling, bPar, BankedMemory)
 
-  val depth = logicalDims.reduce{_*-*_} // Size of memory
+  val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
   val addrWidth = logicalDims.map{Utils.log2Up(_)}.max
 
@@ -643,7 +643,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
   val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
-  val numMems = banks.reduce{_*-*_}
+  val numMems = banks.reduce{_*_}
 
   // Create physical mems
   val srams = (0 until numBufs).map{ i => Module(

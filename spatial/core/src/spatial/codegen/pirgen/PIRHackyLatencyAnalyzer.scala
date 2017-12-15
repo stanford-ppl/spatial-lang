@@ -15,7 +15,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
   override lazy val latencyModel = new PlasticineLatencyModel{}
 
   // Only count latencies of nodes if they don't have retiming nodes
-  override def latencyOf(e: Exp[_], inReduce: Boolean = false): Long = if (inHwScope) e match {
+  override def latencyOf(e: Exp[_], inReduce: Boolean = false): Double = if (inHwScope) e match {
     case Def(DelayLine(size,_)) => size
     case s: Sym[_] if s.dependents.exists{case Def(_:DelayLine[_]) => true; case _ => false} => 0
     case _ => latencyModel.latencyOf(e,inReduce)
@@ -26,8 +26,8 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
     super.silence()
   }
 
-  var cycleScope: List[Long] = Nil
-  var totalCycles: Long = 0L
+  var cycleScope: List[Double] = Nil
+  var totalCycles: Double = 0.0
 
   // TODO: Default number of iterations if bound can't be computed?
   // TODO: Warn user if bounds can't be found?
@@ -52,7 +52,7 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
       loopIters.fold(1L){_*_}
   }
 
-  def latencyOfBlock(b: Block[_], par_mask: Boolean = false): List[Long] = {
+  def latencyOfBlock(b: Block[_], par_mask: Boolean = false): List[Double] = {
     val outerScope = cycleScope
     cycleScope = Nil
     tab += 1
@@ -204,11 +204,11 @@ trait PIRHackyLatencyAnalyzer extends ModelingTraversal { traversal =>
         val Pm = parsOf(cchainMap).product // Parallelization factor for map
       val Pr = parsOf(cchainRed).product // Parallelization factor for reduce
 
-        val mapStages: List[Long] = latencyOfBlock(map)
-        val internal: Long = latencyOfPipe(ldRes)._1 + latencyOfPipe(reduce)._1 * reductionTreeHeight(Pm)
-        val accumulate: Long = latencyOfPipe(ldAcc)._1 + latencyOfPipe(reduce)._1 + latencyOfPipe(store)._1
+        val mapStages: List[Double] = latencyOfBlock(map)
+        val internal: Double = latencyOfPipe(ldRes)._1 + latencyOfPipe(reduce)._1 * reductionTreeHeight(Pm)
+        val accumulate: Double = latencyOfPipe(ldAcc)._1 + latencyOfPipe(reduce)._1 + latencyOfPipe(store)._1
 
-        val reduceStage: Long = internal + accumulate + Nr - 1
+        val reduceStage: Double = internal + accumulate + Nr - 1
         val stages = mapStages :+ reduceStage
 
         dbgs(s"Block Reduce $lhs (Nm = $Nm, Nr = $Nr)")

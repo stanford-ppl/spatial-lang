@@ -19,14 +19,14 @@ trait PIRHackyModelingTraversal extends ModelingTraversal { trv =>
     var stages: List[Exp[_]] = compute.toList
     var cchains: List[Exp[_]] = Nil
 
-    def cycles: Long = stages.map(stage => latencyOf(stage)).sum
+    def cycles: Double = stages.map(stage => latencyOf(stage)).sum
 
     def inputs = {
       stages.flatMap{case Def(d) => d.expInputs; case _ => Nil}.distinct diff stages
     }
     def defines(x: Exp[_]) = stages.contains(x)
 
-    def cost(others: Seq[Partition], isUnit: Boolean, scope: Seq[Exp[_]]): (Seq[Exp[_]],Seq[Exp[_]],Long) = {
+    def cost(others: Seq[Partition], isUnit: Boolean, scope: Seq[Exp[_]]): (Seq[Exp[_]],Seq[Exp[_]],Double) = {
       val external = scope diff stages
       val externalInputs  = external.flatMap{case Def(d) => d.expInputs; case _ => Nil }
       val externalOutputs = external

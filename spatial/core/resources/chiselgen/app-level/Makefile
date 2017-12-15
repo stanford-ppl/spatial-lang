@@ -27,13 +27,16 @@ help:
 	@echo "make zynq        : Zynq SW + HW build"
 	@echo "make zynq-hw     : Build Chisel for Zynq"
 	@echo "make zynq-hw     : Build software for Zynq"
-	@echo "make zcu        : Zynq Ultrascale SW + HW build"
-	@echo "make zcu-hw     : Build Chisel for Zynq Ultrascale"
-	@echo "make zcu-hw     : Build software for Zynq Ultrascale"
+	@echo "make zcu         : Zynq Ultrascale SW + HW build"
+	@echo "make zcu-hw      : Build Chisel for Zynq Ultrascale"
+	@echo "make zcu-hw      : Build software for Zynq Ultrascale"
 	@echo "make vcs         : VCS SW + HW build"
+	@echo "make asic        : ASIC SW + HW build"
+	@echo "make asic-hw     : ASIC HW build"
+	@echo "make asic-sw     : ASIC SW build"
 	@echo "make vcs-hw      : Build Chisel for VCS"
-	@echo "make xsim         : XSIM SW + HW build"
-	@echo "make xsim-hw      : Build Chisel for XSIM"
+	@echo "make xsim        : XSIM SW + HW build"
+	@echo "make xsim-hw     : Build Chisel for XSIM"
 	@echo "make sim-clean   : Verilator simulation clean up"
 	@echo "make de1soc	: Build Chisel for DE1-SoC"
 	@echo "------- END HELP -------"
@@ -345,6 +348,28 @@ vcs-clean:
 	rm -rf verilog-vcs
 	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
 	rm -rf target
+
+asic: asic-hw asic-sw
+	tar -czf TopVCS.tar.gz -C verilog-asic accel.bit.bin -C ../cpp Top
+
+asic-sw: vcs-sw
+
+asic-hw:
+	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
+	sbt "runMain top.Instantiator --verilog --testArgs asic"
+	cp -r chisel/template-level/fringeVCS/* verilog-asic
+	cp -r chisel/template-level/fringeASIC/build/* verilog-asic
+	touch in.txt
+	make -C verilog-asic
+	ln -sf verilog-asic verilog
+
+asic-clean:
+	make -C verilog-asic clean
+	make -C cpp clean
+	rm -rf verilog-asic
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
+	rm -rf target
+
 
 xsim: xsim-hw xsim-sw
 	tar -czf TopXSIM.tar.gz -C verilog-xsim accel.bit.bin -C ../cpp Top

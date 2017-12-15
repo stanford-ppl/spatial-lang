@@ -70,7 +70,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case RegFileReset(rf,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(rf).map{_._1}.indexOf(lhs)
-      duplicatesOf(rf).indices.foreach{i => emit(src"${rf}_${i}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}) ")}
+      duplicatesOf(rf).indices.foreach{i => emit(src"${rf}_${i}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${enableRetimeMatch(en, lhs)}.toInt) ")}
       
     case op@RegFileLoad(rf,inds,en) =>
       val dispatch = dispatchOf(lhs, rf).toList.head
@@ -86,7 +86,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${inds.length}, List(${constDimsOf(rf)}), ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${data}.r""")
-      emit(src"""${lhs}_wVec(0).en := ${en} & (${enable}).D(${symDelay(lhs)})""")
+      emit(src"""${lhs}_wVec(0).en := ${en} & (${enable}).D(${enableRetimeMatch(en, lhs)}.toInt)""")
       inds.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
       }
@@ -115,7 +115,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${constDimsOf(rf)}), ${width})))""")
       (0 until ens.length).foreach{ k => 
         emit(src"""${swap(lhs, WVec)}($k).data := ${data(k)}.r""")
-        emit(src"""${swap(lhs, WVec)}($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${swap(lhs, WVec)}($k).en := ${ens(k)} & (${enable}).D(${enableRetimeMatch(ens.head, lhs)}.toInt, rr)""")
         inds(k).zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${swap(lhs, WVec)}($k).addr($j) := ${ind}.r // Assume always an int""")
         }
@@ -133,7 +133,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${inds.length}, List(${constDimsOf(rf)}), ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${data}.r""")
-      emit(src"""${lhs}_wVec(0).shiftEn := ${en} & (${enable}).D(${symDelay(lhs)})""")
+      emit(src"""${lhs}_wVec(0).shiftEn := ${en} & (${enable}).D(${enableRetimeMatch(en, lhs)}.toInt)""")
       inds.zipWithIndex.foreach{ case(ind,j) => 
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
       }
@@ -150,7 +150,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(src"""val ${lhs}_wVec = Wire(Vec(${inds.length}, new multidimRegW(${inds.length}, List(${constDimsOf(rf)}), ${width}))) """)
       open(src"""for (${lhs}_i <- 0 until ${data}.length) {""")
         emit(src"""${lhs}_wVec(${lhs}_i).data := ${data}(${lhs}_i).r""")
-        emit(src"""${lhs}_wVec(${lhs}_i).shiftEn := ${en} & (${enable}).D(${symDelay(lhs)})""")
+        emit(src"""${lhs}_wVec(${lhs}_i).shiftEn := ${en} & (${enable}).D(${enableRetimeMatch(en, lhs)}.toInt)""")
         inds.zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${lhs}_wVec(${lhs}_i).addr($j) := ${ind}.r // Assume always an int""")
         }
@@ -183,7 +183,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val idquote = src"${lhs}_id"
       emitGlobalWireMap(src"""${lhs}""",src"""Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
-      emit(src"""val ${idquote} = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}}), $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}))""")
+      emit(src"""val ${idquote} = ${lut}_${dispatch}.connectRPort(List(${inds.map{a => src"${a}.r"}}), $en & ${swap(parent, DatapathEn)}.D(${enableRetimeMatch(en, lhs)}.toInt))""")
       emit(src"""${lhs}.raw := ${lut}_${dispatch}.io.data_out(${idquote}).raw""")
 
     case op@VarRegNew(init)    => 
