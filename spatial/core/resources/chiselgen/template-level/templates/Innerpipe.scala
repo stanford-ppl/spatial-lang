@@ -5,7 +5,7 @@ import chisel3._
 import scala.collection.mutable.HashMap
 
 // Inner pipe
-class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
+class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false, val isReduce: Boolean = false) extends Module {
 
   // States
   val pipeInit = 0
@@ -50,7 +50,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B
     stateFF.io.input(0).reset := false.B//io.input.rst
-    stateFF.io.input(0).init := pipeRun.U //pipeReset.U
+    stateFF.io.input(0).init := {if (isReduce) pipeReset.U else pipeRun.U}
     val state = stateFF.io.output.data
     //val state = RegInit(pipeReset.U(32.W))
 
@@ -63,9 +63,9 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
     // rstCtr.io.input.gap := 0.S
     // rstCtr.io.input.start := 0.S
     // rstCtr.io.input.stride := 1.S
-    val rst = ~io.input.enable | io.input.rst | state =/= pipeDone.U
+    val rst = ~io.input.enable | io.input.rst | (state =/= pipeDone.U & state =/= pipeReset.U)
 
-    io.output.rst_en := Utils.getRetimed((state =/= pipeRun.U || rstLatch.io.output.data), 1) || io.input.rst
+    io.output.rst_en := Utils.getRetimed(( (state =/= pipeRun.U & state =/= pipeReset.U /*sic*/) || rstLatch.io.output.data), 1) || io.input.rst
 
     // Only start the state machine when the enable signal is set
     when (io.input.enable) {
@@ -80,10 +80,10 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
         io.output.extendedDone := false.B
         io.output.ctr_inc := false.B
         // io.output.rst_en := true.B;
-        stateFF.io.input(0).data := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
+        stateFF.io.input(0).data := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
         when (rst) {
           // io.output.rst_en := false.B
-          stateFF.io.input(0).data := Mux(io.input.ctr_done, pipeDone.U, pipeRun.U) // Shortcut to done state, for tile store
+          stateFF.io.input(0).data := Mux(io.input.ctr_done, pipeDone.U, pipeReset.U) // Shortcut to done state, for tile store
         }
       }.elsewhen( state === pipeRun.U ) {
         // io.output.rst_en := false.B
@@ -103,13 +103,13 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
         io.output.ctr_inc := false.B
         io.output.done := false.B//Mux(io.input.forever, false.B, true.B)
         io.output.extendedDone := Mux(io.input.forever, false.B, true.B)
-        if (retime == 0) stateFF.io.input(0).data := pipeRun.U else stateFF.io.input(0).data := pipeSpinWait.U
+        if (retime == 0) stateFF.io.input(0).data := {if (isReduce) pipeReset.U else pipeRun.U} else stateFF.io.input(0).data := pipeSpinWait.U
       }.elsewhen( state >= pipeSpinWait.U ) {
         io.output.ctr_inc := false.B
         // io.output.rst_en := false.B
         io.output.done := false.B
         io.output.extendedDone := false.B
-        stateFF.io.input(0).data := Mux(state >= (pipeSpinWait + retime).U, pipeRun.U, state + 1.U);
+        stateFF.io.input(0).data := Mux(state >= (pipeSpinWait + retime).U, {if (isReduce) pipeReset.U else pipeRun.U}, state + 1.U);
       } 
     }.otherwise {
       io.output.done := Mux(io.input.ctr_done | (state === pipeRun.U & io.input.ctr_done), true.B, false.B)
@@ -117,7 +117,7 @@ class Innerpipe(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidt
       // io.output.rst_en := false.B
       io.output.state := state.asSInt
       if (retime == 0) {
-        stateFF.io.input(0).data := pipeRun.U
+        stateFF.io.input(0).data := {if (isReduce) pipeReset.U else pipeRun.U}
       } else {
         stateFF.io.input(0).data := Mux(state === pipeDone.U, pipeSpinWait.U, Mux(state === pipeRun.U & io.input.ctr_done, pipeDone.U, state)) // Move along if enable turns on just as we reach done state
       }

@@ -313,7 +313,6 @@ trait ChiselGenController extends ChiselGenCounter{
     var previousLevel: Exp[_] = node
     var nextLevel: Option[Exp[_]] = Some(parentOf(node).get)
     var result = ens.map(quote)
-    Console.println(s"visiting $node")
     while (nextLevel.isDefined) {
       if (styleOf(nextLevel.get) == StreamPipe) {
         nextLevel.get match {
@@ -321,7 +320,6 @@ trait ChiselGenController extends ChiselGenCounter{
             ens.foreach{ my_en_exact =>
               val my_en = my_en_exact match { case Def(DelayLine(_,node)) => node; case _ => my_en_exact}
               e.foreach{ their_en =>
-                Console.println(s"mine ${my_en} theirs ${their_en}")
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   // Hacky way to avoid double-suffixing
                   if (!src"$my_en".contains(src"_copy${previousLevel}") && !src"$my_en".contains("(") /* hack for remapping */) {  
@@ -419,6 +417,14 @@ trait ChiselGenController extends ChiselGenCounter{
         case ForkSwitch => s"Match"
       }
     }
+
+    // TODO: We should really just check for unspecialized reduce, not any reduce
+    val isReduce = if (isInner) {
+      sym match {
+        case Def(UnrolledReduce(_,_,_,_,_,_)) => true
+        case _ => false
+      }
+    } else false
 
     emit(src"""//  ---- ${if (isInner) {"INNER: "} else {"OUTER: "}}Begin ${smStr} $sym Controller ----""")
 
@@ -552,7 +558,7 @@ trait ChiselGenController extends ChiselGenCounter{
     } else true
     emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}.toInt")
     emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat}.toInt // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emitGlobalModuleMap(src"${sym}_sm", src"Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
+    emitGlobalModuleMap(src"${sym}_sm", src"Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static, isReduce = $isReduce))")
     emit(src"// This is now global: val ${swap(sym, SM)} = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
     emit(src"""${swap(sym, SM)}.io.input.enable := ${swap(sym, En)} & retime_released""")
     if (isFSM) {

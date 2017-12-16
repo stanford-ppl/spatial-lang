@@ -6,7 +6,7 @@ import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
 
-class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
+class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false, val isReduce: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
