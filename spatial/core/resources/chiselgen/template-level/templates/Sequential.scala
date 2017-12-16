@@ -45,8 +45,8 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     val rstCtr = Module(new SingleCounter(1, Some(0), None, Some(1), Some(0), width = rstw))
     val firstIterComplete = Module(new SRFF())
     firstIterComplete.io.input.set := rstCtr.io.output.done
-    firstIterComplete.io.input.reset := reset
-    firstIterComplete.io.input.asyn_reset := reset
+    firstIterComplete.io.input.reset := Utils.getRetimed(reset, 1)
+    firstIterComplete.io.input.asyn_reset := Utils.getRetimed(reset, 1)
 
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
