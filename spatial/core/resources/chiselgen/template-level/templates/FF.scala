@@ -56,9 +56,9 @@ class FF(val w: Int, val numWriters: Int = 1) extends Module {
     }
     io.input(wId).enable := en
     if (w == 1 || accumulating) {
-      io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
+      io.input(wId).reset := Utils.getRetimed(reset, 1) // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
     } else {
-      io.input(wId).reset := reset & ~en 
+      io.input(wId).reset := Utils.getRetimed(reset, 1) & ~en 
     }
     // Ignore port
     wId = wId + 1
@@ -108,10 +108,10 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := (io.sEn(i) & ~io.sDone(i)) || (io.sEn(i) & io.sDone(i) & Utils.getRetimed(~io.sEn(i), 1) /*Special case when en and done go on at same time in first cycle*/)
     sEn_latch(i).io.input.reset := swap || Utils.getRetimed(swap, 1)
-    sEn_latch(i).io.input.asyn_reset := reset
+    sEn_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap || Utils.getRetimed(swap, 1)
-    sDone_latch(i).io.input.asyn_reset := reset
+    sDone_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)
@@ -175,9 +175,9 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
       }
       io.input(wId).enable := en
       if (w == 1 || accumulating) {
-        io.input(wId).reset := reset // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
+        io.input(wId).reset := Utils.getRetimed(reset, 1) // Hack to fix correctness bug in MD_KNN and comb loop in Sort_Radix simultaneously, since accum on boolean regs can cause this loop
       } else {
-        io.input(wId).reset := reset & ~en 
+        io.input(wId).reset := Utils.getRetimed(reset, 1) & ~en 
       }
       
       io.wr_ports(wId) := port.U
@@ -190,7 +190,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
           io.broadcast.data := d.number
       }
       io.broadcast.enable := en & ~en
-      io.broadcast.reset := reset      
+      io.broadcast.reset := Utils.getRetimed(reset, 1)      
     }
   }
 
@@ -202,7 +202,7 @@ class NBufFF(val numBufs: Int, val w: Int, val numWriters: Int = 1) extends Modu
         io.input(0).data := data.number
     }
     io.input(0).enable := en
-    io.input(0).reset := reset
+    io.input(0).reset := Utils.getRetimed(reset, 1)
     io.input(0).init := 0.U
     io.wr_ports(0) := 0.U
     io.broadcast.enable := false.B

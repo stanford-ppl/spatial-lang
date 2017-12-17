@@ -429,10 +429,10 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := Utils.getRetimed(swap,1)
-    sEn_latch(i).io.input.asyn_reset := reset
+    sEn_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := Utils.getRetimed(swap,1)
-    sDone_latch(i).io.input.asyn_reset := reset
+    sDone_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)
@@ -661,10 +661,10 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   (0 until numBufs).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := Utils.getRetimed(swap,1)
-    sEn_latch(i).io.input.asyn_reset := reset
+    sEn_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := Utils.getRetimed(swap,1)
-    sDone_latch(i).io.input.asyn_reset := reset
+    sDone_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := Utils.risingEdge(sEn_latch.zip(sDone_latch).zipWithIndex.map{ case ((en, done), i) => en.io.output.data === (done.io.output.data || io.sDone(i)) }.reduce{_&_} & anyEnabled)

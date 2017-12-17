@@ -73,10 +73,10 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   (0 until numAccessors).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
-    sEn_latch(i).io.input.asyn_reset := reset
+    sEn_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap
-    sDone_latch(i).io.input.asyn_reset := reset
+    sDone_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled //| io.transientSwap

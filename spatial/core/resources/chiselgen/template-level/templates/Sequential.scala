@@ -6,7 +6,7 @@ import chisel3._
 import Utils._
 import scala.collection.mutable.HashMap
 
-class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
+class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false, val isReduce: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -45,8 +45,8 @@ class Seqpipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val
     val rstCtr = Module(new SingleCounter(1, Some(0), None, Some(1), Some(0), width = rstw))
     val firstIterComplete = Module(new SRFF())
     firstIterComplete.io.input.set := rstCtr.io.output.done
-    firstIterComplete.io.input.reset := reset
-    firstIterComplete.io.input.asyn_reset := reset
+    firstIterComplete.io.input.reset := Utils.getRetimed(reset, 1)
+    firstIterComplete.io.input.asyn_reset := Utils.getRetimed(reset, 1)
 
     val stateFF = Module(new FF(32))
     stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
