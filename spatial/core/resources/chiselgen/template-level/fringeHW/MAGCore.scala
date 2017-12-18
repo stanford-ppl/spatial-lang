@@ -39,7 +39,7 @@ class MAGCore(
   val storeStreamInfo: List[StreamParInfo],
   val numOutstandingBursts: Int,
   val burstSizeBytes: Int,
-  val debug: Boolean = true
+  val isDebugChannel: Boolean = false
 ) extends Module {
 
   val numRdataDebug = 2
@@ -166,7 +166,7 @@ class MAGCore(
   var dbgCount = 0
   val signalLabels = ListBuffer[String]()
   def connectDbgSig(sig: UInt, label: String) {
-    if (debug) {
+    if (isDebugChannel) {
       io.debugSignals(dbgCount) := sig
       signalLabels.append(label)
       dbgCount += 1
@@ -477,20 +477,22 @@ class MAGCore(
 
   connectDbgSig(wdataCount.io.out, "num wdata transferred (wvalid & wready)")
 
-  // Print all debugging signals into a header file
-  val debugFileName = "cpp/generated_debugRegs.h"
-  val debugPW = new PrintWriter(new File(debugFileName))
-  debugPW.println(s"""
-#ifndef __DEBUG_REGS_H__
-#define __DEBUG_REGS_H__
+  if (isDebugChannel) {
+    // Print all debugging signals into a header file
+    val debugFileName = "cpp/generated_debugRegs.h"
+    val debugPW = new PrintWriter(new File(debugFileName))
+    debugPW.println(s"""
+  #ifndef __DEBUG_REGS_H__
+  #define __DEBUG_REGS_H__
 
-#define NUM_DEBUG_SIGNALS ${signalLabels.size}
+  #define NUM_DEBUG_SIGNALS ${signalLabels.size}
 
-const char *signalLabels[] = {
-""")
+  const char *signalLabels[] = {
+  """)
 
-  debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
-  debugPW.println("};")
-  debugPW.println("#endif // __DEBUG_REGS_H__")
-  debugPW.close
+    debugPW.println(signalLabels.map { l => s"""\"${l}\"""" }.mkString(", "))
+    debugPW.println("};")
+    debugPW.println("#endif // __DEBUG_REGS_H__")
+    debugPW.close
+  }
 }
