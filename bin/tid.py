@@ -90,7 +90,7 @@ else:
 	FMT = '%Y-%m-%d %H:%M:%S'
 	tdelta = datetime.strptime(t, FMT) - datetime.strptime(lasttime, FMT)
 	# Do new test anyway if results are over 24h old
-	if (tdelta.total_seconds() > 86400):
+	if (tdelta.total_seconds() > 129600):
 		link='=HYPERLINK("https://github.com/stanford-ppl/spatial-lang/tree/' + sys.argv[1] + '", "' + sys.argv[1] + '")'
 		alink='=HYPERLINK("https://github.com/stanford-ppl/spatial-apps/tree/' + sys.argv[2] + '", "' + sys.argv[2] + '")'
 		numsheets = len(sh.worksheets())
