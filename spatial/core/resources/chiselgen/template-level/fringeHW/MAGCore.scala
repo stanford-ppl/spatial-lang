@@ -46,7 +46,7 @@ class MAGCore(
   val numRdataWordsDebug = 16
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 224
+  val numDebugs = 324
 
   val sgDepth = d
 
