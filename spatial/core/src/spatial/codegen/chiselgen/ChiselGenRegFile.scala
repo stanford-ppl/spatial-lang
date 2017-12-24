@@ -166,7 +166,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         case a: FixPtType[_,_,_] => a.fracBits
         case _ => 0
       }
-      val lut_consts = getConstValues(init).toList.map{a => src"${a}d"}.mkString(",")
+      val lut_consts = if (width == 1) {
+        getConstValues(init).toList.map{a => if (a == true) "1.0" else "0.0"}.mkString(",")
+      } else {
+        getConstValues(init).toList.map{a => src"${a}d"}.mkString(",")
+      }
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
         val numReaders = readersOf(lhs).filter{read => dispatchOf(read, lhs) contains i}.length
         emitGlobalModule(src"""val ${lhs}_$i = Module(new LUT(List($dims), List(${lut_consts}), ${numReaders}, $width, $f))""")

@@ -58,13 +58,15 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
           val done = if ( (count + c.par*stride + gap >= stop) & (enable == 1) ) 1 else 0
           // val a = peek(c.io.output.count(0))
           // val b = peek(c.io.output.count(1))
+          // val d = peek(c.io.output.count(2))
           // val cc = peek(c.io.output.done)
           // println(s"SingleCounters at $a, $b, (want $count), stop $stop done? $cc expected? $done because ${(count + c.par*stride + gap)} satmode $saturate")
-          // if (cc != done) println("           ERROR!!!!!!!!!!!!!! \n\n")
+          // if (cc != done | a != count | b != {count + stride} | d != {count + 2*stride}) println("           ERROR!!!!!!!!!!!!!! \n\n")
 
           // Check signal values
           (0 until c.par).foreach { i => expect(c.io.output.count(i), count + (i * stride)) }
           expect(c.io.output.done, done)
+
 
           expectedCount = count
           expectedDone = done
@@ -73,11 +75,11 @@ class SingleCounterTests(c: SingleCounter) extends PeekPokeTester(c) {
         poke(c.io.input.enable, 0)
         poke(c.io.input.start, start)
         step(5)
+        poke(c.io.input.stride, stride)
         poke(c.io.input.reset, 1)
         step(1)
         poke(c.io.input.stop, stop)
         poke(c.io.input.gap, gap)
-        poke(c.io.input.stride, stride)
         poke(c.io.input.enable, enable)
         poke(c.io.input.saturate, saturate)
         poke(c.io.input.reset, 0)
