@@ -28,7 +28,7 @@ tid = sys.argv[1]
 
 # pygsheets auth
 json_key = '/home/mattfel/regression/synth/pygsheets_key.json'
-gc = gspread.authorize(outh_key = json_key)
+gc = gspread.authorize(outh_file = json_key)
 
 if (sys.argv[7] == "Zynq"):
 	sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
