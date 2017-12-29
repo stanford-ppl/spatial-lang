@@ -26,7 +26,7 @@ tid = sys.argv[2]
 
 # pygsheets auth
 json_key = '/home/mattfel/regression/synth/pygsheets_key.json'
-gc = gspread.authorize(outh_file = json_key)
+gc = pygsheets.authorize(outh_file = json_key)
 
 # sh = gc.open(sys.argv[1] + " Performance")
 if (sys.argv[1] == "fpga"):

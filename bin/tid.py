@@ -25,7 +25,7 @@ import time
 
 # pygsheets auth
 json_key = '/home/mattfel/regression/synth/pygsheets_key.json'
-gc = gspread.authorize(outh_file = json_key)
+gc = pygsheets.authorize(outh_file = json_key)
 
 if (sys.argv[4] == "Zynq"):
 	perf=False
