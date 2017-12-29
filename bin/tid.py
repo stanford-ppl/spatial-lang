@@ -78,7 +78,7 @@ if ("test timestamp" in lol[1]):
 lasthash=lol[3][hcol]
 lastapphash=lol[3][acol]
 lasttime=lol[3][ttcol]
-l
+
 if (perf):
 	new_entry=True
 else:
