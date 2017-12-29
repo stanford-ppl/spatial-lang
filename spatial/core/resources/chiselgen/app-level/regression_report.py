@@ -10,10 +10,10 @@ import datetime
 #1 = branch
 #2 = tid
 #3 = appname
-#3 = pass
-#4 = cycles
-#5 = hash
-#6 = apphash
+#4 = pass
+#5 = cycles
+#6 = hash
+#7 = apphash
 
 # tid = sys.argv[2]
 
@@ -56,14 +56,14 @@ if (sys.argv[3] in lol[0]):
 else:
 	col=len(lol[0])+1
 	print("Col is %d" % col)
-	worksheet = sh.worksheet('Timestamps')
+	worksheet = sh.worksheet_by_title('Timestamps')
 	worksheet.update_cell((1,col),sys.argv[3])
-	worksheet = sh.worksheet('Runtime')
+	worksheet = sh.worksheet_by_title('Runtime')
 	worksheet.update_cell((1,2*col-7),sys.argv[3])
 # Find row, since tid is now unsafe
 tid = -1
 for i in range(2, len(lol)):
-	if (lol[i][0] == sys.argv[5] and lol[i][1] == sys.argv[6]):
+	if (lol[i][0] == sys.argv[6] and lol[i][1] == sys.argv[7]):
 		tid = i + 1
 		break
 
@@ -71,15 +71,15 @@ for i in range(2, len(lol)):
 # Page 0 - Timestamps
 stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-worksheet = sh.worksheet('Timestamps') # Select worksheet by index
+worksheet = sh.worksheet_by_title('Timestamps') # Select worksheet by index
 worksheet.update_cell((tid,col), stamp)
 
 # Page 1 - Runtime
-worksheet = sh.worksheet('Runtime') # Select worksheet by index
+worksheet = sh.worksheet_by_title('Runtime') # Select worksheet by index
 worksheet.update_cell((tid,2*col-7),sys.argv[5])
 worksheet.update_cell((tid,2*col-6),sys.argv[4])
 
 # Page 2 - STATUS
-worksheet = sh.worksheet('STATUS')
+worksheet = sh.worksheet_by_title('STATUS')
 worksheet.update_cell((22,3),stamp)
 worksheet.update_cell((22,4),os.uname()[1])

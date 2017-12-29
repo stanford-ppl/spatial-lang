@@ -24,8 +24,8 @@ else
 fi
 
 tid=`cat ../../../../tid`
-tid=`cat ../../../../hash`
-tid=`cat ../../../../ahash`
+hash=`cat ../../../../hash`
+ahash=`cat ../../../../ahash`
 appname=`basename \`pwd\``
 
 python3 regression_report.py $1 $tid $appname $pass $runtime $hash $ahash
