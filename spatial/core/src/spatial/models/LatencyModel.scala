@@ -153,6 +153,112 @@ trait LatencyModel {
   }
 
   @stateful protected def requiresRegisters(s: Exp[_]): Boolean = addRetimeRegisters && getDef(s).exists{
+    case FieldApply(_,_)    => model("FieldApply")()("RequiresRegs") > 0
+    case VectorApply(_,_)   => model("VectorApply")()("RequiresRegs") > 0
+    case VectorSlice(_,_,_) => model("VectorSlice")()("RequiresRegs") > 0
+    case VectorConcat(_)    => model("VectorConcat")()("RequiresRegs") > 0
+    case DataAsBits(_)      => model("DataAsBits")()("RequiresRegs") > 0
+    case BitsAsData(_,_)    => model("BitsAsData")()("RequiresRegs") > 0
+
+    case _:VarRegNew[_]   => model("VarRegNew")()("RequiresRegs") > 0
+    case _:VarRegRead[_]  => model("VarRegRead")()("RequiresRegs") > 0
+    case _:VarRegWrite[_] => model("VarRegWrite")()("RequiresRegs") > 0
+
+    case _:LUTLoad[_] => model("LUTLoad")()("RequiresRegs") > 0
+
+    // Registers
+    case _:RegRead[_]  => model("RegRead")()("RequiresRegs") > 0
+    case _:RegWrite[_] => model("RegWrite")()("RequiresRegs") > 0
+    case _:RegReset[_] => model("RegReset")()("RequiresRegs") > 0
+
+    // Register File
+    case _:RegFileStore[_]      => model("RegFileStore")()("RequiresRegs") > 0
+    case _:ParRegFileStore[_]   => model("ParRegFileStore")()("RequiresRegs") > 0
+    case _:RegFileShiftIn[_]    => model("RegFileShiftIn")()("RequiresRegs") > 0
+    case _:ParRegFileShiftIn[_] => model("ParRegFileShiftIn")()("RequiresRegs") > 0
+
+    // Streams
+    case _:StreamRead[_]        => model("StreamRead")()("RequiresRegs") > 0
+    case _:ParStreamRead[_]     => model("ParStreamRead")()("RequiresRegs") > 0
+    case _:StreamWrite[_]       => model("StreamWrite")()("RequiresRegs") > 0
+    case _:ParStreamWrite[_]    => model("ParStreamWrite")()("RequiresRegs") > 0
+    case _:BufferedOutWrite[_]  => model("BufferedOutWrite")()("RequiresRegs") > 0
+
+    // FIFOs
+    case _:FIFOEnq[_]    => model("FIFOEnq")()("RequiresRegs") > 0
+    case _:ParFIFOEnq[_] => model("ParFIFOEnq")()("RequiresRegs") > 0
+    case _:FIFONumel[_]  => model("FIFONumel")()("RequiresRegs") > 0
+    case _:FIFOAlmostEmpty[_] => model("FIFOAlmostEmpty")()("RequiresRegs") > 0
+    case _:FIFOAlmostFull[_]  => model("FIFOAlmostFull")()("RequiresRegs") > 0
+    case _:FIFOEmpty[_]       => model("FIFOEmpty")()("RequiresRegs") > 0
+    case _:FIFOFull[_]        => model("FIFOFull")()("RequiresRegs") > 0
+
+    // SRAMs
+    // TODO: Should be a function of number of banks?
+    case _:SRAMStore[_]    => model("SRAMStore")()("RequiresRegs") > 0
+    case _:ParSRAMStore[_] => model("ParSRAMStore")()("RequiresRegs") > 0
+
+    // LineBuffer
+    case _:LineBufferEnq[_]     => model("LineBufferEnq")()("RequiresRegs") > 0
+    case _:ParLineBufferEnq[_]  => model("ParLineBufferEnq")()("RequiresRegs") > 0
+
+    // Shift Register
+    case DelayLine(size, data) => model("DelayLine")()("RequiresRegs") > 0 // TODO: Should use different model once these are added?
+
+    // DRAM
+    case GetDRAMAddress(_) => model("GetDRAMAddress")()("RequiresRegs") > 0
+
+    // Fixed point math
+    // TODO: Have to get numbers for non-32 bit multiplies and divides
+
+    // Saturating and/or unbiased math
+
+    // Floating point math
+    // TODO: Floating point for things besides single precision
+    case FltAbs(_)  => model("FltAbs")()("RequiresRegs") > 0
+    case FltNeg(_)  => model("FltNeg")()("RequiresRegs") > 0
+    case FltAdd(_,_) if s.tp == FloatType => model("FltAddFloat")()("RequiresRegs") > 0
+    case FltSub(_,_) if s.tp == FloatType => model("FltSubFloat")()("RequiresRegs") > 0
+    case FltMul(_,_) if s.tp == FloatType => model("FltMulFloat")()("RequiresRegs") > 0
+    case FltDiv(_,_) if s.tp == FloatType => model("FltDivFloat")()("RequiresRegs") > 0
+
+    case FltLt(a,_)  if a.tp == FloatType => model("FltLtFloat")()("RequiresRegs") > 0
+    case FltLeq(a,_) if a.tp == FloatType => model("FltLeqFloat")()("RequiresRegs") > 0
+
+    case FltNeq(a,_) if a.tp == FloatType => model("FltNeqFloat")()("RequiresRegs") > 0
+    case FltEql(a,_) if a.tp == FloatType => model("FltEqlFloat")()("RequiresRegs") > 0
+
+    case FltLog(_) if s.tp == FloatType => model("FltLogFloat")()("RequiresRegs") > 0
+    case FltExp(_) if s.tp == FloatType => model("FltExpFloat")()("RequiresRegs") > 0
+    case FltSqrt(_) if s.tp == FloatType => model("FltSqrtFloat")()("RequiresRegs") > 0
+
+    case FltConvert(_)  => model("FltConvert")()("RequiresRegs") > 0 // TODO
+
+    case FltPtToFixPt(x) if x.tp == FloatType => model("FltPtToFixPtFloat")()("RequiresRegs") > 0
+    case FixPtToFltPt(x) if s.tp == FloatType => model("FixPtToFltPtFloat")()("RequiresRegs") > 0
+
+    case _:Hwblock             => model("Hwblock")()("RequiresRegs") > 0
+    case _:ParallelPipe        => model("ParallelPipe")()("RequiresRegs") > 0
+    case _:UnitPipe            => model("UnitPipe")()("RequiresRegs") > 0
+    case _:OpForeach           => model("OpForeach")()("RequiresRegs") > 0
+    case _:OpReduce[_]         => model("OpReduce")()("RequiresRegs") > 0
+    case _:OpMemReduce[_,_]    => model("OpMemReduce")()("RequiresRegs") > 0
+    case _:UnrolledForeach     => model("UnrolledForeach")()("RequiresRegs") > 0
+    case _:UnrolledReduce[_,_] => model("UnrolledReduce")()("RequiresRegs") > 0
+    case _:Switch[_]           => model("Switch")()("RequiresRegs") > 0
+    case _:SwitchCase[_]       => model("SwitchCase")()("RequiresRegs") > 0
+
+      // Host/Debugging/Unsynthesizable nodes
+    case _:ExitIf  => model("ExitIf")()("RequiresRegs") > 0
+    case _:BreakpointIf  => model("BreakpointIf")()("RequiresRegs") > 0
+    case _:PrintIf   => model("PrintIf")()("RequiresRegs") > 0
+    case _:PrintlnIf => model("PrintlnIf")()("RequiresRegs") > 0
+    case _:AssertIf  => model("AssertIf")()("RequiresRegs") > 0
+    case _:ToString[_] => model("ToString")()("RequiresRegs") > 0
+    case _:StringConcat => model("StringConcat")()("RequiresRegs") > 0
+    case FixRandom(_) => model("FixRandom")()("RequiresRegs") > 0  // TODO: This is synthesizable now?
+    case FltRandom(_) => model("FltRandom")()("RequiresRegs") > 0  // TODO: This is synthesizable now?
+
     // Register File
     case _:RegFileLoad[_]    => model("RegFileLoad")()("RequiresRegs") > 0
     case _:ParRegFileLoad[_] => model("ParRegFileLoad")()("RequiresRegs") > 0
@@ -211,7 +317,9 @@ trait LatencyModel {
     case Mux(_,_,_) => model("Mux")()("RequiresRegs") > 0
     case Min(_,_)   => model("Min")()("RequiresRegs") > 0
     case Max(_,_)   => model("Max")()("RequiresRegs") > 0
-    case _ => false
+    case _ => 
+      miss(u"${s} (rule)")
+      false
   }
 
   @stateful protected def latencyOfNode(s: Exp[_], d: Def): Double = d match {

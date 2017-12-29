@@ -144,15 +144,15 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     val wen_muxing = (Array.tabulate(rstride)){ ii =>
-      ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, None) -> io.w_en(ii))
+      ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> io.w_en(ii))
     }
     for (j <- 0 until col_wPar) {
       // Figure out which input to draw 
       val wdata_muxing = (Array.tabulate(rstride)){ ii =>
-        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, None) -> io.data_in(ii * col_wPar + j))
+        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> io.data_in(ii * col_wPar + j))
       }
       val waddr_muxing = (Array.tabulate(rstride)){ ii =>
-        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, None) -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
+        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
       }
       if (transientPar != 0) {
         linebuffer(i).io.w(j).addr(0) := Mux(io.w_en.last, px_transient, MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing))
@@ -197,7 +197,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       // }
     }
     for (i <- 0 until (row_rPar)) { // ENHANCEMENT: num_lines -> row par
-      io.data_out(i*col_rPar + j) := MuxLookup((READ_countRowNum(i).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, None), 0.U, linebuf_read_wires_map)
+      io.data_out(i*col_rPar + j) := MuxLookup((READ_countRowNum(i).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)), 0.U, linebuf_read_wires_map)
     }    
   }
   
