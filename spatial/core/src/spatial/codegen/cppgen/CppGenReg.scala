@@ -50,7 +50,7 @@ trait CppGenReg extends CppCodegen {
       emit("\n// ArgIns")
       argIns.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
       emit("\n// ArgOuts")
-      argOuts.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
+      argOuts.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._3}")}
       emit("\n// ArgIOs")
       argIOs.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
     }
