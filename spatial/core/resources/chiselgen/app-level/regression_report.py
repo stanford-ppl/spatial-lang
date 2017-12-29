@@ -1,4 +1,4 @@
-# This is called by scrape.sh
+# This is called by regression_run.sh
 
 import gspread
 import pygsheets
@@ -12,8 +12,10 @@ import datetime
 #3 = appname
 #3 = pass
 #4 = cycles
+#5 = hash
+#6 = apphash
 
-tid = sys.argv[2]
+# tid = sys.argv[2]
 
 
 # # gspread auth
@@ -58,6 +60,12 @@ else:
 	worksheet.update_cell((1,col),sys.argv[3])
 	worksheet = sh.worksheet('Runtime')
 	worksheet.update_cell((1,2*col-7),sys.argv[3])
+# Find row, since tid is now unsafe
+tid = -1
+for i in range(2, len(lol)):
+	if (lol[i][0] == sys.argv[5] and lol[i][1] == sys.argv[6]):
+		tid = i + 1
+		break
 
 
 # Page 0 - Timestamps

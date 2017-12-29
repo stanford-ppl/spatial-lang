@@ -1,4 +1,4 @@
-# This is called by scrape.sh
+# This is called by scrape.sh, for reporting utilization numbers
 
 import gspread
 import pygsheets
@@ -19,9 +19,10 @@ import datetime
 #10 = synth time
 #11 = timing met?
 #12 = backend
+#13 = hash
+#14 = apphash
 
-tid = sys.argv[1]
-
+# tid = sys.argv[1]
 
 # # gspread auth
 # json_key = '/home/mattfel/regression/synth/key.json'
@@ -58,7 +59,12 @@ else:
 	for x in range(0,numsheets):
 		worksheet = sh.worksheet('index', x)
 		worksheet.update_cell((1,col),sys.argv[2])		
-
+# Find row, since tid is now unsafe
+tid = -1
+for i in range(2, len(lol)):
+	if (lol[i][0] == sys.argv[13] and lol[i][1] == sys.argv[14]):
+		tid = i + 1
+		break
 
 # Page 0 - Timestamps
 stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')

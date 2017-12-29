@@ -1,4 +1,4 @@
-# This is called by scrape.sh
+# This is called by scrape.sh, for reporting runtimes
 
 import gspread
 import pygsheets
@@ -15,8 +15,10 @@ import datetime
 #6 = args
 #7 = backend
 #8 = locked board
+#9 = hash
+#10 = apphash
 
-tid = sys.argv[1]
+# tid = sys.argv[1]
 
 # # gspread auth
 # json_key = '/home/mattfel/regression/synth/key.json'
@@ -50,7 +52,12 @@ else:
 	for x in range(0,numsheets):
 		worksheet = sh.worksheet('index', x)
 		worksheet.update_cell((1,col),sys.argv[2])		
-
+# Find row, since tid is now unsafe
+tid = -1
+for i in range(2, len(lol)):
+	if (lol[i][0] == sys.argv[9] and lol[i][1] == sys.argv[10]):
+		tid = i + 1
+		break
 
 # Page 10 - Results
 worksheet = sh.worksheet_by_title("Runtime")
