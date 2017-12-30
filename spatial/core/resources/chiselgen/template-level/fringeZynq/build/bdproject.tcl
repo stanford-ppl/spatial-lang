@@ -171,6 +171,7 @@ switch $TARGET {
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_0
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_register_slice_0/aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_register_slice_0/aresetn]
+      set_property -dict [list CONFIG.REG_AW {9} CONFIG.REG_AR {9} CONFIG.REG_R {9} CONFIG.REG_W {9} CONFIG.REG_B {9}] [get_bd_cells axi_register_slice_0]
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
       set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_0]
@@ -216,6 +217,7 @@ switch $TARGET {
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_1
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_register_slice_1/aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_register_slice_1/aresetn]
+    set_property -dict [list CONFIG.REG_AW {9} CONFIG.REG_AR {9} CONFIG.REG_R {9} CONFIG.REG_W {9} CONFIG.REG_B {9}] [get_bd_cells axi_register_slice_1]
 
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_1
@@ -264,6 +266,8 @@ switch $TARGET {
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_2
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_register_slice_2/aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_register_slice_2/aresetn]
+      set_property -dict [list CONFIG.REG_AW {9} CONFIG.REG_AR {9} CONFIG.REG_R {9} CONFIG.REG_W {9} CONFIG.REG_B {9}] [get_bd_cells axi_register_slice_0]
+
 
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_2
@@ -311,6 +315,7 @@ switch $TARGET {
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_3
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_register_slice_3/aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_register_slice_3/aresetn]
+      set_property -dict [list CONFIG.REG_AW {9} CONFIG.REG_AR {9} CONFIG.REG_R {9} CONFIG.REG_W {9} CONFIG.REG_B {9}] [get_bd_cells axi_register_slice_0]
 
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_3

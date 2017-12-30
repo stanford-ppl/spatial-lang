@@ -546,6 +546,8 @@ launch_tests_sbt() {
     # python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
     tid=`python3 ${SPATIAL_HOME}/bin/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch"`
     echo $tid > ${SPATIAL_HOME}/tid
+    echo ${spatial_hash} > ${SPATIAL_HOME}/hash
+    echo $ah > ${SPATIAL_HOME}/ahash
   else
     captype="Scala"
   fi
