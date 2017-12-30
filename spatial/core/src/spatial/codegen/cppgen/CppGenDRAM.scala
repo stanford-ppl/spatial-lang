@@ -22,7 +22,7 @@ trait CppGenDRAM extends CppGenSRAM {
     case DRAMNew(dims, _) =>
       drams = drams :+ lhs
       emit(src"""uint64_t ${lhs} = c1->malloc(sizeof(${remapIntType(lhs.tp.typeArguments.head)}) * ${dims.map(quote).mkString("*")});""")
-      emit(src"c1->setArg(${argMapping(lhs)._2}, $lhs, false); // (memstream in: ${argMapping(lhs)._2}, out: ${{argMapping(lhs)._3}})")
+      emit(src"c1->setArg(${lhs.name.getOrElse(quote(lhs)).toUpperCase}_ptr, $lhs, false); // (memstream in: ${argMapping(lhs)._2}, out: ${{argMapping(lhs)._3}})")
       emit(src"""printf("Allocate mem of size ${dims.map(quote).mkString("*")} at %p\n", (void*)${lhs});""")
       // emit(src"""uint64_t ${lhs} = (uint64_t) ${lhs}_void;""")
 
@@ -35,6 +35,12 @@ trait CppGenDRAM extends CppGenSRAM {
   }
 
   override protected def emitFileFooter() {
+    withStream(getStream("ArgAPI", "h")) {
+      emit("\n// DRAM Ptrs:")
+      drams.foreach {d =>
+        emit(src"#define ${d.name.getOrElse(quote(d)).toUpperCase}_ptr ${argMapping(d)._2}")
+      }
+    }
     super.emitFileFooter()
   }
 

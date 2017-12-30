@@ -93,7 +93,7 @@ class ScatterBuffer(
   fData.io.banks match {
     case Some(b) =>
       b.zipWithIndex.foreach { case (bank, i) => 
-        val count = fCount.io.banks match { case Some(b) => b(i)(0) }
+        val count = fCount.io.banks.get.apply(i).apply(0) // match { case Some(b) => b(i)(0) }
         val wen = issueHits(i) & io.fifo.enqVld
         count.wen := wen
         count.wdata := count.rdata + 1.U
