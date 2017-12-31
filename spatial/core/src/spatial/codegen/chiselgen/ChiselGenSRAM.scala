@@ -644,7 +644,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
             emit(s"      // ${handle}(${entry._2._2}) = ${entry._1}")
           }
         }
-
       }
 
     }
@@ -664,8 +663,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
           if (wire == "_retime") {
-            // Pre-emitted
-            // emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")                        
           } else if (wire.contains("pipe(") || wire.contains("inner(")) {
             val numel = compressorMap.filter(_._2._1 == wire).size
             emit(src"val ${listHandle(wire)} = List.tabulate(${numel}){i => ${wire.replace("))", src",retime=${listHandle("_retime")}(${listHandle(wire)}_rtmap(i))))")}}")
@@ -675,12 +672,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
           }
         }
       }
-      // emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
-      // emit(src"val u = List.fill(${uintMap.size}){Wire(UInt(32.W))}")
-      // emit(src"val s = List.fill(${sintMap.size}){Wire(SInt(32.W))}")
-      // emit(src"val fs32_0 = List.fill(${fixs32_0Map.size}){Wire(new FixedPoint(true, 32, 0))}")
-      // emit(src"val fu32_0 = List.fill(${fixu32_0Map.size}){Wire(new FixedPoint(false, 32, 0))}")
-      // emit(src"val fs10_22 = List.fill(${fixs10_22Map.size}){Wire(new FixedPoint(true, 10, 22))}")
 
       emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(32))}.toInt")
       emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(32))}.toInt")

@@ -75,9 +75,9 @@ if ("test timestamp" in lol[1]):
 # lasttime=lol[id-2][ttcol]
 
 # Oldest first
-lasthash=lol[3][hcol]
-lastapphash=lol[3][acol]
-lasttime=lol[3][ttcol]
+lasthash=lol[2][hcol]
+lastapphash=lol[2][acol]
+lasttime=lol[2][ttcol]
 
 if (perf):
 	new_entry=True

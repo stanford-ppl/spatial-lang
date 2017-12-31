@@ -461,7 +461,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
     wHashmap.foreach { t =>
       val pars = t._2.map{_._1}.reduce{_+_}
       val base = if (t._1 == 0) 0 else (0 until t._1).map{ii => wHashmap.getOrElse(ii, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_}
-      val wMask = statesInW(t._1).io.output.count === i.U
+      val wMask = Utils.getRetimed(statesInW(t._1).io.output.count === i.U, {if (Utils.retime) 1 else 0})
       (0 until pars).foreach{ k =>
         val masked_w = Wire(new multidimW(N, logicalDims, bitWidth))
         masked_w.en := io.w(base+k).en & wMask
@@ -483,7 +483,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
 
     var idx = 0 
     var idx_meaningful = 0 
-    val rSel = (0 until numBufs).map{ statesInR(i).io.output.count === _.U}
+    val rSel = (0 until numBufs).map{ a => Utils.getRetimed(statesInR(i).io.output.count === a.U, {if (Utils.retime) 1 else 0})}
     (0 until maxR).foreach {lane => // Technically only need per read and not per buf but oh well
       // Assemble buffet of read ports
       val buffet = (0 until numBufs).map {p => 
@@ -501,7 +501,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
   }
 
   (0 until numBufs).foreach {i =>
-    val sel = (0 until numBufs).map{ statesOut(i).io.output.count === _.U }
+    val sel = (0 until numBufs).map{ a => Utils.getRetimed(statesOut(i).io.output.count === a.U, {if (Utils.retime) 1 else 0}) }
     (0 until maxR).foreach{ j => 
       io.output.data(i*-*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
     }
@@ -693,7 +693,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
     wHashmap.foreach { t =>
       val pars = t._2.map{_._1}.reduce{_+_}
       val base = if (t._1 == 0) 0 else (0 until t._1).map{ii => wHashmap.getOrElse(ii, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_}
-      val wMask = statesInW(t._1).io.output.count === i.U
+      val wMask = Utils.getRetimed(statesInW(t._1).io.output.count === i.U, {if (Utils.retime) 1 else 0})
       (0 until pars).foreach{ k =>
         val masked_w = Wire(new multidimW(N, logicalDims, bitWidth))
         masked_w.en := io.w(base+k).en & wMask
@@ -712,7 +712,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
 
     var idx = 0 
     var idx_meaningful = 0 
-    val rSel = (0 until numBufs).map{ statesInR(i).io.output.count === _.U}
+    val rSel = (0 until numBufs).map{ a => Utils.getRetimed(statesInR(i).io.output.count === a.U, {if (Utils.retime) 1 else 0}) }
     (0 until maxR).foreach {lane => // Technically only need per read and not per buf but oh well
       // Assemble buffet of read ports
       val buffet = (0 until numBufs).map {p => 
@@ -730,7 +730,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
   }
 
   (0 until numBufs).foreach {i =>
-    val sel = (0 until numBufs).map{ statesOut(i).io.output.count === _.U }
+    val sel = (0 until numBufs).map{ a => Utils.getRetimed(statesOut(i).io.output.count === a.U, {if (Utils.retime) 1 else 0}) }
     (0 until maxR).foreach{ j => 
       io.output.data(i*-*maxR + j) := chisel3.util.Mux1H(sel, srams.map{f => f.io.output.data(j)})
     }

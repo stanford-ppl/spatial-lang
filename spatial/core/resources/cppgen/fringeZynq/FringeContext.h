@@ -12,6 +12,10 @@ typedef FringeContextSim FringeContext;
 #elif defined ZYNQ
 #include "FringeContextZynq.h"
 typedef FringeContextZynq FringeContext;
+
+#elif defined ZCU
+#include "FringeContextZynq.h"
+typedef FringeContextZynq FringeContext;
 #endif
 
 #endif

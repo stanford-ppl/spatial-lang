@@ -46,6 +46,14 @@ trait CppGenReg extends CppCodegen {
         emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${2+argMapping(a)._2}""")
       }
     }
+    withStream(getStream("ArgAPI", "h")) {
+      emit("\n// ArgIns")
+      argIns.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
+      emit("\n// ArgOuts")
+      argOuts.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._3}")}
+      emit("\n// ArgIOs")
+      argIOs.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
+    }
     // withStream(getStream("argmap", "h")) {
     //   argIOs.foreach{a =>
     //     emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${argMapping(a)._2}""")

@@ -49,7 +49,7 @@ elif (sys.argv[12] == "AWS"):
 	word="CLB"
 
 # Get column
-worksheet = sh.worksheet("Timestamps") # Select worksheet by index
+worksheet = sh.worksheet_by_title("Timestamps") # Select worksheet by index
 lol = worksheet.get_all_values()
 if (sys.argv[2] in lol[0]):
 	col=lol[0].index(sys.argv[2])+1
