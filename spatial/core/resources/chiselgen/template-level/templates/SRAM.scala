@@ -693,7 +693,7 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
     wHashmap.foreach { t =>
       val pars = t._2.map{_._1}.reduce{_+_}
       val base = if (t._1 == 0) 0 else (0 until t._1).map{ii => wHashmap.getOrElse(ii, List((0,0))).map{_._1}.reduce{_+_}}.reduce{_+_}
-      val wMask = statesInW(t._1).io.output.count === i.U
+      val wMask = Utils.getRetimed(statesInW(t._1).io.output.count === i.U, {if (Utils.retime) 1 else 0})
       (0 until pars).foreach{ k =>
         val masked_w = Wire(new multidimW(N, logicalDims, bitWidth))
         masked_w.en := io.w(base+k).en & wMask
