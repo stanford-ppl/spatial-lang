@@ -1006,11 +1006,11 @@ trait ChiselGenController extends ChiselGenCounter{
       // close("}")
 
     case ExitIf(en) => 
-      emit(s"breakpoints(${earlyExits.length}) := $en")
+      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)}")
       earlyExits = earlyExits :+ lhs
 
     case BreakpointIf(en) => 
-      emit(s"breakpoints(${earlyExits.length}) := $en")
+      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)}")
       earlyExits = earlyExits :+ lhs
 
     case _:OpForeach   => throw new Exception("Should not be emitting chisel for Op ctrl node")
