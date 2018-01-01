@@ -25,6 +25,9 @@ trait ChiselGenController extends ChiselGenCounter{
      get to the very top
   */
 
+  /* List of break or exit nodes */
+  var earlyExits: List[Exp[_]] = List()
+
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
       open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
@@ -78,6 +81,12 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
     }
+  }
+
+  // Breakpoints come after instrumentation registers
+  def createBreakpoint(lhs: Exp[_], id: Int): Unit = {
+    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * io_numArgOuts_instr + $id).bits := 1.U")
+    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * io_numArgOuts_instr + $id).valid := breakpoints($id)")
   }
 
   def emitValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
@@ -803,17 +812,21 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""retime_released := Utils.getRetimed(retime_counter.io.output.done,1) // break up critical path by delaying this """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
-      // Emit unit counter for this
-      emit(s"""val done_latch = Module(new SRFF())""")
-      emit(s"""done_latch.io.input.set := ${swap(lhs, Done)}""")
-      emit(s"""done_latch.io.input.reset := ${swap(lhs, Resetter)}""")
-      emit(s"""done_latch.io.input.asyn_reset := ${swap(lhs, Resetter)}""")
-      emit(s"""io.done := done_latch.io.output.data""")
-      // if (isForever) emit(s"""${quote(lhs)}_sm.io.input.forever := true.B""")
 
       emitBlock(func)
       emitChildrenCxns(lhs, None, None)
       emitCopiedCChain(lhs)
+
+      emit(s"""val done_latch = Module(new SRFF())""")
+      if (earlyExits.length > 0) {
+        emitGlobalWire(s"""val breakpoints = Wire(Vec(${earlyExits.length}, Bool()))""")
+        emit(s"""done_latch.io.input.set := ${swap(lhs, Done)} | breakpoints.reduce{_|_}""")        
+      } else {
+        emit(s"""done_latch.io.input.set := ${swap(lhs, Done)}""")                
+      }
+      emit(s"""done_latch.io.input.reset := ${swap(lhs, Resetter)}""")
+      emit(s"""done_latch.io.input.asyn_reset := ${swap(lhs, Resetter)}""")
+      emit(s"""io.done := done_latch.io.output.data""")
 
       toggleEn() // turn off
       controllerStack.pop()
@@ -992,6 +1005,14 @@ trait ChiselGenController extends ChiselGenCounter{
 
       // close("}")
 
+    case ExitIf(en) => 
+      emit(s"breakpoints(${earlyExits.length}) := $en")
+      earlyExits = earlyExits :+ lhs
+
+    case BreakpointIf(en) => 
+      emit(s"breakpoints(${earlyExits.length}) := $en")
+      earlyExits = earlyExits :+ lhs
+
     case _:OpForeach   => throw new Exception("Should not be emitting chisel for Op ctrl node")
     case _:OpReduce[_] => throw new Exception("Should not be emitting chisel for Op ctrl node")
     case _:OpMemReduce[_,_] => throw new Exception("Should not be emitting chisel for Op ctrl node")
@@ -1006,6 +1027,10 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
+    withStream(getStream("GlobalModules")) {
+      emit(src"val breakpt_activators = List.fill(${earlyExits.length}){Wire(Bool())}")
+    }
+
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Instrumentation")
@@ -1014,6 +1039,13 @@ trait ChiselGenController extends ChiselGenCounter{
         val depth = " "*p._2
         emit(src"""// ${depth}${quote(p._1)}""")
       }
+      emit(s"val numArgOuts_breakpts = ${earlyExits.length}")
+      emit("""/* Breakpoint Contexts:""")
+      earlyExits.zipWithIndex.foreach {case (p,i) => 
+        createBreakpoint(p, i)
+        emit(s"breakpoint ${i}: ${p.ctx}")
+      }
+      emit("""*/""")
     }
 
     withStream(getStream("IOModule")) {
@@ -1028,6 +1060,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"// App Characteristics: ${appPropertyStats.toList.mkString(",")}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
+      emit(s"val io_numArgOuts_breakpts = ${earlyExits.length}")
 
     }
 
