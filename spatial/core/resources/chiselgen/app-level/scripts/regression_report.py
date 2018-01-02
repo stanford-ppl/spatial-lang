@@ -86,11 +86,11 @@ worksheet.update_cell((tid,2*col-6),sys.argv[4])
 worksheet = sh.worksheet_by_title('Properties') # Select worksheet by index
 worksheet.update_cell((tid,col),sys.argv[4])
 lol = worksheet.get_all_values()
-for prop in sys.argv[8].split():
+for prop in sys.argv[8].split(","):
 	# Find row
 	found = False
 	for i in range(2, len(lol)):
-		if (lol[i][0] == prop):
+		if (lol[i][4] == prop):
 			worksheet.update_cell((i+1, col), prop)
 			found = True
 	if (found == False):
