@@ -19,4 +19,4 @@ trait DebuggingApi { this: SpatialApi =>
   @api def exit() = wrap(exitIf(Bit.const(true))) 
 
   @api def sleep(cycles: Index): MUnit = Foreach(cycles by 1) {_ => } 
-}
+} 
