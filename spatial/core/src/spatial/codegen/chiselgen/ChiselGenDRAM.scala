@@ -138,7 +138,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)}.D(${bug241_backoff}, rr)")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := Utils.getRetimed(~${cmdStream}($isLdMSB,$isLdLSB), ${bug241_backoff})")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
-      emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).wdata.ready.D(${symDelay(writersOf(cmdStream).head.node)}.toInt)")
+      emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).cmd.ready.D(${symDelay(writersOf(cmdStream).head.node)}.toInt)")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${swap(ackStream, NowValid)}.D(${symDelay(readersOf(ackStream).head.node)}.toInt)""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
