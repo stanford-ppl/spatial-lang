@@ -28,5 +28,5 @@ hash=`cat ../../../../hash`
 ahash=`cat ../../../../ahash`
 appname=`basename \`pwd\``
 
-python3 regression_report.py $1 $tid $appname $pass $runtime $hash $ahash
+python3 scripts/regression_report.py $1 $tid $appname $pass $runtime $hash $ahash
 
