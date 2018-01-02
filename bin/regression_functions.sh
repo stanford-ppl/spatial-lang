@@ -221,7 +221,7 @@ git push
 logger "Removing packet ${packet} so those waiting are clear to launch"
 rm $packet
 
-sleep 1000
+sleep 2000
 stubborn_delete ${dirname}
 mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
