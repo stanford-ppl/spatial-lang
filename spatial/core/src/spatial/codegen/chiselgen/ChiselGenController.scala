@@ -1057,7 +1057,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"//   Widest Outer Controller: ${if (widthStats.length == 0) 0 else widthStats.max}")
       emit(src"// Depths: ${depthStats.sorted}")
       emit(src"//   Deepest Inner Controller: ${if (depthStats.length == 0) 0 else depthStats.max}")
-      emit(src"// App Characteristics: ${appPropertyStats.toList.mkString(",")}")
+      emit(s"// App Characteristics: ${appPropertyStats.toList.map(_.getClass.getName.split("\\$").last.split("\\.").last).mkString(",")}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
       emit(s"val io_numArgOuts_breakpts = ${earlyExits.length}")

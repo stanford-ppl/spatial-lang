@@ -43,6 +43,10 @@ trait ModelingTraversal extends SpatialTraversal { traversal =>
     }
   }
 
+  def builtInLatencyOf(e: Exp[_]): Double = if (!inHwScope) 0 else {
+    latencyModel.builtInLatencyOfNode(e)
+  }
+
   def latencyAndInterval(block: Block[_], verbose: Boolean = true): (Double, Double) = {
     val (latencies, cycles) = latenciesAndCycles(block, verbose = verbose)
     val scope = latencies.keySet

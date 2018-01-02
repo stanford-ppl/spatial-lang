@@ -2,7 +2,7 @@ package spatial.targets
 
 abstract class AlteraDevice extends FPGATarget {
   import AlteraDevice._
-  val LFIELDS = Array(RequiresRegs, RequiresInReduce, LatencyOf, LatencyInReduce)
+  val LFIELDS = Array(RequiresRegs, RequiresInReduce, LatencyOf, LatencyInReduce, BuiltInLatency)
   val FIELDS = Array(LUT3, LUT4, LUT5, LUT6, LUT7, MEM16, MEM32, MEM64, ALMs, Regs, Mregs, DSPs, BRAM, Channels)
   val DSP_CUTOFF = 8 // TODO: Not sure if this is right
 }
@@ -25,4 +25,5 @@ object AlteraDevice {
   val LatencyOf = "LatencyOf"
   val LatencyInReduce = "LatencyInReduce"
   val RequiresInReduce = "RequiresInReduce"
+  val BuiltInLatency = "BuiltInLatency"
 }

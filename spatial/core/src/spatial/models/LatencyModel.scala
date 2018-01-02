@@ -480,4 +480,168 @@ trait LatencyModel {
       miss(u"${d.getClass} (rule)")
       0
     }
+
+  // For some templates, I have to manually put a delay inside the template to break a critical path that retime would not do on its own.
+  //   For example, FIFODeq has a critical path for certain apps on the deq boolean, so we need to stick a register on this input and then treat the output as
+  //   having a latency of 2 but needing only 1 injected by transformer
+  @stateful def builtInLatencyOfNode(s: Exp[_]): Double = { 
+    s match {
+      case Def(FieldApply(_,_))    => model("FieldApply")()("BuiltInLatency").toDouble
+      case Def(VectorApply(_,_))   => model("VectorApply")()("BuiltInLatency").toDouble
+      case Def(VectorSlice(_,_,_)) => model("VectorSlice")()("BuiltInLatency").toDouble
+      case Def(VectorConcat(_))    => model("VectorConcat")()("BuiltInLatency").toDouble
+      case Def(DataAsBits(_))      => model("DataAsBits")()("BuiltInLatency").toDouble
+      case Def(BitsAsData(_,_))    => model("BitsAsData")()("BuiltInLatency").toDouble
+
+      case Def(_:VarRegNew[_])   => model("VarRegNew")()("BuiltInLatency").toDouble
+      case Def(_:VarRegRead[_])  => model("VarRegRead")()("BuiltInLatency").toDouble
+      case Def(_:VarRegWrite[_]) => model("VarRegWrite")()("BuiltInLatency").toDouble
+
+      case Def(_:LUTLoad[_]) => model("LUTLoad")()("BuiltInLatency").toDouble
+
+      // Registers
+      case Def(_:RegRead[_])  => model("RegRead")()("BuiltInLatency").toDouble
+      case Def(_:RegWrite[_]) => model("RegWrite")()("BuiltInLatency").toDouble
+      case Def(_:RegReset[_]) => model("RegReset")()("BuiltInLatency").toDouble
+
+      // Register File
+      case Def(_:RegFileLoad[_])       => model("RegFileLoad")()("BuiltInLatency").toDouble
+      case Def(_:ParRegFileLoad[_])    => model("ParRegFileLoad")()("BuiltInLatency").toDouble
+      case Def(_:RegFileStore[_])      => model("RegFileStore")()("BuiltInLatency").toDouble
+      case Def(_:ParRegFileStore[_])   => model("ParRegFileStore")()("BuiltInLatency").toDouble
+      case Def(_:RegFileShiftIn[_])    => model("RegFileShiftIn")()("BuiltInLatency").toDouble
+      case Def(_:ParRegFileShiftIn[_]) => model("ParRegFileShiftIn")()("BuiltInLatency").toDouble
+
+      // Streams
+      case Def(_:StreamRead[_])        => model("StreamRead")()("BuiltInLatency").toDouble
+      case Def(_:ParStreamRead[_])     => model("ParStreamRead")()("BuiltInLatency").toDouble
+      case Def(_:StreamWrite[_])       => model("StreamWrite")()("BuiltInLatency").toDouble
+      case Def(_:ParStreamWrite[_])    => model("ParStreamWrite")()("BuiltInLatency").toDouble
+      case Def(_:BufferedOutWrite[_])  => model("BufferedOutWrite")()("BuiltInLatency").toDouble
+
+      // FIFOs
+      case Def(_:FIFOEnq[_])    => model("FIFOEnq")()("BuiltInLatency").toDouble
+      case Def(_:ParFIFOEnq[_]) => model("ParFIFOEnq")()("BuiltInLatency").toDouble
+      case Def(_:FIFODeq[_])    => model("FIFODeq")()("BuiltInLatency").toDouble
+      case Def(_:ParFIFODeq[_]) => model("ParFIFODeq")()("BuiltInLatency").toDouble
+      case Def(_:FIFONumel[_])  => model("FIFONumel")()("BuiltInLatency").toDouble
+      case Def(_:FIFOAlmostEmpty[_]) => model("FIFOAlmostEmpty")()("BuiltInLatency").toDouble
+      case Def(_:FIFOAlmostFull[_])  => model("FIFOAlmostFull")()("BuiltInLatency").toDouble
+      case Def(_:FIFOEmpty[_])       => model("FIFOEmpty")()("BuiltInLatency").toDouble
+      case Def(_:FIFOFull[_])        => model("FIFOFull")()("BuiltInLatency").toDouble
+
+      // SRAMs
+      // TODO: Should be a function of number of banks?
+      case Def(_:SRAMLoad[_])     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("BuiltInLatency").toDouble else model("SRAMLoad")()("BuiltInLatency").toDouble
+      case Def(_:ParSRAMLoad[_])  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("BuiltInLatency").toDouble else model("ParSRAMLoad")()("BuiltInLatency").toDouble
+      case Def(_:SRAMStore[_])    => model("SRAMStore")()("BuiltInLatency").toDouble
+      case Def(_:ParSRAMStore[_]) => model("ParSRAMStore")()("BuiltInLatency").toDouble
+
+      // LineBuffer
+      case Def(_:LineBufferEnq[_])     => model("LineBufferEnq")()("BuiltInLatency").toDouble
+      case Def(_:ParLineBufferEnq[_])  => model("ParLineBufferEnq")()("BuiltInLatency").toDouble
+      case Def(_:LineBufferLoad[_])    => model("LineBufferLoad")()("BuiltInLatency").toDouble
+      case Def(_:ParLineBufferLoad[_]) => model("ParLineBufferLoad")()("BuiltInLatency").toDouble
+
+      // Shift Register
+      case Def(DelayLine(size, data)) => model("DelayLine")()("BuiltInLatency").toDouble // TODO: Should use different model once these are added?
+
+      // DRAM
+      case Def(GetDRAMAddress(_)) => model("GetDRAMAddress")()("BuiltInLatency").toDouble
+
+      // Boolean operations
+      case Def(Not(_))     => model("Not")()("BuiltInLatency").toDouble
+      case Def(And(_,_))   => model("And")()("BuiltInLatency").toDouble
+      case Def(Or(_,_))    => model("Or")()("BuiltInLatency").toDouble
+      case Def(XOr(_,_))   => model("XOr")()("BuiltInLatency").toDouble
+      case Def(XNor(_,_))  => model("XNor")()("BuiltInLatency").toDouble
+
+      // Fixed point math
+      // TODO: Have to get numbers for non-32 bit multiplies and divides
+      case Def(FixNeg(_))   => model("FixNeg")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(FixInv(_))   => model("FixInv")()("BuiltInLatency").toDouble
+      case Def(FixAdd(_,_)) => model("FixAdd")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(FixSub(_,_)) => model("FixSub")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(FixMul(_,_)) => model("FixMul")("b" -> nbits(s))("BuiltInLatency").toDouble  // TODO
+      case Def(FixDiv(_,_)) => model("FixDiv")("b" -> nbits(s))("BuiltInLatency").toDouble // TODO
+      case Def(FixMod(_,_)) => model("FixMod")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(FixLt(_,_))  => model("FixLt")()("BuiltInLatency").toDouble
+      case Def(FixLeq(_,_)) => model("FixLeq")()("BuiltInLatency").toDouble
+      case Def(FixNeq(_,_)) => model("FixNeq")()("BuiltInLatency").toDouble
+      case Def(FixEql(_,_)) => model("FixEql")()("BuiltInLatency").toDouble
+      case Def(FixAnd(_,_)) => model("FixAnd")()("BuiltInLatency").toDouble
+      case Def(FixOr(_,_))  => model("FixOr")()("BuiltInLatency").toDouble
+      case Def(FixXor(_,_)) => model("FixXor")()("BuiltInLatency").toDouble
+      case Def(FixLsh(_,_)) => model("FixLsh")()("BuiltInLatency").toDouble // TODO
+      case Def(FixRsh(_,_)) => model("FixRsh")()("BuiltInLatency").toDouble // TODO
+      case Def(FixURsh(_,_)) => model("FixURsh")()("BuiltInLatency").toDouble // TODO
+      case Def(FixAbs(_))    => model("FixAbs")()("BuiltInLatency").toDouble
+
+      // Saturating and/or unbiased math
+      case Def(SatAdd(x,y)) => model("SatAdd")()("BuiltInLatency").toDouble
+      case Def(SatSub(x,y)) => model("SatSub")()("BuiltInLatency").toDouble
+      case Def(SatMul(x,y)) => model("SatMul")()("BuiltInLatency").toDouble
+      case Def(SatDiv(x,y)) => model("SatDiv")()("BuiltInLatency").toDouble
+      case Def(UnbMul(x,y)) => model("UnbMul")()("BuiltInLatency").toDouble
+      case Def(UnbDiv(x,y)) => model("UnbDiv")()("BuiltInLatency").toDouble
+      case Def(UnbSatMul(x,y)) => model("UnbSatMul")()("BuiltInLatency").toDouble
+      case Def(UnbSatDiv(x,y)) => model("UnbSatDiv")()("BuiltInLatency").toDouble
+
+      // Floating point math
+      // TODO: Floating point for things besides single precision
+      case Def(FltAbs(_))  => model("FltAbs")()("BuiltInLatency").toDouble
+      case Def(FltNeg(_))  => model("FltNeg")()("BuiltInLatency").toDouble
+      case Def(FltAdd(_,_)) if s.tp == FloatType => model("FltAddFloat")()("BuiltInLatency").toDouble
+      case Def(FltSub(_,_)) if s.tp == FloatType => model("FltSubFloat")()("BuiltInLatency").toDouble
+      case Def(FltMul(_,_)) if s.tp == FloatType => model("FltMulFloat")()("BuiltInLatency").toDouble
+      case Def(FltDiv(_,_)) if s.tp == FloatType => model("FltDivFloat")()("BuiltInLatency").toDouble
+
+      case Def(FltLt(a,_))  if a.tp == FloatType => model("FltLtFloat")()("BuiltInLatency").toDouble
+      case Def(FltLeq(a,_)) if a.tp == FloatType => model("FltLeqFloat")()("BuiltInLatency").toDouble
+
+      case Def(FltNeq(a,_)) if a.tp == FloatType => model("FltNeqFloat")()("BuiltInLatency").toDouble
+      case Def(FltEql(a,_)) if a.tp == FloatType => model("FltEqlFloat")()("BuiltInLatency").toDouble
+
+      case Def(FltLog(_)) if s.tp == FloatType => model("FltLogFloat")()("BuiltInLatency").toDouble
+      case Def(FltExp(_)) if s.tp == FloatType => model("FltExpFloat")()("BuiltInLatency").toDouble
+      case Def(FltSqrt(_)) if s.tp == FloatType => model("FltSqrtFloat")()("BuiltInLatency").toDouble
+
+      case Def(Mux(_,_,_))  => model("Mux")()("BuiltInLatency").toDouble
+      case Def(Min(_,_))    => model("Min")()("BuiltInLatency").toDouble
+      case Def(Max(_,_))    => model("Max")()("BuiltInLatency").toDouble
+
+      case Def(FixConvert(_))  => model("FixConvert")()("BuiltInLatency").toDouble
+      case Def(FltConvert(_))  => model("FltConvert")()("BuiltInLatency").toDouble // TODO
+
+      case Def(FltPtToFixPt(x)) if x.tp == FloatType => model("FltPtToFixPtFloat")()("BuiltInLatency").toDouble
+      case Def(FixPtToFltPt(x)) if s.tp == FloatType => model("FixPtToFltPtFloat")()("BuiltInLatency").toDouble
+
+      case Def(_:Hwblock)             => model("Hwblock")()("BuiltInLatency").toDouble
+      case Def(_:ParallelPipe)        => model("ParallelPipe")()("BuiltInLatency").toDouble
+      case Def(_:UnitPipe)            => model("UnitPipe")()("BuiltInLatency").toDouble
+      case Def(_:OpForeach)           => model("OpForeach")()("BuiltInLatency").toDouble
+      case Def(_:OpReduce[_])         => model("OpReduce")()("BuiltInLatency").toDouble
+      case Def(_:OpMemReduce[_,_])    => model("OpMemReduce")()("BuiltInLatency").toDouble
+      case Def(_:UnrolledForeach)     => model("UnrolledForeach")()("BuiltInLatency").toDouble
+      case Def(_:UnrolledReduce[_,_]) => model("UnrolledReduce")()("BuiltInLatency").toDouble
+      case Def(_:Switch[_])           => model("Switch")()("BuiltInLatency").toDouble
+      case Def(_:SwitchCase[_])       => model("SwitchCase")()("BuiltInLatency").toDouble
+
+        // Host/Debugging/Unsynthesizable nodes
+      case Def(_:ExitIf)  => model("ExitIf")()("BuiltInLatency").toDouble
+      case Def(_:BreakpointIf)  => model("BreakpointIf")()("BuiltInLatency").toDouble
+      case Def(_:PrintIf)   => model("PrintIf")()("BuiltInLatency").toDouble
+      case Def(_:PrintlnIf) => model("PrintlnIf")()("BuiltInLatency").toDouble
+      case Def(_:AssertIf)  => model("AssertIf")()("BuiltInLatency").toDouble
+      case Def(_:ToString[_]) => model("ToString")()("BuiltInLatency").toDouble
+      case Def(_:StringConcat) => model("StringConcat")()("BuiltInLatency").toDouble
+      case Def(FixRandom(_)) => model("FixRandom")()("BuiltInLatency").toDouble  // TODO: This is synthesizable now?
+      case Def(FltRandom(_)) => model("FltRandom")()("BuiltInLatency").toDouble  // TODO: This is synthesizable now?
+
+      case _ =>
+        miss(u"${s} (rule)")
+        0
+    }
+  }
+
 }

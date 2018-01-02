@@ -45,6 +45,11 @@ object HasNBufSRAM extends AppProperties
 object HasNBufRegFile extends AppProperties
 object HasVariableCtrBounds extends AppProperties
 object HasVariableCtrStride extends AppProperties
+object HasGeneralFifo extends AppProperties
+object HasTileStore extends AppProperties
+object HasTileLoad extends AppProperties
+object HasGather extends AppProperties
+object HasScatter extends AppProperties
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
