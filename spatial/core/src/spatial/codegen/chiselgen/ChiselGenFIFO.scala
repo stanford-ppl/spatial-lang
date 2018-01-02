@@ -87,6 +87,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         }
         val width = bitWidth(lhs.tp.typeArguments.head)
         emitGlobalModule(src"""val $lhs = Module(new GeneralFIFO(List($rPar), List($wPar), $size, $width)) // ${lhs.name.getOrElse("")}""")
+        appPropertyStats += HasGeneralFifo
       }
 
     case FIFOEnq(fifo,v,en) => 

@@ -14,6 +14,7 @@ import datetime
 #5 = cycles
 #6 = hash
 #7 = apphash
+#8 = csv list of properties
 
 # tid = sys.argv[2]
 
@@ -58,6 +59,8 @@ else:
 	print("Col is %d" % col)
 	worksheet = sh.worksheet_by_title('Timestamps')
 	worksheet.update_cell((1,col),sys.argv[3])
+	worksheet = sh.worksheet_by_title('Properties')
+	worksheet.update_cell((1,col),sys.argv[3])
 	worksheet = sh.worksheet_by_title('Runtime')
 	worksheet.update_cell((1,2*col-7),sys.argv[3])
 # Find row, since tid is now unsafe
@@ -79,7 +82,22 @@ worksheet = sh.worksheet_by_title('Runtime') # Select worksheet by index
 worksheet.update_cell((tid,2*col-7),sys.argv[5])
 worksheet.update_cell((tid,2*col-6),sys.argv[4])
 
-# Page 2 - STATUS
+# Page 2 - Properties
+worksheet = sh.worksheet_by_title('Properties') # Select worksheet by index
+worksheet.update_cell((tid,col),sys.argv[4])
+lol = worksheet.get_all_values()
+for prop in sys.argv[8].split():
+	# Find row
+	found = False
+	for i in range(2, len(lol)):
+		if (lol[i][0] == prop):
+			worksheet.update_cell((i+1, col), prop)
+			found = True
+	if (found == False):
+		worksheet.update_cell((len(lol)+1,5), prop)
+		worksheet.update_cell((len(lol),col), prop)
+
+# Page 3 - STATUS
 worksheet = sh.worksheet_by_title('STATUS')
 worksheet.update_cell((22,3),stamp)
 worksheet.update_cell((22,4),os.uname()[1])
