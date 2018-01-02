@@ -85,8 +85,8 @@ trait ChiselGenController extends ChiselGenCounter{
 
   // Breakpoints come after instrumentation registers
   def createBreakpoint(lhs: Exp[_], id: Int): Unit = {
-    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * io_numArgOuts_instr + $id).bits := 1.U")
-    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + 2 * io_numArgOuts_instr + $id).valid := breakpoints($id)")
+    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + io_numArgOuts_instr + $id).bits := 1.U")
+    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + io_numArgOuts_instr + $id).valid := breakpoints($id)")
   }
 
   def emitValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
