@@ -7,6 +7,12 @@ import os
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 
+def write(wksh, row, col, txt):
+	try:
+		wksht.update_cell((row,col),txt)
+	except googleapiclient.errors.HttpError:
+		print("WARN: pygsheets failed... -_-")
+
 #1 = tid
 #2 = appname
 #3 = timeout
@@ -51,7 +57,7 @@ else:
 	numsheets = len(sh.worksheets())
 	for x in range(0,numsheets):
 		worksheet = sh.worksheet('index', x)
-		worksheet.update_cell((1,col),sys.argv[2])		
+		write(worksheet, 1,col,sys.argv[2])		
 # Find row, since tid is now unsafe
 tid = -1
 for i in range(2, len(lol)):
@@ -62,8 +68,8 @@ for i in range(2, len(lol)):
 # Page 10 - Results
 worksheet = sh.worksheet_by_title("Runtime")
 if (sys.argv[3] == "1"):
-	worksheet.update_cell((tid,col), sys.argv[6] + "\nTimed Out!\nFAILED")
+	write(worksheet, tid,col, sys.argv[6] + "\nTimed Out!\nFAILED")
 elif (sys.argv[8] == "0"):
-	worksheet.update_cell((tid,col), sys.argv[6] + "\n" + sys.argv[4] + "\n" + sys.argv[5])
+	write(worksheet, tid,col, sys.argv[6] + "\n" + sys.argv[4] + "\n" + sys.argv[5])
 else:
-	worksheet.update_cell((tid,col), sys.argv[6] + "\n" + sys.argv[8] + "\nUnknown?")
+	write(worksheet, tid,col, sys.argv[6] + "\n" + sys.argv[8] + "\nUnknown?")

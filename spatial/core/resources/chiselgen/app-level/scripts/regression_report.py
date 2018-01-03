@@ -18,6 +18,11 @@ import datetime
 
 # tid = sys.argv[2]
 
+def write(wksh, row, col, txt):
+	try:
+		wksht.update_cell((row,col),txt)
+	except googleapiclient.errors.HttpError:
+		print("WARN: pygsheets failed... -_-")
 
 # # gspread auth
 # json_key = '/home/mattfel/regression/synth/key.json'
@@ -58,11 +63,11 @@ else:
 	col=len(lol[0])+1
 	print("Col is %d" % col)
 	worksheet = sh.worksheet_by_title('Timestamps')
-	worksheet.update_cell((1,col),sys.argv[3])
+	write(worksheet, 1,col,sys.argv[3])
 	worksheet = sh.worksheet_by_title('Properties')
-	worksheet.update_cell((1,col),sys.argv[3])
+	write(worksheet, 1,col,sys.argv[3])
 	worksheet = sh.worksheet_by_title('Runtime')
-	worksheet.update_cell((1,2*col-7),sys.argv[3])
+	write(worksheet, 1,2*col-7,sys.argv[3])
 # Find row, since tid is now unsafe
 tid = -1
 for i in range(2, len(lol)):
@@ -75,29 +80,29 @@ for i in range(2, len(lol)):
 stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 worksheet = sh.worksheet_by_title('Timestamps') # Select worksheet by index
-worksheet.update_cell((tid,col), stamp)
+write(worksheet, tid,col, stamp)
 
 # Page 1 - Runtime
 worksheet = sh.worksheet_by_title('Runtime') # Select worksheet by index
-worksheet.update_cell((tid,2*col-7),sys.argv[5])
-worksheet.update_cell((tid,2*col-6),sys.argv[4])
+write(worksheet, tid,2*col-7,sys.argv[5])
+write(worksheet, tid,2*col-6,sys.argv[4])
 
 # Page 2 - Properties
 worksheet = sh.worksheet_by_title('Properties') # Select worksheet by index
-worksheet.update_cell((tid,col),sys.argv[4])
+write(worksheet, tid,col,sys.argv[4])
 lol = worksheet.get_all_values()
 for prop in sys.argv[8].split(","):
 	# Find row
 	found = False
 	for i in range(2, len(lol)):
 		if (lol[i][4] == prop):
-			worksheet.update_cell((i+1, col), prop)
+			write(worksheet, i+1, col, prop)
 			found = True
 	if (found == False):
-		worksheet.update_cell((len(lol)+1,5), prop)
-		worksheet.update_cell((len(lol),col), prop)
+		write(worksheet, len(lol)+1,5, prop)
+		write(worksheet, len(lol),col, prop)
 
 # Page 3 - STATUS
 worksheet = sh.worksheet_by_title('STATUS')
-worksheet.update_cell((22,3),stamp)
-worksheet.update_cell((22,4),os.uname()[1])
+write(worksheet, 22,3,stamp)
+write(worksheet, 22,4,os.uname()[1])
