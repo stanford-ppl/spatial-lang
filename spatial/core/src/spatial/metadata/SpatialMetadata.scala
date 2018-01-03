@@ -223,7 +223,9 @@ case class BlockController(blk: Blk) extends Metadata[BlockController] {
 }
 @data object blkOf {
   def get(x: Exp[_]): Option[Blk] = metadata[BlockController](x).map(_.blk)
-  def apply(x: Exp[_]): Blk = metadata[BlockController](x).map(_.blk).get
+  def apply(x: Exp[_]): Blk = metadata[BlockController](x).map(_.blk).getOrElse{
+    throw new Exception(s"Symbol ${str(x)} has no block defined.")
+  }
   def update(x: Exp[_], blk: Blk): Unit = metadata.add(x, BlockController(blk))
 }
 
