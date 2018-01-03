@@ -11,7 +11,7 @@ import spatial.models.LatencyModel
 trait PlasticineLatencyModel extends LatencyModel {
   val FILE_NAME = "HackyLatency.csv"
 
-  @stateful override protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
+  @stateful override protected def latencyOfNode(s: Exp[_], d: Def): Double = d match {
     case d if isAllocation(d) => 0
     case FieldApply(_,_)    => 0
     case VectorApply(_,_)   => 0

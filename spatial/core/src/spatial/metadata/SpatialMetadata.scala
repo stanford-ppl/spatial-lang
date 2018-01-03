@@ -461,22 +461,22 @@ case class MShouldDuplicate(should: Boolean) extends Metadata[MShouldDuplicate] 
 /**
   * Latency of a given inner pipe body - used for control signal generation
   */
-case class MBodyLatency(latency: Seq[Long]) extends Metadata[MBodyLatency] { def mirror(f:Tx) = this }
+case class MBodyLatency(latency: Seq[Double]) extends Metadata[MBodyLatency] { def mirror(f:Tx) = this }
 @data object bodyLatency {
-  def apply(e: Exp[_]): Seq[Long] = metadata[MBodyLatency](e).map(_.latency).getOrElse(Nil)
-  def update(e: Exp[_], latency: Seq[Long]): Unit = metadata.add(e, MBodyLatency(latency))
-  def update(e: Exp[_], latency: Long): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
+  def apply(e: Exp[_]): Seq[Double] = metadata[MBodyLatency](e).map(_.latency).getOrElse(Nil)
+  def update(e: Exp[_], latency: Seq[Double]): Unit = metadata.add(e, MBodyLatency(latency))
+  def update(e: Exp[_], latency: Double): Unit = metadata.add(e, MBodyLatency(Seq(latency)))
 
-  def sum(e: Exp[_]): Long = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) bodyLatency(e).sum else 0L
+  def sum(e: Exp[_]): Double = if (spatialConfig.enableRetiming || spatialConfig.enablePIRSim) bodyLatency(e).sum else 0L
 }
 
 /**
   * Gives the delay of the given symbol from the start of its parent controller
   */
-case class MDelay(latency: Long) extends Metadata[MDelay] { def mirror(f:Tx) = this }
+case class MDelay(latency: Double) extends Metadata[MDelay] { def mirror(f:Tx) = this }
 @data object symDelay {
-  def apply(e: Exp[_]): Long = metadata[MDelay](e).map(_.latency).getOrElse(0L)
-  def update(e: Exp[_], delay: Long): Unit = metadata.add(e, MDelay(delay))
+  def apply(e: Exp[_]): Double = metadata[MDelay](e).map(_.latency).getOrElse(0L)
+  def update(e: Exp[_], delay: Double): Unit = metadata.add(e, MDelay(delay))
 }
 
 /**
@@ -488,16 +488,16 @@ case class MLoopInvariant(is: Boolean) extends Metadata[MLoopInvariant] { def mi
   def update(e: Exp[_], is: Boolean): Unit = metadata.add(e, MLoopInvariant(is))
 }
 
-case class InitiationInterval(interval: Long) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
+case class InitiationInterval(interval: Double) extends Metadata[InitiationInterval] { def mirror(f:Tx) = this }
 @data object iiOf {
-  def apply(e: Exp[_]): Long = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
-  def update(e: Exp[_], interval: Long): Unit = metadata.add(e, InitiationInterval(interval))
+  def apply(e: Exp[_]): Double = metadata[InitiationInterval](e).map(_.interval).getOrElse(1)
+  def update(e: Exp[_], interval: Double): Unit = metadata.add(e, InitiationInterval(interval))
 }
 
-case class UserII(interval: Long) extends Metadata[UserII] { def mirror(f:Tx) = this }
+case class UserII(interval: Double) extends Metadata[UserII] { def mirror(f:Tx) = this }
 @data object userIIOf {
-  def apply(e: Exp[_]): Option[Long] = metadata[UserII](e).map(_.interval)
-  def update(e: Exp[_], interval: Option[Long]): Unit = interval.foreach{ii => metadata.add(e, UserII(ii)) }
+  def apply(e: Exp[_]): Option[Double] = metadata[UserII](e).map(_.interval)
+  def update(e: Exp[_], interval: Option[Double]): Unit = interval.foreach{ii => metadata.add(e, UserII(ii)) }
 }
 
 case class MemoryContention(contention: Int) extends Metadata[MemoryContention] { def mirror(f:Tx) = this }

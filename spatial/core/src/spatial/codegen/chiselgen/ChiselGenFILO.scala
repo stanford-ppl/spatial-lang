@@ -67,37 +67,22 @@ trait ChiselGenFILO extends ChiselGenSRAM {
 
       emitGlobalModule(src"""val $lhs = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
 
-    case FILOPush(filo,v,en) =>
-      val writer = ctrlOf(lhs).node
-      val enabler = src"${swap(writer, DatapathEn)}"
-      emit(src"""$filo.connectPushPort(Vec(List($v.r)), ${swap(writer, En)} & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
-
-    case FILOPop(filo,en) =>
-      val reader = ctrlOf(lhs).node
-      val bug202delay = reader match {
-        case Def(op@SwitchCase(_)) => 
-          if (Bits.unapply(op.mT).isDefined & listensTo(reader).isEmpty) src"${symDelay(parentOf(reader).get)}" else src"${symDelay(lhs)}"
-        case _ => src"${symDelay(lhs)}" 
-      }
-      val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
-      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""$lhs.r := $filo.connectPopPort(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en & ~${swap(reader, Inhibitor)}).apply(0)""")
+    case FILOPush(filo,v,en) => throw new Exception("Unbanked FILO push at codegen - should not happen")
+    case FILOPop(filo,en) => throw new Exception("Unbanked FILO pop at codegen - should not happen")
 
     case BankedFILOPush(filo,data,ens) =>
-      //val par = ens.length
       val en = ens.map(quote).mkString("&")
       val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${swap(writer, DatapathEn)}"
-      val datacsv = data.map{d => src"$d.r"}.mkString(",")
-      emit(src"""$filo.connectPushPort(Vec(List($datacsv)), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${symDelay(lhs)}) & $en)""")
+      val datacsv = data.map{d => src"${d}.r"}.mkString(",")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt) & $en)""")
 
     case BankedFILOPop(filo,ens) =>
-      //val par = ens.length
       val en = ens.map(quote).mkString("&")
       val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
-      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${symDelay(lhs)}) & $en).reverse""")
-      emit(src"""(0 until ${ens.length}).foreach{ i => $lhs(i).r := ${lhs}_vec(i) }""")
+      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+      emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt) & $en).reverse""")
+      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case FILOPeek(filo) => emit(src"val $lhs = Wire(${newWire(lhs.tp)}); $lhs.r := $filo.io.out(0).r")
     case FILOEmpty(filo) => emit(src"val $lhs = $filo.io.empty")

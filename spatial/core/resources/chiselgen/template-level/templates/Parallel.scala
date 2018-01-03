@@ -4,7 +4,7 @@ package templates
 import chisel3._
 
 //A n-stage Parallel controller
-class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime:Int = 0, val staticNiter: Boolean = false) extends Module {
+class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val retime:Int = 0, val staticNiter: Boolean = false, val isReduce: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -70,7 +70,7 @@ class Parallel(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
       io.output.rst_en := true.B
       stateFF.io.input(0).data := runningState.U
     }.elsewhen (state === runningState.U) {  // STEADY
-      (0 until n).foreach { i => io.output.stageEnable(i) := Mux(io.input.forever, true.B, ~doneMask(i)) }
+      (0 until n).foreach { i => io.output.stageEnable(i) := Mux(io.input.forever, true.B, Mux(io.input.stageMask(i), ~doneMask(i), false.B)) }
 
       val doneTree = doneMask.reduce { _ & _ }
       when(doneTree === 1.U) {

@@ -13,6 +13,8 @@ elif [[ $1 = "AWS" ]]; then
 fi
 
 tid=`cat ${REGRESSION_HOME}/data/tid`
+hash=`cat ${REGRESSION_HOME}/data/hash`
+ahash=`cat ${REGRESSION_HOME}/data/ahash`
 
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
@@ -85,7 +87,7 @@ starttime=`cat \`pwd\`/start.log`
 synthtime=$((endtime-starttime))
 
 echo "LUT: $lutraw (${lutpcnt}%) Regs: $regraw (${regpcnt}%) BRAM: $ramraw (${rampcnt}%) URAM: $uramraw (${urampcnt}%) DSP: $dspraw (${dsppcnt}%) LaL: $lalraw (${lalpcnt}%) LaM: $lamraw (${lampcnt}%) Synthtime: $synthtime Tmg_Met: $tmg $1"
-python3 scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$tmg" "$1"
+python3 scripts/scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$tmg" "$1" "$hash" "$ahash"
 
 
 # Run on board
@@ -115,7 +117,7 @@ if [[ $1 = "Zynq" ]]; then
     runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
-    python3 report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked"
+    python3 scripts/report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
 fi
 
 # Fake out regression

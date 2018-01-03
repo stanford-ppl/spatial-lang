@@ -10,6 +10,7 @@ import scala.collection.mutable
 trait CppGenController extends CppCodegen {
 
   var instrumentCounters: List[(Exp[_], Int)] = List()
+  var earlyExits: List[Exp[_]] = List()
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
@@ -29,6 +30,17 @@ trait CppGenController extends CppCodegen {
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
       controllerStack.pop()
+
+      if (earlyExits.length > 0) {
+        emit("// Capture breakpoint-style exits")
+        emit("bool early_exit = false;")
+        val numInstrs = if (spatialConfig.enableInstrumentation) {2*instrumentCounters.length} else 0
+        earlyExits.zipWithIndex.foreach{ case (b, i) =>
+          emit(src"long ${b}_act = c1->getArg(${argIOs.length + argOuts.length + numInstrs + i}, false);")
+          emit(s"""if (${b}_act) {std::cout << "===================\\n  Breakpoint $i triggered!\\n    ${b.ctx} \\n===================" << std::endl; early_exit = true;}  """)
+        }
+        emit("""if (!early_exit) {std::cout << "No breakpoints triggered :)" << std::endl;} """)
+      }
 
       if (spatialConfig.enableInstrumentation) {
         emit(src"""std::ofstream instrumentation ("./instrumentation.txt");""")
@@ -88,6 +100,12 @@ trait CppGenController extends CppCodegen {
       visitBlock(action)
       visitBlock(nextState)
       controllerStack.pop()
+
+    case ExitIf(en) => 
+      earlyExits = earlyExits :+ lhs
+
+    case BreakpointIf(en) => 
+      earlyExits = earlyExits :+ lhs
 
     case _ => super.emitNode(lhs, rhs)
   }

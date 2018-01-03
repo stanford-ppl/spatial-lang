@@ -25,6 +25,9 @@ trait ChiselGenController extends ChiselGenCounter{
      get to the very top
   */
 
+  /* List of break or exit nodes */
+  var earlyExits: List[Exp[_]] = List()
+
   private def emitNestedLoop(cchain: Exp[CounterChain], iters: Seq[Bound[Index]])(func: => Unit): Unit = {
     for (i <- iters.indices)
       open(src"$cchain($i).foreach{case (is,vs) => is.zip(vs).foreach{case (${iters(i)},v) => if (v) {")
@@ -78,6 +81,12 @@ trait ChiselGenController extends ChiselGenCounter{
       }
       instrumentCounters = instrumentCounters :+ (lhs, controllerStack.length)
     }
+  }
+
+  // Breakpoints come after instrumentation registers
+  def createBreakpoint(lhs: Exp[_], id: Int): Unit = {
+    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + io_numArgOuts_instr + $id).bits := 1.U")
+    emitInstrumentation(src"io.argOuts(io_numArgOuts_reg + io_numArgIOs_reg + io_numArgOuts_instr + $id).valid := breakpoints($id)")
   }
 
   def emitValids(lhs: Exp[Any], cchain: Exp[CounterChain], iters: Seq[Seq[Bound[Index]]], valids: Seq[Seq[Bound[Bit]]], suffix: String = "") {
@@ -317,7 +326,8 @@ trait ChiselGenController extends ChiselGenCounter{
       if (styleOf(nextLevel.get) == StreamPipe) {
         nextLevel.get match {
           case Def(UnrolledForeach(_,_,_,_,e)) => 
-            ens.foreach{ my_en =>
+            ens.foreach{ my_en_exact =>
+              val my_en = my_en_exact match { case Def(DelayLine(_,node)) => node; case _ => my_en_exact}
               e.foreach{ their_en =>
                 if (src"${my_en}" == src"${their_en}" & !src"${my_en}".contains("true")) {
                   // Hacky way to avoid double-suffixing
@@ -355,10 +365,10 @@ trait ChiselGenController extends ChiselGenCounter{
       val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(BankedFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FIFODeq(_,en)) => src"(~$fifo.io.empty.D(${lat}.toInt + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(BankedFIFODeq(_,ens)) => src"""(~$fifo.io.empty.D(${lat}.toInt + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
-        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat} + 1, rr)"
+        case fifo @ Def(FILONew(size)) => src"~$fifo.io.empty.D(${lat}.toInt + 1, rr)"
         case fifo @ Def(StreamInNew(bus)) => bus match {
           case SliderSwitch => ""
           case _ => src"${swap(fifo, Valid)}"
@@ -368,13 +378,13 @@ trait ChiselGenController extends ChiselGenCounter{
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(BankedFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FIFOEnq(_,_,en)) => src"(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(BankedFIFOEnq(_,_,ens)) => src"""(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat} + 1, rr) | ~${remappedEns(pt.access,List(en))})"
-            case Def(BankedFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat} + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FILOPush(_,_,en)) => src"(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~${remappedEns(pt.access,List(en))})"
+            case Def(BankedFILOPush(_,_,ens)) => src"""(~$fifo.io.full.D(${lat}.toInt + 1, rr) | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo,Ready)}"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
@@ -417,6 +427,9 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
+    // TODO: We should really just check for unspecialized reduce, not any reduce
+    val isReduce = getDef(sym).exists{case _:UnrolledReduce => isInner; case _ => false }
+
     emit(src"""//  ---- ${if (isInner) {"INNER: "} else {"OUTER: "}}Begin ${smStr} $sym Controller ----""")
 
     /* State Machine Instatiation */
@@ -450,6 +463,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := (${sym}${i}_hops + ${sym}${i}_adjustment).U(${32 min 2*w}.W)""")
               case (Exact(s), _, Exact(st), Exact(p)) => 
+                appPropertyStats += HasVariableCtrBounds
                 emit(src"val ${sym}${i}_range =  Utils.getRetimed(${end} - ${start}, Utils.fixsub_latency)")
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
@@ -459,6 +473,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
+                appPropertyStats += HasVariableCtrStride
                 emit("// TODO: Figure out how to make this one cheaper!")
                 emit(src"val ${sym}${i}_range = ${e} - ${s}")
                 emit(src"val ${sym}${i}_jump = ${step} *-* ${p}.S(${w}.W)")
@@ -469,6 +484,7 @@ trait ChiselGenController extends ChiselGenCounter{
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := Utils.getRetimed(${sym}${i}_hops + ${sym}${i}_adjustment, Utils.fixadd_latency).r""")
               case _ => 
+                appPropertyStats += HasVariableCtrBounds // TODO: Possible variable stride too, should probably match against this
                 emit(src"val ${sym}${i}_range = Utils.getRetimed(${end} - ${start}, Utils.fixsub_latency)")
                 emit(src"val ${sym}${i}_jump = ${step} *-* ${par}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump")
@@ -518,7 +534,7 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
-    val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ => 32}
+    val stw = sym match{case Def(StateMachine(_,_,_,_,_,s)) => bitWidth(s.tp); case _ if (childrenOf(sym).length <= 1) => 3; case _ => (scala.math.log(childrenOf(sym).length) / scala.math.log(2)).toInt + 2}
     val ctrdepth = if (cchain.isDefined) {cchain.get match {case Def(CounterChainNew(ctrs)) => ctrs.length; case _ => 0}} else 0
     val static = if (cchain.isDefined) {
       cchain.get match {
@@ -544,9 +560,9 @@ trait ChiselGenController extends ChiselGenCounter{
           }}.reduce{_&&_}
       }
     } else true
-    emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}")
-    emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat} // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
-    emitGlobalModuleMap(src"${sym}_sm", src"Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
+    emitGlobalRetimeMap(src"""${sym}_retime""", s"${lat}.toInt")
+    emit(s"""// This is now global: val ${quote(sym)}_retime = ${lat}.toInt // Inner loop? ${isInner}, II = ${iiOf(sym)}""")
+    emitGlobalModuleMap(src"${sym}_sm", src"Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static, isReduce = $isReduce))")
     emit(src"// This is now global: val ${swap(sym, SM)} = Module(new ${smStr}(${constrArg.mkString}, ctrDepth = $ctrdepth, stateWidth = ${stw}, retime = ${swap(sym, Retime)}, staticNiter = $static))")
     emit(src"""${swap(sym, SM)}.io.input.enable := ${swap(sym, En)} & retime_released""")
     if (isFSM) {
@@ -558,7 +574,7 @@ trait ChiselGenController extends ChiselGenCounter{
     emitGlobalWireMap(src"""${swap(sym, RstEn)}""", """Wire(Bool())""") // TODO: Is this legal?
     emit(src"""${swap(sym, RstEn)} := ${swap(sym, SM)}.io.output.rst_en // Generally used in inner pipes""")
     emit(src"""${swap(sym, SM)}.io.input.numIter := (${numIter.mkString(" *-* ")}).raw.asUInt // Unused for inner and parallel""")
-    if (spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt * numIter.length > maxretime) maxretime = spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt * numIter.length
+    if (spatialConfig.target.latencyModel.model("FixMul")("b" -> 32)("LatencyOf").toInt * numIter.length > maxretime) maxretime = spatialConfig.target.latencyModel.model("FixMul")("b" -> 32)("LatencyOf").toInt * numIter.length
     emit(src"""${swap(sym, SM)}.io.input.rst := ${swap(sym, Resetter)} // generally set by parent""")
 
     if (isStreamChild(sym) & hasStreamIns & beneathForever(sym)) {
@@ -713,9 +729,9 @@ trait ChiselGenController extends ChiselGenCounter{
           emit(src"""${swap(src"${cchain.get}_copy${c}", Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr)""")
         }
         if (c match { case Def(StateMachine(_,_,_,_,_,_)) => true; case _ => false}) { // If this is an fsm, we want it to reset with each iteration, not with the reset of the parent
-          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en | ${swap(c, Done)}.D(1,rr)""")
+          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr) | ${swap(c, Done)}.D(1,rr)""") //changed on 12/13
         } else {
-          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en""")  
+          emit(src"""${swap(c, Resetter)} := ${swap(sym, SM)}.io.output.rst_en.D(1,rr)""")   //changed on 12/13
         }
         
       }
@@ -778,7 +794,7 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""val ${lhs}_IICtr = Module(new RedxnCtr(2 + Utils.log2Up(${swap(lhs, Retime)})));""")
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs,En)}""")
-        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.S // ${swap(lhs, Retime)}.S""")
+        emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.toInt.S // ${swap(lhs, Retime)}.S""")
         emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
@@ -791,17 +807,21 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""retime_released := Utils.getRetimed(retime_counter.io.output.done,1) // break up critical path by delaying this """)
       topLayerTraits = childrenOf(lhs).map { c => src"$c" }
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, None, None, None)
-      // Emit unit counter for this
-      emit(s"""val done_latch = Module(new SRFF())""")
-      emit(s"""done_latch.io.input.set := ${swap(lhs, Done)}""")
-      emit(s"""done_latch.io.input.reset := ${swap(lhs, Resetter)}""")
-      emit(s"""done_latch.io.input.asyn_reset := ${swap(lhs, Resetter)}""")
-      emit(s"""io.done := done_latch.io.output.data""")
-      // if (isForever) emit(s"""${quote(lhs)}_sm.io.input.forever := true.B""")
 
       emitBlock(func)
       emitChildrenCxns(lhs, None, None)
       emitCopiedCChain(lhs)
+
+      emit(s"""val done_latch = Module(new SRFF())""")
+      if (earlyExits.length > 0) {
+        emitGlobalWire(s"""val breakpoints = Wire(Vec(${earlyExits.length}, Bool()))""")
+        emit(s"""done_latch.io.input.set := ${swap(lhs, Done)} | breakpoints.reduce{_|_}""")        
+      } else {
+        emit(s"""done_latch.io.input.set := ${swap(lhs, Done)}""")                
+      }
+      emit(s"""done_latch.io.input.reset := ${swap(lhs, Resetter)}""")
+      emit(s"""done_latch.io.input.asyn_reset := ${swap(lhs, Resetter)}""")
+      emit(s"""io.done := done_latch.io.output.data""")
 
       toggleEn() // turn off
       controllerStack.pop()
@@ -980,6 +1000,14 @@ trait ChiselGenController extends ChiselGenCounter{
 
       // close("}")
 
+    case ExitIf(en) => 
+      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
+      earlyExits = earlyExits :+ lhs
+
+    case BreakpointIf(en) => 
+      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
+      earlyExits = earlyExits :+ lhs
+
     case _:OpForeach   => throw new Exception("Should not be emitting chisel for Op ctrl node")
     case _:OpReduce[_] => throw new Exception("Should not be emitting chisel for Op ctrl node")
     case _:OpMemReduce[_,_] => throw new Exception("Should not be emitting chisel for Op ctrl node")
@@ -994,6 +1022,10 @@ trait ChiselGenController extends ChiselGenCounter{
       }
     }
 
+    withStream(getStream("GlobalModules")) {
+      emit(src"val breakpt_activators = List.fill(${earlyExits.length}){Wire(Bool())}")
+    }
+
     withStream(getStream("Instantiator")) {
       emit("")
       emit("// Instrumentation")
@@ -1002,6 +1034,13 @@ trait ChiselGenController extends ChiselGenCounter{
         val depth = " "*p._2
         emit(src"""// ${depth}${quote(p._1)}""")
       }
+      emit(s"val numArgOuts_breakpts = ${earlyExits.length}")
+      emit("""/* Breakpoint Contexts:""")
+      earlyExits.zipWithIndex.foreach {case (p,i) => 
+        createBreakpoint(p, i)
+        emit(s"breakpoint ${i}: ${p.ctx}")
+      }
+      emit("""*/""")
     }
 
     withStream(getStream("IOModule")) {
@@ -1013,8 +1052,10 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"//   Widest Outer Controller: ${if (widthStats.length == 0) 0 else widthStats.max}")
       emit(src"// Depths: ${depthStats.sorted}")
       emit(src"//   Deepest Inner Controller: ${if (depthStats.length == 0) 0 else depthStats.max}")
+      emit(s"// App Characteristics: ${appPropertyStats.toList.map(_.getClass.getName.split("\\$").last.split("\\.").last).mkString(",")}")
       emit("// Instrumentation")
       emit(s"val io_numArgOuts_instr = ${instrumentCounters.length*2}")
+      emit(s"val io_numArgOuts_breakpts = ${earlyExits.length}")
 
     }
 

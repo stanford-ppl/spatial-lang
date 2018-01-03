@@ -43,7 +43,7 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
     // then this is transient. We get rows from parent of parent of access' counter
     val rowStride = mem match {case Def(LineBufferNew(_,_,Exact(stride))) => stride.toInt; case _ => 0}
     val rowsWritten = node match {
-      case Def(DenseTransfer(_, _, _, tsizes, _, _, _, _)) => tsizes.dropRight(1).last.toInt
+      case Def(op: DenseTransfer[_,_]) => op.lens.dropRight(1).last.toInt
       case Def(_: LineBufferLoad[_]) => rowStride       // Not transient
       case Def(_: BankedLineBufferLoad[_]) => rowStride // Not transient
       case Def(_: LineBufferColSlice[_]) => rowStride   // Not transient

@@ -17,7 +17,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
   private def visitOuterControl(lhs: Sym[_], rhs: Op[_]): Unit = {
     dbgs(str(lhs))
     rhs.blocks.foreach{blk => visitBlock(blk) }
-    val interval = (1L +: childrenOf(lhs).map{child => iiOf(child) }).max
+    val interval = (1.0 +: childrenOf(lhs).map{child => iiOf(child) }).max
     dbgs(s" - Interval: $interval")
     iiOf(lhs) = userIIOf(lhs).getOrElse(interval)
   }
@@ -26,7 +26,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
     dbgs(str(lhs))
     val blks = rhs.blocks.map{block => latencyAndInterval(block) }
     val latency = blks.map(_._1).sum
-    val interval = (1L +: blks.map(_._2)).max
+    val interval = (1.0 +: blks.map(_._2)).max
     dbgs(s" - Latency:  $latency")
     dbgs(s" - Interval: $interval")
     bodyLatency(lhs) = latency
@@ -52,9 +52,9 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
       val nextStateRead = blockNestedContents(nextState).flatMap(_.lhs).flatMap{case Reader(readers) => readers.map(_.mem); case _ => Nil }.toSet
       val dependencies  = nextStateRead intersect actionWritten
 
-      val writeLatency = if (!spatialConfig.enableRetiming || latencyModel.requiresRegisters(nextState.result, inReduce = true)) 1L else 0L
+      val writeLatency = if (!spatialConfig.enableRetiming || latencyModel.requiresRegisters(nextState.result, inReduce = true)) 1.0 else 0.0
 
-      val actionLatency = latNextState + writeLatency + (1L +: actionLats.values.toSeq).max
+      val actionLatency = latNextState + writeLatency + (1.0 +: actionLats.values.toSeq).max
 
       dbgs("Written memories: " + actionWritten.mkString(", "))
       dbgs("Read memories: " + nextStateRead.mkString(", "))
@@ -76,7 +76,7 @@ case class InitiationAnalyzer(var IR: State, latencyModel: LatencyModel) extends
       rhs.blocks.foreach{blk => visitBlock(blk) }
       val (latNotDone, iiNotDone) = latencyAndInterval(notDone)
       val (latNextState, iiNextState) = latencyAndInterval(nextState)
-      val interval = (Seq(1L, iiNotDone, iiNextState) ++ childrenOf(lhs).map{child => iiOf(child) }).max
+      val interval = (Seq(1.0, iiNotDone, iiNextState) ++ childrenOf(lhs).map{child => iiOf(child) }).max
       dbgs(s" - Latency: $latNotDone, $latNextState")
       dbgs(s" - Interval: $interval")
       iiOf(lhs) = userIIOf(lhs).getOrElse(interval)

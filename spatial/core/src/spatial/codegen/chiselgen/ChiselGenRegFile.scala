@@ -40,15 +40,16 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       }
       val width = bitWidth(lhs.tp.typeArguments.head)
       val mem = instanceOf(lhs)
-      val writerInfo = writersOf(lhs).zipWithIndex.map{ case (w,ii) =>
+      val writerInfo = writersOf(lhs).zipWithIndex.map { case (w, ii) =>
         val port = portsOf(w, lhs, 0).head
         w.node match {
-          case Def(_:RegFileStore[_]) => (port, 1, 1)
-          case Def(_:RegFileShiftIn[_]) => (port, 1, 1)
-          case Def(op@RegFileVectorShiftIn(_,data,addr,en,axis,len)) => (port, addr.length, len) // Get stride
-          case Def(_@BankedRegFileStore(_,_,_,_,en)) => (port, en.length, 1)
+          case Def(_: RegFileStore[_]) => (port, 1, 1)
+          case Def(_: RegFileShiftIn[_]) => (port, 1, 1)
+          case Def(op: RegFileVectorShiftIn[_]) => (port, op.addr.length, op.len) // Get stride
+          case Def(op: BankedRegFileStore[_]) => (port, op.ens.length, 1)
         }
       }
+
       if (writerInfo.isEmpty) {warn(s"RegFile $lhs has no writers!")}
       val parInfo = writerInfo.groupBy(_._1).map{case (k,v) => src"($k -> ${v.map{_._2}.sum})"}
       val stride = if (writerInfo.isEmpty) 1 else writerInfo.map(_._3).max
@@ -57,6 +58,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emitGlobalModule(src"""val $lhs = Module(new templates.ShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, ${if (writerInfo.isEmpty) 1 else writerInfo.map{_._2}.sum}, false, $width, $f))""")
         emitGlobalModule(src"$lhs.io.dump_en := false.B")
       } else {
+        appPropertyStats += HasNBufRegFile
         nbufs = nbufs :+ lhs
         emitGlobalModule(src"""val $lhs = Module(new NBufShiftRegFile(List(${getConstValues(dims)}), $initString, $stride, $depth, Map(${parInfo.mkString(",")}), $width, $f))""")
       }
@@ -73,29 +75,6 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
 
     case _:RegFileLoad[_] => throw new Exception(s"Cannot generate unbanked RegFile load.\n${str(lhs)}")
     case _:RegFileStore[_] => throw new Exception(s"Cannot generate unbanked RegFile store.\n${str(lhs)}")
-
-    /*case op@RegFileLoad(rf,inds,en) =>
-      val dispatch = dispatchOf(lhs, rf).toList.head
-      val port = portsOf(lhs, rf, dispatch).toList.head
-      val addr = inds.map{i => src"${i}.r"}.mkString(",")
-      emitGlobalWireMap(src"""${lhs}""",src"""Wire(${newWire(lhs.tp)})""")
-      emit(src"""${lhs}.r := ${rf}_${dispatch}.readValue(List($addr), $port)""")
-
-    case op@RegFileStore(rf,inds,data,en) =>
-      val width = bitWidth(rf.tp.typeArguments.head)
-      val parent = writersOf(rf).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}"""
-      emit(s"""// Assemble multidimW vector""")
-      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${inds.length}, List(${constDimsOf(rf)}), ${width}))) """)
-      emit(src"""${lhs}_wVec(0).data := ${data}.r""")
-      emit(src"""${lhs}_wVec(0).en := ${en} & (${enable}).D(${symDelay(lhs)})""")
-      inds.zipWithIndex.foreach{ case(ind,j) => 
-        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
-      }
-      emit(src"""${lhs}_wVec(0).shiftEn := false.B""")
-      duplicatesOf(rf).zipWithIndex.foreach{ case (mem, i) =>
-        emit(src"""${rf}_$i.connectWPort(${lhs}_wVec, List(${portsOf(lhs, rf, i)})) """)
-      }*/
 
     // TODO
     case BankedRegFileLoad(rf, bank, ofs, ens) => //FIXME: Not correct for more than par=1
@@ -117,7 +96,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(${ens.length}, new multidimRegW(${inds.head.length}, List(${constDimsOf(rf)}), ${width})))""")
       (0 until ens.length).foreach{ k => 
         emit(src"""${swap(lhs, WVec)}($k).data := ${data(k)}.r""")
-        emit(src"""${swap(lhs, WVec)}($k).en := ${ens(k)} & (${enable}).D(${symDelay(lhs)}, rr)""")
+        emit(src"""${swap(lhs, WVec)}($k).en := ${ens(k)} & (${enable}).D(${enableRetimeMatch(ens.head, lhs)}.toInt, rr)""")
         inds(k).zipWithIndex.foreach{ case(ind,j) => 
           emit(src"""${swap(lhs, WVec)}($k).addr($j) := ${ind}.r // Assume always an int""")
         }
@@ -135,7 +114,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(s"""// Assemble multidimW vector""")
       emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${addr.length}, List(${constDimsOf(rf)}), ${width}))) """)
       emit(src"""${lhs}_wVec(0).data := ${data}.r""")
-      emit(src"""${lhs}_wVec(0).shiftEn := ${en} & (${enable}).D(${symDelay(lhs)})""")
+      emit(src"""${lhs}_wVec(0).shiftEn := ${en} & (${enable}).D(${enableRetimeMatch(en, lhs)}.toInt)""")
       addr.zipWithIndex.foreach{ case(ind,j) =>
         emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
       }
@@ -150,7 +129,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(src"""val ${lhs}_wVec = Wire(Vec(${addr.length}, new multidimRegW(${addr.length}, List(${constDimsOf(rf)}), ${width}))) """)
       open(src"""for (${lhs}_i <- 0 until ${data}.length) {""")
         emit(src"""${lhs}_wVec(${lhs}_i).data := ${data}(${lhs}_i).r""")
-        emit(src"""${lhs}_wVec(${lhs}_i).shiftEn := ${en} & (${enable}).D(${symDelay(lhs)})""")
+        emit(src"""${lhs}_wVec(${lhs}_i).shiftEn := ${en} & (${enable}).D(${enableRetimeMatch(en, lhs)}.toInt)""")
         addr.zipWithIndex.foreach{ case(ind,j) =>
           emit(src"""${lhs}_wVec(${lhs}_i).addr($j) := ${ind}.r // Assume always an int""")
         }
@@ -161,7 +140,12 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case op@LUTNew(dims, init) =>
       val width = bitWidth(op.mT)
       val f = fracBits(op.mT)
-      val lut_consts = getConstValues(init).toList.map{a => src"${a}d"}.mkString(",")
+      val lut_consts = if (width == 1) {
+        getConstValues(init).toList.map{a => if (a == true) "1.0" else "0.0"}.mkString(",")
+      } else {
+        getConstValues(init).toList.map{a => src"${a}d"}.mkString(",")
+      }
+
       val numReaders = readersOf(lhs).length
       emitGlobalModule(src"""val $lhs = Module(new LUT(List($dims), List($lut_consts), $numReaders, $width, $f))""")
       
@@ -169,7 +153,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val idquote = src"${lhs}_id"
       emitGlobalWireMap(src"""$lhs""",src"""Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
-      emit(src"""val $idquote = $lut.connectRPort(List(${addr.map{a => src"$a.r"}}), $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}))""")
+      emit(src"""val $idquote = $lut.connectRPort(List(${addr.map{a => src"$a.r"}}), $en & ${swap(parent, DatapathEn)}.D(${enableRetimeMatch(en, lhs)}))""")
       emit(src"""$lhs.raw := $lut.io.data_out($idquote).raw""")
 
     case VarRegNew(init)       =>
@@ -178,8 +162,6 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case Print(x)   => 
     case Println(x) => 
     case PrintlnIf(_,_) =>
-    case BreakpointIf(_)       => ()
-    case ExitIf(_)       => ()            
 
     case _ => super.emitNode(lhs, rhs)
   }

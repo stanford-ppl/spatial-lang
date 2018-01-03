@@ -176,6 +176,7 @@ class Top(
     case "zynq"       => IO(new ZynqInterface(topParams))
     case "zcu"        => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
+    case "asic"       => IO(new VerilatorInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
 
@@ -183,7 +184,7 @@ class Top(
   val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
-    case "verilator" | "vcs" | "xsim" =>
+    case "verilator" | "vcs" | "xsim" | "asic" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
       val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))

@@ -40,6 +40,18 @@ object Retime extends RemapSignal
 object SM extends RemapSignal
 object Inhibit extends RemapSignal
 
+sealed trait AppProperties
+object HasLineBuffer extends AppProperties
+object HasNBufSRAM extends AppProperties
+object HasNBufRegFile extends AppProperties
+object HasVariableCtrBounds extends AppProperties
+object HasVariableCtrStride extends AppProperties
+object HasGeneralFifo extends AppProperties
+object HasTileStore extends AppProperties
+object HasTileLoad extends AppProperties
+object HasGather extends AppProperties
+object HasScatter extends AppProperties
+
 
 trait ChiselGenSRAM extends ChiselCodegen {
   private var nbufs: List[Sym[SRAM[_]]] = Nil
@@ -50,10 +62,28 @@ trait ChiselGenSRAM extends ChiselCodegen {
   var accumsWithIIDlay = new scala.collection.mutable.ListBuffer[Exp[_]]
   var widthStats = new scala.collection.mutable.ListBuffer[Int]
   var depthStats = new scala.collection.mutable.ListBuffer[Int]
+  var appPropertyStats = Set[AppProperties]()
 
   // Helper for getting the BigDecimals inside of Const exps for things like dims, when we know that we need the numbers quoted and not chisel types
   protected def getConstValues(all: Seq[Exp[_]]): Seq[Any] = all.map{i => getConstValue(i) }
   protected def getConstValue(one: Exp[_]): Any = one match {case Const(c) => c }
+
+  // TODO: Should this be deprecated?
+  protected def enableRetimeMatch(en: Exp[_], lhs: Exp[_]): Double = { // With partial retiming, the delay on standard signals needs to match the delay of the enabling input, not necessarily the symDelay(lhs) if en is delayed partially
+    val last_def_delay = en match {
+      case Def(And(_,_)) => latencyOption("And", None)
+      case Def(Or(_,_)) => latencyOption("Or", None)
+      case Def(Not(_)) => latencyOption("Not", None)
+      case Const(_) => 0.0
+      case Def(DelayLine(size,_)) => size.toDouble // Undo subtraction
+      case Def(RegRead(_)) => latencyOption("RegRead", None)
+      case Def(FixEql(a,_)) => latencyOption("FixEql", Some(bitWidth(a.tp)))
+      case b: Bound[_] => 0.0
+      case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
+    }
+    // if (spatialConfig.enableRetiming) symDelay(en) + last_def_delay else 0.0
+    if (spatialConfig.enableRetiming) symDelay(lhs) else 0.0
+  }
 
   protected def computeSuffix(s: Bound[_]): String = {
     var result = if (config.enableNaming) super.quote(s) else wireMap(super.quote(s)) // TODO: Playing with fire here.  Probably just make the quote and name of bound in Codegen.scala do the wireMap themselves instead of doing it here!
@@ -70,6 +100,27 @@ trait ChiselGenSRAM extends ChiselCodegen {
       }
     } 
     result
+  }
+
+  def latencyOption(op: String, b: Option[Int]): Double = {
+    if (spatialConfig.enableRetiming) {
+      if (b.isDefined) {spatialConfig.target.latencyModel.model(op)("b" -> b.get)("LatencyOf")}
+      else spatialConfig.target.latencyModel.model(op)()("LatencyOf") 
+    } else {
+      0.0
+    }
+  }
+  def latencyOptionString(op: String, b: Option[Int]): String = {
+    if (spatialConfig.enableRetiming) {
+      val latency = latencyOption(op, b)
+      if (b.isDefined) {
+        s"""Some(${latency}.toInt)"""
+      } else {
+        s"""Some(${latency}.toInt)"""
+      }
+    } else {
+      "None"      
+    }
   }
 
   def swap(lhs: Exp[_], s: RemapSignal): String = {
@@ -155,6 +206,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
     //}
   //}
 
+  def isSpecializedReduce(accum: Exp[_]): Boolean = {
+    reduceType(accum) match {
+      case Some(fps: ReduceFunction) => // is an accumulator
+        fps match {
+          case FixPtSum => true
+          case _ => false
+        }
+      case _ => false
+    }
+  }
   def cchainWidth(ctr: Exp[Counter]): Int = ctr match {
     case Def(CounterNew(Exact(s), Exact(e), _, _)) =>
       val sbits = if (s > 0) {BigInt(2) + ceil(scala.math.log((BigInt(1) max s).toDouble)/scala.math.log(2)).toInt}
@@ -383,8 +444,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@SRAMNew(_) =>
+    /*case op@SRAMNew(_) =>
       val dimensions = constDimsOf(lhs)
+<<<<<<< HEAD
       val mem = instanceOf(lhs)
       val nBanks = mem.nBanks
       val depth = mem.depth
@@ -418,6 +480,117 @@ trait ChiselGenSRAM extends ChiselCodegen {
   List($nBanks), $strides,
   List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
 ))""")
+=======
+      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
+        val rParZip = readersOf(lhs)
+          .filter{read => dispatchOf(read, lhs) contains i}
+          .map { r => 
+            val par = r.node match {
+              case Def(_: SRAMLoad[_]) => 1
+              case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
+            }
+            val port = portsOf(r, lhs, i).toList.head
+            (par, port)
+          }
+        val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
+        val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
+        val wParZip = writersOf(lhs)
+          .filter{write => dispatchOf(write, lhs) contains i}
+          .filter{w => portsOf(w, lhs, i).toList.length == 1}
+          .map { w => 
+            val par = w.node match {
+              case Def(_: SRAMStore[_]) => 1
+              case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+                case Op(ListVector(elems)) => elems.length // Was this deprecated?
+                case _ => ens.length
+              }
+            }
+            val port = portsOf(w, lhs, i).toList.head
+            (par, port)
+          }
+        val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
+        val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
+        val broadcasts = writersOf(lhs)
+          .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
+          w.node match {
+            case Def(_: SRAMStore[_]) => 1
+            case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+              case Op(ListVector(elems)) => elems.length // Was this deprecated?
+              case _ => ens.length
+            }
+          }
+        }
+        val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
+        val width = bitWidth(lhs.tp.typeArguments.head)
+
+        mem match {
+          case BankedMemory(dims, depth, isAccum) =>
+            val strides = src"""List(${dims.map(_.banks)})"""
+            if (depth == 1) {
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+    List(${dims.map(_.banks)}), $strides,
+    List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
+  ))""")
+            } else {
+              appPropertyStats += HasNBufSRAM
+              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+    List(${dims.map(_.banks)}), $strides,
+    List($wPar), List($rPar), 
+    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
+  ))""")
+            }
+          case DiagonalMemory(strides, banks, depth, isAccum) =>
+            if (depth == 1) {
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+    List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
+  ))""")
+            } else {
+              appPropertyStats += HasNBufSRAM
+              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+    List($wPar), List($rPar), 
+    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
+  ))""")
+            }
+          }
+        }
+    
+    case SRAMLoad(sram, dims, is, ofs, en) =>
+      val dispatch = dispatchOf(lhs, sram)
+      val rPar = 1 // Because this is SRAMLoad node    
+      val width = bitWidth(sram.tp.typeArguments.head)
+      emit(s"""// Assemble multidimR vector""")
+      dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
+        val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
+        val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+        emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
+        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${enableRetimeMatch(en, lhs)}.toInt) & $en""")
+        is.zipWithIndex.foreach{ case(ind,j) => 
+          emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
+        }
+        val p = portsOf(lhs, sram, i).head
+        val basequote = src"${lhs}_base" // get string before we create the map
+        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+        emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
+      }
+
+    case SRAMStore(sram, dims, is, ofs, v, en) =>
+      val width = bitWidth(sram.tp.typeArguments.head)
+      val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
+      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+      emit(s"""// Assemble multidimW vector""")
+      emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
+      emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
+      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt, rr)""")
+      is.zipWithIndex.foreach{ case(ind,j) => 
+        emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
+>>>>>>> origin/develop
       }
       else {
         nbufs = nbufs :+ lhs.asInstanceOf[Sym[SRAM[_]]]
@@ -434,7 +607,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
     case BankedSRAMLoad(sram,bank,ofs,ens) => // TODO
     case BankedSRAMStore(sram,data,bank,ofs,ens) => // TODO
-
+    */
     /*case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)
       val width = bitWidth(sram.tp.typeArguments.head)
@@ -447,7 +620,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${symDelay(lhs)},rr) & ${ens(i)}")
+          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${enableRetimeMatch(ens(i), lhs)}.toInt,rr) & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${swap(lhs, RVec)}($i).addr($j) := ${a}.raw """)
           }
@@ -497,7 +670,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""${swap(lhs, WVec)}($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${symDelay(lhs)})")
+        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(ens(i), lhs)}.toInt)")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${swap(lhs, WVec)}($i).addr($j) := ${a}.r """)
         }
@@ -526,7 +699,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
             emit(s"      // ${handle}(${entry._2._2}) = ${entry._1}")
           }
         }
-
       }
 
     }
@@ -546,8 +718,6 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
         compressorMap.values.map(_._1).toSet.toList.foreach{wire: String => 
           if (wire == "_retime") {
-            // Pre-emitted
-            // emit(src"val ${listHandle(wire)} = List[Int](${retimeList.mkString(",")})")                        
           } else if (wire.contains("pipe(") || wire.contains("inner(")) {
             val numel = compressorMap.filter(_._2._1 == wire).size
             emit(src"val ${listHandle(wire)} = List.tabulate(${numel}){i => ${wire.replace("))", src",retime=${listHandle("_retime")}(${listHandle(wire)}_rtmap(i))))")}}")
@@ -557,22 +727,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
           }
         }
       }
-      // emit(src"val b = List.fill(${boolMap.size}){Wire(Bool())}")
-      // emit(src"val u = List.fill(${uintMap.size}){Wire(UInt(32.W))}")
-      // emit(src"val s = List.fill(${sintMap.size}){Wire(SInt(32.W))}")
-      // emit(src"val fs32_0 = List.fill(${fixs32_0Map.size}){Wire(new FixedPoint(true, 32, 0))}")
-      // emit(src"val fu32_0 = List.fill(${fixu32_0Map.size}){Wire(new FixedPoint(false, 32, 0))}")
-      // emit(src"val fs10_22 = List.fill(${fixs10_22Map.size}){Wire(new FixedPoint(true, 10, 22))}")
 
-      emit(s"Utils.fixmul_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMul")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixdiv_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixDiv")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixadd_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixAdd")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixsub_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixSub")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixmod_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixMod")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.fixeql_latency = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("FixEql")()("LatencyOf").toInt else 0}")
-      emit(s"Utils.mux_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("Mux")()("LatencyOf").toInt    else 0}")
-      emit(s"Utils.sramload_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMLoad")()("LatencyOf").toInt    else 0}")
-      emit(s"Utils.sramstore_latency    = ${if (spatialConfig.enableRetiming) spatialConfig.target.latencyModel.model("SRAMStore")()("LatencyOf").toInt    else 0}")
+      emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(32))}.toInt")
+      emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(32))}.toInt")
+      emit(s"Utils.fixadd_latency = ${latencyOption("FixAdd", Some(32))}.toInt")
+      emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(32))}.toInt")
+      emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(32))}.toInt")
+      emit(s"Utils.fixeql_latency = ${latencyOption("FixEql", None)}.toInt")
+      emit(s"Utils.mux_latency    = ${latencyOption("Mux", None)}.toInt")
+      emit(s"Utils.sramload_latency    = ${latencyOption("SRAMLoad", None)}.toInt")
+      emit(s"Utils.sramstore_latency    = ${latencyOption("SRAMStore", None)}.toInt")
       emit(s"Utils.SramThreshold = 4")
       emit(s"""Utils.target = ${trgt}""")
       emit(s"""Utils.retime = ${spatialConfig.enableRetiming}""")

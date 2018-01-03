@@ -154,7 +154,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(reg).map{_._1}.indexOf(lhs)
-      emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${symDelay(lhs)}) ")
+      emit(src"${reg}_manual_reset_$id := $en & ${swap(parent, DatapathEn)}.D(${enableRetimeMatch(en, lhs)}.toInt) ")
 
     case op@RegWrite(reg,v,en) =>
       val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
@@ -187,7 +187,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
             // Make sure this was not stripped of its accumulation from full unroll
             if (fully_unrolled_accum) {
               emitGlobalWireMap(src"""${reg}_wren""", "Wire(Bool())");emit(src"${swap(reg, Wren)} := ${swap(parentOf(lhs).get, DatapathEn)}")
-              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}""")
+              emitGlobalWireMap(src"""${reg}_resetter""", "Wire(Bool())");emit(src"""${swap(reg, Resetter)} := ${swap(parentOf(lhs).get, RstEn)}.D(${enableRetimeMatch(en, lhs)}.toInt, rr) // Delay was added on 12/5/2017, not sure why it wasn't there before""")
             }
             emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(op.mT)})""")
             fps match {

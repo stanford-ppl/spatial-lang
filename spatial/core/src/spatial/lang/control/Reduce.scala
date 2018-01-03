@@ -6,7 +6,7 @@ import forge._
 import spatial.metadata._
 import spatial.nodes._
 
-protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, ii: Option[Long], zero: Option[T], fold: Option[T]) {
+protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, ii: Option[Double], zero: Option[T], fold: Option[T]) {
   /** 1 dimensional reduction **/
   @api def apply(domain1D: Counter)(map: Index => T)(reduce: (T,T) => T)(implicit mT: Type[T], bits: Bits[T]): Reg[T] = {
     val acc = accum.getOrElse(Reg[T])
@@ -34,7 +34,7 @@ protected class ReduceAccum[T](accum: Option[Reg[T]], style: ControlStyle, ii: O
     acc
   }
 }
-protected class ReduceConstant[A,T](style: ControlStyle, ii: Option[Long], a: A, isFold: Boolean) {
+protected class ReduceConstant[A,T](style: ControlStyle, ii: Option[Double], a: A, isFold: Boolean) {
   @api def apply(domain1D: Counter)(map: Index => T)(reduce: (T, T) => T)(implicit bT: Bits[T], lift: Lift[A, T]): Reg[T] = {
     implicit val mT: Type[T] = lift.staged
     val accum = Some(Reg[T](lift(a)))
@@ -69,7 +69,7 @@ protected class ReduceConstant[A,T](style: ControlStyle, ii: Option[Long], a: A,
   }
 }
 
-protected case class ReduceClass(style: ControlStyle, ii: Option[Long] = None) extends ReduceAccum(None, style, ii, None, None) {
+protected case class ReduceClass(style: ControlStyle, ii: Option[Double] = None) extends ReduceAccum(None, style, ii, None, None) {
   /** Reduction with implicit accumulator **/
   // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
   def apply(zero: scala.Int) = new ReduceConstant[Int,Int32](style, ii, zero, isFold = false)
@@ -85,7 +85,7 @@ protected case class ReduceClass(style: ControlStyle, ii: Option[Long] = None) e
   def apply[T](accum: Reg[T]) = new ReduceAccum(Some(accum), style, ii, None, None)
 }
 
-protected case class FoldClass(style: ControlStyle, ii: Option[Long] = None) {
+protected case class FoldClass(style: ControlStyle, ii: Option[Double] = None) {
   /** Fold with implicit accumulator **/
   // TODO: Can't use ANY implicits if we want to be able to use Reduce(0)(...). Maybe a macro can help here?
   def apply(zero: scala.Int) = new ReduceConstant[Int,Int32](style, ii, zero, isFold = true)
@@ -109,7 +109,7 @@ object Reduce extends ReduceClass(InnerPipe) {
     map:    List[Index] => T,
     reduce: (T,T) => T,
     style:  ControlStyle,
-    ii:     Option[Long],
+    ii:     Option[Double],
     ident:  Option[T],
     fold:   Option[T]
   ): Controller = {

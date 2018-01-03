@@ -126,8 +126,9 @@ case class DSEThread(
     array
   }
 
-  private def evaluate(): (Area, Long) = {
+  private def evaluate(): (Area, Double) = {
     if (PROFILING) resetClock()
+
     scalarAnalyzer.rerun(accel, program)
     if (PROFILING) endBnd()
 

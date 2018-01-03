@@ -11,7 +11,7 @@ import spatial.nodes._
 //   If view is unstaged, requires unwrapping prior to use in result of Blocks / use as dependencies
 //   However, if view is staged, have mutable sharing..
 
-protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, ii: Option[Long], zero: Option[T], fold: scala.Boolean) {
+protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, ii: Option[Double], zero: Option[T], fold: scala.Boolean) {
   /** 1 dimensional memory reduction **/
   @api def apply(domain1D: Counter)(map: Index => C[T])(reduce: (T,T) => T)(implicit mem: Mem[T,C], mT: Type[T], bT: Bits[T], mC: Type[C[T]]): C[T] = {
     MemReduce.alloc(List(domain1D), accum, {x: List[Index] => map(x.head)}, reduce, style, ii, zero, fold)
@@ -37,12 +37,12 @@ protected case class MemReduceAccum[T,C[T]](accum: C[T], style: ControlStyle, ii
   }
 }
 
-protected case class MemReduceClass(style: ControlStyle, ii: Option[Long] = None) {
+protected case class MemReduceClass(style: ControlStyle, ii: Option[Double] = None) {
   def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, ii, None, fold = false)
   def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, ii, Some(zero), fold = false)
 }
 
-protected case class MemFoldClass(style: ControlStyle, ii: Option[Long] = None) {
+protected case class MemFoldClass(style: ControlStyle, ii: Option[Double] = None) {
   def apply[T,C[T]](accum: C[T]) = MemReduceAccum[T,C](accum, style, ii, None, fold = true)
   def apply[T,C[T]](accum: C[T], zero: T) = MemReduceAccum[T,C](accum, style, ii, Some(zero), fold = true)
 }
@@ -56,7 +56,7 @@ object MemReduce extends MemReduceClass(MetaPipe) {
     map:    List[Index] => C[T],
     reduce: (T,T) => T,
     style:  ControlStyle,
-    ii:     Option[Long],
+    ii:     Option[Double],
     ident:  Option[T],
     fold:   Boolean
   )(implicit ctx: SrcCtx, mem: Mem[T,C], mC: Type[C[T]]): Controller = {

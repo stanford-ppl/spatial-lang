@@ -11,6 +11,7 @@ case class DenseTransfer[T,C[T]](
   local:  Exp[C[T]],
   ofs:    Seq[Exp[Index]],
   lens:   Seq[Exp[Index]],
+  strides:Seq[Exp[Index]],
   units:  Seq[Boolean],
   p:      Const[Index],
   isLoad: Boolean,
@@ -26,14 +27,14 @@ case class DenseTransfer[T,C[T]](
 
   var isAlign = false
 
-  def mirror(f:Tx): Exp[MUnit] = DRAMTransfers.op_dense_transfer(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,isAlign,iters)
+  def mirror(f:Tx): Exp[MUnit] = DRAMTransfers.op_dense_transfer(f(dram),f(local),f(ofs),f(lens),f(strides),units,p,isLoad,isAlign,iters)
 
   override def inputs = dyns(dram, local) ++ dyns(ofs) ++ dyns(lens)
   override def binds  = iters
   override def aliases = Nil
 
   @internal def expand(f:Tx): Exp[MUnit] = {
-    DRAMTransfersInternal.copy_dense(f(dram),f(local),f(ofs),f(lens),units,p,isLoad,isAlign)(mT,bT,mem,mC,mD,ctx,state).s
+    DRAMTransfersInternal.copy_dense(f(dram),f(local),f(ofs),f(lens),f(strides),units,p,isLoad,isAlign)(mT,bT,mem,mC,mD,ctx,state).s
   }
 }
 

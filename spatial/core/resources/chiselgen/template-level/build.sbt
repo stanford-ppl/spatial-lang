@@ -29,6 +29,7 @@ unmanagedSourceDirectories in Compile <++= baseDirectory { base =>
   Seq(
     base / "templates",
     base / "fringeZynq",
+    base / "fringeASIC",
     base / "fringeAWS",
     base / "fringeVCS",
     base / "fringeDE1SoC",

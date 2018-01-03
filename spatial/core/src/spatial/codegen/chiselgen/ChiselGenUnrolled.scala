@@ -154,20 +154,17 @@ trait ChiselGenUnrolled extends ChiselGenController {
       // MEMORY ANALYSIS UPDATES
       // TODO: It's no longer valid to assume that there is just one accumulator here
       // Is this correct?
-      writtenIn(lhs).filter{mem => isAccum(mem) }.foreach { accum =>
+      writtenIn(lhs).filter{mem => isAccum(mem) }.foreach{accum =>
         accumsWithIIDlay += accum
         if (levelOf(lhs) == InnerControl) {
-          if (spatialConfig.enableRetiming) {
-            emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
-          } else {
-            emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
-          }
+          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
           emitGlobalWireMap(s"${quote(accum)}_wren", "Wire(Bool())")
           emit(s"${swap(quote(accum), Wren)} := (${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${swap(lhs, Inhibitor)}).D(0,rr)")
           emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
           val rstr = wireMap(src"${accum}_resetter")
           emit(src"$rstr := ${swap(lhs, RstEn)}")
-        } else {
+        }
+        else {
           if (spatialConfig.enableRetiming) {
             emitGlobalWire(src"val ${accum}_II_dlay = /*${iiOf(lhs)} +*/ 1 // un-hack to fix Arbitrary Lambda")
           } else {

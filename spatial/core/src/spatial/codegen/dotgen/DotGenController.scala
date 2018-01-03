@@ -69,7 +69,7 @@ trait DotGenController extends DotCodegen {
         stms.foreach {
           case TP(to, DelayLine(_, data)) => renameMap += to -> data
           case TP(l,r) =>
-            val dly = symDelay(l)
+            val dly = (symDelay(l)*10).toLong
             val y = dly.toDouble + 3
             val x = yToX.getOrElse(dly,0)
             yToX += dly -> (x + 1)
