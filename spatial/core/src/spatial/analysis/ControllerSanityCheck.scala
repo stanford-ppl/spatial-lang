@@ -23,7 +23,7 @@ trait ControllerSanityCheck extends SpatialTraversal {
       }
 
       if (rhs match {case e: ParallelPipe => false; case _ => true}) { // Skip Parallels since they likely depend on their children
-        antiDepsOf(lhs).filter {e => isControlNode(e)}.map{e => 
+        depsOf(lhs).filter {e => isControlNode(e)}.map{e => 
           val lca = leastCommonAncestorWithPaths[Exp[_]](lhs, e, {node => parentOf(node)})._1.get
           dbg(c"Checking lca of $lhs ${lhs.ctx} and $e ${e.ctx} = $lca")
           if (styleOf(lca) == ForkJoin) {throw new Exception(s"Trying to schedule nodes with dependencies in parallel with each other: ${e} (${e.ctx}) and ${lhs} (${lhs.ctx}).")}
