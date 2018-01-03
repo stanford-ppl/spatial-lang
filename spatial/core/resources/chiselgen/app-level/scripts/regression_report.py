@@ -21,7 +21,7 @@ import datetime
 def write(wksh, row, col, txt):
 	try:
 		wksht.update_cell((row,col),txt)
-	except googleapiclient.errors.HttpError:
+	except HttpError:
 		print("WARN: pygsheets failed... -_-")
 
 # # gspread auth
