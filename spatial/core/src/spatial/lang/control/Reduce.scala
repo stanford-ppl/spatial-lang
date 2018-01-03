@@ -95,7 +95,7 @@ protected case class FoldClass(style: ControlStyle, ii: Option[Double] = None) {
 
   def apply[T](accum: Reg[T]) = {
     val sty = if (style == InnerPipe) MetaPipe else style
-    MemReduceAccum(accum, sty, ii, None, true)
+    MemReduceAccum(accum, sty, ii, None, true, None)
   }
 }
 
