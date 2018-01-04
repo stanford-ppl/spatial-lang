@@ -13,6 +13,13 @@ def write(wksh, row, col, txt):
 	except:
 		print("WARN: pygsheets failed... -_-")
 
+def readAllVals(wksh):
+	try:
+		return wksh.get_all_values()
+	except:
+		print("WARN: pygsheets failed... -_-")
+		exit()
+
 #1 = tid
 #2 = appname1
 #3 = lut
@@ -56,7 +63,7 @@ elif (sys.argv[12] == "AWS"):
 
 # Get column
 worksheet = sh.worksheet_by_title("Timestamps") # Select worksheet by index
-lol = worksheet.get_all_values()
+lol = readAllVals(worksheet)
 if (sys.argv[2] in lol[0]):
 	col=lol[0].index(sys.argv[2])+1
 else:

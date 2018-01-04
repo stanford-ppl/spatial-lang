@@ -24,6 +24,13 @@ def write(wksh, row, col, txt):
 	except:
 		print("WARN: pygsheets failed... -_-")
 
+def readAllVals(wksh):
+	try:
+		return wksh.get_all_values()
+	except:
+		print("WARN: pygsheets failed... -_-")
+		exit()
+
 # # gspread auth
 # json_key = '/home/mattfel/regression/synth/key.json'
 # scope = [
@@ -55,7 +62,7 @@ else:
 
 # Get column
 worksheet = sh.worksheet_by_title('Timestamps') # Select worksheet by index
-lol = worksheet.get_all_values()
+lol = readAllVals(worksheet)
 if (sys.argv[3] in lol[0]):
 	col=lol[0].index(sys.argv[3])+1
 	print("Col is %d" % col)
@@ -90,7 +97,7 @@ write(worksheet, tid,2*col-6,sys.argv[4])
 # Page 2 - Properties
 worksheet = sh.worksheet_by_title('Properties') # Select worksheet by index
 write(worksheet, tid,col,sys.argv[4])
-lol = worksheet.get_all_values()
+lol = readAllVals(worksheet)
 for prop in sys.argv[8].split(","):
 	# Find row
 	found = False
