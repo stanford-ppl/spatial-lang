@@ -518,7 +518,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
       }
       f.io.r(lane) := chisel3.util.Mux1H(rSel, buffet)
     }
-    f.io.flow := io.flow.reduce{_&_}
+    f.io.flow(0) := io.flow.reduce{_&_}
   }
 
   (0 until numBufs).foreach {i =>
