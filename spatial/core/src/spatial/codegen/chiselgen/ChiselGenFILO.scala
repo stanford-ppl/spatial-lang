@@ -84,7 +84,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       }
       val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
-      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${swap(reader, En)} & (${DL(enabler, bug202delay, true)} & $en & ~${swap(reader, Inhibitor)}).apply(0)""")
+      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${swap(reader, En)} & ${DL(enabler, bug202delay, true)} & $en & ~${swap(reader, Inhibitor)}).apply(0)""")
 
 
     case ParFILOPop(filo, ens) =>
