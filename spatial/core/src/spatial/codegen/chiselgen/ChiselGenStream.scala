@@ -195,10 +195,10 @@ trait ChiselGenStream extends ChiselGenSRAM {
       }
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_rId = getStreamInLane("$stream")""")
-      emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}.toInt*/) // Do not delay ready because datapath includes a delayed _valid already """)
+      emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}) // Do not delay ready because datapath includes a delayed _valid already """)
 
-      // emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, Done)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}.toInt*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
-//      emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}.toInt*/ ) // Do not delay ready because datapath includes a delayed _valid already """)
+      // emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, Done)} & ~${swap(parent, Inhibitor)}) // Do not delay ready because datapath includes a delayed _valid already """)
+//      emit(src"""${swap(stream, ReadyOptions)}(${lhs}_rId) := ${en} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}) // Do not delay ready because datapath includes a delayed _valid already """)
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
@@ -226,7 +226,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
     case StreamWrite(stream, data, en) =>
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
-      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}.toInt, rr) & $en""")
+      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} & $en""")
       emit(src"""${swap(stream, DataOptions)}(${lhs}_wId) := $data""")
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
@@ -264,11 +264,11 @@ trait ChiselGenStream extends ChiselGenSRAM {
               // emit(src"""${stream} := $data""")
               emit(src"""io.gpo2_streamout_writedata := ${stream}""")
             case BurstFullDataBus() =>
-              emit(src"""${swap(stream, Valid)} := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}.toInt, rr) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${swap(stream, Valid)} := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case BurstCmdBus =>  
-              emit(src"""${swap(stream, Valid)} := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}.toInt, rr) // Do not delay ready because datapath includes a delayed _valid already """)
+              emit(src"""${swap(stream, Valid)} := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
             case _ => 
@@ -288,7 +288,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case Def(StreamInNew(bus)) => bus match {
           case VideoCamera => 
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
-            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & (${swap(parent, DatapathEn)}).D(${swap(parent, Retime)}, rr) """)
+            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & ${DL(swap(parent, DatapathEn), swap(parent, Retime), true)}""")
           case SliderSwitch => 
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
           case _ => 
@@ -300,7 +300,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
               }
               case _ => false
             }
-            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(0 /*${symDelay(lhs)}.toInt*/) // Do not delay ready because datapath includes a delayed _valid already """)
+            emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := (${ens.map{a => src"$a"}.mkString(" | ")}) & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}) // Do not delay ready because datapath includes a delayed _valid already """)
             // if (!isAck) {
             //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
@@ -320,7 +320,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
       val en = ens.map(quote).mkString("&")
 
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*-*${ens.length}""")
-      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}.toInt) & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
+      emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
       (0 until ens.length).map{ i => emit(src"""${swap(stream, DataOptions)}(${lhs}_wId + ${i}) := ${data(i)}""")}
       // emit(src"""${stream} := Vec(List(${datacsv}))""")
 
@@ -347,7 +347,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
             // val datacsv = data.map{d => src"${d}"}.mkString(",")
             // val en = ens.map(quote).mkString("&")
             // emit(src"${stream} := Vec(List(${datacsv}))")
-            // emit(src"${stream}_valid := $en & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${symDelay(lhs)}.toInt) & ~${parent}_done /*mask off double-enq for sram loads*/")
+            // emit(src"${stream}_valid := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} & ~${parent}_done /*mask off double-enq for sram loads*/")
         }
       }
 
