@@ -78,8 +78,14 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
     case StreamOutNew(bus) =>
       emitGlobalWireMap(src"${lhs}_valid_options", src"Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_valid_stops", src"Wire(Vec(${writersOf(lhs).length}, Bool()))", forceful = true)
       emitGlobalWireMap(src"${lhs}_valid", "Wire(Bool())", forceful = true)
-      emitGlobalWire(src"${swap(lhs, Valid)} := ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
+      emitGlobalWireMap(src"${lhs}_stop", "Wire(Bool())", forceful = true)
+      emitGlobalModuleMap(src"${lhs}_valid_srff", "Module(new SRFF())", forceful = true)
+      emitGlobalModule(src"${swap(src"${lhs}_valid_srff", Blank)}.io.input.set := ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
+      emitGlobalModule(src"${swap(src"${lhs}_valid_srff", Blank)}.io.input.reset := ${swap(src"${lhs}_valid_stops", Blank)}.reduce{_|_}", forceful = true)
+      emitGlobalModule(src"${swap(src"${lhs}_valid_srff", Blank)}.io.input.asyn_reset := ${swap(src"${lhs}_valid_stops", Blank)}.reduce{_|_} | reset.toBool", forceful = true)
+      emitGlobalModule(src"${swap(lhs, Valid)} := ${swap(src"${lhs}_valid_srff", Blank)}.io.output.data | ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
         case Def(e@ParStreamWrite(_, data, ens)) => 
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${ens.length*writersOf(lhs).length}, ${newWire(data.head.tp)}))")
@@ -227,6 +233,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
       val parent = parentOf(lhs).get
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")""")
       emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} & $en""")
+      emit(src"""${swap(src"${stream}_valid_stops", Blank)}(${lhs}_wId) := ${swap(parent, Done)} // Should be delayed by body latency + ready-off bubbles""")
       emit(src"""${swap(stream, DataOptions)}(${lhs}_wId) := $data""")
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
@@ -321,6 +328,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
       emit(src"""val ${lhs}_wId = getStreamOutLane("$stream")*-*${ens.length}""")
       emit(src"""${swap(stream, ValidOptions)}(${lhs}_wId) := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} & ~${swap(parent, Done)} /*mask off double-enq for sram loads*/""")
+      emit(src"""${swap(src"${stream}_valid_stops", Blank)}(${lhs}_wId) := ${swap(parent, Done)} // Should be delayed by body latency + ready-off bubbles""")
       (0 until ens.length).map{ i => emit(src"""${swap(stream, DataOptions)}(${lhs}_wId + ${i}) := ${data(i)}""")}
       // emit(src"""${stream} := Vec(List(${datacsv}))""")
 

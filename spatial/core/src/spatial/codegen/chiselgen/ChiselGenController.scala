@@ -198,20 +198,6 @@ trait ChiselGenController extends ChiselGenCounter{
     }
   }
 
-  protected def isStreamChild(lhs: Exp[_]): Boolean = {
-    var nextLevel: Option[Exp[_]] = Some(lhs)
-    var result = false
-    while (nextLevel.isDefined) {
-      if (styleOf(nextLevel.get) == StreamPipe) {
-        result = true
-        nextLevel = None
-      } else {
-        nextLevel = parentOf(nextLevel.get)
-      }
-    }
-    result
-  }
-
   protected def findCtrlAncestor(lhs: Exp[_]): Option[Exp[_]] = {
     var nextLevel: Option[Exp[_]] = Some(lhs)
     var keep_looking = true

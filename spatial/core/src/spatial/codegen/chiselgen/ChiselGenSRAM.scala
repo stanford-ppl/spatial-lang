@@ -4,6 +4,7 @@ import scala.math._
 import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.nodes._
+import spatial.targets.DE1._
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
@@ -122,18 +123,69 @@ trait ChiselGenSRAM extends ChiselCodegen {
     }
   }
 
+  protected def isStreamChild(lhs: Exp[_]): Boolean = {
+    var nextLevel: Option[Exp[_]] = Some(lhs)
+    var result = false
+    while (nextLevel.isDefined) {
+      if (styleOf(nextLevel.get) == StreamPipe) {
+        result = true
+        nextLevel = None
+      } else {
+        nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    result
+  }
+
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS)
   def DL[T](name: String, latency: T, isBit: Boolean = false): String = {
+    val streamOuts = if (!controllerStack.isEmpty) {
+      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+        case _ => ""
+      }}.filter(_ != "").mkString(" & ")
+    } else { "" }
+
     latency match {
       case lat: Int => 
-        if (isBit) src"(${name}).D(${latency}.toInt, rr)"
-        else src"Utils.getRetimed($name, $latency)"
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"          
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"                    
+        }
       case lat: Double => 
-        if (isBit) src"(${name}).D(${latency}.toInt, rr)"
-        else src"Utils.getRetimed($name, $latency)"
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
       case lat: String => 
-        if (isBit) src"(${name}).D(${latency}.toInt, rr)"
-        else src"Utils.getRetimed($name, $latency)"
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
     }
   }
 
