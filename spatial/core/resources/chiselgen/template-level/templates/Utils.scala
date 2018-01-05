@@ -67,15 +67,15 @@ object ops {
     }
     
     // Stream version
-    def DS(delay: Int, retime_released: Bool, ready: Bool): Bool = {
+    def DS(delay: Int, retime_released: Bool, flow: Bool): Bool = {
 //      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
-      Mux(retime_released, Utils.getRetimedStream(b, delay, ready), false.B)
+      Mux(retime_released, Utils.getRetimedStream(b, delay, flow), false.B)
     }
-    def DS(delay: Double, retime_released: Bool, ready: Bool): Bool = {
-      b.DS(delay.toInt, retime_released, ready)
+    def DS(delay: Double, retime_released: Bool, flow: Bool): Bool = {
+      b.DS(delay.toInt, retime_released, flow)
     }
-    def DS(delay: Double, ready: Bool): Bool = {
-      b.DS(delay.toInt, true.B, ready)
+    def DS(delay: Double, flow: Bool): Bool = {
+      b.DS(delay.toInt, true.B, flow)
     }
     
 
@@ -855,14 +855,14 @@ object Utils {
       } else {
         val sr = Module(new RetimeWrapper(sig.getWidth, delay))
         sr.io.in := sig.asUInt
-        sr.io.ready := true.B
+        sr.io.flow := true.B
         sig.cloneType.fromBits(sr.io.out)
       }
     }
   }
 
-  // Special retime that allows the retime chain to halt if the ready signal in this controller is low
-  def getRetimedStream[T<:chisel3.core.Data](sig: T, delay: Int, ready: Bool): T = {
+  // Special retime that allows the retime chain to halt if the flow signal in this controller is low
+  def getRetimedStream[T<:chisel3.core.Data](sig: T, delay: Int, flow: Bool): T = {
     if (delay == 0) {
       sig
     }
@@ -872,7 +872,7 @@ object Utils {
       } else {
         val sr = Module(new RetimeWrapper(sig.getWidth, delay))
         sr.io.in := sig.asUInt
-        sr.io.ready := ready
+        sr.io.flow := flow
         sig.cloneType.fromBits(sr.io.out)
       }
     }

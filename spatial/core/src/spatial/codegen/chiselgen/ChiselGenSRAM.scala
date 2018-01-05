@@ -593,6 +593,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val dispatch = dispatchOf(lhs, sram)
       val rPar = 1 // Because this is SRAMLoad node    
       val width = bitWidth(sram.tp.typeArguments.head)
+
+      // Check if we need to expose a _ready signal to the read port
+      val streamOuts = pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+          case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+          case _ => ""
+        }}.filter(_ != "").mkString(" & ")
+
       emit(s"""// Assemble multidimR vector""")
       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
@@ -604,7 +611,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
         val p = portsOf(lhs, sram, i).head
         val basequote = src"${lhs}_base" // get string before we create the map
-        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        if (isStreamChild(controllerStack.head) & streamOuts != "") {
+          emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p, $streamOuts)""")
+        } else {
+          emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        }
         emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
         emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
       }
@@ -630,6 +641,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val width = bitWidth(sram.tp.typeArguments.head)
       val rPar = inds.length
       val dims = stagedDimsOf(sram)
+
+      // Check if we need to expose a _ready signal to the read port
+      val streamOuts = pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+          case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+          case _ => ""
+        }}.filter(_ != "").mkString(" & ")
+
       disableSplit = true
       emit(s"""// Assemble multidimR vector""")
       emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
@@ -643,7 +661,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
           }
         }
         val p = portsOf(lhs, sram, k).head
-        emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        if (isStreamChild(controllerStack.head) & streamOuts != "") {
+          emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p, $streamOuts)""")
+        } else {
+          emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        }
         // sram.tp.typeArguments.head match { 
         //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
@@ -662,7 +684,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
             emit(src"""${swap(lhs, RVec)}($id).addr($j) := ${a}.raw """)
           }
           val p = portsOf(lhs, sram, k).head
-          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p, $streamOuts) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          } else {
+            emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          }
           // sram.tp.typeArguments.head match { 
           //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
                 emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")

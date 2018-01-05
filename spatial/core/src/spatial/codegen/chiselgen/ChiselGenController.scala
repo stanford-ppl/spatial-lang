@@ -560,7 +560,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWireMap(src"${sym}_inhibitor", "Wire(Bool())") // hacky but oh well
       emit(src"""${swap(sym, Done)} := ${DL(src"${swap(sym, SM)}.io.output.done & ${DL(src"~${swap(sym, Inhibitor)}", 2, true)}", swap(sym, Retime), true)}""")      
     } else {
-      emit(src"""${swap(sym, Done)} := ${DL(src"${swap(sym, SM)}.io.output.done", swap(sym, Retime), true)}""")
+      emit(src"""${swap(sym, Done)} := Utils.risingEdge(${DL(src"${swap(sym, SM)}.io.output.done", swap(sym, Retime), true)}) // Rising edge necessary in case stall happens at same time as done comes through""")
     }
     emitGlobalWireMap(src"""${swap(sym, RstEn)}""", """Wire(Bool())""") // TODO: Is this legal?
     emit(src"""${swap(sym, RstEn)} := ${swap(sym, SM)}.io.output.rst_en // Generally used in inner pipes""")

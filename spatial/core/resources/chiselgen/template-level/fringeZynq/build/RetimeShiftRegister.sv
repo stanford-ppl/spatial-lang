@@ -5,7 +5,7 @@ module RetimeShiftRegister
 (
     input clock,
     input reset,
-    input ready,
+    input flow,
     input [WIDTH-1:0] in,
     output logic [WIDTH-1:0] out
 );
@@ -24,7 +24,7 @@ module RetimeShiftRegister
         sr[i] <= {WIDTH{1'b0}};
       end
     end else begin
-      if (ready) begin 
+      if (flow) begin 
         sr[0] <= in;
         for(i=1; i<STAGES; i=i+1) begin
           sr[i] <= sr[i-1];
