@@ -53,6 +53,9 @@ case class ModBanking(N: Int, B: Int, alpha: Seq[Int], dims: Seq[Int]) extends B
     (alpha.zip(dims).map{case (a,dim) => ndAddr(dim)*a }.sum / B) % N
   }
 }
+object ModBanking {
+  def Unit(nDims: Int) = ModBanking(1, 1, Seq.fill(nDims)(1), Seq.fill(nDims)(1))
+}
 
 object RegBank { def apply(): Seq[ModBanking] = Seq(ModBanking(1, 1, Seq(1), Seq(1))) }
 

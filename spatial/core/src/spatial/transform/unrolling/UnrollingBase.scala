@@ -121,13 +121,14 @@ trait UnrollingBase extends ForwardTransformer {
       case _ => rhs.mirrorNode(f).head
     }).asInstanceOf[Exp[A]]
 
-    //dbgs(c"Cloning $lhs = $rhs")
+    logs(c"Cloning $lhs = $rhs")
+    if (config.verbosity > 0) { subst.foreach{case (k,v) => logs(s"  $k -> $v") } }
     //strMeta(lhs)
 
     val (lhs2, isNew) = transferMetadataIfNew(lhs){ cloneOrMirror(lhs, rhs)(mtyp(lhs.tp), lhs.ctx) }
 
     if (isNew) cloneFuncs.foreach{func => func(lhs2) }
-    //dbgs(c"Created ${str(lhs2)}")
+    logs(c"  Created ${str(lhs2)}")
     //strMeta(lhs2)
 
     /*if (cloneFuncs.nonEmpty) {

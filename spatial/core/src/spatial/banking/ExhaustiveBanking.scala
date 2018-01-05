@@ -93,20 +93,21 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     * This has a worst case runtime of O[A**(rank+3)], where A is max parallel accesses to mem, rank is # of dimensions
     */
   final val Bs = Seq(2, 4, 8, 16, 32, 64, 128, 256) ++ (3 until 256).filterNot(isPow2)
-  def findBanking(rank: Int, grps: Seq[Seq[AccessPair]], dims: Seq[Int], dC: String, dBC: String): Option[ModBanking] = {
-    if (grps.isEmpty) throw new Exception("Cannot find banking for empty groups!")
+  def findBanking(rank: Int, grps: Seq[Seq[AccessPair]], dims: Seq[Int], dC: String, dBC: String): ModBanking = {
+    if (grps.isEmpty) return ModBanking.Unit(dims.length)
 
+    //    if (grps.isEmpty) throw new Exception("Cannot find banking for empty groups!")
     val Nmin = grps.map(_.size).max
     val (n2,nx) = (Nmin to 8*Nmin).partition(x => isPow2(x) || x == 1)
     // TODO: Magic number. What should the cutoff point be here, if any?
     val n2Head = if (n2.head.toDouble/Nmin > 1.4) Seq(Nmin) else Nil
     val Ns = (n2Head ++ n2 ++ nx).iterator
 
-    dbg(s"    FIND BANKING: Nmin = $Nmin")
+    dbg(s"      Nmin = $Nmin")
     dbg("")
     //dbg(s"[Result]")
     grps.zipWithIndex.foreach{case (grp,i) =>
-      dbg(s"    Group $i: ")
+      dbg(s"      Group $i: ")
       grp.foreach{pair => pair.printWithTab("      ") }
     }
 
@@ -120,13 +121,13 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       while (As.hasNext && banking.isEmpty) {
         val alpha = As.next
         // O( 256 * #Accesses^2)
-        dbg(s"      N=$N, B=1, alpha=$alpha")
+        dbg(s"        N=$N, B=1, alpha=$alpha")
         if (grps.forall{grp => checkCyclic(N, alpha,grp,dC)}) {
           banking = Some(ModBanking(N, 1, alpha, dims))
         }
         else {
           val B = Bs.find{b =>
-            dbg(s"      N=$N, B=$b, alpha=$alpha")
+            dbg(s"        N=$N, B=$b, alpha=$alpha")
             grps.forall{grp => checkBlockCyclic(N, b, alpha, grp,dBC) }
           }
           banking = B.map{b => ModBanking(N, b, alpha, dims) }
@@ -134,7 +135,14 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       }
     }
 
-    banking
+    banking.getOrElse(ModBanking.Unit(dims.length))
+  }
+
+  // TODO: This may not be correct in more complex cases!
+  // Checks if this banking strategy is legal - assumes this is the case when total # of banks >= # parallel accesses
+  def isValidBanking(banking: Seq[ModBanking], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]]): Boolean = {
+    val banks = banking.map(_.nBanks).product
+    reads.forall(_.size <= banks) && writes.forall(_.size <= banks)
   }
 
   def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain, dimGrps: Seq[Seq[Seq[Int]]]): Seq[Seq[ModBanking]] = {
@@ -173,10 +181,10 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
             // Convert all AccessMatrix instances into pairs of (Matrix, Offset Vector)
             grp.toSeq.flatMap{access => access.getAccessPairsIfAffine(dimensions) }.distinct
           }
-          dbg(s"    Dimension group: $dimensions")
+          dbg(s"    Dimensions: $dimensions")
           findBanking(dims.length, accesses, dimensions, dC, dBC)
         }
-        if (banking.forall(_.isDefined)) Some(banking.map(_.get)) else None
+        if (isValidBanking(banking,reads,writes)) Some(banking) else None
       }
 
       // TODO: Replace with cost model

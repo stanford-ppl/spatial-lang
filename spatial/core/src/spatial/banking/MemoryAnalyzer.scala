@@ -26,7 +26,7 @@ case class MemoryAnalyzer(var IR: State) extends CompilerPass {
     case _:FIFOType[_]        => new MemoryConfigurer(mem,strategy)
     case _:FILOType[_]        => new MemoryConfigurer(mem,strategy)
     case _:SRAMType[_]        => new MemoryConfigurer(mem,strategy)
-    case _:RegType[_]         => new MemoryConfigurer(mem,strategy)
+    case _:RegType[_]         => new RegConfigurer(mem,strategy)
     case _:RegFileType[_]     => new MemoryConfigurer(mem,strategy)
     case _:LUTType[_]         => new MemoryConfigurer(mem,strategy)
     case _:BufferedOutType[_] => new MemoryConfigurer(mem,strategy)

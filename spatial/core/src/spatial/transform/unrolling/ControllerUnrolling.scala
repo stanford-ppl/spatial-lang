@@ -20,6 +20,7 @@ trait ControllerUnrolling extends UnrollingBase {
     case e: OpMemReduce[_,_] => duplicateController(lhs,rhs,lanes){ unrollMemReduceNode(lhs, e) }
     case e: UnitPipe         => duplicateController(lhs,rhs,lanes){ unrollUnit(lhs, e) }
     case e: ParallelPipe     => duplicateController(lhs,rhs,lanes){ unrollParallel(lhs, e) }
+    case e: StateMachine[_]  => duplicateController(lhs,rhs,lanes){ unrollStateMachine(lhs, e) }
     case _ if isControlNode(lhs) => duplicateController(lhs,rhs,lanes){ cloneOp(lhs, rhs) }
     case _ => super.unroll(lhs, rhs, lanes)
   }
@@ -28,11 +29,42 @@ trait ControllerUnrolling extends UnrollingBase {
     case e:OpForeach        => unrollForeachNode(lhs, e)
     case e:OpReduce[_]      => unrollReduceNode(lhs, e)
     case e:OpMemReduce[_,_] => unrollMemReduceNode(lhs, e)
+    case e:StateMachine[_]  => unrollStateMachine(lhs, e)
     case e:Hwblock          => unrollAccel(lhs,e)
     case e:UnitPipe         => unrollUnit(lhs,e)
     case e:SwitchCase[_]    => unrollCase(lhs,e)
     case _ => super.transform(lhs, rhs)
   }).asInstanceOf[Exp[A]]
+
+  def unrollStateMachine[T](lhs: Sym[T], rhs: StateMachine[_]): Exp[T] = {
+    implicit val mT: Type[T] = mtyp(rhs.mT)
+    implicit val bT: Bits[T] = mbits(rhs.bT)
+    val state = rhs.state
+    val state2 = fresh[T]
+    val start2 = f(rhs.start).asInstanceOf[Exp[T]]
+
+    val lanes = UnitUnroller(isInnerControl(lhs))
+    val notDone = rhs.notDone.asInstanceOf[Lambda1[T,Bit]]
+    val action  = rhs.action.asInstanceOf[Lambda1[T,MUnit]]
+    val nextState = rhs.nextState.asInstanceOf[Lambda1[T,T]]
+    val notDone2 = stageSealedLambda1(state2){ withSubstScope(state -> state2){
+      mangleBlock(notDone, {stms => stms.foreach{stm => unroll(stm,lanes) }})
+      lanes.map{_ => f(notDone.result) }.head
+    }}
+    val action2 = stageSealedLambda1(state2){ withSubstScope(state -> state2){
+      mangleBlock(action, {stms => stms.foreach{stm => unroll(stm,lanes) }})
+      lanes.map{_ => f(action.result) }.head
+    }}
+    val nextState2 = stageSealedLambda1(state2){ withSubstScope(state -> state2){
+      mangleBlock(nextState, {stms => stms.foreach{stm => unroll(stm,lanes) }})
+      lanes.map{_ => f(nextState.result) }.head
+    }}
+    val en = globalValids ++ f(rhs.en)
+    val effects = notDone2.effects andAlso action2.effects andAlso nextState2.effects
+    val lhs2 = stageEffectful(StateMachine[T](en,start2,notDone2,action2,nextState2,state2), effects)(ctx)
+    transferMetadata(lhs -> lhs2)
+    lhs2.asInstanceOf[Exp[T]]
+  }
 
   def unrollCase[T](lhs: Sym[T], rhs: SwitchCase[T]): Exp[T] = {
     implicit val mT: Type[T] = lhs.tp

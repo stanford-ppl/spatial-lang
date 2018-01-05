@@ -14,9 +14,10 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override val name = "Spatial Affine Analysis"
   override val recurse = Default
 
-  override def offsetOf(i: Bound[Index]): Option[Exp[Index]] = {
+  // TODO: Why was this the counter start before? That changes range, not index offset
+  override def offsetOf(i: Bound[Index]): Option[Exp[Index]] = None /*{
     Some(ctrOf(i).map(counterStart).getOrElse(throw new Exception(s"Cannot get start of iter $i")))
-  }
+  }*/
   override def strideOf(i: Bound[Index]): Option[Exp[Index]] = {
     Some(ctrOf(i).map(counterStride).getOrElse(throw new Exception(s"Cannot get stride of iter $i")))
   }

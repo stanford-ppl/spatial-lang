@@ -62,18 +62,21 @@ object utils {
     allParents[Ctrl](start, {c:Ctrl => parentOf(c)}, Some(end)).map(_.get).drop(1)
   }*/
 
-  @stateful def blksBetween(start: Blk, end: Blk): List[Blk] = {
+  @stateful def blksBetween(start: Option[Blk], end: Option[Blk]): List[Blk] = {
     def blkParent(blk: Blk): Option[Blk] = if (blk.block >= 0) Some((blk.node,-1)) else blkOf.get(blk.node)
 
-    val blks = allParents[Blk](start, {c:Blk => blkParent(c) }, Some(end)).flatten
-    if (blks.lastOption.contains(end)) blks.drop(1) else blks
+    if (start.isDefined) {
+      val blks = allParents[Blk](start.get, { c: Blk => blkParent(c) }, end).flatten
+      if (blks.lastOption == end) blks.drop(1) else blks
+    }
+    else Nil
   }
 
   /**
     * Returns a list of iterators between the start controller (inclusive) and the end controller (non-inclusive)
     * Innermost iterator is last, outermost is first
     */
-  @stateful def iteratorsBetween(start: Blk, end: Blk): Seq[Bound[Index]] = {
+  @stateful def iteratorsBetween(start: Option[Blk], end: Option[Blk]): Seq[Bound[Index]] = {
     blksBetween(start,end).flatMap(blkIterators).distinct
   }
 
@@ -86,7 +89,7 @@ object utils {
     * Additionally, only iterators which can be unrolled relative to the access are relevant here.
     */
   @stateful def accessIterators(access: Exp[_], mem: Exp[_]): Seq[Bound[Index]] = {
-    iteratorsBetween(blkOf(access), blkOf(mem))
+    iteratorsBetween(blkOf.get(access), blkOf.get(mem))
   }
 
   /**
@@ -1054,7 +1057,7 @@ object utils {
       */
     @stateful def mayPrecede(b: Access): Boolean = {
       val (ctrl,dist) = lcaWithDistance(b.ctrl, a.ctrl)
-      dist < 0 || (dist > 0 && isInLoop(ctrl.node))
+      dist <= 0 || (dist > 0 && isInLoop(ctrl.node))
     }
 
     /**
@@ -1062,7 +1065,7 @@ object utils {
       */
     @stateful def mayFollow(b: Access): Boolean = {
       val (ctrl,dist) = lcaWithDistance(b.ctrl, a.ctrl)
-      dist > 0 || (dist < 0) && isInLoop(ctrl.node)
+      dist >= 0 || (dist < 0) && isInLoop(ctrl.node)
     }
 
     /**

@@ -42,10 +42,10 @@ trait MemoryUnrolling extends UnrollingBase {
     */
   def getInstances(access: Exp[_], mem: Exp[_], lanes: Unroller, isLoad: Boolean, len: Option[Int]): List[UnrollInstance] = {
     // First, group by the instance each unrolled access is being dispatched to
-    val cs = blksBetween(blkOf(access), blkOf(mem))
+    val cs = blksBetween(blkOf.get(access), blkOf.get(mem))
     val is = accessIterators(access, mem)
-    dbgs(s"Access: $access [${blkOf(access)}]")
-    dbgs(s"Memory: $mem [${blkOf(mem)}]")
+    dbgs(s"Access: $access [${blkOf.get(access).map(_.toString).getOrElse("-1")}]")
+    dbgs(s"Memory: $mem [${blkOf.get(mem).map(_.toString).getOrElse("-")}]")
     dbgs(s"Controllers between $access and $mem: ")
     cs.foreach{c => dbgs(s"  ${str(c.node)} [${c.block}]: " + blkIterators(c).mkString(", ")) }
     dbgs(s"Iterators between $access and $mem: " + is.mkString(", "))
@@ -61,7 +61,12 @@ trait MemoryUnrolling extends UnrollingBase {
           bug(c"Readers should have exactly one dispatch, $access had ${dispatches.size}.")
           bug(access.ctx)
         }
-        dispatches.map{dispatchId => (memories((mem, dispatchId)), dispatchId, laneId, id) }
+        dispatches.map{dispatchId =>
+          if (!memories.contains((mem, dispatchId))) {
+            bug(mem.ctx, c"Duplicate #$dispatchId for memory $mem was not available!")
+          }
+          (memories((mem, dispatchId)), dispatchId, laneId, id)
+        }
       }
     }.flatten
 
@@ -376,7 +381,19 @@ trait MemoryUnrolling extends UnrollingBase {
       warn(lhs.ctx, "Unrolling a status check node on a duplicated memory. Behavior is undefined.")
       warn(lhs.ctx)
     }
-    lanes.map{_ => withSubstScope(mem -> memories((mem,0)) ) { cloneOp(lhs, rhs) } }
+    dbgs(s"Unrolling status ${str(lhs)}")
+    dbgs(s"  on memory $mem -> ${memories((mem,0))}")
+    val lhs2s = lanes.map{i =>
+      val lhs2 = withSubstScope(mem -> memories((mem,0)) ){ cloneOp(lhs, rhs) }
+      dbgs(s"  Lane #$i: ${str(lhs2)}")
+      register(lhs -> lhs2)     // Use this duplicate in this lane
+      lhs2
+    }
+    lanes.foreach{i =>
+      dbgs(s"Lane #$i:")
+      subst.foreach{case (k,v) => dbgs(s"  $k -> $v") }
+    }
+    lhs2s
   }
 
   def duplicateMemory(mem: Exp[_])(implicit ctx: SrcCtx): Seq[(Exp[_], Int)] = mem match {
@@ -419,11 +436,20 @@ trait MemoryUnrolling extends UnrollingBase {
     */
   def unrollResetMemory[A](lhs: Sym[A], rhs: Op[A], mem: Exp[_], lanes: Unroller)(implicit ctx: SrcCtx): List[Exp[_]] = {
     val duplicates = memories.keys.filter(_._1 == mem)
-    val lhs2 = duplicates.map{dup => withSubstScope(mem -> memories(dup)){ cloneOp(lhs, rhs) } }
+    val lhs2 = duplicates.map{dup =>
+      withSubstScope(mem -> memories(dup)){
+        val lhs2 = cloneOp(lhs, rhs)
+        //register(lhs -> lhs2)
+        lhs2
+      }
+    }
     lanes.unify(lhs,lhs2.head)
   }
 
   override def transform[A:Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Exp[A] = rhs match {
+    case _:ArgInNew[_]       => unrollGlobalMemory(lhs,rhs)
+    case _:ArgOutNew[_]      => unrollGlobalMemory(lhs,rhs)
+    case _:HostIONew[_]      => unrollGlobalMemory(lhs,rhs)
     case _:StreamInNew[_]    => unrollGlobalMemory(lhs,rhs)
     case _:StreamOutNew[_]   => unrollGlobalMemory(lhs,rhs)
     case _:BufferedOutNew[_] => unrollGlobalMemory(lhs,rhs)

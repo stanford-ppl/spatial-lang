@@ -19,6 +19,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   protected val inVector: HashSet[Exp[Index]] = new HashSet[Exp[Index]] // TODO: Unused?
   protected val unrolledRand= new HashMap[Exp[Index],Map[Seq[Int],Exp[Index]]]
 
+  protected val isGlobalMem: Boolean = isArgIn(mem) || isArgOut(mem)
+
   protected def dimensionGroupings: Seq[Seq[Seq[Int]]] = {
     val dimIndices = dims.indices
     val hierarchical = dimIndices.map{d => Seq(d) }   // Fully hierarchical (each dimension has separate bank addr.)
@@ -291,9 +293,26 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * TODO: Should factor in branches of switches being mutually exclusive here
     */
   def precedingWrites(reader: AccessMatrix, writers: Set[AccessMatrix], domain: IndexDomain): (Seq[AccessMatrix], Seq[AccessMatrix]) = {
-    val (before, after) =
-      writers.filter{writer => reader.intersectsSpace(writer,domain) && writer.access.mayPrecede(reader.access) }
-             .partition{writer => !writer.access.mayFollow(reader.access) }
+    dbg(s"    Preceding writers for ")
+    reader.printWithTab("  ")
+
+    val preceding = writers.filter{writer =>
+      val intersects = reader.intersectsSpace(writer,domain)
+      val mayPrecede = writer.access.mayPrecede(reader.access)
+      val notAfter   = !writer.access.mayFollow(reader.access)
+
+      val (ctrl,dist) = lcaWithDistance(reader.access.ctrl, writer.access.ctrl)
+      val inLoop = isInLoop(ctrl.node)
+
+      writer.printWithTab("      ")
+      dbg(s"      [LCA=$ctrl, dist=$dist, inLoop=$inLoop]")
+      dbg(s"      [notAfter = $notAfter, intersects=$intersects, mayPrecede=$mayPrecede]")
+
+      intersects && mayPrecede
+    }
+    if (preceding.isEmpty) dbg(s"    <None>")
+
+    val (before, after) = preceding.partition{writer => !writer.access.mayFollow(reader.access) }
 
     (before.toSeq, after.toSeq)
   }
@@ -311,9 +330,16 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Returns the subset of writers which may be visible to this set of readers
     */
   def reachingWrites(readGroups: Seq[Set[AccessMatrix]], writeGroups: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[Set[AccessMatrix]] = {
+    dbg("")
+    dbg("  Reaching writes for reads ")
+    readGroups.flatten.foreach{rd =>
+      dbg(s"    ${str(rd.access.node)} [${rd.id}] [${rd.access.ctrl}]")
+    }
+
     var remainingWrites: Set[AccessMatrix] = Set.empty
+    var reachingWrites:  Set[AccessMatrix] = Set.empty
     writeGroups.foreach{grp => remainingWrites ++= grp }
-    var reachingWrites: Set[AccessMatrix] = Set.empty
+
     readGroups.foreach{grp => grp.foreach{reader =>
       val (before, after) = precedingWrites(reader, remainingWrites, domain)
 
@@ -323,9 +349,15 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       remainingWrites --= reaching
       reachingWrites ++= reaching
     }}
-    writeGroups.map{grp =>
+    val reaching = writeGroups.map{grp =>
       grp intersect reachingWrites
     }.filterNot(_.isEmpty)
+
+    reaching.zipWithIndex.foreach{case (grp, i) =>
+      dbg(s"  Group #$i: ")
+      grp.foreach{wr => dbg(s"    ${str(wr.access.node)} [${wr.id}] [${wr.access.node}]") }
+    }
+    reaching
   }
 
   /**
@@ -503,24 +535,35 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   }
 
 
-  protected def bankGroups(readGroups: Seq[Set[AccessMatrix]], writeGroups: Seq[Set[AccessMatrix]], domain: IndexDomain): InstanceGroup = {
+  protected def bankGroups(readGroups: Seq[Set[AccessMatrix]], writeGroups: Seq[Set[AccessMatrix]], domain: IndexDomain): Option[InstanceGroup] = {
     val reads  = readGroups.flatten.map(_.access)
     val writes = writeGroups.flatten.map(_.access)
     val ctrls  = reads.map(_.ctrl).toSet
     val reachWrites = if (readGroups.nonEmpty) reachingWrites(readGroups, writeGroups, domain) else writeGroups
     val bankings = strategy.bankAccesses(mem, dims, readGroups, reachWrites, domain, dimensionGroupings)
-    // TODO: Multiple metapipe parents should cause backtrack eventually
-    val (metapipe, ports) = findMetaPipe(mem, reads, writes)
-    val depth = ports.values.max + 1
-    val bankingCosts = bankings.map{b => (b, cost(b,depth)) }
-    val (banking,bankCost) = bankingCosts.minBy(_._2)
-    InstanceGroup(readGroups,reachWrites,ctrls,metapipe,banking,depth,bankCost,ports)
+    if (bankings.nonEmpty) {
+      // TODO: Multiple metapipe parents should cause backtrack eventually
+      val (metapipe, ports) = findMetaPipe(mem, reads, writes)
+      val depth = ports.values.max + 1
+      val bankingCosts = bankings.map { b => (b, cost(b, depth)) }
+      val (banking, bankCost) = bankingCosts.minBy(_._2)
+      Some(InstanceGroup(readGroups, reachWrites, ctrls, metapipe, banking, depth, bankCost, ports))
+    }
+    else None
   }
 
   protected def crossControlCompatible(candidate: Set[Ctrl], ctrls: Set[Ctrl]): Boolean = {
     candidate.forall{c => !ctrls.contains(c) && !ctrls.exists{c2 => lca(c,c2).exists(isParallel) } } &&
     findAllCtrlMetaPipes(mem, candidate ++ ctrls).size <= 1
   }
+
+  /** Special case primarily for registers - allow concurrent accesses with constant addresses **/
+  /*protected def areConstantAccesses(groups: Seq[Set[AccessMatrix]]): Boolean = {
+    groups.forall{grp => grp.forall(_.vectors.forall{
+      case v: AffineVector => v.as.forall(_ == 0)
+      case _ => false
+    })}
+  }*/
 
   /**
     * Greedily banks and merges groups of readers into banked memory instances.
@@ -531,7 +574,10 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val instances = ArrayBuffer[InstanceGroup]()
 
     readGroups.foreach{group =>
-      val i = bankGroups(Seq(group),writeGroups,domain)
+      val orig = bankGroups(Seq(group),writeGroups,domain)
+      // TODO: What to do on failure?
+      if (orig.isEmpty) throw new Exception(s"Could not bank all $mem reads with writes")
+      val i = orig.get
 
       var instIdx = 0
       var mergedIntoInstance = false
@@ -539,13 +585,14 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         val inst = instances(instIdx)
         // We already separated out the reads which can't be banked in the same controller, so skip groups which
         // contain any of the same read controllers
-        if (crossControlCompatible(i.ctrls,inst.ctrls)) {
+        // Exception: reads on global memories (i.e. ArgIn) can be banked together since value is constant
+        if (crossControlCompatible(i.ctrls,inst.ctrls) || isGlobalMem) {
           val i2 = bankGroups(group +: inst.reads, writeGroups, domain)
 
           // Merging buffers is only allowed if explicitly enabled (note: this is for PIR)
-          if (inst.metapipe.isEmpty || i.metapipe.isEmpty || spatialConfig.enableBufferCoalescing) {
-            if (i2.cost < i.cost + inst.cost) {
-              instances(instIdx) = i2
+          if (i2.isDefined && inst.metapipe.isEmpty || i.metapipe.isEmpty || spatialConfig.enableBufferCoalescing) {
+            if (i2.get.cost < i.cost + inst.cost) {
+              instances(instIdx) = i2.get
               mergedIntoInstance = true
             }
           }
@@ -564,7 +611,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     */
   protected def mergeWriteGroups(writeGroups: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[InstanceGroup] = {
     val instance = bankGroups(Nil, writeGroups, domain)
-    Seq(instance)
+    if (instance.isEmpty) throw new Exception("Could not bank all writers together!")
+    Seq(instance.get)
   }
 
 
