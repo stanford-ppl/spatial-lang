@@ -121,6 +121,7 @@ trait ControllerUnrolling extends UnrollingBase {
     lhs2.asInstanceOf[Exp[T]]
   }
 
+
   /**
     * Duplicate the given switch based on the lanes Unroller instance
     */
@@ -219,6 +220,10 @@ trait ControllerUnrolling extends UnrollingBase {
     lanes.map{_ => f(func.result) } // List of duplicates for the original result of this block
   }
 
+  def unrollFor[T:Type](func: Block[T], lanes: Unroller)(implicit ctx: SrcCtx): Unit = {
+    mangleBlock(func, {stms => stms.foreach{stm => unroll(stm,lanes) }})
+  }
+
   /***********************/
   /** FOREACH UNROLLING **/
   /***********************/
@@ -272,6 +277,23 @@ trait ControllerUnrolling extends UnrollingBase {
   /** REDUCE  UNROLLING **/
   /***********************/
 
+  // Hack to get the accumulator duplicate from the original and the loadAccum block for this reduction
+  // Assumes that the accumulator corresponds to exactly one duplicate
+  def accumHack[T](orig: Exp[T], load: Block[_]): Exp[T] = {
+    val contents = blockNestedContents(load)
+    val readers = readersOf(orig)
+    readers.find{reader => contents.exists(_.lhs.contains(reader.node)) } match {
+      case Some(reader) =>
+        val mapping = dispatchOf.getUnsafe(reader.node, orig)
+        if (mapping.isEmpty) throw new Exception(s"No dispatch found in reduce for accumulator $orig")
+        val dispatch = mapping.head._2.head
+        if (!memories.contains((orig,dispatch))) throw new Exception(s"No duplicate found for accumulator $orig")
+        memories((orig,dispatch)).asInstanceOf[Exp[T]]
+
+      case None => throw new Exception(s"No reader found in reduce for accumulator $orig")
+    }
+  }
+
   def unrollReduceTree[T:Type:Bits](
     inputs: Seq[Exp[T]],
     valids: Seq[Exp[Bit]],
@@ -279,7 +301,7 @@ trait ControllerUnrolling extends UnrollingBase {
     reduce: (Exp[T], Exp[T]) => Exp[T]
   )(implicit ctx: SrcCtx): Exp[T] = ident match {
     case Some(z) =>
-      dbg(c"Unrolling reduction tree with zero $z")
+      dbgs(c"Unrolling reduction tree with zero $z")
       val validInputs = inputs.zip(valids).map{case (in,v) => Math.math_mux(v, in, z) }
       Math.reduceTree(validInputs){(x: Exp[T], y: Exp[T]) => reduce(x,y) }
 
@@ -287,7 +309,7 @@ trait ControllerUnrolling extends UnrollingBase {
       // ASSUMPTION: If any values are invalid, they are at the end of the list (corresponding to highest index values)
       // TODO: This may be incorrect if we parallelize by more than the innermost iterator
       val inputsWithValid = inputs.zip(valids)
-      dbg("Unrolling reduction tree with " + inputsWithValid.length + " inputs: " + inputs.mkString(", "))
+      dbgs("Unrolling reduction tree with " + inputsWithValid.length + " inputs: " + inputs.mkString(", "))
       Math.reduceTree(inputsWithValid){(x: (Exp[T], Exp[Bit]), y: (Exp[T],Exp[Bit])) =>
         val res = reduce(x._1, y._1)
         (Math.math_mux(y._2, res, x._1), Bit.or(x._2, y._2)) // res is valid if x or y is valid
@@ -312,7 +334,8 @@ trait ControllerUnrolling extends UnrollingBase {
     val redType = reduceType(reduce.result)
 
     val result = inReduction(isInner){
-      val accValue = inroll(load)
+      dbgs(s"Inlining load function in reduce")
+      val accValue = withSubstScope(load.input -> accum){ inroll(load) }
       val isFirst = Math.reduceTree(iters.zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
       isReduceStarter(accValue) = true
@@ -339,7 +362,7 @@ trait ControllerUnrolling extends UnrollingBase {
 
     isReduceResult(result) = true
 
-    inReduction(isInner){ withSubstScope(store.inputB -> result){ inroll(store) } }
+    inReduction(isInner){ withSubstScope(store.inputB -> result, store.inputA -> accum){ inroll(store) } }
   }
 
   def fullyUnrollReduce[T](
@@ -439,11 +462,13 @@ trait ControllerUnrolling extends UnrollingBase {
 
   def unrollReduceNode[T](lhs: Sym[_], rhs: OpReduce[T])(implicit ctx: SrcCtx): Exp[_] = {
     val OpReduce(en,cchain,accum,map,load,reduce,store,zero,fold,rV,iters) = rhs
+    val accum2 = accumHack(accum, load)
+
     if (canFullyUnroll(cchain) && !spatialConfig.enablePIR) {
-      fullyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+      fullyUnrollReduce[T](lhs, f(en), f(cchain), accum2, zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
     }
     else {
-      partiallyUnrollReduce[T](lhs, f(en), f(cchain), f(accum), zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
+      partiallyUnrollReduce[T](lhs, f(en), f(cchain), accum2, zero, fold, load, store, map, reduce, rV, iters)(rhs.mT, rhs.bT, ctx)
     }
   }
 
@@ -473,19 +498,21 @@ trait ControllerUnrolling extends UnrollingBase {
     val mapLanes = PartialUnroller(cchainMap, itersMap, isInnerLoop = false)
     val isMap2 = mapLanes.indices
     val mvs = mapLanes.indexValids
-    val partial = func.result
     val start = counterStarts(cchainMap).map(_.getOrElse(int32s(0)))
     val redType = reduceType(reduce.result)
+    val intermed = func.result
 
     val blk = stageSealedLambda1(accum) {
       logs(s"[Accum-fold $lhs] Unrolling map")
-      val mems = unrollMap(func, mapLanes)
+      unrollFor(func,mapLanes)
+      val mems = mapLanes.map{_ => memories((intermed,0)) } // TODO: Just use the first duplicate always?
+
       val mvalids = () => mapLanes.valids.map{vs => Math.reduceTree(vs){(a,b) => Bit.and(a,b)} }
 
       if (isUnitCounterChain(cchainRed)) {
         logs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         val rpipe = Pipe.op_unit_pipe(globalValids, () => {
-          val values = inReduction(false){ mems.map{mem => inroll(loadRes) } }
+          val values = inReduction(false){ mapLanes.map{_ => inroll(loadRes) } }
           val foldValue = if (fold) { Some( inroll(loadAcc) ) } else None
           inReduction(false){ unrollReduceAccumulate[T,C](accum, values, mvalids(), ident, foldValue, reduce, loadAcc, storeAcc, isMap2.map(_.head), start, isInner = false) }
           unit
@@ -507,16 +534,14 @@ trait ControllerUnrolling extends UnrollingBase {
 
         val rBlk = stageSealedBlock {
           logs(c"[Accum-fold $lhs] Unrolling map loads")
-          logs(c"  memories: $mems")
+          //logs(c"  memories: $mems")
 
           val values: Seq[Seq[Exp[T]]] = inReduction(false){
-            //mems.map{mem =>
-            //  withSubstScope(partial -> mem) {
-            mapLanes.map{ _ =>
-              unrollMap(loadRes, reduceLanes)(mT, ctx)
+            mapLanes.map{i =>
+              withSubstScope(intermed -> mems(i)) {
+                unrollMap(loadRes, reduceLanes)(mT, ctx)
+              }
             }
-            //  }
-            //}
           }
 
           logs(s"[Accum-fold $lhs] Unrolling accum loads")
@@ -525,10 +550,12 @@ trait ControllerUnrolling extends UnrollingBase {
             itersRed.foreach{i => logs(s"  $i -> ${f(i)}") }
           }
 
-          val accValues = inReduction(false){ unrollMap(loadAcc, reduceLanes)(mT,ctx) }
+          val accValues = inReduction(false){ withSubstScope(loadAcc.input -> accum){
+            unrollMap(loadAcc, reduceLanes)(mT,ctx)
+          }}
 
           logs(s"[Accum-fold $lhs] Unrolling reduction trees and cycles")
-          reduceLanes.foreach{p =>
+          val results = reduceLanes.map{p =>
             val laneValid = Math.reduceTree(reduceLanes.valids(p)){(a,b) => Bit.and(a,b)}
 
             logs(s"Lane #$p:")
@@ -572,10 +599,14 @@ trait ControllerUnrolling extends UnrollingBase {
             register(reduce.result -> result)  // Lane-specific substitution
 
             tab -= 1
+            result
           }
 
           logs(s"[Accum-fold $lhs] Unrolling accumulator store")
-          inReduction(false){ unrollMap(storeAcc, reduceLanes) }
+          // Use a default substitution for the reduction result to satisfy the block scheduler
+          inReduction(false){ withSubstScope(storeAcc.inputA -> accum, reduce.result -> results.head){
+            unrollMap(storeAcc, reduceLanes)
+          }}
           unit
         }
 
@@ -598,7 +629,9 @@ trait ControllerUnrolling extends UnrollingBase {
 
   def unrollMemReduceNode[T,C[T]](lhs: Sym[_], rhs: OpMemReduce[T,C])(implicit ctx: SrcCtx): Exp[_] = {
     val OpMemReduce(en,cchainMap,cchainRed,accum,func,loadRes,loadAcc,reduce,storeAcc,zero,fold,rV,itersMap,itersRed) = rhs
-    unrollMemReduce(lhs,f(en),f(cchainMap),f(cchainRed),f(accum),f(zero),fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
+    val accum2 = accumHack(accum, loadAcc)
+
+    unrollMemReduce(lhs,f(en),f(cchainMap),f(cchainRed),accum2,f(zero),fold,func,loadRes,loadAcc,reduce,storeAcc,rV,itersMap,itersRed)(rhs.mT,rhs.bT,rhs.mC,ctx)
   }
 
 }

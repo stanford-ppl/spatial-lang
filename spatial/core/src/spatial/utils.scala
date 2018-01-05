@@ -89,7 +89,7 @@ object utils {
     * Additionally, only iterators which can be unrolled relative to the access are relevant here.
     */
   @stateful def accessIterators(access: Exp[_], mem: Exp[_]): Seq[Bound[Index]] = {
-    iteratorsBetween(blkOf.get(access), blkOf.get(mem))
+    iteratorsBetween(blkOf.get(access), blkOf.get(mem)) ++ ctrlIterators((access,-1))
   }
 
   /**

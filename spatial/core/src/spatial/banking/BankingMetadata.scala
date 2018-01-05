@@ -155,8 +155,8 @@ case class Duplicates(dups: Seq[Memory]) extends Metadata[Duplicates] { def mirr
 }
 
 @data object instanceOf {
-  def apply(mem: Exp[_]): Memory = metadata[Duplicates](mem).map(_.dups).get.headOption.getOrElse{
-    bug(mem.ctx, c"Memory $mem had no duplicates")
+  def apply(mem: Exp[_]): Memory = metadata[Duplicates](mem).map(_.dups).flatMap(_.headOption).getOrElse{
+    bug(mem.ctx, c"No instance available for symbol $mem (no duplicates)")
     bug(mem.ctx)
     null
   }
@@ -187,6 +187,10 @@ case class AccessDispatch(mapping: mutable.HashMap[Exp[_], mutable.HashMap[Seq[I
       map += mem -> innerMap
       innerMap
     }
+  }
+
+  def getUnsafe(access: Exp[_], mem: Exp[_]): Map[Seq[Int],Set[Int]] = {
+    metadata[AccessDispatch](access).map(_.mapping).flatMap(_.get(mem)).map(_.toMap).getOrElse(Map.empty)
   }
 
   def get(access: UAccess, mem: Exp[_]): Option[Set[Int]] = {

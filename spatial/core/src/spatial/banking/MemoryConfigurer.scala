@@ -75,11 +75,16 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * by simulating loop parallelization/unrolling
     */
   def unroll(matrix: CompactMatrix, indices: Seq[Exp[Index]]): Seq[AccessMatrix] = {
+    val blks = blksBetween(blkOf.get(matrix.access.node), blkOf.get(mem))
     val is = accessIterators(matrix.access.node, mem)
     val ps = is.map{i => parFactorOf(i).toInt }
     dbg("")
     dbg(s"  Simulating unrolling of access ${matrix.access}")
     dbg(s"  Iterators between access and memory: " + is.zip(ps).map{case (i,p) => c"$i ($p)"}.mkString(", "))
+    dbg(s"  Blocks between access and memory: ")
+    blks.foreach{blk =>
+      dbg(s"    ${str(blk.node)} [${blk.block}]")
+    }
 
     def expand(vector: AccessVector, id: Seq[Int]): AccessVector = vector match {
       // EXPERIMENTAL: Treat a random vector offset address as an affine index

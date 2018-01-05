@@ -7,6 +7,8 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
+import org.virtualized.SourceContext
+
 class LineBufferConfigurer(override val mem: Exp[_], override val strategy: BankingStrategy)(override implicit val IR: State) extends MemoryConfigurer(mem,strategy)(IR) {
   override protected val AllowMultiDimStreaming = true
 
@@ -19,8 +21,10 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
       // Add a random access in the rows dimension if less than 2 dimensions
       if (mat.vectors.length == 1) {
         val is = accessIterators(access.node, mem)
-        val k = Seq.fill(is.length){0}
-        val rand = RandomVector(None, Map(k -> fresh[Index]), None)
+        val ips = is.map{i => parFactorOf(i).toInt }
+        val x = fresh[Index]
+        val xs = multiLoop(ips).map{k => k -> x }.toMap
+        val rand = RandomVector(None, xs, None)
         CompactMatrix(rand +: mat.vectors, access)
       }
       else mat

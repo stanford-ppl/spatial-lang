@@ -16,7 +16,7 @@ trait ScalaGenLUTs extends ScalaGenMemories {
     case _: LUTLoad[_] => throw new Exception(s"Cannot generate unbanked LUT load.\n${str(lhs)}")
 
     case op@BankedLUTLoad(lut,bank,ofs,ens) =>
-      val banks = instanceOf(lhs).nBanks
+      val banks = instanceOf(lut).nBanks
       open(src"val $lhs = {")
       bank.indices.foreach{i =>
         open(src"val a$i = {")
