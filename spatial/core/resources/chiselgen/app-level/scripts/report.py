@@ -46,13 +46,21 @@ json_key = '/home/mattfel/regression/synth/pygsheets_key.json'
 gc = pygsheets.authorize(outh_file = json_key)
 
 if (sys.argv[7] == "Zynq"):
-	sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
+	try: 
+		sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 	# sh = gc.open("Zynq Regression") # Open by name
 elif (sys.argv[7] == "ZCU"):
 	sh = gc.open("ZCU Regression") # Open by name
 elif (sys.argv[7] == "AWS"):
 	# sh = gc.open("AWS Regression") # Open by name
-	sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")
+	try: 
+		sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 
 # Get column
 worksheet = sh.worksheet('index', 0) # Select worksheet by index

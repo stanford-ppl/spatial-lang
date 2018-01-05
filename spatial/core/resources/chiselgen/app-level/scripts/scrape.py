@@ -51,14 +51,22 @@ gc = pygsheets.authorize(outh_file = json_key)
 
 if (sys.argv[12] == "Zynq"):
 	# sh = gc.open("Zynq Regression") # Open by name
-	sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
+	try:
+		sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 	word="Slice"
 elif (sys.argv[12] == "ZCU"):
 	sh = gc.open("ZCU Regression") # Open by name
 	word="CLB"
 elif (sys.argv[12] == "AWS"):
 	# sh = gc.open("AWS Regression") # Open by name
-	sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")
+	try:
+		sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 	word="CLB"
 
 # Get column
