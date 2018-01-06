@@ -193,6 +193,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       // when(io.r_en) {  // ENHANCEMENT: r_en to save power, i.e. make the below wire RHS of -> into a reg
       linebuffer(i).io.r(j).addr(0) := io.col_addr(j)
       linebuffer(i).io.r(j).en := true.B
+      linebuffer(i).io.flow(0) := true.B // This may possibly cause issues
       (i.U -> linebuffer(i).io.output.data(j))
       // }
     }
