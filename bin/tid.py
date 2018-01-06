@@ -90,7 +90,7 @@ if (new_entry):
 	for x in range(0,numsheets):
 		# worksheet = sh.get_worksheet(x) # Select worksheet by index
 		worksheet = sh.worksheet('index', x)
-		if (worksheet.title != "STATUS"):
+		if (worksheet.title != "STATUS" and worksheet.title != "Properties"):
 			worksheet.insert_rows(row = 2, values = [link, alink, t, freq + ' MHz', os.uname()[1] ])
 			# worksheet.update_cell(id,1, link)
 			# worksheet.update_cell(id,2, alink)
@@ -110,7 +110,7 @@ else:
 		for x in range(0,numsheets):
 			# worksheet = sh.get_worksheet(x) # Select worksheet by index
 			worksheet = sh.worksheet('index', x)
-			if (worksheet.title != "STATUS"):
+			if (worksheet.title != "STATUS" and worksheet.title != "Properties"):
 				worksheet.insert_rows(row = 2, values = [link, alink, t, freq + ' MHz', os.uname()[1] ])
 				# worksheet.update_cell(id,1, link)
 				# worksheet.update_cell(id,2, alink)

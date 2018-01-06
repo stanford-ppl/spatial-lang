@@ -396,7 +396,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
     val base = pR.take(bundle_id).sum
 
     Vec((0 until en.length).map{ i =>
-      io.deq(base + i) := en(i)
+      io.deq(base + i) := Utils.getRetimed(en(i), {if (Utils.retime) 1 else 0})
       io.out(i) // TODO: probably wrong output
     })
   }

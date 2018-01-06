@@ -27,6 +27,7 @@ tid=`cat ../../../../tid`
 hash=`cat ../../../../hash`
 ahash=`cat ../../../../ahash`
 appname=`basename \`pwd\``
+properties=`cat chisel/IOModule.scala | grep "App Characteristics" | sed "s/^.*App Characteristics: //g" | sed "s/ //g"`
 
-python3 regression_report.py $1 $tid $appname $pass $runtime $hash $ahash
+python3 scripts/regression_report.py $1 $tid $appname $pass $runtime $hash $ahash "$properties"
 

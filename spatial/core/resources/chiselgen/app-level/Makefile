@@ -59,7 +59,7 @@ sim-hw:
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	cp chisel/template-level/fringeVCS/SRAMVerilogSim.v . || :
 	sbt "runMain top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
-	cp verilator.mk ${VERILATOR_SRC}/Makefile
+	cp scripts/verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/VTop* ${VERILATOR_SRC}/verilator_srcs
@@ -238,7 +238,7 @@ aws-F1-sw:
 zynq: zynq-hw zynq-sw
 
 zynq-sw:
-	cp zynq.mk cpp/Makefile
+	cp scripts/zynq.mk cpp/Makefile
 	make -C cpp -j8
 	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
@@ -264,7 +264,7 @@ zynq-clean:
 zcu: zcu-hw zcu-sw
 
 zcu-sw:
-	cp zcu.mk cpp/Makefile
+	cp scripts/zcu.mk cpp/Makefile
 	make -C cpp -j8
 	tar -czf $(APPNAME).tar.gz -C ${ZCU_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
@@ -294,7 +294,7 @@ zcu-clean:
 de1soc: de1soc-hw de1soc-sw
 
 de1soc-sw: 
-	cp de1soc.mk cpp/Makefile
+	cp scripts/de1soc.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/DE1SoC.h cpp/fringeDE1SoC/
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
@@ -327,7 +327,7 @@ vcs: vcs-hw vcs-sw
 	tar -czf TopVCS.tar.gz -C verilog-vcs accel.bit.bin -C ../cpp Top
 
 vcs-sw:
-	cp vcs.mk cpp/Makefile
+	cp scripts/vcs.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
@@ -375,7 +375,7 @@ xsim: xsim-hw xsim-sw
 	tar -czf TopXSIM.tar.gz -C verilog-xsim accel.bit.bin -C ../cpp Top
 
 xsim-sw:
-	cp xsim.mk cpp/Makefile
+	cp scripts/xsim.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :

@@ -157,7 +157,7 @@ case class PipeRetimer(var IR: State, latencyModel: LatencyModel) extends Forwar
       inputs.flatMap{in =>
         val latency_required = scrubNoise(criticalPath)    // Target latency required upon reaching this reader
         val latency_achieved = scrubNoise(delayOf(in))                       // Latency already achieved at the output of this in (assuming latency_missing is already injected)
-        val latency_missing  = scrubNoise(retimingDelay(in))                                   // Latency of this input that still requires manual register injection
+        val latency_missing  = scrubNoise(retimingDelay(in) - builtInLatencyOf(in))                                   // Latency of this input that still requires manual register injection
         val latency_actual   = scrubNoise(latency_achieved - latency_missing)
         val delay = latency_required.toInt - latency_actual.toInt
         dbgs(c"..[${latency_required - latency_actual} (-> ${delay}) = ${latency_required} - (${latency_achieved} - ${latency_missing}) (-> ${latency_required.toInt} - ${latency_actual.toInt})] ${str(in)}")

@@ -87,15 +87,16 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
         }
         val width = bitWidth(lhs.tp.typeArguments.head)
         emitGlobalModule(src"""val $lhs = Module(new GeneralFIFO(List($rPar), List($wPar), $size, $width)) // ${lhs.name.getOrElse("")}""")
+        appPropertyStats += HasGeneralFifo
       }
 
     case FIFOEnq(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${swap(writer, DatapathEn)}"
       if (spatialConfig.useCheapFifos) {
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt) & $en)""")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), /*${writer}_en & seems like we don't want this for retime to work*/ ${DL(src"$enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)} & $en)""")
       } else {
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), Vec(List(($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt) & $en)))""")
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${v}.r)), Vec(List(${DL(src"$enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)} & $en)))""")
       }
       
 
@@ -110,9 +111,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       if (spatialConfig.useCheapFifos) {
-        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en).apply(0)""")
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${swap(reader, En)} & ${DL(enabler, bug202delay, true)} & $en).apply(0)""")
       } else {
-        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ($enabler).D(${bug202delay}) & $en))).apply(0)""")
+        emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ${DL(enabler, bug202delay, true)} & $en))).apply(0)""")
       }
 
 
@@ -122,9 +123,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
       if (spatialConfig.useCheapFifos){
         val en = ens.map(quote).mkString("&")
-        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort((${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt) & $en)""")  
+        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(ens.head, lhs)}.toInt", true)} & $en)""")  
       } else {
-        val en = ens.map{i => src"$i & (${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}).D(${enableRetimeMatch(i, lhs)}.toInt)"}
+        val en = ens.map{i => src"$i & ${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(i, lhs)}.toInt", true)}"}
         emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
       }
       
@@ -146,9 +147,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
       if (spatialConfig.useCheapFifos) {
         val en = ens.map(quote).mkString("&")
-        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt) & $en)""")  
+        emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), ${DL(src"$enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}", src"${enableRetimeMatch(ens.head, lhs)}.toInt", true)} & $en)""")  
       } else {
-        val en = ens.map{i => src"$i & ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${enableRetimeMatch(i, lhs)}.toInt)"}
+        val en = ens.map{i => src"$i & ${DL(src"$enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}", src"${enableRetimeMatch(i, lhs)}.toInt", true)}"}
         emit(src"""${fifo}.connectEnqPort(Vec(List(${datacsv})), Vec(List($en)))""")
       }
       
