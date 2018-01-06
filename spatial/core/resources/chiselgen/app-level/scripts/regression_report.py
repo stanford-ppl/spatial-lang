@@ -24,6 +24,13 @@ def write(wksh, row, col, txt):
 	except:
 		print("WARN: pygsheets failed... -_-")
 
+def readAllVals(wksh):
+	try:
+		return wksh.get_all_values()
+	except:
+		print("WARN: pygsheets failed... -_-")
+		exit()
+
 # # gspread auth
 # json_key = '/home/mattfel/regression/synth/key.json'
 # scope = [
@@ -38,24 +45,48 @@ gc = pygsheets.authorize(outh_file = json_key)
 
 # sh = gc.open(sys.argv[1] + " Performance")
 if (sys.argv[1] == "fpga"):
-	sh = gc.open_by_key("1CMeHtxCU4D2u12m5UzGyKfB3WGlZy_Ycw_hBEi59XH8")
+	try: 
+		sh = gc.open_by_key("1CMeHtxCU4D2u12m5UzGyKfB3WGlZy_Ycw_hBEi59XH8")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 elif (sys.argv[1] == "develop"):
-	sh = gc.open_by_key("13GW9IDtg0EFLYEERnAVMq4cGM7EKg2NXF4VsQrUp0iw")
+	try: 
+		sh = gc.open_by_key("13GW9IDtg0EFLYEERnAVMq4cGM7EKg2NXF4VsQrUp0iw")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 elif (sys.argv[1] == "retime"):
-	sh = gc.open_by_key("1glAFF586AuSqDxemwGD208yajf9WBqQUTrwctgsW--A")
+	try: 
+		sh = gc.open_by_key("1glAFF586AuSqDxemwGD208yajf9WBqQUTrwctgsW--A")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 elif (sys.argv[1] == "syncMem"):
-	sh = gc.open_by_key("1TTzOAntqxLJFqmhLfvodlepXSwE4tgte1nd93NDpNC8")
+	try: 
+		sh = gc.open_by_key("1TTzOAntqxLJFqmhLfvodlepXSwE4tgte1nd93NDpNC8")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 elif (sys.argv[1] == "pre-master"):
-	sh = gc.open_by_key("18lj4_mBza_908JU0K2II8d6jPhV57KktGaI27h_R1-s")
+	try: 
+		sh = gc.open_by_key("18lj4_mBza_908JU0K2II8d6jPhV57KktGaI27h_R1-s")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 elif (sys.argv[1] == "master"):
-	sh = gc.open_by_key("1eAVNnz2170dgAiSywvYeeip6c4Yw6MrPTXxYkJYbHWo")
+	try: 
+		sh = gc.open_by_key("1eAVNnz2170dgAiSywvYeeip6c4Yw6MrPTXxYkJYbHWo")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 else:
 	print("No spreadsheet for " + sys.argv[4])
 	exit()
 
 # Get column
 worksheet = sh.worksheet_by_title('Timestamps') # Select worksheet by index
-lol = worksheet.get_all_values()
+lol = readAllVals(worksheet)
 if (sys.argv[3] in lol[0]):
 	col=lol[0].index(sys.argv[3])+1
 	print("Col is %d" % col)
@@ -90,7 +121,7 @@ write(worksheet, tid,2*col-6,sys.argv[4])
 # Page 2 - Properties
 worksheet = sh.worksheet_by_title('Properties') # Select worksheet by index
 write(worksheet, tid,col,sys.argv[4])
-lol = worksheet.get_all_values()
+lol = readAllVals(worksheet)
 for prop in sys.argv[8].split(","):
 	# Find row
 	found = False

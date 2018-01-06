@@ -59,14 +59,7 @@ trait ChiselGenCounter extends ChiselGenSRAM with FileDependencies {
     emitGlobalModule(src"""val ${lhs}${suffix}_starts = List(${counter_data.map{_._1}}) """)
     emitGlobalModule(src"""val ${lhs}${suffix} = Module(new templates.Counter(List(${counter_data.map(_._4)}), 
   List(${counter_construction.map(_._1)}), List(${counter_construction.map(_._2)}), List(${counter_construction.map(_._3)}), List(${counter_construction.map(_._4)}), List(${counter_data.map(_._5)}))) // Par of 0 creates forever counter""")
-    // ctr_trivial connection is now responsibility of controller
-    // val ctrl = usersOf(lhs).head._1
-    // if (suffix != "") {
-    //   emit(src"// this trivial signal will be assigned multiple times but each should be the same")
-    //   emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
-    // } else {
-    //   emit(src"""${swap(ctrl, CtrTrivial)} := ${swap(controllerStack.head, CtrTrivial)}.D(1,rr) | ${lhs}${suffix}_stops.zip(${lhs}${suffix}_starts).map{case (stop,start) => (stop-start).asUInt}.reduce{_*-*_}.asUInt === 0.U""")
-    // }
+
     emit(src"""${lhs}${suffix}.io.input.stops.zip(${lhs}${suffix}_stops).foreach { case (port,stop) => port := stop.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.strides.zip(${lhs}${suffix}_strides).foreach { case (port,stride) => port := stride.r.asSInt }""")
     emit(src"""${lhs}${suffix}.io.input.starts.zip(${lhs}${suffix}_starts).foreach { case (port,start) => port := start.r.asSInt }""")
