@@ -189,6 +189,58 @@ trait ChiselGenSRAM extends ChiselCodegen {
     }
   }
 
+  // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS), specifically for signals like inhibitor resets that must acknowledeg a done signal that can strobe while stalled
+  def DLI[T](name: String, latency: T, isBit: Boolean = false): String = {
+    val streamOuts = if (!controllerStack.isEmpty) {
+      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}.D(${latency}, rr)"
+        case _ => ""
+      }}.filter(_ != "").mkString(" & ")
+    } else { "" }
+
+    latency match {
+      case lat: Int => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"          
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"                    
+        }
+      case lat: Double => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
+      case lat: String => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
+    }
+  }
+
   def swap(lhs: Exp[_], s: RemapSignal): String = {
     s match {
       case En => wireMap(src"${lhs}_en")
@@ -414,7 +466,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       if (fsm.isDefined) {
           emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
           emit(src"${swap(lhs, Inhibit)}.io.input.set := Utils.risingEdge(~${fsm.get})")  
-          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${DL(swap(lhs, Done), src"1 + ${swap(lhs, Retime)}", true)}")
+          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${DLI(swap(lhs, Done), src"1 + ${swap(lhs, Retime)}", true)}")
           /* or'ed  back in because of BasicCondFSM!! */
           emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| ${fsm.get}*/ // Really want inhibit to turn on at last enabled cycle")        
           emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
@@ -430,7 +482,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         } else {
           emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
           emit(src"${swap(lhs, Inhibit)}.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
-          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"${DL(src"Utils.risingEdge(${swap(lhs, Done)})", src"1 + ${swap(lhs, Retime)}", true)} // Ugly hack, do not try at home"} else src"${DL(swap(lhs, Done), 1, true)}"
+          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"${DLI(src"Utils.risingEdge(${swap(lhs, Done)})", src"1 + ${swap(lhs, Retime)}", true)} // Ugly hack, do not try at home"} else src"${DLI(swap(lhs, Done), 1, true)}"
           emit(src"${swap(lhs, Inhibit)}.io.input.reset := $rster")
           emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data")
           emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
