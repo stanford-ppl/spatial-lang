@@ -11,6 +11,7 @@ module SRAMVerilogAWS
     input waddrEn,
     input wen,
     input [DWIDTH-1:0] wdata,
+    input flow,
     output reg [DWIDTH-1:0] rdata
 );
 
@@ -18,7 +19,7 @@ module SRAMVerilogAWS
 
     always @(posedge clk) begin
       if (wen) mem[waddr] <= wdata;
-      rdata <= mem[raddr];
+      if (flow) rdata <= mem[raddr];
     end
 
 endmodule
