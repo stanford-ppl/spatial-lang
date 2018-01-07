@@ -346,7 +346,7 @@ public:
         EPRINTF("=========================================\n");
       }
      sleep(1);
-     // dumpDebugRegs();
+     dumpDebugRegs();
       writeReg(commandReg, 0);
       while (status != 0) {
         step();
@@ -398,7 +398,7 @@ public:
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
-      EPRINTF("\t%s: %08x (%08d) = %d\n", signalLabels[i], value, value, argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
+      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

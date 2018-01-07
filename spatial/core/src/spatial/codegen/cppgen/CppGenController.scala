@@ -23,7 +23,7 @@ trait CppGenController extends CppCodegen {
       emit(s"// Register ArgIns and ArgIOs in case some are unused")
       emit(s"c1->setNumArgIns(${argIns.length} + ${drams.length} + ${argIOs.length});")
       emit(s"c1->setNumArgIOs(${argIOs.length});")
-      emit(s"c1->setNumArgOutInstrs(2*${instrumentCounters.length});")
+      emit(s"c1->setNumArgOutInstrs(2*${if (spatialConfig.enableInstrumentation) instrumentCounters.length else 0});")
       emit(s"time_t tstart = time(0);")
       val memlist = if (setMems.nonEmpty) {s""", ${setMems.mkString(",")}"""} else ""
       emit(s"c1->run();")

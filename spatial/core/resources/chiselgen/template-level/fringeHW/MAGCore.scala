@@ -433,47 +433,42 @@ class MAGCore(
     }
   }
 
-  connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid).io.out, "Num DRAM Commands")
-  connectDbgSig(debugCounter(io.enable & ~cmdArbiter.io.empty & ~(dramReady & io.dram.cmd.valid)).io.out, "Total gaps in issue")
-  connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid & ~cmdHead.isWr).io.out, "Read Commands")
-  connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid & cmdHead.isWr).io.out, "Write Commands")
-
-  // Count number of commands issued per stream
-  (0 until numStreams) foreach { case i =>
-    val signal = "cmd" + streamDir(i) + s"stream $i"
-    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === i.U)).io.out, signal)
-  }
-
+  connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid).io.out, "# DRAM Commands Issued")
+  connectDbgSig(debugCounter(io.enable & ~cmdArbiter.io.empty & ~(dramReady & io.dram.cmd.valid)).io.out, "Total cycles w/ 1+ cmds queued up")
+  connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid & ~cmdHead.isWr).io.out, "# Read Commands Sent")
   // Count number of load commands issued from accel per stream
   io.app.loads.zipWithIndex.foreach { case (load, i) =>
     val loadCounter = debugCounter(io.enable & load.cmd.valid)
     val loadCounterHandshake = debugCounter(io.enable & load.cmd.valid & load.cmd.ready)
-    connectDbgSig(loadCounter.io.out, s"LoadCmds from Accel (valid) $i")
-    connectDbgSig(loadCounterHandshake.io.out, s"LoadCmds from Accel (valid & ready) $i")
+    connectDbgSig(loadCounterHandshake.io.out, s" # from Accel load stream $i")
+    val signal = s" # from Fringe load stream $i"
+    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === i.U)).io.out, signal)
+    connectDbgSig(loadCounter.io.out, s" # attempted from Accel load stream (cycles valid) $i")
   }
-
+  connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid & cmdHead.isWr).io.out, "# Write Commands Sent")
   // Count number of store commands issued from accel per stream
   io.app.stores.zipWithIndex.foreach { case (store, i) =>
     val storeCounter = debugCounter(io.enable & store.cmd.valid)
     val storeCounterHandshake = debugCounter(io.enable & store.cmd.valid & store.cmd.ready)
-    connectDbgSig(storeCounter.io.out, s"StoreCmds from Accel (valid) $i")
-    connectDbgSig(storeCounterHandshake.io.out, s"StoreCmds from Accel (valid & ready) $i")
+    connectDbgSig(storeCounterHandshake.io.out, s" # from Accel store stream $i")
+    val signal = s" # from Fringe store stream ${i}"
+    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === (i+loadStreamInfo.length).U)).io.out, signal)
+    connectDbgSig(storeCounter.io.out, s" # attempted from Accel store stream (cycles valid) $i")
   }
 
-  connectDbgSig(debugCounter(io.dram.rresp.valid | io.dram.wresp.valid).io.out, "Num DRAM Responses")
-  connectDbgSig(debugCounter(io.enable & (io.dram.rresp.valid | io.dram.wresp.valid)).io.out, "Num DRAM Responses observed while enabled")
-  connectDbgSig(debugCounter(io.enable & ~(io.dram.rresp.valid & io.dram.rresp.ready)).io.out, "Total gaps in read responses")
-  connectDbgSig(debugCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "Total gaps in read responses (rresp.valid & ~rresp.ready)")
-  connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready).io.out, "Total gaps in read responses (~rresp.valid & rresp.ready)")
-  connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "Total gaps in read responses (~rresp.valid & ~rresp.ready)")
-
-  // Count number of responses issued per stream
-  (0 until numStreams) foreach { case i =>
-    val signal = "resp " + streamDir(i) + s"stream $i"
-    val respValidSignal = (if (i < loadStreamInfo.size) io.dram.rresp.valid else io.dram.wresp.valid)
-    val respReadySignal = (if (i < loadStreamInfo.size) io.dram.rresp.ready else io.dram.wresp.ready)
-    val respTagSignal = (if (i < loadStreamInfo.size) io.dram.rresp.bits.streamId else io.dram.wresp.bits.streamId)
-    connectDbgSig(debugCounter(respValidSignal & respReadySignal & (respTagSignal === i.U)).io.out, signal)
+  connectDbgSig(debugCounter((io.dram.rresp.valid & io.dram.rresp.ready)).io.out, "# Read Responses Acknowledged")
+  connectDbgSig(debugCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "# RResp rejected by ready")
+  connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready).io.out, "Cycles RResp ready and idle (~valid)")
+  (0 until loadStreamInfo.size){i => 
+    val signal = s" # from load stream $i"
+    connectDbgSig(debugCounter(io.dram.rresp.valid & io.dram.rresp.ready & (io.dram.rresp.bits.streamId === i.U)).io.out, signal)
+  }
+  connectDbgSig(debugCounter((io.dram.wresp.valid & io.dram.wresp.ready)).io.out, "# Write Responses Acknowledged")
+  connectDbgSig(debugCounter(io.enable & io.dram.wresp.valid & ~io.dram.wresp.ready).io.out, "# WResp rejected by ready")
+  connectDbgSig(debugCounter(io.enable & ~io.dram.wresp.valid & io.dram.wresp.ready).io.out, "Cycles WResp ready and idle (~valid)")
+  (0 until storeStreamInfo.size){i => 
+    val signal = s" # from store stream $i"
+    connectDbgSig(debugCounter(io.dram.wresp.valid & io.dram.wresp.ready & (io.dram.wresp.bits.streamId === (i+loadStreamInfo.length).U)).io.out, signal)
   }
 
   denseLoadBuffers.zipWithIndex foreach { case (b,i) => 

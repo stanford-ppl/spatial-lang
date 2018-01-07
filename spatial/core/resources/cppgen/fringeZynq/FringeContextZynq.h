@@ -337,7 +337,7 @@ public:
         EPRINTF("\tR%d: %08x (%08u)\n", i, value, value);
       } else {
         if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
-        EPRINTF("\tR%d (%s): %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
+        EPRINTF("\tR%d %s: %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
       }
     }
   }
