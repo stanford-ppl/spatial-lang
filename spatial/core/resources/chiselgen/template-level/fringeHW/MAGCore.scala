@@ -167,7 +167,13 @@ class MAGCore(
     size.bits := cmdHead.size
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
-    connectDbgSig(debugFF(cmdArbiter.io.tag, cmdRead ).io.out, streamDir(id) + "Last streamId (tag) sent")
+    if (id < loadStreamInfo.length) {
+      connectDbgSig(debugFF(cmdArbiter.io.tag, cmdRead ).io.out, "Last load streamId (tag) sent")
+      connectDbgSig(debugFF(cmdAddr.bits, cmdRead ).io.out, "Last load addr sent")
+    } else {
+      connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
+      connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")      
+    }
 
   }
 
