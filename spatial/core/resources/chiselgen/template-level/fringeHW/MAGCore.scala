@@ -459,14 +459,14 @@ class MAGCore(
   connectDbgSig(debugCounter((io.dram.rresp.valid & io.dram.rresp.ready)).io.out, "# Read Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "# RResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready).io.out, "Cycles RResp ready and idle (~valid)")
-  (0 until loadStreamInfo.size){i => 
+  (0 until loadStreamInfo.size).map{i => 
     val signal = s" # from load stream $i"
     connectDbgSig(debugCounter(io.dram.rresp.valid & io.dram.rresp.ready & (io.dram.rresp.bits.streamId === i.U)).io.out, signal)
   }
   connectDbgSig(debugCounter((io.dram.wresp.valid & io.dram.wresp.ready)).io.out, "# Write Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.wresp.valid & ~io.dram.wresp.ready).io.out, "# WResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.wresp.valid & io.dram.wresp.ready).io.out, "Cycles WResp ready and idle (~valid)")
-  (0 until storeStreamInfo.size){i => 
+  (0 until storeStreamInfo.size).map{i => 
     val signal = s" # from store stream $i"
     connectDbgSig(debugCounter(io.dram.wresp.valid & io.dram.wresp.ready & (io.dram.wresp.bits.streamId === (i+loadStreamInfo.length).U)).io.out, signal)
   }
