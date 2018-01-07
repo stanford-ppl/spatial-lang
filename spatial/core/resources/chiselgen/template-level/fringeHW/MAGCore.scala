@@ -93,15 +93,18 @@ class MAGCore(
     ff
   }
 
-
   var dbgCount = 0
   val signalLabels = ListBuffer[String]()
   def connectDbgSig(sig: UInt, label: String) {
     if (isDebugChannel) {
       io.debugSignals(dbgCount) := sig
-      signalLabels.append(label)
+      val padded_label = if (label.length < 55) {label + "."*(55-label.length)} else label
+      signalLabels.append(padded_label)
       dbgCount += 1
     }
+  }
+  def streamDir(id: Int): String = {
+    if (id < loadStreamInfo.size) "(load) " else "(store) "
   }
   val addrWidth = io.app.loads(0).cmd.bits.addrWidth
   val sizeWidth = io.app.loads(0).cmd.bits.sizeWidth
@@ -151,7 +154,7 @@ class MAGCore(
   
   val dramCmdMux = Module(new MuxN(Valid(io.dram.cmd.bits), numStreams))
   dramCmdMux.io.sel := cmdArbiter.io.tag
-  dramCmdMux.io.ins.foreach { case i =>
+  dramCmdMux.io.ins.zipWithIndex.foreach { case (i, id) =>
     i.bits.isSparse := false.B // remove and take out sparse logic in dram.h
     i.bits.streamId := cmdArbiter.io.tag
     i.bits.addr := cmdAddr.burstAddr
@@ -164,7 +167,7 @@ class MAGCore(
     size.bits := cmdHead.size
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
-    connectDbgSig(debugFF(cmdArbiter.io.tag, cmdRead ).io.out, "Last cmd streamId")
+    connectDbgSig(debugFF(cmdArbiter.io.tag, cmdRead ).io.out, streamDir(id) + "Last streamId (tag) sent")
 
   }
 
@@ -437,7 +440,7 @@ class MAGCore(
 
   // Count number of commands issued per stream
   (0 until numStreams) foreach { case i =>
-    val signal = "cmd" + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
+    val signal = "cmd" + streamDir(i) + s"stream $i"
     connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === i.U)).io.out, signal)
   }
 
@@ -466,7 +469,7 @@ class MAGCore(
 
   // Count number of responses issued per stream
   (0 until numStreams) foreach { case i =>
-    val signal = "resp " + (if (i < loadStreamInfo.size) "load" else "store") + s"stream $i"
+    val signal = "resp " + streamDir(i) + s"stream $i"
     val respValidSignal = (if (i < loadStreamInfo.size) io.dram.rresp.valid else io.dram.wresp.valid)
     val respReadySignal = (if (i < loadStreamInfo.size) io.dram.rresp.ready else io.dram.wresp.ready)
     val respTagSignal = (if (i < loadStreamInfo.size) io.dram.rresp.bits.streamId else io.dram.wresp.bits.streamId)

@@ -32,6 +32,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
   uint32_t numArgIOsId = 0;
+  uint32_t numArgOutInstrs = 0;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
@@ -344,6 +345,8 @@ public:
         EPRINTF("Hardware timeout after %lu cycles\n", numCycles);
         EPRINTF("=========================================\n");
       }
+     sleep(1);
+     // dumpDebugRegs();
       writeReg(commandReg, 0);
       while (status != 0) {
         step();
@@ -358,6 +361,10 @@ public:
   
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
   }
   
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
@@ -390,8 +397,8 @@ public:
     int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint64_t value = readReg(argInOffset + argOutOffset + 2 - numArgIOs + i);
-      EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
+      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
+      EPRINTF("\t%s: %08x (%08d) = %d\n", signalLabels[i], value, value, argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
     }
     EPRINTF(" **************************\n");
   }

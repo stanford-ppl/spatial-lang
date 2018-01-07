@@ -60,6 +60,7 @@ private:
 
   int numArgIns = 0;
   int numArgIOs = 0;
+  int numArgOutInstrs = 0;
 
   // Helper to peek in sim or F1
   void aws_peek(uint64_t addr, uint32_t *value) {
@@ -387,6 +388,10 @@ public:
   
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
   }
 
   // Unimplemented
