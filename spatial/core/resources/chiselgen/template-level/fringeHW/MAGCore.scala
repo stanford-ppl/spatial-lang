@@ -6,6 +6,8 @@ import chisel3.util._
 import templates.SRFF
 import templates.Utils.log2Up
 import scala.language.reflectiveCalls
+import axi4._
+
 
 import scala.collection.mutable.ListBuffer
 import java.io.{File, PrintWriter}
@@ -60,13 +62,20 @@ class MAGCore(
 
   def storeStreamIndex(id: UInt) = id - loadStreamInfo.size.U
   def storeStreamId(index: Int) = index + loadStreamInfo.size
-  
+
+  val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
+
   val io = IO(new Bundle {
     val enable = Input(Bool())
     val app = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = new DRAMStream(w, v)
     val config = Input(new MAGOpcode())
     val debugSignals = Output(Vec(numDebugs, UInt(w.W)))
+
+    // AXI Debuggers
+    val DWIDTH_AXI = Flipped(new AXI4Lite(axiLiteParams))
+    val CLOCKCONVERT_AXI = Flipped(new AXI4Lite(axiLiteParams))
+
   })
 
   // debug registers
@@ -168,11 +177,13 @@ class MAGCore(
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
     if (id < loadStreamInfo.length) {
-      connectDbgSig(debugFF(cmdArbiter.io.tag, cmdRead ).io.out, "Last load streamId (tag) sent")
-      connectDbgSig(debugFF(cmdAddr.bits, cmdRead ).io.out, "Last load addr sent")
+      connectDbgSig(debugFF(dramCmdMux.io.out.bits.streamId, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load streamId (tag) sent")
+      connectDbgSig(debugFF(dramCmdMux.io.out.bits.addr, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load addr sent")
+      connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load size sent")
     } else {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
       connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")      
+      connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "Last store size sent")      
     }
 
   }
@@ -502,6 +513,9 @@ class MAGCore(
   connectDbgSig(debugCounter(io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "Resp valid and not ready")
 
   connectDbgSig(wdataCount.io.out, "num wdata transferred (wvalid & wready)")
+
+  // Connect AXI loopback debuggers
+  connectDbgSig(debugCounter(io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARVALID ")
 
   if (isDebugChannel) {
     // Print all debugging signals into a header file
