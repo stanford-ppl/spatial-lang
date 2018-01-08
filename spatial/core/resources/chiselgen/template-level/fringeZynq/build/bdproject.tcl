@@ -130,7 +130,71 @@ switch $TARGET {
     connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
 
     # Loopback debuggers
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins Top_0/io_DWIDTH_AXI]
+    # dwidth signals
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_ARVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arready] [get_bd_pins Top_0/io_DWIDTH_AXI_ARREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arready] [get_bd_pins axi_dwidth_converter_0/m_axi_arready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_araddr] [get_bd_pins Top_0/io_DWIDTH_AXI_ARADDR]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_araddr] [get_bd_pins axi_dwidth_converter_0/m_axi_araddr]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arlen] [get_bd_pins Top_0/io_DWIDTH_AXI_ARLEN]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arlen] [get_bd_pins axi_dwidth_converter_0/m_axi_arlen]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_AWVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awready] [get_bd_pins Top_0/io_DWIDTH_AXI_AWREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_DWIDTH_AXI_AWADDR]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_RVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rready] [get_bd_pins Top_0/io_DWIDTH_AXI_RREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_rready] [get_bd_pins axi_dwidth_converter_0/m_axi_rready]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_WVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bready] [get_bd_pins Top_0/io_DWIDTH_AXI_BREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_bready] [get_bd_pins axi_dwidth_converter_0/m_axi_bready]
+
+    # clockconverter signals
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_arvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARVALID]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_ARVALID] [get_bd_pins axi_protocol_converter_0/m_axi_arvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_arready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARREADY]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_ARREADY] [get_bd_pins axi_protocol_converter_0/m_axi_arready]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_araddr] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARADDR]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_ARADDR] [get_bd_pins axi_protocol_converter_0/m_axi_araddr]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_arlen] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARLEN]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_ARLEN] [get_bd_pins axi_protocol_converter_0/m_axi_arlen]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_awvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWVALID]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_AWVALID] [get_bd_pins axi_protocol_converter_0/m_axi_awvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_awready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWREADY]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_AWREADY] [get_bd_pins axi_protocol_converter_0/m_axi_awready]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWADDR]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_AWADDR] [get_bd_pins axi_protocol_converter_0/m_axi_awaddr]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_RVALID]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_RVALID] [get_bd_pins axi_protocol_converter_0/m_axi_rvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_rready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_RREADY]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_RREADY] [get_bd_pins axi_protocol_converter_0/m_axi_rready]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_WVALID]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_WVALID] [get_bd_pins axi_protocol_converter_0/m_axi_wvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_WREADY]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_WREADY] [get_bd_pins axi_protocol_converter_0/m_axi_wready]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BVALID]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_BVALID] [get_bd_pins axi_protocol_converter_0/m_axi_bvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_bready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BREADY]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD_BREADY] [get_bd_pins axi_protocol_converter_0/m_axi_bready]
+
+
 
     # Wire up the resets
     connect_bd_net [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
@@ -209,6 +273,71 @@ switch $TARGET {
       # Address assignment to HP0
       assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_0
     ### } HP0 end
+
+    # Loopback debuggers
+    # dwidth signals
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_ARVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arready] [get_bd_pins Top_0/io_DWIDTH_AXI_ARREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arready] [get_bd_pins axi_dwidth_converter_0/m_axi_arready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_araddr] [get_bd_pins Top_0/io_DWIDTH_AXI_ARADDR]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_araddr] [get_bd_pins axi_dwidth_converter_0/m_axi_araddr]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arlen] [get_bd_pins Top_0/io_DWIDTH_AXI_ARLEN]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arlen] [get_bd_pins axi_dwidth_converter_0/m_axi_arlen]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_AWVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awready] [get_bd_pins Top_0/io_DWIDTH_AXI_AWREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_DWIDTH_AXI_AWADDR]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_RVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rready] [get_bd_pins Top_0/io_DWIDTH_AXI_RREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_rready] [get_bd_pins axi_dwidth_converter_0/m_axi_rready]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_WVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bready] [get_bd_pins Top_0/io_DWIDTH_AXI_BREADY]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_bready] [get_bd_pins axi_dwidth_converter_0/m_axi_bready]
+
+    # clockconverter signals
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_arvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARVALID]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_ARVALID] [get_bd_pins axi_protocol_converter_0/m_axi_arvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_arready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARREADY]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_ARREADY] [get_bd_pins axi_protocol_converter_0/m_axi_arready]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_araddr] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARADDR]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_ARADDR] [get_bd_pins axi_protocol_converter_0/m_axi_araddr]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_arlen] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARLEN]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_ARLEN] [get_bd_pins axi_protocol_converter_0/m_axi_arlen]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_awvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWVALID]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_AWVALID] [get_bd_pins axi_protocol_converter_0/m_axi_awvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_awready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWREADY]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_AWREADY] [get_bd_pins axi_protocol_converter_0/m_axi_awready]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWADDR]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_AWADDR] [get_bd_pins axi_protocol_converter_0/m_axi_awaddr]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_RVALID]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_RVALID] [get_bd_pins axi_protocol_converter_0/m_axi_rvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_rready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_RREADY]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_RREADY] [get_bd_pins axi_protocol_converter_0/m_axi_rready]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_WVALID]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WVALID] [get_bd_pins axi_protocol_converter_0/m_axi_wvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_WREADY]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WREADY] [get_bd_pins axi_protocol_converter_0/m_axi_wready]
+
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BVALID]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_BVALID] [get_bd_pins axi_protocol_converter_0/m_axi_bvalid]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_bready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BREADY]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_BREADY] [get_bd_pins axi_protocol_converter_0/m_axi_bready]
 
     ### HP1 Begin {
       # Enable HP1, connect faster clock

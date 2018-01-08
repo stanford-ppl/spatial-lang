@@ -61,8 +61,8 @@ class Fringe(
     val dram = Vec(numChannels, new DRAMStream(w, v))
 
     // AXI Debuggers
-    val DWIDTH_AXI = Flipped(new AXI4Lite(axiLiteParams))
-    val CLOCKCONVERT_AXI = Flipped(new AXI4Lite(axiLiteParams))
+    val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
     //Accel stream IO
 //    val genericStreamsAccel = Flipped(new GenericStreams(streamInsInfo, streamOutsInfo))

@@ -46,8 +46,8 @@ class FringeZynq(
     val M_AXI = Vec(numChannels, new AXI4Inlined(axiParams))
 
     // AXI Debuggers
-    val DWIDTH_AXI = Flipped(new AXI4Lite(axiLiteParams))
-    val CLOCKCONVERT_AXI = Flipped(new AXI4Lite(axiLiteParams))
+    val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
     // Accel Control IO
     val enable = Output(Bool())

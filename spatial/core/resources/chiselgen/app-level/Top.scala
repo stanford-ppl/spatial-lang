@@ -60,6 +60,10 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
+
+  // AXI debugging loopbacks
+  val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+  val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 }
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
