@@ -63,6 +63,7 @@ class Fringe(
     // AXI Debuggers
     val TOP_AXI = new AXI4Probe(axiLiteParams)
     val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
     //Accel stream IO

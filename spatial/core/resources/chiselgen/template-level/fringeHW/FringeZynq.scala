@@ -48,6 +48,7 @@ class FringeZynq(
     // AXI Debuggers
     val TOP_AXI = new AXI4Probe(axiLiteParams)
     val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
     // Accel Control IO
@@ -73,6 +74,7 @@ class FringeZynq(
 
   fringeCommon.io.TOP_AXI <> io.TOP_AXI
   fringeCommon.io.DWIDTH_AXI <> io.DWIDTH_AXI
+  fringeCommon.io.PROTOCOL_AXI <> io.PROTOCOL_AXI
   fringeCommon.io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   // AXI-lite bridge

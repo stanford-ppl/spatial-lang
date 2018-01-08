@@ -75,6 +75,7 @@ class MAGCore(
     // AXI Debuggers
     val TOP_AXI = new AXI4Probe(axiLiteParams)
     val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
   })
@@ -547,6 +548,22 @@ class MAGCore(
   connectDbgSig(debugFF(io.DWIDTH_AXI.ARADDR, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARADDR")
   connectDbgSig(debugFF(io.DWIDTH_AXI.ARLEN, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARLEN")
   connectDbgSig(debugFF(io.DWIDTH_AXI.AWADDR, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWADDR")
+
+  // DWIDTH
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARVALID).io.out, "# cycles PROTOCOL ARVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARREADY).io.out, "# cycles PROTOCOL ARREADY ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARREADY & io.PROTOCOL_AXI.ARVALID).io.out, "# cycles PROTOCOL ARREADY & ARVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.AWVALID).io.out, "# cycles PROTOCOL AWVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.AWREADY & io.PROTOCOL_AXI.AWVALID).io.out, "# cycles PROTOCOL ARREADY & AWVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.RVALID).io.out, "# cycles PROTOCOL RVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.RREADY & io.PROTOCOL_AXI.RVALID).io.out, "# cycles PROTOCOL RREADY & RVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.WVALID).io.out, "# cycles PROTOCOL WVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.WREADY & io.PROTOCOL_AXI.WVALID).io.out, "# cycles PROTOCOL WREADY & WVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.BVALID).io.out, "# cycles PROTOCOL BVALID ")
+  connectDbgSig(debugCounter(io.PROTOCOL_AXI.BREADY & io.PROTOCOL_AXI.BVALID).io.out, "# cycles PROTOCOL BREADY & BVALID ")
+  connectDbgSig(debugFF(io.PROTOCOL_AXI.ARADDR, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARADDR")
+  connectDbgSig(debugFF(io.PROTOCOL_AXI.ARLEN, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARLEN")
+  connectDbgSig(debugFF(io.PROTOCOL_AXI.AWADDR, io.PROTOCOL_AXI.AWVALID & io.PROTOCOL_AXI.AWREADY).io.out, "Last PROTOCOL AWADDR")
 
   // Clock converter
   connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.ARVALID).io.out, "# cycles CLOCKCONVERT ARVALID ")
