@@ -518,6 +518,7 @@ class MAGCore(
   // Connect AXI loopback debuggers
   // TOP
   connectDbgSig(debugCounter(io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARVALID ")
+  connectDbgSig(debugCounter(io.TOP_AXI.ARREADY).io.out, "# cycles TOP ARREADY")
   connectDbgSig(debugCounter(io.TOP_AXI.ARREADY & io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARREADY & ARVALID ")
   connectDbgSig(debugCounter(io.TOP_AXI.AWVALID).io.out, "# cycles TOP AWVALID ")
   connectDbgSig(debugCounter(io.TOP_AXI.AWREADY & io.TOP_AXI.AWVALID).io.out, "# cycles TOP ARREADY & AWVALID ")
@@ -533,6 +534,7 @@ class MAGCore(
 
   // DWIDTH
   connectDbgSig(debugCounter(io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARVALID ")
+  connectDbgSig(debugCounter(io.DWIDTH_AXI.ARREADY).io.out, "# cycles DWIDTH ARREADY ")
   connectDbgSig(debugCounter(io.DWIDTH_AXI.ARREADY & io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARREADY & ARVALID ")
   connectDbgSig(debugCounter(io.DWIDTH_AXI.AWVALID).io.out, "# cycles DWIDTH AWVALID ")
   connectDbgSig(debugCounter(io.DWIDTH_AXI.AWREADY & io.DWIDTH_AXI.AWVALID).io.out, "# cycles DWIDTH ARREADY & AWVALID ")
@@ -548,6 +550,7 @@ class MAGCore(
 
   // Clock converter
   connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.ARVALID).io.out, "# cycles CLOCKCONVERT ARVALID ")
+  connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.ARREADY).io.out, "# cycles CLOCKCONVERT ARREADY ")
   connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.ARREADY & io.CLOCKCONVERT_AXI.ARVALID).io.out, "# cycles CLOCKCONVERT ARREADY & ARVALID ")
   connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.AWVALID).io.out, "# cycles CLOCKCONVERT AWVALID ")
   connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.AWREADY & io.CLOCKCONVERT_AXI.AWVALID).io.out, "# cycles CLOCKCONVERT ARREADY & AWVALID ")

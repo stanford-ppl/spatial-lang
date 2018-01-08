@@ -322,6 +322,10 @@ class Top(
       // Fringe <-> DRAM connections
       topIO.M_AXI <> fringe.io.M_AXI
 
+      topIO.TOP_AXI <> fringe.io.TOP_AXI
+      topIO.DWIDTH_AXI <> fringe.io.DWIDTH_AXI
+      topIO.CLOCKCONVERT_AXI <> fringe.io.CLOCKCONVERT_AXI
+
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
           fringeArgOut.bits := accelArgOut.bits
