@@ -61,6 +61,7 @@ class Fringe(
     val dram = Vec(numChannels, new DRAMStream(w, v))
 
     // AXI Debuggers
+    val TOP_AXI = new AXI4Probe(axiLiteParams)
     val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
@@ -184,6 +185,7 @@ class Fringe(
 
   mags.zip(io.dram) foreach { case (mag, d) => mag.io.dram <> d }
 
+  mags(debugChannelID).io.TOP_AXI <> io.TOP_AXI
   mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
   mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 

@@ -46,6 +46,7 @@ class FringeZynq(
     val M_AXI = Vec(numChannels, new AXI4Inlined(axiParams))
 
     // AXI Debuggers
+    val TOP_AXI = new AXI4Probe(axiLiteParams)
     val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
@@ -70,6 +71,7 @@ class FringeZynq(
   // Common Fringe
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
 
+  fringeCommon.io.TOP_AXI <> io.TOP_AXI
   fringeCommon.io.DWIDTH_AXI <> io.DWIDTH_AXI
   fringeCommon.io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
