@@ -188,6 +188,7 @@ class Fringe(
 
   mags(debugChannelID).io.TOP_AXI <> io.TOP_AXI
   mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
+  mags(debugChannelID).io.PROTOCOL_AXI <> io.PROTOCOL_AXI
   mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   // io.dbg <> mags(debugChannelID).io.dbg

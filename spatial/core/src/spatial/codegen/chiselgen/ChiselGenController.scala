@@ -776,7 +776,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val streamAddition = getStreamEnablers(lhs)
       emitController(lhs, None, None)
       emit(s"""${swap(lhs, En)} := io.enable & !io.done ${streamAddition}""")
-      emit(s"""${swap(lhs, Resetter)} := reset.toBool""")
+      emit(s"""${swap(lhs, Resetter)} := Utils.getRetimed(reset.toBool, 1)""")
       emit(src"""${swap(lhs, CtrTrivial)} := false.B""")
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       if (iiOf(lhs) <= 1) {
