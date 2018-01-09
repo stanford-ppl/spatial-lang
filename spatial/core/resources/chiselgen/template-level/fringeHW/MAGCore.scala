@@ -60,7 +60,7 @@ class MAGCore(
   val sparseStores = storeStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
   val denseStores = storeStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
 
-  def getStreamId(x: UInt) = x(w-1, w-1-tagWidth+1)
+  def getStreamId(x: UInt) = x(w-1, w-1-streamTagWidth+1)
   def storeStreamIndex(id: UInt) = id - loadStreamInfo.size.U
   def storeStreamId(index: Int) = index + loadStreamInfo.size
 
