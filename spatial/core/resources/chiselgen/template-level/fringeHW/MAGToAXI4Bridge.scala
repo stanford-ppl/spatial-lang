@@ -72,11 +72,11 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.in.wresp.valid := io.M_AXI.BVALID // Used to be shift registered
 
   // Construct the response tag, with streamId in the MSB
-  // io.in.rresp.bits.streamId := io.M_AXI.RID(io.M_AXI.RID.getWidth-1, p.idBits - tagWidth) // Used to be shift registered
-  // io.in.wresp.bits.streamId := io.M_AXI.BID(io.M_AXI.RID.getWidth-1, p.idBits - tagWidth) // Used to be shift registered
-  // [sic]
-  io.in.rresp.bits.streamId := io.M_AXI.RID // Used to be shift registered
-  io.in.wresp.bits.streamId := io.M_AXI.BID // Used to be shift registered
+  io.in.rresp.bits.streamId := io.M_AXI.RID(io.M_AXI.RID.getWidth-1, p.idBits - tagWidth) // Used to be shift registered
+  io.in.wresp.bits.streamId := io.M_AXI.BID(io.M_AXI.RID.getWidth-1, p.idBits - tagWidth) // Used to be shift registered
+  // // [sic]
+  // io.in.rresp.bits.streamId := io.M_AXI.RID // Used to be shift registered
+  // io.in.wresp.bits.streamId := io.M_AXI.BID // Used to be shift registered
 
 //  io.in.rresp.bits.tag := Cat(io.M_AXI.RID(tagWidth-1, 0), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U)) // Used to be shift registered
 //  io.in.wresp.bits.tag := Cat(io.M_AXI.BID(tagWidth-1, 0), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U)) // Used to be shift registered
