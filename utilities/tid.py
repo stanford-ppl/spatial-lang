@@ -30,6 +30,9 @@ gc = pygsheets.authorize(outh_file = json_key)
 if (sys.argv[4] == "Zynq"):
 	perf=False
 	sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
+elif (sys.argv[4] == "ZCU"):
+	perf=False
+	sh = gc.open_by_key("181pQqQXV_DsoWZyRV4Ve3y9QI6I0VIbVGS3TT0zbEv8")
 elif (sys.argv[4] == "AWS"):
 	perf=False
 	sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")

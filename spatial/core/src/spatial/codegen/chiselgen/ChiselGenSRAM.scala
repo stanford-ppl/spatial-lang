@@ -114,9 +114,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (spatialConfig.enableRetiming) {
       val latency = latencyOption(op, b)
       if (b.isDefined) {
-        s"""Some(${latency}.toInt)"""
+        s"""Some(${latency})"""
       } else {
-        s"""Some(${latency}.toInt)"""
+        s"""Some(${latency})"""
       }
     } else {
       "None"      
