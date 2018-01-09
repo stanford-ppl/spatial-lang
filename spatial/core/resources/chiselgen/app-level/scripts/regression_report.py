@@ -6,6 +6,7 @@ import sys
 import os
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
+import socket
 
 #1 = branch
 #2 = tid
@@ -102,7 +103,7 @@ else:
 # Find row, since tid is now unsafe
 tid = -1
 for i in range(2, len(lol)):
-	if (lol[i][0] == sys.argv[6] and lol[i][1] == sys.argv[7]):
+	if (lol[i][0] == sys.argv[6] and lol[i][1] == sys.argv[7] and lol[i][4] == socket.gethostname()):
 		tid = i + 1
 		break
 
