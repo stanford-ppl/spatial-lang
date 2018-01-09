@@ -41,6 +41,7 @@ class MAGCore(
   val storeStreamInfo: List[StreamParInfo],
   val numOutstandingBursts: Int,
   val burstSizeBytes: Int,
+  val axiParams: AXI4BundleParameters,
   val isDebugChannel: Boolean = false
 ) extends Module {
 
@@ -60,9 +61,10 @@ class MAGCore(
   val sparseStores = storeStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
   val denseStores = storeStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
 
-  def getStreamId(x: UInt) = x(w-1, w-1-streamTagWidth+1)
+  def getStreamId(x: UInt) = if (FringeGlobals.target == "vcs") x else x(axiParams.idBits-1, axiParams.idBits-streamTagWidth)
   def storeStreamIndex(id: UInt) = id - loadStreamInfo.size.U
   def storeStreamId(index: Int) = index + loadStreamInfo.size
+
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 

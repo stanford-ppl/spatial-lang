@@ -22,7 +22,8 @@ class Fringe(
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
   val streamOutsInfo: List[StreamParInfo],
-  val blockingDRAMIssue: Boolean = false
+  val blockingDRAMIssue: Boolean = false,
+  val axiParams: AXI4BundleParameters
 ) extends Module {
 //  val numRegs = numArgIns + numArgOuts + 2 - numArgIOs // (command, status registers)
 //  val addrWidth = log2Up(numRegs)
@@ -108,7 +109,7 @@ class Fringe(
     val loadStreams = loadStreamIDs.map { io.memStreams.loads(_) }
     val storeStreams = storeStreamIDs.map { io.memStreams.stores(_) }
 
-    val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, debugChannelID == i))
+    val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, axiParams, debugChannelID == i))
     mag.io.app.loads.zip(loadStreams) foreach { case (l, ls) => l <> ls }
     mag.io.app.stores.zip(storeStreams) foreach { case (s, ss) => s <> ss }
     mag
