@@ -6,6 +6,7 @@ import sys
 import os
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
+import socket
 
 def write(wksh, row, col, txt):
 	try:
@@ -80,7 +81,7 @@ else:
 # Find row, since tid is now unsafe
 tid = -1
 for i in range(2, len(lol)):
-	if (lol[i][0] == sys.argv[9] and lol[i][1] == sys.argv[10]):
+	if (lol[i][0] == sys.argv[9] and lol[i][1] == sys.argv[10] and lol[i][4] == socket.gethostname()):
 		tid = i + 1
 		break
 
