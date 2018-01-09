@@ -32,6 +32,7 @@ class FringeContextXSIM : public FringeContextBase<void> {
   uint32_t numArgOuts = 0;
   uint32_t numArgIOs = 0;
   uint32_t numArgIOsId = 0;
+  uint32_t numArgOutInstrs = 0;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
@@ -349,6 +350,14 @@ public:
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
   }
+
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
+  }
   
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
@@ -357,7 +366,6 @@ public:
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    numArgOuts++;
     if (isIO) {
       return readReg(2+arg);
     } else {
@@ -380,7 +388,7 @@ public:
     int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint64_t value = readReg(argInOffset + argOutOffset + 2 - numArgIOs + i);
+      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
       EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");

@@ -3,6 +3,7 @@ package fringe
 import chisel3._
 import chisel3.util._
 import templates.Utils.log2Up
+import axi4._
 
 /**
  * Fringe: Top module for FPGA shell
@@ -37,6 +38,8 @@ class Fringe(
   val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata
   val regWidth = 64 // Force 64-bit registers
 
+  val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
+
   val io = IO(new Bundle {
     // Host scalar interface
     val raddr = Input(UInt(addrWidth.W))
@@ -56,6 +59,12 @@ class Fringe(
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = Vec(numChannels, new DRAMStream(w, v))
+
+    // AXI Debuggers
+    val TOP_AXI = new AXI4Probe(axiLiteParams)
+    val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
+    val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
     //Accel stream IO
 //    val genericStreamsAccel = Flipped(new GenericStreams(streamInsInfo, streamOutsInfo))
@@ -176,6 +185,11 @@ class Fringe(
 //  mag.io.app <> io.memStreams
 
   mags.zip(io.dram) foreach { case (mag, d) => mag.io.dram <> d }
+
+  mags(debugChannelID).io.TOP_AXI <> io.TOP_AXI
+  mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
+  mags(debugChannelID).io.PROTOCOL_AXI <> io.PROTOCOL_AXI
+  mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   // io.dbg <> mags(debugChannelID).io.dbg
 

@@ -49,6 +49,8 @@ public:
   virtual void readRowFromCameraBuffer(uint32_t row, short* buf) = 0;
   virtual void setNumArgIns(uint32_t number) = 0;
   virtual void setNumArgIOs(uint32_t number) = 0;
+  virtual void setNumArgOutInstrs(uint32_t number) = 0;
+  virtual void setNumArgOuts(uint32_t number) = 0;
 
   ~FringeContextBase() {
 //    delete dut;
