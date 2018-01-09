@@ -33,6 +33,9 @@ if (sys.argv[4] == "Zynq"):
 elif (sys.argv[4] == "AWS"):
 	perf=False
 	sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")
+elif (sys.argv[4] == "ZCU"):
+	perf=False
+	sh = gc.open_by_key("181pQqQXV_DsoWZyRV4Ve3y9QI6I0VIbVGS3TT0zbEv8")
 elif (sys.argv[4] == "fpga"):
 	perf=True
 	sh = gc.open_by_key("1CMeHtxCU4D2u12m5UzGyKfB3WGlZy_Ycw_hBEi59XH8")

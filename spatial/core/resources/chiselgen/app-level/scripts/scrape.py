@@ -58,7 +58,11 @@ if (sys.argv[12] == "Zynq"):
 		exit()
 	word="Slice"
 elif (sys.argv[12] == "ZCU"):
-	sh = gc.open("ZCU Regression") # Open by name
+	try:
+		sh = gc.open_by_key("181pQqQXV_DsoWZyRV4Ve3y9QI6I0VIbVGS3TT0zbEv8")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 	word="CLB"
 elif (sys.argv[12] == "AWS"):
 	# sh = gc.open("AWS Regression") # Open by name

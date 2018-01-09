@@ -10,7 +10,7 @@ Spatial is an Argon DSL for programming reconfigurable hardware from a parameter
 # Branch Statuses
 
 ### [Zynq Synthesis Regression](https://docs.google.com/spreadsheets/d/1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE/edit#gid=0)
-
+### [Zynq Synthesis Regression](https://docs.google.com/spreadsheets/d/181pQqQXV_DsoWZyRV4Ve3y9QI6I0VIbVGS3TT0zbEv8/edit#gid=0)
 ### [AWS Synthesis Regression](https://docs.google.com/spreadsheets/d/19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU/edit#gid=0)
 
 !["what's running" is unavailable](https://github.com/mattfel1/Window/blob/master/window.png?raw=true "whatsrunning")

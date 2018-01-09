@@ -49,6 +49,6 @@ echo $timestamp > ${REGRESSION_HOME}/data/timestamp
 cd ${REGRESSION_HOME}/next-spatial/spatial-lang
 set $inputarg
 echo "Runnign synth_regression with $inputarg"
-bash bin/synth_regression.sh $inputarg
+bash utilities/synth_regression.sh $inputarg
 
 touch ${REGRESSION_HOME}/protocol/done
