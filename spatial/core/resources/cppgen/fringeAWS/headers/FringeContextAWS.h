@@ -390,6 +390,10 @@ public:
     numArgIOs = number;
   }
 
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
   virtual void setNumArgOutInstrs(uint32_t number) {
     numArgOutInstrs = number;
   }

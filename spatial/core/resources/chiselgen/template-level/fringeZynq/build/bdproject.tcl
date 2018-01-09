@@ -33,7 +33,7 @@ switch $TARGET {
     apply_bd_automation -rule xilinx.com:bd_rule:zynq_ultra_ps_e -config {apply_board_preset "1" }  [get_bd_cells zynq_ultra_ps_e_0]
     create_bd_cell -type module -reference Top Top_0    
     ## Set freqs
-    set_property -dict [list CONFIG.PSU__FPGA_PL1_ENABLE {1} CONFIG.PSU__CRL_APB__PL1_REF_CTRL__SRCSEL {IOPLL} CONFIG.PSU__CRL_APB__PL1_REF_CTRL__FREQMHZ {125}] [get_bd_cells zynq_ultra_ps_e_0]
+    set_property -dict [list CONFIG.PSU__FPGA_PL1_ENABLE {1} CONFIG.PSU__CRL_APB__PL1_REF_CTRL__SRCSEL {IOPLL} CONFIG.PSU__CRL_APB__PL1_REF_CTRL__FREQMHZ {250}] [get_bd_cells zynq_ultra_ps_e_0]
     set_property -dict [list CONFIG.PSU__CRL_APB__PL0_REF_CTRL__FREQMHZ $CLOCK_FREQ_MHZ] [get_bd_cells zynq_ultra_ps_e_0]
     apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD" Clk "/zynq_ultra_ps_e_0/pl_clk0 ($CLOCK_FREQ_MHZ MHz)" }  [get_bd_intf_pins Top_0/io_S_AXI]
 
@@ -53,10 +53,16 @@ switch $TARGET {
     # Do HP# stuff
     set_property -dict [list CONFIG.PSU__USE__S_AXI_GP2 {1} CONFIG.PSU__USE__S_AXI_GP3 {1} CONFIG.PSU__USE__S_AXI_GP4 {1} CONFIG.PSU__USE__S_AXI_GP5 {1}] [get_bd_cells zynq_ultra_ps_e_0]
     # Connect HP# to faster clocks
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+  
+    ## CLOCK CROSSING HACK
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
     # 512-to-64 data width converters
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_1
@@ -228,21 +234,29 @@ switch $TARGET {
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_bready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BREADY]
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_bready] [get_bd_pins axi_clock_converter_0/m_axi_bready]
 
+
     # # top -> dwidth converter
     connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_0] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
     connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_1] [get_bd_intf_pins axi_dwidth_converter_1/S_AXI]
     connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_2] [get_bd_intf_pins axi_dwidth_converter_2/S_AXI]
     connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_3] [get_bd_intf_pins axi_dwidth_converter_3/S_AXI]
-    # data width converter -> clock converter
+    # CLOCK CROSSING HACK
+    # # data width converter -> clock converter
     # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins axi_clock_converter_1/S_AXI]
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_2/M_AXI] [get_bd_intf_pins axi_clock_converter_2/S_AXI]
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_3/M_AXI] [get_bd_intf_pins axi_clock_converter_3/S_AXI]
-    # clock converter -> Top
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD]
-    connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_1/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP1_FPD]
-    connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_2/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP2_FPD]
-    connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
+    # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins axi_clock_converter_1/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_2/M_AXI] [get_bd_intf_pins axi_clock_converter_2/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_3/M_AXI] [get_bd_intf_pins axi_clock_converter_3/S_AXI]
+    # # clock converter -> Top
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD]
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_1/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP1_FPD]
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_2/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP2_FPD]
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
+
+    # data width converter -> Top
+    onnect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD]
+    onnect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP1_FPD]
+    onnect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_2/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP2_FPD]
+    onnect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
 
     # Wire up the resets
     connect_bd_net [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
@@ -258,10 +272,15 @@ switch $TARGET {
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
+    ## CLOCK CROSSING HACK
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
     # what to do about Clock converter -> HP0?
     # what to do about Address assignment to HP0?
 
@@ -271,7 +290,7 @@ switch $TARGET {
     apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" }  [get_bd_cells processing_system7_0]
     create_bd_cell -type module -reference Top Top_0
     set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $CLOCK_FREQ_MHZ] [get_bd_cells processing_system7_0]
-    set_property -dict [list CONFIG.PCW_FPGA1_PERIPHERAL_FREQMHZ {125} CONFIG.PCW_EN_CLK1_PORT {1}] [get_bd_cells processing_system7_0]
+    set_property -dict [list CONFIG.PCW_FPGA1_PERIPHERAL_FREQMHZ {250} CONFIG.PCW_EN_CLK1_PORT {1}] [get_bd_cells processing_system7_0]
     apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/processing_system7_0/M_AXI_GP0" Clk "/processing_system7_0/FCLK_CLK0 ($CLOCK_FREQ_MHZ MHz)" }  [get_bd_intf_pins Top_0/io_S_AXI]
     # Faster clock (200 MHz) for memory interface
     create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_fclk1
@@ -280,7 +299,9 @@ switch $TARGET {
     ### HP0 Begin {
       # Enable HP0, connect faster clock
       set_property -dict [list CONFIG.PCW_USE_S_AXI_HP0 {1}] [get_bd_cells processing_system7_0]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/S_AXI_HP0_ACLK]
       # Create axi slice for timing
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_0
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_register_slice_0/aclk]
@@ -303,9 +324,12 @@ switch $TARGET {
       set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_0]
       set_property -dict [list CONFIG.PROTOCOL {AXI3} CONFIG.DATA_WIDTH {64} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_0]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_clock_converter_0/s_axi_aresetn]
-      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_0/s_axi_aclk]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
+      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
 
     ### } HP0 end
 
@@ -479,17 +503,13 @@ switch $TARGET {
       connect_bd_intf_net [get_bd_intf_pins axi_register_slice_0/M_AXI] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
       # data width converter -> protocol converter
       connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_protocol_converter_0/S_AXI]
-      # protocol converter -> Clock converter
-      # connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_0/M_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
-      # Clock converter -> HP0
-      connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_0/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
-      # Address assignment to HP0
-      assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_0
 
     ### HP1 Begin {
       # Enable HP1, connect faster clock
       set_property -dict [list CONFIG.PCW_USE_S_AXI_HP1 {1}] [get_bd_cells processing_system7_0]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP1_ACLK]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP1_ACLK]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/S_AXI_HP1_ACLK]
 
       # Create axi slice for timing
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_1
@@ -516,9 +536,12 @@ switch $TARGET {
       set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_1]
       set_property -dict [list CONFIG.PROTOCOL {AXI3} CONFIG.DATA_WIDTH {64} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_1]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_clock_converter_1/s_axi_aresetn]
-      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_1/s_axi_aclk]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
+      # connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn]
+      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
 
       # Top -> axi slicer
       connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_1] [get_bd_intf_pins axi_register_slice_1/S_AXI]
@@ -526,19 +549,15 @@ switch $TARGET {
       connect_bd_intf_net [get_bd_intf_pins axi_register_slice_1/M_AXI] [get_bd_intf_pins axi_dwidth_converter_1/S_AXI]
       # data width converter -> protocol converter
       connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins axi_protocol_converter_1/S_AXI]
-      # protocol converter -> Clock converter
-      connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_1/M_AXI] [get_bd_intf_pins axi_clock_converter_1/S_AXI]
-      # Clock converter -> HP1
-      connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_1/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP1]
 
-      # Address assignment to HP1
-      assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP1/HP1_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_1
     ### } HP1 end
 
     ### HP2 Begin {
       # Enable HP2, connect faster clock
       set_property -dict [list CONFIG.PCW_USE_S_AXI_HP2 {1}] [get_bd_cells processing_system7_0]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP2_ACLK]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP2_ACLK]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/S_AXI_HP2_ACLK]
 
       # Create axi slice for timing
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_2
@@ -566,9 +585,12 @@ switch $TARGET {
       set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_2]
       set_property -dict [list CONFIG.PROTOCOL {AXI3} CONFIG.DATA_WIDTH {64} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_2]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_clock_converter_2/s_axi_aresetn]
-      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_2/m_axi_aresetn]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_2/s_axi_aclk]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_2/m_axi_aresetn]
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
+      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_2/m_axi_aresetn]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
 
       # Top -> axi slicer
       connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_2] [get_bd_intf_pins axi_register_slice_2/S_AXI]
@@ -576,18 +598,14 @@ switch $TARGET {
       connect_bd_intf_net [get_bd_intf_pins axi_register_slice_2/M_AXI] [get_bd_intf_pins axi_dwidth_converter_2/S_AXI]
       # data width converter -> protocol converter
       connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_2/M_AXI] [get_bd_intf_pins axi_protocol_converter_2/S_AXI]
-      # protocol converter -> Clock converter
-      connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_2/M_AXI] [get_bd_intf_pins axi_clock_converter_2/S_AXI]
-      # Clock converter -> HP2
-      connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_2/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP2]
-      # Address assignment to HP2
-      assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP2/HP2_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_2
     ### } HP2 end
 
     ### HP3 Begin {
       # Enable HP3, connect faster clock
       set_property -dict [list CONFIG.PCW_USE_S_AXI_HP3 {1}] [get_bd_cells processing_system7_0]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP3_ACLK]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins processing_system7_0/S_AXI_HP3_ACLK]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins processing_system7_0/S_AXI_HP3_ACLK]
 
       # Create axi slice for timing
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_register_slice_3
@@ -614,9 +632,12 @@ switch $TARGET {
       set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_3]
       set_property -dict [list CONFIG.PROTOCOL {AXI3} CONFIG.DATA_WIDTH {64} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_3]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_clock_converter_3/s_axi_aresetn]
-      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_3/m_axi_aresetn]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_3/s_axi_aclk]
-      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
+      ## CLOCK CROSSING HACK
+      # connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_3/m_axi_aresetn]
+      # connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK1] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
+      connect_bd_net [get_bd_pins proc_sys_reset_fclk1/peripheral_aresetn] [get_bd_pins axi_clock_converter_3/m_axi_aresetn]
+      connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
 
       # Top -> axi slicer
       connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_3] [get_bd_intf_pins axi_register_slice_3/S_AXI]
@@ -624,14 +645,29 @@ switch $TARGET {
       connect_bd_intf_net [get_bd_intf_pins axi_register_slice_3/M_AXI] [get_bd_intf_pins axi_dwidth_converter_3/S_AXI]
       # data width converter -> protocol converter
       connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_3/M_AXI] [get_bd_intf_pins axi_protocol_converter_3/S_AXI]
-      # protocol converter -> Clock converter
-      connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_3/M_AXI] [get_bd_intf_pins axi_clock_converter_3/S_AXI]
-      # Clock converter -> HP3
-      connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_3/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP3]
-      # Address assignment to HP3
-      assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP3/HP3_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_3
     ### } HP3 end
 
+    ## CLOCK CROSSING HACK
+    # # protocol converter -> Clock converter
+    # connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_0/M_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_1/M_AXI] [get_bd_intf_pins axi_clock_converter_1/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_2/M_AXI] [get_bd_intf_pins axi_clock_converter_2/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_3/M_AXI] [get_bd_intf_pins axi_clock_converter_3/S_AXI]
+    # # Clock converter -> PS
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_3/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP3]
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_1/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP1]
+    # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_2/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP2]
+
+    connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_0/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP0]
+    connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_1/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP1]
+    connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_2/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP2]
+    connect_bd_intf_net [get_bd_intf_pins axi_protocol_converter_3/M_AXI] [get_bd_intf_pins processing_system7_0/S_AXI_HP3]
+    # Address assignments
+    assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_0
+    assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP1/HP1_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_1
+    assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP2/HP2_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_2
+    assign_bd_address [get_bd_addr_segs processing_system7_0/S_AXI_HP3/HP3_DDR_LOWOCM] -target_address_space /Top_0/io_M_AXI_3
 
 
   }

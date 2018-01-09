@@ -127,6 +127,10 @@ public:
     numArgIOs = number;
   }
 
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
   virtual void setNumArgOutInstrs(uint32_t number) {
     numArgOutInstrs = number;
   }
@@ -274,7 +278,6 @@ public:
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    numArgOuts++;
     if (isIO) {
       return readReg(2+arg);
     } else {
