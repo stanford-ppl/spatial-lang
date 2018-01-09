@@ -60,6 +60,12 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
+
+  // AXI debugging loopbacks
+  val TOP_AXI = new AXI4Probe(axiLiteParams)
+  val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+  val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
+  val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 }
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
@@ -316,6 +322,11 @@ class Top(
 
       // Fringe <-> DRAM connections
       topIO.M_AXI <> fringe.io.M_AXI
+
+      topIO.TOP_AXI <> fringe.io.TOP_AXI
+      topIO.DWIDTH_AXI <> fringe.io.DWIDTH_AXI
+      topIO.PROTOCOL_AXI <> fringe.io.PROTOCOL_AXI
+      topIO.CLOCKCONVERT_AXI <> fringe.io.CLOCKCONVERT_AXI
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>

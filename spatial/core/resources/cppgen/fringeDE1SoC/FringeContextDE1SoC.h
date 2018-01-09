@@ -66,6 +66,7 @@ public:
   uint32_t numArgIOs = 0;
   uint32_t numArgIOsId = 0;
   uint32_t numArgIns = 0;
+  uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
 
   FringeContextDE1SoC(std::string path = "") : FringeContextBase(path) {
@@ -124,6 +125,14 @@ public:
   
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
+  }
+
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
@@ -269,7 +278,6 @@ public:
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    numArgOuts++;
     if (isIO) {
       return readReg(2+arg);
     } else {
