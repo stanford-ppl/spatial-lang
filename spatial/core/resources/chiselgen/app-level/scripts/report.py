@@ -53,7 +53,11 @@ if (sys.argv[7] == "Zynq"):
 		exit()
 	# sh = gc.open("Zynq Regression") # Open by name
 elif (sys.argv[7] == "ZCU"):
-	sh = gc.open("ZCU Regression") # Open by name
+	try: 
+		sh = gc.open_by_key("181pQqQXV_DsoWZyRV4Ve3y9QI6I0VIbVGS3TT0zbEv8")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 elif (sys.argv[7] == "AWS"):
 	# sh = gc.open("AWS Regression") # Open by name
 	try: 
