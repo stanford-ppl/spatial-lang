@@ -269,6 +269,7 @@ zcu-sw:
 	tar -czf $(APPNAME).tar.gz -C ${ZCU_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
 zcu-hw:
+	echo "$$(date +%s)" >> start.log
 	# Some hacks that really need to be fixed in a way better than sed
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
 	sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
@@ -283,6 +284,7 @@ zcu-hw:
 	sed -i "s/^set TARGET .*/set TARGET ZCU102/g" ${ZCU_V_DIR}/settings.tcl
 	sed -i "s/bash convert_bitstream accel.bit accel.bit.bin.*/bash convert_bitstream accel.bit accel.bit.bin ZCU102/g" ${ZCU_V_DIR}/Makefile 
 	make -C ${ZCU_V_DIR}
+	echo "$$(date +%s)" > end.log
 
 zcu-clean:
 	make -C ${ZCU_V_DIR} clean
