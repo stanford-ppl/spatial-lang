@@ -45,6 +45,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
   // DRAM interface - currently only one stream
   val dram = Vec(p.numChannels, new DRAMStream(p.dataWidth, p.v))
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 32)
 
   // Input streams
 //  val genericStreamIn = StreamIn(StreamParInfo(32,1))
@@ -70,6 +71,8 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
+
   val S_AVALON = new AvalonSlave(axiLiteParams)
   val S_STREAM = new AvalonStream(axiLiteParams)
 
@@ -193,8 +196,8 @@ class Top(
     case "verilator" | "vcs" | "xsim" | "asic" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
+      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.raddr := topIO.raddr
@@ -232,8 +235,8 @@ class Top(
     case "de1soc" =>
       // DE1SoC Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[DE1SoCInterface]
+      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AVALON <> topIO.S_AVALON

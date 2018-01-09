@@ -70,7 +70,7 @@ class FringeZynq(
   })
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, axiParams))
 
   fringeCommon.io.TOP_AXI <> io.TOP_AXI
   fringeCommon.io.DWIDTH_AXI <> io.DWIDTH_AXI
