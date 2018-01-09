@@ -531,10 +531,10 @@ class MAGCore(
   connectDbgSig(debugCounter(io.TOP_AXI.BREADY & io.TOP_AXI.BVALID).io.out, "# cycles TOP BREADY & BVALID ")
   connectDbgSig(debugFF(io.TOP_AXI.ARADDR, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARADDR")
   connectDbgSig(debugFF(io.TOP_AXI.ARLEN, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARLEN")
-  connectDbgSig(debugFF(io.TOP_AXI.ARSIZE, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP ARSIZE")
-  connectDbgSig(debugFF(io.TOP_AXI.ARID, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP ARID")
-  connectDbgSig(debugFF(io.TOP_AXI.BURST, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP BURST")
-  connectDbgSig(debugCounter(io.TOP_AXI.ARLOCK).io.out, "# cycles TOP ARLOCK ")
+  connectDbgSig(debugFF(io.TOP_AXI.ARSIZE, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARSIZE")
+  connectDbgSig(debugFF(io.TOP_AXI.ARID, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARID")
+  connectDbgSig(debugFF(io.TOP_AXI.ARBURST, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARBURST")
+  // connectDbgSig(debugCounter(io.TOP_AXI.ARLOCK).io.out, "# cycles TOP ARLOCK ")
   connectDbgSig(debugFF(io.TOP_AXI.AWADDR, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWADDR")
 
   // DWIDTH
@@ -551,10 +551,10 @@ class MAGCore(
   connectDbgSig(debugCounter(io.DWIDTH_AXI.BREADY & io.DWIDTH_AXI.BVALID).io.out, "# cycles DWIDTH BREADY & BVALID ")
   connectDbgSig(debugFF(io.DWIDTH_AXI.ARADDR, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARADDR")
   connectDbgSig(debugFF(io.DWIDTH_AXI.ARLEN, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARLEN")
-  connectDbgSig(debugFF(io.DWIDTH_AXI.ARSIZE, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH ARSIZE")
-  connectDbgSig(debugFF(io.DWIDTH_AXI.ARID, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH ARID")
-  connectDbgSig(debugFF(io.DWIDTH_AXI.BURST, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH BURST")
-  connectDbgSig(debugCounter(io.DWIDTH_AXI.ARLOCK).io.out, "# cycles DWIDTH ARLOCK ")
+  connectDbgSig(debugFF(io.DWIDTH_AXI.ARSIZE, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARSIZE")
+  // connectDbgSig(debugFF(io.DWIDTH_AXI.ARID, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARID")
+  connectDbgSig(debugFF(io.DWIDTH_AXI.ARBURST, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARBURST")
+  // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARLOCK).io.out, "# cycles DWIDTH ARLOCK ")
   connectDbgSig(debugFF(io.DWIDTH_AXI.AWADDR, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWADDR")
 
   // DWIDTH
@@ -571,10 +571,10 @@ class MAGCore(
   connectDbgSig(debugCounter(io.PROTOCOL_AXI.BREADY & io.PROTOCOL_AXI.BVALID).io.out, "# cycles PROTOCOL BREADY & BVALID ")
   connectDbgSig(debugFF(io.PROTOCOL_AXI.ARADDR, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARADDR")
   connectDbgSig(debugFF(io.PROTOCOL_AXI.ARLEN, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARLEN")
-  connectDbgSig(debugFF(io.PROTOCOL_AXI.ARSIZE, io.PROTOCOL_AXI.AWVALID & io.PROTOCOL_AXI.AWREADY).io.out, "Last PROTOCOL ARSIZE")
-  connectDbgSig(debugFF(io.PROTOCOL_AXI.ARID, io.PROTOCOL_AXI.AWVALID & io.PROTOCOL_AXI.AWREADY).io.out, "Last PROTOCOL ARID")
-  connectDbgSig(debugFF(io.PROTOCOL_AXI.BURST, io.PROTOCOL_AXI.AWVALID & io.PROTOCOL_AXI.AWREADY).io.out, "Last PROTOCOL BURST")
-  connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARLOCK).io.out, "# cycles PROTOCOL ARLOCK ")
+  connectDbgSig(debugFF(io.PROTOCOL_AXI.ARSIZE, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARSIZE")
+  // connectDbgSig(debugFF(io.PROTOCOL_AXI.ARID, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARID")
+  connectDbgSig(debugFF(io.PROTOCOL_AXI.ARBURST, io.PROTOCOL_AXI.ARVALID & io.PROTOCOL_AXI.ARREADY).io.out, "Last PROTOCOL ARBURST")
+  // connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARLOCK).io.out, "# cycles PROTOCOL ARLOCK ")
   connectDbgSig(debugFF(io.PROTOCOL_AXI.AWADDR, io.PROTOCOL_AXI.AWVALID & io.PROTOCOL_AXI.AWREADY).io.out, "Last PROTOCOL AWADDR")
 
   // Clock converter
@@ -591,10 +591,10 @@ class MAGCore(
   connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.BREADY & io.CLOCKCONVERT_AXI.BVALID).io.out, "# cycles CLOCKCONVERT BREADY & BVALID ")
   connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARADDR, io.CLOCKCONVERT_AXI.ARVALID & io.CLOCKCONVERT_AXI.ARREADY).io.out, "Last CLOCKCONVERT ARADDR")
   connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARLEN, io.CLOCKCONVERT_AXI.ARVALID & io.CLOCKCONVERT_AXI.ARREADY).io.out, "Last CLOCKCONVERT ARLEN")
-  connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARSIZE, io.CLOCKCONVERT_AXI.AWVALID & io.CLOCKCONVERT_AXI.AWREADY).io.out, "Last CLOCKCONVERT ARSIZE")
-  connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARID, io.CLOCKCONVERT_AXI.AWVALID & io.CLOCKCONVERT_AXI.AWREADY).io.out, "Last CLOCKCONVERT ARID")
-  connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.BURST, io.CLOCKCONVERT_AXI.AWVALID & io.CLOCKCONVERT_AXI.AWREADY).io.out, "Last CLOCKCONVERT BURST")
-  connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.ARLOCK).io.out, "# cycles CLOCKCONVERT ARLOCK ")
+  connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARSIZE, io.CLOCKCONVERT_AXI.ARVALID & io.CLOCKCONVERT_AXI.ARREADY).io.out, "Last CLOCKCONVERT ARSIZE")
+  // connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARID, io.CLOCKCONVERT_AXI.ARVALID & io.CLOCKCONVERT_AXI.ARREADY).io.out, "Last CLOCKCONVERT ARID")
+  connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.ARBURST, io.CLOCKCONVERT_AXI.ARVALID & io.CLOCKCONVERT_AXI.ARREADY).io.out, "Last CLOCKCONVERT ARBURST")
+  // connectDbgSig(debugCounter(io.CLOCKCONVERT_AXI.ARLOCK).io.out, "# cycles CLOCKCONVERT ARLOCK ")
   connectDbgSig(debugFF(io.CLOCKCONVERT_AXI.AWADDR, io.CLOCKCONVERT_AXI.AWVALID & io.CLOCKCONVERT_AXI.AWREADY).io.out, "Last CLOCKCONVERT AWADDR")
 
   if (isDebugChannel) {
