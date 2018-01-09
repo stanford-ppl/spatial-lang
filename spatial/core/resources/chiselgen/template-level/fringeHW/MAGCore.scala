@@ -516,15 +516,6 @@ class MAGCore(
 
   connectDbgSig(wdataCount.io.out, "num wdata transferred (wvalid & wready)")
 
-    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arsize] [get_bd_pins Top_0/io_DWIDTH_AXI_ARSIZE]
-    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arsize] [get_bd_pins axi_dwidth_converter_0/m_axi_arsize]
-    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arid] [get_bd_pins Top_0/io_DWIDTH_AXI_ARID]
-    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arid] [get_bd_pins axi_dwidth_converter_0/m_axi_arid]
-    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arburst] [get_bd_pins Top_0/io_DWIDTH_AXI_ARBURST]
-    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arburst] [get_bd_pins axi_dwidth_converter_0/m_axi_arburst]
-    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arlock] [get_bd_pins Top_0/io_DWIDTH_AXI_ARLOCK]
-    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_arlock] [get_bd_pins axi_dwidth_converter_0/m_axi_arlock]
-
   // Connect AXI loopback debuggers
   // TOP
   connectDbgSig(debugCounter(io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARVALID ")
