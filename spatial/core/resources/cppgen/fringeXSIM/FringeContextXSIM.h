@@ -385,7 +385,7 @@ public:
   void dumpDebugRegs() {
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
