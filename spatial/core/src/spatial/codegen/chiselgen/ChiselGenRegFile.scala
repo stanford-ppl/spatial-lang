@@ -161,6 +161,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       }
 
     case op@LUTNew(dims, init) =>
+      appPropertyStats += HasLUT
       val width = bitWidth(lhs.tp.typeArguments.head)
       val f = lhs.tp.typeArguments.head match {
         case a: FixPtType[_,_,_] => a.fracBits
@@ -195,6 +196,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
     case VarRegWrite(reg,v,en) => 
     case Print(x)   => 
     case Println(x) => 
+    case PrintIf(_,_) =>
     case PrintlnIf(_,_) =>
 
     case _ => super.emitNode(lhs, rhs)

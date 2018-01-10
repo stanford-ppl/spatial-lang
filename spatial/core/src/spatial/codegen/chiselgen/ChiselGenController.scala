@@ -445,6 +445,7 @@ trait ChiselGenController extends ChiselGenCounter{
                   Issue # 199           
               */
               case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
+                appPropertyStats += HasStaticCtr
                 emit(src"val ${sym}${i}_range = ${e} - ${s}")
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range / ${sym}${i}_jump")
@@ -805,6 +806,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
       emit(s"""val done_latch = Module(new SRFF())""")
       if (earlyExits.length > 0) {
+        appPropertyStats += HasBreakpoint
         emitGlobalWire(s"""val breakpoints = Wire(Vec(${earlyExits.length}, Bool()))""")
         emit(s"""done_latch.io.input.set := ${swap(lhs, Done)} | breakpoints.reduce{_|_}""")        
       } else {
@@ -993,6 +995,10 @@ trait ChiselGenController extends ChiselGenCounter{
 
     case ExitIf(en) => 
       emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
+      earlyExits = earlyExits :+ lhs
+
+    case AssertIf(en,cond,_) => 
+      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)} & $cond")
       earlyExits = earlyExits :+ lhs
 
     case BreakpointIf(en) => 
