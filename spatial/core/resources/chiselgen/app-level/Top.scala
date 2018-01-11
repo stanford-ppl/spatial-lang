@@ -64,10 +64,11 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 
 class Arria10Interface(p: TopParams) extends TopInterface {
   // To fit the sysid interface, we only want to have 7 bits for 0x0000 ~ 0x01ff
-  val axiLiteParams = new AXI4BundleParameters(7, p.dataWidth, 1) 
+  val axiLiteParams = new AXI4BundleParameters(7, p.dataWidth, 1)
   // TODO: This group of params is for memory
   val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
   val S_AVALON = new AvalonSlave(axiLiteParams) // scalars
+  val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
 }
 
 
@@ -227,12 +228,16 @@ class Top(
     case "arria10" =>
       val blockingDRAMIssue = false
       val topIO = io.asInstanceOf[Arria10Interface]
-      val fringe = Module(new FringeArria10(w, totalArgIns, totalArgOuts, 
-                                            numArgIOs, numChannels, numArgInstrs, 
-                                            totalLoadStreamInfo, totalStoreStreamInfo, 
-                                            streamInsInfo, streamOutsInfo, blockingDRAMIssue, 
+      val fringe = Module(new FringeArria10(w, totalArgIns, totalArgOuts,
+                                            numArgIOs, numChannels, numArgInstrs,
+                                            totalLoadStreamInfo, totalStoreStreamInfo,
+                                            streamInsInfo, streamOutsInfo, blockingDRAMIssue,
                                             topIO.axiLiteParams, topIO.axiParams))
+      // Fringe <-> Host Connections
       fringe.io.S_AVALON <> topIO.S_AVALON
+
+      // Fringe <-> DRAM Connections
+      topIO.M_AXI <> fringe.io.M_AXI
 
       // TODO: add memstream connections here
       if (accel.io.argIns.length > 0) {
@@ -245,6 +250,10 @@ class Top(
           fringeArgOut.valid := accelArgOut.valid
         }
       }
+
+      // memStream connections
+      fringe.io.externalEnable := false.B
+      fringe.io.memStreams <> accel.io.memStreams
 
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done

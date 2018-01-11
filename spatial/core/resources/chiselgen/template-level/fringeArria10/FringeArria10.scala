@@ -55,11 +55,11 @@ class FringeArria10 (
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
 
     // Accel memory IO
-    // val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
+    val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
     // TODO: need to add memory stream support
 
     // External enable
-    // val externalEnable = Input(Bool()) // For AWS, enable comes in as input to top module
+    val externalEnable = Input(Bool()) // For AWS, enable comes in as input to top module
 
     // Accel stream IO
 //    val genericStreams = new GenericStreams(streamInsInfo, streamOutsInfo)
@@ -94,5 +94,14 @@ class FringeArria10 (
       fringeArgOut.bits := accelArgOut.bits
       fringeArgOut.valid := accelArgOut.valid
     }
-  }    
+  }
+
+  io.memStreams <> fringeCommon.io.memStreams
+
+  // AXI bridge
+  io.M_AXI.zipWithIndex.foreach { case (maxi, i) =>
+    val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mags(i).tagWidth))
+    axiBridge.io.in <> fringeCommon.io.dram(i)
+    maxi <> axiBridge.io.M_AXI
+  }
 }
