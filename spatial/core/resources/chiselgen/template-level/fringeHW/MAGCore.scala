@@ -110,11 +110,13 @@ class MAGCore(
   var dbgCount = 0
   val signalLabels = ListBuffer[String]()
   def connectDbgSig(sig: UInt, label: String) {
-    if (isDebugChannel) {
-      io.debugSignals(dbgCount) := sig
-      val padded_label = if (label.length < 55) {label + "."*(55-label.length)} else label
-      signalLabels.append(padded_label)
-      dbgCount += 1
+    if (FringeGlobals.enableDebugRegs) {
+      if (isDebugChannel) {
+        io.debugSignals(dbgCount) := sig
+        val padded_label = if (label.length < 55) {label + "."*(55-label.length)} else label
+        signalLabels.append(padded_label)
+        dbgCount += 1
+      }
     }
   }
   def streamDir(id: Int): String = {

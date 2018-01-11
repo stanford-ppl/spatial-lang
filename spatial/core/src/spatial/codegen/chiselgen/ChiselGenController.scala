@@ -445,6 +445,7 @@ trait ChiselGenController extends ChiselGenCounter{
                   Issue # 199           
               */
               case (Exact(s), Exact(e), Exact(st), Exact(p)) => 
+                appPropertyStats += HasStaticCtr
                 emit(src"val ${sym}${i}_range = ${e} - ${s}")
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range / ${sym}${i}_jump")
@@ -805,6 +806,7 @@ trait ChiselGenController extends ChiselGenCounter{
 
       emit(s"""val done_latch = Module(new SRFF())""")
       if (earlyExits.length > 0) {
+        appPropertyStats += HasBreakpoint
         emitGlobalWire(s"""val breakpoints = Wire(Vec(${earlyExits.length}, Bool()))""")
         emit(s"""done_latch.io.input.set := ${swap(lhs, Done)} | breakpoints.reduce{_|_}""")        
       } else {
@@ -892,10 +894,12 @@ trait ChiselGenController extends ChiselGenCounter{
         }
       } else { // If outer, latch in selects in case the body mutates the condition
         selects.indices.foreach{i => 
+          disableSplit = true
           emit(src"""val ${cases(i)}_switch_sel_reg = RegInit(false.B)""")
           emit(src"""${cases(i)}_switch_sel_reg := Mux(Utils.risingEdge(${swap(lhs, En)}), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
           emitGlobalWire(src"""val ${cases(i)}_switch_select = Wire(Bool())""")
           emit(src"""${cases(i)}_switch_select := Mux(Utils.risingEdge(${swap(lhs, En)}), ${selects(i)}, ${cases(i)}_switch_sel_reg)""")
+          disableSplit = false
         }
       }
 
@@ -992,12 +996,22 @@ trait ChiselGenController extends ChiselGenCounter{
       // close("}")
 
     case ExitIf(en) => 
-      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
-      earlyExits = earlyExits :+ lhs
+      if (emitEn) {
+        emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
+        earlyExits = earlyExits :+ lhs
+      }
+
+    case AssertIf(en,cond,_) => 
+      if (emitEn) {
+        emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)} & ${quote(cond)}")
+        earlyExits = earlyExits :+ lhs
+      }
 
     case BreakpointIf(en) => 
-      emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
-      earlyExits = earlyExits :+ lhs
+      if (emitEn) {
+        emit(s"breakpoints(${earlyExits.length}) := ${quote(en)} & ${swap(quote(parentOf(lhs).get), DatapathEn)}")
+        earlyExits = earlyExits :+ lhs
+      }
 
     case _:OpForeach   => throw new Exception("Should not be emitting chisel for Op ctrl node")
     case _:OpReduce[_] => throw new Exception("Should not be emitting chisel for Op ctrl node")

@@ -39,14 +39,20 @@ object FringeGlobals {
     _target = value
   }
 
+  private var _enableDebugRegs: Boolean = true
+  def enableDebugRegs = _enableDebugRegs
+  def enableDebugRegs_= (value: Boolean): Unit = _enableDebugRegs = value
+
+  private var _channelAssignment: ChannelAssignment = ColoredRoundRobin
+  def channelAssignment = _channelAssignment
+  def channelAssignment_= (value: ChannelAssignment): Unit = _channelAssignment = value
+
   // tclScript
   private var _tclScript: PrintWriter = {
     val pw = new PrintWriter(new File("bigIP.tcl"))
     pw.flush
     pw
   }
-
-  var channelAssignment: ChannelAssignment = ColoredRoundRobin
 
   def tclScript = _tclScript
   def tclScript_= (value: PrintWriter): Unit = _tclScript = value

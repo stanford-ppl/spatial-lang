@@ -127,11 +127,11 @@ for prop in sys.argv[8].split(","):
 	# Find row
 	found = False
 	for i in range(2, len(lol)):
-		if (lol[i][4] == prop):
+		if (lol[i][0] == prop):
 			write(worksheet, i+1, col, prop)
 			found = True
 	if (found == False):
-		write(worksheet, len(lol)+1,5, prop)
+		write(worksheet, len(lol)+1,4, prop)
 		write(worksheet, len(lol),col, prop)
 
 # Page 3 - STATUS

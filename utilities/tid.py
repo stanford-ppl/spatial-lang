@@ -105,6 +105,8 @@ if (new_entry):
 			# worksheet.update_cell(id,3, t)
 			# worksheet.update_cell(id,4, freq + ' MHz')
 			# worksheet.update_cell(id,5, os.uname()[1])
+		if (worksheet.title == "Properties" and perf):
+			worksheet.update_cells('B3:DQ3', [[' ']*120]) # Clear old pass bitmask
 	sys.stdout.write(str(3))
 else:
 	# get time difference

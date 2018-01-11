@@ -39,7 +39,16 @@ trait CppGenController extends CppCodegen {
         val numInstrs = if (spatialConfig.enableInstrumentation) {2*instrumentCounters.length} else 0
         earlyExits.zipWithIndex.foreach{ case (b, i) =>
           emit(src"long ${b}_act = c1->getArg(${argIOs.length + argOuts.length + numInstrs + i}, false);")
-          emit(s"""if (${b}_act) {std::cout << "===================\\n  Breakpoint $i triggered!\\n    ${b.ctx} \\n===================" << std::endl; early_exit = true;}  """)
+          val msg = b match {
+            case Def(AssertIf(_,_,m)) => 
+              val mm = m match {
+                case Some(Const(message)) => s"${message}".replace("\"","'")
+                case _ => "No Assert Message :("
+              }
+              s"""${b.ctx} - """ + s"""${mm}"""
+            case _ => s"${b.ctx}"
+          }
+          emit(s"""if (${b}_act) {std::cout << "===================\\n  Breakpoint $i triggered!\\n    ${msg} \\n===================" << std::endl; early_exit = true;}  """)
         }
         emit("""if (!early_exit) {std::cout << "No breakpoints triggered :)" << std::endl;} """)
       }
@@ -104,10 +113,21 @@ trait CppGenController extends CppCodegen {
       controllerStack.pop()
 
     case ExitIf(en) => 
-      earlyExits = earlyExits :+ lhs
+      // Emits will only happen if outside the accel
+      emit(src"exit(1);")
+      if (!emitEn) earlyExits = earlyExits :+ lhs
+
+    case AssertIf(en, cond, m) => 
+      // Emits will only happen if outside the accel
+      val str = src"""${m.getOrElse("API assert failed with no message provided")}"""
+      emit(src"""string $lhs = string_plus("\n=================\n", string_plus($str, "\n=================\n"));""")
+      emit(src"""if ($en) { ASSERT($cond, ${lhs}.c_str()); }""")
+      if (!emitEn) earlyExits = earlyExits :+ lhs
 
     case BreakpointIf(en) => 
-      earlyExits = earlyExits :+ lhs
+      // Emits will only happen if outside the accel
+      emit(src"exit(1);")
+      if (!emitEn) earlyExits = earlyExits :+ lhs
 
     case _ => super.emitNode(lhs, rhs)
   }

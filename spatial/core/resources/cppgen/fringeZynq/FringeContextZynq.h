@@ -329,7 +329,7 @@ public:
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = numArgOuts == 0 ? 1 : numArgOuts;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
     int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
     int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
 
@@ -349,7 +349,7 @@ public:
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
     EPRINTF("argInOffset: %d\n", argInOffset);
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
