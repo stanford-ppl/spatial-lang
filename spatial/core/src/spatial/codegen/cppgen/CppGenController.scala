@@ -46,7 +46,7 @@ trait CppGenController extends CppCodegen {
                 case _ => "No Assert Message :("
               }
               s"""${b.ctx} - """ + s"""${mm}"""
-            case _ => src"${b.ctx}"
+            case _ => s"${b.ctx}"
           }
           emit(s"""if (${b}_act) {std::cout << "===================\\n  Breakpoint $i triggered!\\n    ${msg} \\n===================" << std::endl; early_exit = true;}  """)
         }

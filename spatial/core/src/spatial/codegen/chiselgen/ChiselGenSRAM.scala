@@ -58,6 +58,7 @@ object HasUnalignedStore extends AppProperties
 object HasStaticCtr extends AppProperties
 object HasVariableCtrBounds extends AppProperties
 object HasVariableCtrStride extends AppProperties
+object HasFloats extends AppProperties
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
