@@ -106,6 +106,24 @@ trait ChiselGenLineBuffer extends ChiselGenController {
 
       /*
     case op@BankedLineBufferRotateEnq(lb,row,data,ens) =>
+        emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${empty_stages_to_buffer}, ${getConstValue(stride)},
+          ${col_wPar}, ${col_rPar}, ${col_banks},
+          ${row_wPar}, ${row_rPar}, ${transient_wPar}, $accessors, $width))  // Data type: ${op.mT}""")
+        emitGlobalModule(src"${lhs}_$i.io.reset := reset")
+        linebufs = linebufs :+ (lhs.asInstanceOf[Sym[LineBufferNew[_]]], i)
+      }
+
+    case op@LineBufferRotateEnq(lb,row,data,en) =>
+      throw new Exception(src"Non-parallelized LineBufferRotateEnq not implemented yet!  It isn't hard, just ask matt to do it")
+      val dispatch = dispatchOf(lhs, lb).toList.distinct
+      if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+      val i = dispatch.head
+      val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+      emit(src"${lb}_$i.io.data_in(${row}) := ${data}.raw")
+      emit(src"${lb}_$i.io.w_en(${row}) := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${enableRetimeMatch(en, lhs)}.toInt")}")
+
+
+    case op@ParLineBufferRotateEnq(lb,row,data,ens) =>
       if (!isTransient(lhs)) {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
         val stride = lb match {case Def(LineBufferNew(_,_,Exact(s))) => s.toInt}
@@ -116,7 +134,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
           data.zipWithIndex.foreach { case (d, i) =>
             emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
           }
-          emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt, rr) & ${row} === ${r}.U(${row}.getWidth.W)""")
+          emit(src"""${lb}_$ii.io.w_en($r) := ${ens.map{en => src"$en"}.mkString("&")} & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", enableRetimeMatch(ens.head, lhs), true)} & ${row} === ${r}.U(${row}.getWidth.W)""")
         }        
       } else {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
@@ -127,7 +145,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in(${lb}_${ii}_transient_base + $i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt, rr)""")
+        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", enableRetimeMatch(ens.head, lhs), true)}""")
         emit(src"""${lb}_$ii.io.transientDone := ${swap(parent, Done)}""")
         emit(src"""${lb}_$ii.io.transientSwap := ${swap(parentOf(parent).get, Done)}""")
       }
@@ -156,7 +174,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in($i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt, rr)""")
+        emit(src"""${lb}_$ii.io.w_en(0) := ${ens.map{en => src"$en"}.mkString("&")} & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", enableRetimeMatch(ens.head, lhs), true)}""")
       } else {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
@@ -166,11 +184,30 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         data.zipWithIndex.foreach { case (d, i) =>
           emit(src"${lb}_$ii.io.data_in(${lb}_${ii}_transient_base + $i) := ${d}.raw")
         }
-        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & (${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt, rr)""")
+        emit(src"""${lb}_$ii.io.w_en(${lb}_$ii.rstride) := ${ens.map{en => src"$en"}.mkString("&")} & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", enableRetimeMatch(ens.head, lhs), true)}""")
         emit(src"""${lb}_$ii.io.transientDone := ${parent}_done""")
         emit(src"""${lb}_$ii.io.transientSwap := ${parentOf(parent).get}_done""")
       }
     */
+
+    // case op@LineBufferLoad(lb,row,col,en) => 
+    //   val dispatch = dispatchOf(lhs, lb).toList.distinct
+    //   if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+    //   val i = dispatch.head
+    //   emit(src"${lb}_$i.io.col_addr(0) := ${col}.raw")
+    //   val rowtext = row match {
+    //     case Const(cc) => s"$cc"
+    //     case _ => src"${row}.r"
+    //   }
+    //   emit(s"val ${quote(lhs)} = ${quote(lb)}_$i.readRow(${rowtext})")
+
+    // case op@LineBufferEnq(lb,data,en) =>
+    //   val dispatch = dispatchOf(lhs, lb).toList.distinct
+    //   if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
+    //   val i = dispatch.head
+    //   val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+    //   emit(src"${lb}_$i.io.data_in(0) := ${data}.raw")
+    //   emit(src"${lb}_$i.io.w_en(0) := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${enableRetimeMatch(en, lhs)}.toInt")}")
 
     case _ => super.emitNode(lhs, rhs)
   }
@@ -190,7 +227,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
       linebufs.foreach{mem =>
         val info = bufferControlInfo(mem)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
+          emit(src"""${mem}_$i.connectStageCtrl(${DL(swap(quote(inf._1), Done), 1, true)}, ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
 
 

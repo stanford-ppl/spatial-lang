@@ -151,7 +151,7 @@ if [[ $3 = 1 ]]; then
 	echo "=========================="
 	echo "Running regression on $2 branch"
 	echo "=========================="
-	bash bin/run_regression.sh
+	bash utilities/run_regression.sh
 fi
 
 # Go back to your original branch
