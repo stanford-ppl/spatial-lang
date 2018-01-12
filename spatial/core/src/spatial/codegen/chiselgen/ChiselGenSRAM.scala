@@ -577,7 +577,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""${swap(lhs, RVec)}($i).bank := ${bank(i)}""")
       }
       val p = portsOf(lhs, mem).head
-      emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+      emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
       emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
       emit(src"""${lhs}.r := ${mem}.io.output.data(${lhs}_idx)""")
   }
