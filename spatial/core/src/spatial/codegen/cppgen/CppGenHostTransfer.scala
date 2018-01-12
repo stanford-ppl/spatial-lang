@@ -30,7 +30,7 @@ trait CppGenHostTransfer extends CppGenSRAM  {
     case SetArg(reg, v) => 
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => if (f != 0) {
-            emit(src"c1->setArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, $v * ((int64_t)1 << $f), ${isHostIO(reg)}); // $reg")
+            emit(src"c1->setArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, (int64_t)($v * ((int64_t)1 << $f)), ${isHostIO(reg)}); // $reg")
             emit(src"$reg = $v;")
           } else {
             emit(src"c1->setArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, $v, ${isHostIO(reg)});")
@@ -48,8 +48,8 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       }
     case GetArg(reg)    => 
       val get_string = reg match {
-        case Def(ArgInNew(_)) => src"c1->getArgIn(${argMapping(reg)._2}, ${isHostIO(reg)})" 
-        case _ => src"c1->getArg(${argMapping(reg)._3}, ${isHostIO(reg)})"
+        case Def(ArgInNew(_)) => src"c1->getArgIn(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})" 
+        case _ => src"c1->getArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})"
       }
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => 
