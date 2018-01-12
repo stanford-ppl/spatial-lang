@@ -48,8 +48,8 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       }
     case GetArg(reg)    => 
       val get_string = reg match {
-        case Def(ArgInNew(_)) => src"c1->getArgIn(${reg.name.getOrElse(quote(reg)).toUpperCase}, ${isHostIO(reg)})" 
-        case _ => src"c1->getArg(${reg.name.getOrElse(quote(reg)).toUpperCase}, ${isHostIO(reg)})"
+        case Def(ArgInNew(_)) => src"c1->getArgIn(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})" 
+        case _ => src"c1->getArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})"
       }
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => 
