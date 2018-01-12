@@ -51,7 +51,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     val col_addr = Vec(col_rPar, Input(UInt(log2Ceil(line_size+1).W))) // From each row, read COL_PAR px starting at this col_addr
     // val row_addr = Input(UInt(1.W)) // ENHANCEMENT: Eventually will be a Vec, but for now ROW_PAR is 1 or num_lines only
     // val data_out = Vec(ROW_PAR, Vec(COL_PAR, Output(UInt(bitWidth.W)))) // TODO: Don't use Vec(Vec) since Chisel will switch inputs and outputs
-    val data_out = Vec(row_rPar *-* col_rPar, Output(UInt(bitWidth.W)))
+    val data_out = Vec(row_rPar*col_rPar, Output(UInt(bitWidth.W)))
     val swap = Output(Bool()) // for debugging
     // val row_wrap = Output(UInt(1.W))
   })
@@ -73,10 +73,10 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   (0 until numAccessors).foreach{ i => 
     sEn_latch(i).io.input.set := io.sEn(i) & ~io.sDone(i)
     sEn_latch(i).io.input.reset := swap
-    sEn_latch(i).io.input.asyn_reset := reset
+    sEn_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
     sDone_latch(i).io.input.set := io.sDone(i)
     sDone_latch(i).io.input.reset := swap
-    sDone_latch(i).io.input.asyn_reset := reset
+    sDone_latch(i).io.input.asyn_reset := Utils.getRetimed(reset, 1)
   }
   val anyEnabled = sEn_latch.map{ en => en.io.output.data }.reduce{_|_}
   swap := sEn_latch.zip(sDone_latch).map{ case (en, done) => en.io.output.data === done.io.output.data }.reduce{_&_} & anyEnabled //| io.transientSwap
@@ -144,15 +144,15 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     val wen_muxing = (Array.tabulate(rstride)){ ii =>
-      ((WRITE_countRowNum(ii).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U -> io.w_en(ii))
+      ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> io.w_en(ii))
     }
     for (j <- 0 until col_wPar) {
       // Figure out which input to draw 
       val wdata_muxing = (Array.tabulate(rstride)){ ii =>
-        ((WRITE_countRowNum(ii).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U -> io.data_in(ii * col_wPar + j))
+        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> io.data_in(ii * col_wPar + j))
       }
       val waddr_muxing = (Array.tabulate(rstride)){ ii =>
-        ((WRITE_countRowNum(ii).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
+        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
       }
       if (transientPar != 0) {
         linebuffer(i).io.w(j).addr(0) := Mux(io.w_en.last, px_transient, MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing))
@@ -193,11 +193,12 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       // when(io.r_en) {  // ENHANCEMENT: r_en to save power, i.e. make the below wire RHS of -> into a reg
       linebuffer(i).io.r(j).addr(0) := io.col_addr(j)
       linebuffer(i).io.r(j).en := true.B
+      linebuffer(i).io.flow(0) := true.B // This may possibly cause issues
       (i.U -> linebuffer(i).io.output.data(j))
       // }
     }
     for (i <- 0 until (row_rPar)) { // ENHANCEMENT: num_lines -> row par
-      io.data_out(i*-*col_rPar + j) := MuxLookup((READ_countRowNum(i).io.output.count + transient_row) %-% (num_lines+extra_rows_to_buffer).U, 0.U, linebuf_read_wires_map)
+      io.data_out(i*col_rPar + j) := MuxLookup((READ_countRowNum(i).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)), 0.U, linebuf_read_wires_map)
     }    
   }
   
@@ -211,7 +212,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
     val readableData = (0 until row_rPar * col_rPar).map { i =>
       (i.U -> io.data_out(i))
     }
-    MuxLookup(row *-* col_rPar.U + relative_col, 0.U,  readableData)
+    MuxLookup(row.*-*(col_rPar.U, None) + relative_col, 0.U,  readableData)
   }
   def readRow(row: Int): UInt = { 
     io.data_out(row)

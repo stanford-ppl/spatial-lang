@@ -20,7 +20,6 @@ class Counter(val w: Int) extends Module {
     val done   = Output(Bool())
   })
 
-//  val reg = Module(new FF(w))
   val reg = Module(new FF(w))
   val init = 0.U(w.W)
   reg.io.init := init

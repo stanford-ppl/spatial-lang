@@ -45,6 +45,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
   // DRAM interface - currently only one stream
   val dram = Vec(p.numChannels, new DRAMStream(p.dataWidth, p.v))
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 32)
 
   // Input streams
 //  val genericStreamIn = StreamIn(StreamParInfo(32,1))
@@ -60,6 +61,12 @@ class ZynqInterface(p: TopParams) extends TopInterface {
 
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
+
+  // AXI debugging loopbacks
+  val TOP_AXI = new AXI4Probe(axiLiteParams)
+  val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+  val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
+  val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 }
 
 class Arria10Interface(p: TopParams) extends TopInterface {
@@ -74,6 +81,8 @@ class Arria10Interface(p: TopParams) extends TopInterface {
 
 class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
+
   val S_AVALON = new AvalonSlave(axiLiteParams)
   val S_STREAM = new AvalonStream(axiLiteParams)
 
@@ -164,8 +173,8 @@ class Top(
 
   val addrWidth = if (target == "zcu") 40 else 32
   val v = 16
-  val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v, 0)) else List[StreamParInfo]())
-	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0)) else List[StreamParInfo]())
+  val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
+	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
 
   val numChannels = target match {
     case "zynq" | "zcu"     => 4
@@ -187,6 +196,7 @@ class Top(
     case "zcu"        => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
     case "arria10"    => IO(new Arria10Interface(topParams))
+    case "asic"       => IO(new VerilatorInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
 
@@ -194,11 +204,11 @@ class Top(
   val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
-    case "verilator" | "vcs" | "xsim" =>
+    case "verilator" | "vcs" | "xsim" | "asic" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[VerilatorInterface]
+      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.raddr := topIO.raddr
@@ -262,8 +272,8 @@ class Top(
     case "de1soc" =>
       // DE1SoC Fringe
       val blockingDRAMIssue = false
-      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
       val topIO = io.asInstanceOf[DE1SoCInterface]
+      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AVALON <> topIO.S_AVALON
@@ -352,6 +362,11 @@ class Top(
 
       // Fringe <-> DRAM connections
       topIO.M_AXI <> fringe.io.M_AXI
+
+      topIO.TOP_AXI <> fringe.io.TOP_AXI
+      topIO.DWIDTH_AXI <> fringe.io.DWIDTH_AXI
+      topIO.PROTOCOL_AXI <> fringe.io.PROTOCOL_AXI
+      topIO.CLOCKCONVERT_AXI <> fringe.io.CLOCKCONVERT_AXI
 
       accel.io.argIns := fringe.io.argIns
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>

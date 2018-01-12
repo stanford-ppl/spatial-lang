@@ -48,6 +48,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"""val $lhs = io.argIns($id)""")
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
+      appPropertyStats += HasTileLoad
+      // If cmdStream echos the cmd to a FIFO with type IssuedCmd, then this is unaligned
+      val unaligned = pushesTo(parentOf(writersOf(cmdStream).head.ctrl).get).map{pt => pt.memory match {
+        case Def(op:FIFONew[_]) => s"${op.mT}".contains("IssuedCmd") // TODO: how to properly match this?....
+        case _ => false
+      }}.reduce{_|_}
+      if (unaligned) appPropertyStats += HasUnalignedLoad
+      else appPropertyStats += HasAlignedLoad
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = readersOf(dataStream).head.node match {
@@ -56,7 +64,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)})" 
+      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)" 
       loadsList = loadsList :+ dram
 
       // TODO: Investigate this _enq business
@@ -64,10 +72,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
 
       // Connect the streams to their IO interface signals
-      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := Utils.getRetimed(b, ${symDelay(readersOf(dataStream).head.node)})}""")
+      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := ${DL("b", src"${symDelay(readersOf(dataStream).head.node)}.toInt")}}""")
       emit(src"""${swap(dataStream, NowValid)} := io.memStreams.loads($id).rdata.valid""")
-      emit(src"""${swap(dataStream, Valid)} := ${swap(dataStream, NowValid)}.D(${symDelay(readersOf(dataStream).head.node)})""")
-      emit(src"${swap(cmdStream, Ready)} := io.memStreams.loads($id).cmd.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
+      emit(src"""${swap(dataStream, Valid)} := ${DL(swap(dataStream, NowValid), src"${symDelay(readersOf(dataStream).head.node)}.toInt", true)}""")
+      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.loads($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
 
       // Connect the IO interface signals to their streams
       val (addrMSB, addrLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "offset")
@@ -75,13 +83,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
       val bug241_backoff = (math.random*7).toInt
       emit(src"io.memStreams.loads($id).rdata.ready := ${swap(dataStream, Ready)}/* & ~${turnstiling_stage}_inhibitor*/")
-      emit(src"io.memStreams.loads($id).cmd.bits.addr := Utils.getRetimed(${cmdStream}($addrMSB,$addrLSB), ${bug241_backoff})")
-      emit(src"io.memStreams.loads($id).cmd.bits.size := Utils.getRetimed(${cmdStream}($sizeMSB,$sizeLSB), ${bug241_backoff})")
-      emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)}.D(${bug241_backoff}, rr)")
-      emit(src"io.memStreams.loads($id).cmd.bits.isWr := Utils.getRetimed(~${cmdStream}($isLdMSB,$isLdLSB), ${bug241_backoff})")
+      emit(src"io.memStreams.loads($id).cmd.bits.addr := ${DL(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.loads($id).cmd.bits.size := ${DL(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.loads($id).cmd.valid :=  ${DL(swap(cmdStream, Valid), bug241_backoff, true)}")
+      emit(src"io.memStreams.loads($id).cmd.bits.isWr := ${DL(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 0.U")
 
     case FringeSparseLoad(dram,addrStream,dataStream) =>
+      appPropertyStats += HasGather
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = readersOf(dataStream).head.node match {
@@ -91,15 +100,15 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       assert(par == 1, s"Unsupported par '$par' for sparse loads! Must be 1 currently")
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)})" 
+      loadParMapping = loadParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)" 
       loadsList = loadsList :+ dram
       val turnstiling_stage = getLastChild(parentOf(lhs).get)
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
 
-      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := Utils.getRetimed(b, ${symDelay(readersOf(dataStream).head.node)})}""")
+      emit(src"""${dataStream}.zip(io.memStreams.loads($id).rdata.bits).foreach{case (a,b) => a.r := ${DL("b", src"${symDelay(readersOf(dataStream).head.node)}.toInt")}}""")
       emit(src"""${swap(dataStream, NowValid)} := io.memStreams.loads($id).rdata.valid""")
-      emit(src"""${swap(dataStream, Valid)} := ${swap(dataStream, NowValid)}.D(${symDelay(readersOf(dataStream).head.node)})""")
-      emit(src"${swap(addrStream, Ready)} := io.memStreams.loads($id).cmd.ready.D(${symDelay(writersOf(addrStream).head.node)})")
+      emit(src"""${swap(dataStream, Valid)} := ${DL(swap(dataStream, NowValid), src"${symDelay(readersOf(dataStream).head.node)}.toInt", true)}""")
+      emit(src"${swap(addrStream, Ready)} := ${DL(src"io.memStreams.loads($id).cmd.ready", src"${symDelay(writersOf(addrStream).head.node)}.toInt", true)}")
       emit(src"io.memStreams.loads($id).rdata.ready := ${swap(dataStream, Ready)}")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${addrStream}(0).r // TODO: Is sparse addr stream always a vec?")
       emit(src"io.memStreams.loads($id).cmd.bits.size := 1.U")
@@ -108,6 +117,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 1.U")
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
+      appPropertyStats += HasTileStore
+      // If cmdStream echos the cmd to a FIFO with type IssuedCmd, then this is unaligned
+      val unaligned = pushesTo(parentOf(writersOf(cmdStream).head.ctrl).get).map{pt => pt.memory match {
+        case Def(op:FIFONew[_]) => s"${op.mT}".contains("IssuedCmd") // TODO: how to properly match this?....
+        case _ => false
+      }}.reduce{_|_}
+      if (unaligned) appPropertyStats += HasUnalignedLoad
+      else appPropertyStats += HasAlignedLoad
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = writersOf(dataStream).head.node match {
@@ -116,7 +133,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)})" 
+      storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)" 
       storesList = storesList :+ dram
 
       // Connect streams to their IO interface signals
@@ -130,17 +147,18 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val bug241_backoff = (math.random*7).toInt
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := wdata($dataMSB,$dataLSB) }""")
       emit(src"""io.memStreams.stores($id).wdata.valid := ${swap(dataStream, Valid)}""")
-      emit(src"io.memStreams.stores($id).cmd.bits.addr := Utils.getRetimed(${cmdStream}($addrMSB,$addrLSB), ${bug241_backoff})")
-      emit(src"io.memStreams.stores($id).cmd.bits.size := Utils.getRetimed(${cmdStream}($sizeMSB,$sizeLSB), ${bug241_backoff})")
-      emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)}.D(${bug241_backoff}, rr)")
-      emit(src"io.memStreams.stores($id).cmd.bits.isWr := Utils.getRetimed(~${cmdStream}($isLdMSB,$isLdLSB), ${bug241_backoff})")
+      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DL(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.stores($id).cmd.bits.size := ${DL(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${DL(swap(cmdStream, Valid), bug241_backoff, true)}")
+      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DL(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
-      emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).wdata.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
+      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
-      emit(src"""${swap(ackStream, Valid)} := ${swap(ackStream, NowValid)}.D(${symDelay(readersOf(ackStream).head.node)})""")
+      emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
 
     case FringeSparseStore(dram,cmdStream,ackStream) =>
+      appPropertyStats += HasScatter
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = writersOf(cmdStream).head.node match {
@@ -150,7 +168,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       Predef.assert(par == 1, s"Unsupported par '$par', only par=1 currently supported")
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)})"
+      storeParMapping = storeParMapping :+ s"StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"
       storesList = storesList :+ dram
 
       val (addrMSB, addrLSB) = tupCoordinates(cmdStream.tp.typeArguments.head, "_2")
@@ -162,9 +180,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)}")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := 1.U")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 1.U")
-      emit(src"${swap(cmdStream, Ready)} := io.memStreams.stores($id).wdata.ready.D(${symDelay(writersOf(cmdStream).head.node)})")
+      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).wdata.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
-      emit(src"""${swap(ackStream, Valid)} := ${swap(ackStream, NowValid)}.D(${symDelay(readersOf(ackStream).head.node)})""")
+      emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
 
     case _ => super.emitNode(lhs, rhs)

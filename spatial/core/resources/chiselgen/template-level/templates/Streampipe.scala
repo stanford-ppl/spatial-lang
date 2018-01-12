@@ -4,12 +4,12 @@ package templates
 import chisel3._
 
 
-class Streampipe(override val n: Int, override val ctrDepth: Int = 1, override val isFSM: Boolean = false, override val stateWidth: Int = 32, override val retime: Int = 0, override val staticNiter: Boolean = false) extends Parallel(n) {
+class Streampipe(override val n: Int, override val ctrDepth: Int = 1, override val isFSM: Boolean = false, override val stateWidth: Int = 32, override val retime: Int = 0, override val staticNiter: Boolean = false, override val isReduce: Boolean = false) extends Parallel(n) {
 }
 
 
 // Inner pipe
-class Streaminner(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
+class Streaminner(val isFSM: Boolean = false, val ctrDepth: Int = 1, val stateWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false, val isReduce: Boolean = false) extends Module {
 
   // States
   val pipeInit = 0

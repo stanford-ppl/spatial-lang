@@ -254,10 +254,10 @@ git_things
 # Switch to revision-controlled bash script
 phase="FUNCTIONS"
 logger "Sourcing functions..."
-source ${SPATIAL_HOME}/bin/regression_functions.sh
+source ${SPATIAL_HOME}/utilities/regression_functions.sh
 if [[ $? -ne 0 ]]; then
-  logger "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
-  clean_exit 7 "${SPATIAL_HOME}/bin/regression_functions.sh is nonexistent or has error!"
+  logger "${SPATIAL_HOME}/utilities/regression_functions.sh is nonexistent or has error!"
+  clean_exit 7 "${SPATIAL_HOME}/utilities/regression_functions.sh is nonexistent or has error!"
 fi
 # if [[ ! "${type_todo}" = "${test_to_run}" ]]; then
 #   echo "Error: packet mislabeled.  Cannot run ${test_to_run} test on ${type_todo} packet!" >> $log

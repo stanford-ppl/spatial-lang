@@ -10,6 +10,7 @@ import scala.collection.mutable
 trait CppGenController extends CppCodegen {
 
   var instrumentCounters: List[(Exp[_], Int)] = List()
+  var earlyExits: List[Exp[_]] = List()
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
@@ -22,6 +23,8 @@ trait CppGenController extends CppCodegen {
       emit(s"// Register ArgIns and ArgIOs in case some are unused")
       emit(s"c1->setNumArgIns(${argIns.length} + ${drams.length} + ${argIOs.length});")
       emit(s"c1->setNumArgIOs(${argIOs.length});")
+      emit(s"c1->setNumArgOuts(${argOuts.length});")
+      emit(s"c1->setNumArgOutInstrs(2*${if (spatialConfig.enableInstrumentation) instrumentCounters.length else 0});")
       emit(s"time_t tstart = time(0);")
       val memlist = if (setMems.nonEmpty) {s""", ${setMems.mkString(",")}"""} else ""
       emit(s"c1->run();")
@@ -29,6 +32,26 @@ trait CppGenController extends CppCodegen {
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
       controllerStack.pop()
+
+      if (earlyExits.length > 0) {
+        emit("// Capture breakpoint-style exits")
+        emit("bool early_exit = false;")
+        val numInstrs = if (spatialConfig.enableInstrumentation) {2*instrumentCounters.length} else 0
+        earlyExits.zipWithIndex.foreach{ case (b, i) =>
+          emit(src"long ${b}_act = c1->getArg(${argIOs.length + argOuts.length + numInstrs + i}, false);")
+          val msg = b match {
+            case Def(AssertIf(_,_,m)) => 
+              val mm = m match {
+                case Some(Const(message)) => s"${message}".replace("\"","'")
+                case _ => "No Assert Message :("
+              }
+              s"""${b.ctx} - """ + s"""${mm}"""
+            case _ => s"${b.ctx}"
+          }
+          emit(s"""if (${b}_act) {std::cout << "===================\\n  Breakpoint $i triggered!\\n    ${msg} \\n===================" << std::endl; early_exit = true;}  """)
+        }
+        emit("""if (!early_exit) {std::cout << "No breakpoints triggered :)" << std::endl;} """)
+      }
 
       if (spatialConfig.enableInstrumentation) {
         emit(src"""std::ofstream instrumentation ("./instrumentation.txt");""")
@@ -88,6 +111,23 @@ trait CppGenController extends CppCodegen {
       visitBlock(action)
       visitBlock(nextState)
       controllerStack.pop()
+
+    case ExitIf(en) => 
+      // Emits will only happen if outside the accel
+      emit(src"exit(1);")
+      if (!emitEn) earlyExits = earlyExits :+ lhs
+
+    case AssertIf(en, cond, m) => 
+      // Emits will only happen if outside the accel
+      val str = src"""${m.getOrElse("API assert failed with no message provided")}"""
+      emit(src"""string $lhs = string_plus("\n=================\n", string_plus($str, "\n=================\n"));""")
+      emit(src"""if ($en) { ASSERT($cond, ${lhs}.c_str()); }""")
+      if (!emitEn) earlyExits = earlyExits :+ lhs
+
+    case BreakpointIf(en) => 
+      // Emits will only happen if outside the accel
+      emit(src"exit(1);")
+      if (!emitEn) earlyExits = earlyExits :+ lhs
 
     case _ => super.emitNode(lhs, rhs)
   }

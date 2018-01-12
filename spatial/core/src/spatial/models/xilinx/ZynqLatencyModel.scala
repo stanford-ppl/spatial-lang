@@ -36,7 +36,7 @@ class ZynqLatencyModel extends LatencyModel {
     (parSpeedup*base).toLong
   }
 
-  @stateful override protected def latencyOfNode(s: Exp[_], d: Def): Long = d match {
+  @stateful override protected def latencyOfNode(s: Exp[_], d: Def): Double = d match {
     case op: DenseTransfer[_,_] if op.isStore =>
       val c = contentionOf(s)
       val p = boundOf(op.p).toInt

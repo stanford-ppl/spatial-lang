@@ -221,7 +221,7 @@ git push
 logger "Removing packet ${packet} so those waiting are clear to launch"
 rm $packet
 
-sleep 1000
+sleep 2000
 stubborn_delete ${dirname}
 mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
@@ -384,10 +384,31 @@ fi
 echo -e "\n\n***\n\n" >> $wiki_file
 
 # Link to logs
-pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
-# echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
-echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
-# echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
+
+if [[ $branch = "fpga" ]]; then
+  gspread_hash='1CMeHtxCU4D2u12m5UzGyKfB3WGlZy_Ycw_hBEi59XH8'
+elif [[ $branch = "develop" ]]; then
+  gspread_hash='13GW9IDtg0EFLYEERnAVMq4cGM7EKg2NXF4VsQrUp0iw'
+elif [[ $branch = "retime" ]]; then
+  gspread_hash='1glAFF586AuSqDxemwGD208yajf9WBqQUTrwctgsW--A'
+elif [[ $branch = "syncMem" ]]; then
+  gspread_hash='1TTzOAntqxLJFqmhLfvodlepXSwE4tgte1nd93NDpNC8'
+elif [[ $branch = "pre-master" ]]; then
+  gspread_hash='18lj4_mBza_908JU0K2II8d6jPhV57KktGaI27h_R1-s'
+elif [[ $branch = "master" ]]; then
+  gspread_hash='1eAVNnz2170dgAiSywvYeeip6c4Yw6MrPTXxYkJYbHWo'
+else
+  gspread_hash='NA'
+fi
+
+if [[ $gspread_hash != "NA" ]]; then
+  gspread_link="https://docs.google.com/spreadsheets/d/${gspread_hash}"
+  echo -e "\n## [Performance Results](${gspread_link}) \n" >> $wiki_file
+fi
+# pretty_name=Pretty_Hist_Branch_${branch}_Backend_${type_todo}.csv
+# # echo -e "\n## [History log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial/${branch}_Regression_Test_History.csv) \n" >> $wiki_file
+# echo -e "\n## [Pretty History Log](https://raw.githubusercontent.com/wiki/stanford-ppl/spatial-lang/${pretty_name}) \n" >> $wiki_file
+# # echo -e "\n## [Performance Results](https://www.dropbox.com/s/a91ra3wvdyr3x5b/Performance_Results.xlsx?dl=0) \n" >> $wiki_file
 
 stamp_app_comments
 stamp_commit_msgs
@@ -514,7 +535,19 @@ push_travis_ci() {
 launch_tests_sbt() {
   cd ${SPATIAL_HOME}
   if [[ $type_todo = "chisel" ]]; then
+    cd apps
+    ah=`git rev-parse HEAD`
+    cd ${SPATIAL_HOME}
     captype="Chisel"
+    export CLOCK_FREQ_MHZ="NA"
+    export timestamp=`git show -s --format=%ci`
+    # Update perf spreadsheet
+    # echo "python3 ${SPATIAL_HOME}/utilities/tid.py \"$spatial_hash\" \"$ah\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
+    # python3 ${SPATIAL_HOME}/utilities/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
+    tid=`python3 ${SPATIAL_HOME}/utilities/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch"`
+    echo $tid > ${SPATIAL_HOME}/tid
+    echo ${spatial_hash} > ${SPATIAL_HOME}/hash
+    echo $ah > ${SPATIAL_HOME}/ahash
   else
     captype="Scala"
   fi

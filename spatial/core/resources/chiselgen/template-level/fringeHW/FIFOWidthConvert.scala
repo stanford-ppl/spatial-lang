@@ -3,6 +3,22 @@ package fringe
 import chisel3._
 import chisel3.util._
 
+class FIFOWidthConvertIO(val win: Int, val vin: Int, val wout: Int, val vout: Int) extends Bundle {
+  val enq = Input(Vec(vin, Bits(win.W)))
+  val enqVld = Input(Bool())
+  val deq = Output(Vec(vout, Bits(wout.W)))
+  val deqVld = Input(Bool())
+  val full = Output(Bool())
+  val empty = Output(Bool())
+  val almostEmpty = Output(Bool())
+  val almostFull = Output(Bool())
+  val fifoSize = Output(UInt(32.W))
+
+  override def cloneType(): this.type = {
+    new FIFOWidthConvertIO(win, vin, wout, vout).asInstanceOf[this.type]
+  }
+}
+
 /**
  * WidthConverterFIFO: Convert a stream of width w1 bits to
  * a stream of width w2 bits
@@ -12,18 +28,8 @@ import chisel3.util._
  * @param vout: Out vector length
  * @param d: FIFO depth
  */
-class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: Int, val d: Int) extends Module {
-  val io = IO(new Bundle {
-    val enq = Input(Vec(vin, Bits(win.W)))
-    val enqVld = Input(Bool())
-    val deq = Output(Vec(vout, Bits(wout.W)))
-    val deqVld = Input(Bool())
-    val full = Output(Bool())
-    val empty = Output(Bool())
-    val almostEmpty = Output(Bool())
-    val almostFull = Output(Bool())
-    val fifoSize = Output(UInt(32.W))
-  })
+class FIFOWidthConvert(val win: Int, val vin: Int, val wout: Int, val vout: Int, val d: Int) extends Module {
+  val io = IO(new FIFOWidthConvertIO(win, vin, wout, vout))
 
   def convertVec(inVec: Vec[UInt], outw: Int, outv: Int) = {
     // 1. Cat everything
@@ -47,7 +53,7 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
   if ((inWidth < outWidth) || (inWidth == outWidth && wout < win)) {
     Predef.assert(outWidth % inWidth == 0, s"ERROR: Width conversion attempted between widths that are not multiples (in: $inWidth, out: $outWidth)")
     val v = outWidth / inWidth
-    val fifo = Module(new FIFOCore(inWidth, d, v))
+    val fifo = Module(new FIFOCore(UInt(inWidth.W), d, v))
     val fifoConfig = Wire(new FIFOOpcode(d, v))
     fifoConfig.chainWrite := 1.U
     fifoConfig.chainRead := 0.U
@@ -64,7 +70,7 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
   } else if ((inWidth > outWidth) || (inWidth == outWidth && wout > win)) {
     Predef.assert(inWidth % outWidth == 0, s"ERROR: Width conversion attempted between widths that are not multiples (in: $inWidth, out: $outWidth)")
     val v = inWidth / outWidth
-    val fifo = Module(new FIFOCore(outWidth, d, v))
+    val fifo = Module(new FIFOCore(UInt(outWidth.W), d, v))
     val fifoConfig = Wire(new FIFOOpcode(d, v))
     fifoConfig.chainWrite := 0.U
     fifoConfig.chainRead := 1.U
@@ -82,26 +88,8 @@ class WidthConverterFIFO(val win: Int, val vin: Int, val wout: Int, val vout: In
     io.deq := convertVec(Vec(fifo.io.deq(0)), wout, vout)
     fifo.io.deqVld := io.deqVld
   } else {
-//    val fifo = Module(new FIFOCore(win * vin, d, 1))
-//    val fifoConfig = Wire(new FIFOOpcode(d, 1))
-//    fifoConfig.chainWrite := 0.U
-//    fifoConfig.chainRead := 0.U
-//    fifo.io.config := fifoConfig
-//    io.full := fifo.io.full
-//    io.empty := fifo.io.empty
-//    io.almostEmpty := fifo.io.almostEmpty
-//    io.almostFull := fifo.io.almostFull
-//    io.fifoSize := fifo.io.fifoSize
-//
-//    fifo.io.enq(0) := io.enq.reverse.reduce { Cat(_,_) }
-//    fifo.io.enqVld := io.enqVld
-//
-//    io.deq := Vec(List.tabulate(vout) { i =>
-//      fifo.io.deq(0)(i*wout+vout-1, i*wout)
-//    })
-//    fifo.io.deqVld := io.deqVld
 
-   val fifo = Module(new FIFOCore(win, d, vin))
+   val fifo = Module(new FIFOCore(UInt(win.W), d, vin))
     val fifoConfig = Wire(new FIFOOpcode(d, vin))
     fifoConfig.chainWrite := 0.U
     fifoConfig.chainRead := 0.U

@@ -31,6 +31,9 @@ help:
 	@echo "make zcu-hw      : Build Chisel for Zynq Ultrascale"
 	@echo "make zcu-hw      : Build software for Zynq Ultrascale"
 	@echo "make vcs         : VCS SW + HW build"
+	@echo "make asic        : ASIC SW + HW build"
+	@echo "make asic-hw     : ASIC HW build"
+	@echo "make asic-sw     : ASIC SW build"
 	@echo "make vcs-hw      : Build Chisel for VCS"
 	@echo "make xsim        : XSIM SW + HW build"
 	@echo "make xsim-hw     : Build Chisel for XSIM"
@@ -56,8 +59,8 @@ sim-hw:
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	cp chisel/template-level/fringeVCS/SRAMVerilogSim.v . || :
-	sbt "run-main top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
-	cp verilator.mk ${VERILATOR_SRC}/Makefile
+	sbt "runMain top.Instantiator --backend-name verilator --target-dir ${VERILATOR_SRC} --testArgs"
+	cp scripts/verilator.mk ${VERILATOR_SRC}/Makefile
 	mv ${VERILATOR_SRC}/top* ${VERILATOR_SRC}/verilator_srcs_tmp
 	mkdir ${VERILATOR_SRC}/verilator_srcs
 	mv ${VERILATOR_SRC}/verilator_srcs_tmp/VTop* ${VERILATOR_SRC}/verilator_srcs
@@ -100,7 +103,7 @@ aws-sim-hw:
 	# ----------------------------------------------------------------------------
 	rm -rf ${AWS_V_SIM_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws-sim"
+	sbt "runMain top.Instantiator --verilog --testArgs aws-sim"
 	cat chisel/template-level/fringeVCS/SRAMVerilogSim.v >> ${AWS_V_SIM_DIR}/Top.v
 	cat chisel/template-level/fringeVCS/RetimeShiftRegister.sv >> ${AWS_V_SIM_DIR}/Top.v
 	# Make a copy of the template directory
@@ -136,7 +139,7 @@ aws-F1-hw:
 	# ----------------------------------------------------------------------------
 	rm -rf ${AWS_V_DIR}
 	# First use chisel to create the verilog
-	sbt "run-main top.Instantiator --verilog --testArgs aws"
+	sbt "runMain top.Instantiator --verilog --testArgs aws"
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${AWS_V_DIR}/Top.v
 	cat chisel/template-level/fringeAWS/RetimeShiftRegister.sv >> ${AWS_V_DIR}/Top.v
 	mv ${BIGIP_SCRIPT} ${AWS_V_DIR}/
@@ -236,14 +239,14 @@ aws-F1-sw:
 zynq: zynq-hw zynq-sw
 
 zynq-sw:
-	cp zynq.mk cpp/Makefile
+	cp scripts/zynq.mk cpp/Makefile
 	make -C cpp -j8
 	tar -czf $(APPNAME).tar.gz -C ${ZYNQ_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
 zynq-hw:
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
 	echo "$$(date +%s)" > start.log
-	sbt "run-main top.Instantiator --verilog --testArgs zynq"
+	sbt "runMain top.Instantiator --verilog --testArgs zynq"
 	mv ${BIGIP_SCRIPT} ${ZYNQ_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZYNQ_V_DIR}/Top.v
 	cp chisel/template-level/fringeZynq/build/* ${ZYNQ_V_DIR}
@@ -284,17 +287,18 @@ arria10-sw-clean:
 zcu: zcu-hw zcu-sw
 
 zcu-sw:
-	cp zcu.mk cpp/Makefile
+	cp scripts/zcu.mk cpp/Makefile
 	make -C cpp -j8
 	tar -czf $(APPNAME).tar.gz -C ${ZCU_V_DIR} accel.bit.bin parClockFreq.sh -C ../cpp Top -C fringeZynq/utils set_perms setClocks.sh run.sh
 
 zcu-hw:
+	echo "$$(date +%s)" >> start.log
 	# Some hacks that really need to be fixed in a way better than sed
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
 	sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
 	sed -i "s/EPRINTF(/fprintf(stderr,/g" cpp/fringeZynq/FringeContextZynq.h # Not sure why eprintf randomly crashes zcu
 
-	sbt "run-main top.Instantiator --verilog --testArgs zcu"
+	sbt "runMain top.Instantiator --verilog --testArgs zcu"
 	mv ${BIGIP_SCRIPT} ${ZCU_V_DIR}/
 	cat chisel/template-level/fringeAWS/SRAMVerilogAWS.v >> ${ZCU_V_DIR}/Top.v
 	cp chisel/template-level/fringeZynq/build/* ${ZCU_V_DIR}
@@ -303,6 +307,7 @@ zcu-hw:
 	sed -i "s/^set TARGET .*/set TARGET ZCU102/g" ${ZCU_V_DIR}/settings.tcl
 	sed -i "s/bash convert_bitstream accel.bit accel.bit.bin.*/bash convert_bitstream accel.bit accel.bit.bin ZCU102/g" ${ZCU_V_DIR}/Makefile
 	make -C ${ZCU_V_DIR}
+	echo "$$(date +%s)" > end.log
 
 zcu-clean:
 	make -C ${ZCU_V_DIR} clean
@@ -313,8 +318,8 @@ zcu-clean:
 
 de1soc: de1soc-hw de1soc-sw
 
-de1soc-sw:
-	cp de1soc.mk cpp/Makefile
+de1soc-sw: 
+	cp scripts/de1soc.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/DE1SoC.h cpp/fringeDE1SoC/
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
@@ -329,7 +334,7 @@ de1soc-sw:
 	cp sp.rbf ./prog/verilog/accel.bit.bin
 
 de1soc-hw:
-	sbt "run-main top.Instantiator --verilog --testArgs de1soc"
+	sbt "runMain top.Instantiator --verilog --testArgs de1soc"
 	sed -i 's/SRFF/SRFF_sp/g' verilog-de1soc/Top.v
 	cp -r chisel/template-level/fringeDE1SoC/simulation verilog-de1soc/
 	cp -r chisel/template-level/fringeDE1SoC/* verilog-de1soc/
@@ -347,7 +352,7 @@ vcs: vcs-hw vcs-sw
 	tar -czf TopVCS.tar.gz -C verilog-vcs accel.bit.bin -C ../cpp Top
 
 vcs-sw:
-	cp vcs.mk cpp/Makefile
+	cp scripts/vcs.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
@@ -356,7 +361,7 @@ vcs-sw:
 
 vcs-hw:
 	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
-	sbt "run-main top.Instantiator --verilog --testArgs vcs"
+	sbt "runMain top.Instantiator --verilog --testArgs vcs"
 	cp -r chisel/template-level/fringeVCS/* verilog-vcs
 	touch in.txt
 	make -C verilog-vcs
@@ -369,11 +374,33 @@ vcs-clean:
 	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
 	rm -rf target
 
+asic: asic-hw asic-sw
+	tar -czf TopVCS.tar.gz -C verilog-asic accel.bit.bin -C ../cpp Top
+
+asic-sw: vcs-sw
+
+asic-hw:
+	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
+	sbt "runMain top.Instantiator --verilog --testArgs asic"
+	cp -r chisel/template-level/fringeVCS/* verilog-asic
+	cp -r chisel/template-level/fringeASIC/build/* verilog-asic
+	touch in.txt
+	make -C verilog-asic
+	ln -sf verilog-asic verilog
+
+asic-clean:
+	make -C verilog-asic clean
+	make -C cpp clean
+	rm -rf verilog-asic
+	rm -f verilog TopVCS.tar.gz Top *.log *.vcd ucli.key ${BIGIP_SCRIPT}
+	rm -rf target
+
+
 xsim: xsim-hw xsim-sw
 	tar -czf TopXSIM.tar.gz -C verilog-xsim accel.bit.bin -C ../cpp Top
 
 xsim-sw:
-	cp xsim.mk cpp/Makefile
+	cp scripts/xsim.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
@@ -381,7 +408,7 @@ xsim-sw:
 	ln -sf cpp/Top .
 
 xsim-hw:
-	sbt "run-main top.Instantiator --verilog --testArgs xsim"
+	sbt "runMain top.Instantiator --verilog --testArgs xsim"
 	cp -r chisel/template-level/fringeXSIM/* verilog-xsim
 	touch in.txt
 	make -C verilog-xsim
@@ -397,3 +424,5 @@ xsim-clean:
 sim-clean:
 	make -C ${VERILATOR_SRC} clean
 	rm -f Top *.vcd
+
+null: # Null target for regression testing purposes

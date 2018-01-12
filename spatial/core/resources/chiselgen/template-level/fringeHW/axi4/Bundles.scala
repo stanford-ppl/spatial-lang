@@ -160,6 +160,63 @@ class AXI4Lite(params: AXI4BundleParameters) extends AXI4BundleBase(params)
   val BREADY  = Output(Bool())
 }
 
+// AXI Bus Prober
+class AXI4Probe(params: AXI4BundleParameters) extends AXI4BundleBase(params)
+{  
+  // aw
+  val AWID     = Input(UInt((params.idBits).W))
+  val AWUSER   = Input(UInt((params.addrBits).W))
+  val AWADDR   = Input(UInt((params.addrBits).W))
+  val AWLEN    = Input(UInt((params.lenBits).W))  // number of beats - 1
+  val AWSIZE   = Input(UInt((params.sizeBits).W)) // bytes in beat = 2^size
+  val AWBURST  = Input(UInt((params.burstBits).W))
+  val AWLOCK   = Input(UInt((params.lockBits).W))
+  val AWCACHE  = Input(UInt((params.cacheBits).W))
+  val AWPROT   = Input(UInt((params.protBits).W))
+  val AWQOS    = Input(UInt((params.qosBits).W))  // 0=no QoS, bigger = higher priority
+  val AWVALID  = Input(Bool())
+  val AWREADY  = Input(Bool())
+
+  // ar
+  val ARID     = Input(UInt((params.idBits).W))
+  val ARUSER   = Input(UInt((params.addrBits).W))
+  val ARADDR   = Input(UInt((params.addrBits).W))
+  val ARLEN    = Input(UInt((params.lenBits).W))  // number of beats - 1
+  val ARSIZE   = Input(UInt((params.sizeBits).W)) // bytes in beat = 2^size
+  val ARBURST  = Input(UInt((params.burstBits).W))
+  val ARLOCK   = Input(UInt((params.lockBits).W))
+  val ARCACHE  = Input(UInt((params.cacheBits).W))
+  val ARPROT   = Input(UInt((params.protBits).W))
+  val ARQOS    = Input(UInt((params.qosBits).W))  // 0=no QoS, bigger = higher priority
+  val ARVALID  = Input(Bool())
+  val ARREADY  = Input(Bool())
+
+
+  // w
+  val WDATA = Input(UInt((params.dataBits).W))
+  val WSTRB = Input(UInt((params.dataBits/8).W))
+  val WLAST = Input(Bool())
+  val WVALID  = Input(Bool())
+  val WREADY  = Input(Bool())
+
+  // r: Input
+  val RID   = Input(UInt((params.idBits).W))
+  val RUSER = Input(UInt((params.addrBits).W))
+  val RDATA = Input(UInt((params.dataBits).W))
+  val RRESP = Input(UInt((params.respBits).W))
+  val RLAST = Input(Bool())
+  val RVALID  = Input(Bool())
+  val RREADY  = Input(Bool())
+
+  // b: Input
+  val BID   = Input(UInt((params.idBits).W))
+  val BUSER = Input(UInt((params.addrBits).W))
+  val BRESP = Input(UInt((params.respBits).W))
+  val BVALID  = Input(Bool())
+  val BREADY  = Input(Bool())
+}
+
+
 // Avalon Slave interface
 class AvalonSlave(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
