@@ -349,31 +349,32 @@ trait ChiselGenController extends ChiselGenCounter{
       // Add 1 to latency of fifo checks because SM takes one cycle to get into the done state
       val lat = bodyLatency.sum(c)
       val readiers = listensTo(c).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
-          pt.access match {
-            case Def(FIFODeq(_,en)) => src"(${DL(src"~$fifo.io.empty", lat+1, true)} | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFODeq(_,ens)) => src"""(${DL(src"~$fifo.io.empty", lat+1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
-          }
-        case fifo @ Def(FILONew(size)) => src"${DL(src"~$fifo.io.empty", lat + 1, true)}"
-        case fifo @ Def(StreamInNew(bus)) => bus match {
-          case SliderSwitch => ""
-          case _ => src"${swap(fifo, Valid)}"
-        }
+        // case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+        //   pt.access match {
+        //     case Def(FIFODeq(_,en)) => src"(${DL(src"~$fifo.io.empty", lat+1, true)} | ~${remappedEns(pt.access,List(en))})"
+        //     case Def(ParFIFODeq(_,ens)) => src"""(${DL(src"~$fifo.io.empty", lat+1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
+        //   }
+        // case fifo @ Def(FILONew(size)) => src"${DL(src"~$fifo.io.empty", lat + 1, true)}"
+        // case fifo @ Def(StreamInNew(bus)) => bus match {
+        //   case SliderSwitch => ""
+        //   case _ => src"${swap(fifo, Valid)}"
+        // }
         case fifo => src"${fifo}_en" // parent node
       }}.filter(_ != "").mkString(" & ")
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
-        case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
-          pt.access match {
-            case Def(FIFOEnq(_,_,en)) => src"(${DL(src"~$fifo.io.full", lat + 1, true)} | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFOEnq(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", lat + 1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
-          }
-        case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
-          pt.access match {
-            case Def(FILOPush(_,_,en)) => src"(${DL(src"~$fifo.io.full", lat + 1, true)} | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFILOPush(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", lat + 1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
-          }
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo,Ready)}"
-        case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
+        // case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+        //   pt.access match {
+        //     case Def(FIFOEnq(_,_,en)) => src"(${DL(src"~$fifo.io.full", lat + 1, true)} | ~${remappedEns(pt.access,List(en))})"
+        //     case Def(ParFIFOEnq(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", lat + 1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
+        //   }
+        // case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
+        //   pt.access match {
+        //     case Def(FILOPush(_,_,en)) => src"(${DL(src"~$fifo.io.full", lat + 1, true)} | ~${remappedEns(pt.access,List(en))})"
+        //     case Def(ParFILOPush(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", lat + 1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
+        //   }
+        // case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo,Ready)}"
+        // case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
+        case _ => "todo"
       }}.filter(_ != "").mkString(" & ")
 
       val hasHolders = if (holders != "") "&" else ""

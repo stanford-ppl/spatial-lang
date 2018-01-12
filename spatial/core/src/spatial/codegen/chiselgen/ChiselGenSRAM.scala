@@ -565,154 +565,192 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.quote(e)
   } 
 
-  def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
-    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
-    indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + ofs.map{o => src" + $o"}.getOrElse("")
+  def emitBankedLoad(lhs: Exp[_], mem: Exp[_], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
+      val rPar = ens.length
+      val width = bitWidth(mem.tp.typeArguments.head)
+      val parent = parentOf(lhs).get //readersOf(mem).find{_.node == lhs}.get.ctrlNode
+      val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+      emit(s"""// Assemble multidimR vector""")
+      ofs.zipWithIndex.foreach{case (o,i) => 
+        emit(src"""${swap(lhs, RVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
+        emit(src"""${swap(lhs, RVec)}($i).ofs := $o""")
+        emit(src"""${swap(lhs, RVec)}($i).bank := ${bank(i)}""")
+      }
+      val p = portsOf(lhs, mem).head
+      emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+      emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+      emit(src"""${lhs}.r := ${mem}.io.output.data(${lhs}_idx)""")
   }
 
+  def emitBankedStore[T:Type](lhs: Exp[_], mem: Exp[_], data: Seq[Exp[T]], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
+  }
+
+  def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
+    val inst = instanceOf(mem)
+    val dims = constDimsOf(mem)
+    implicit val ctx: SrcCtx = mem.ctx
+
+    val templateName = mem match {
+      case Def(op: SRAMNew[_,_]) => "SRAM"
+    }
+    // val data = init match {
+    //   case Some(elems) =>
+    //     // val nBanks = inst.nBanks.product
+    //     // val bankDepth = Math.ceil(dims.product.toDouble / nBanks).toInt
+    //     // src"""Array[Array[$tp]](${banks.mkString("\n")})"""
+    //   case None =>
+    //     // val banks = inst.totalBanks
+    //     // val bankDepth = Math.ceil(dims.product.toDouble / banks).toInt
+    //     // src"""Array.fill($banks){ Array.fill($bankDepth)(${invalid(tp)}) }"""
+    // }
+
+    val dimensions = dims.map(_.toString).mkString("List(", ",", ")")
+    val numBanks = inst.nBanks.map(_.toString).mkString("List(", ",", ")")
+    val strides = numBanks // TODO: What to do with strides
+    val wPar = writersOf(mem).map {w => w.node match { case Def(BankedSRAMStore(_,_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
+    val rPar = writersOf(mem).map {r => r.node match { case Def(BankedSRAMLoad(_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
+    val bankingMode = "BankedMemory" // TODO: Find correct one
+    val wPort = writersOf(mem).map {w => portsOf(w,mem).toList.head}
+
+    emitGlobalModule(src"""val $mem = Module(new $templateName($dimensions, ${bitWidth(tp)}, $numBanks, $strides, $wPar, $rPar, $bankingMode, ${spatialConfig.enableSyncMem}))""")
+  }
+
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    /*case op@SRAMNew(_) =>
-      val dimensions = constDimsOf(lhs)
-      val mem = instanceOf(lhs)
-      val nBanks = mem.nBanks
-      val depth = mem.depth
-      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
-        val rParZip = readersOf(lhs)
-          .filter{read => dispatchOf(read, lhs) contains i}
-          .map { r => 
-            val par = r.node match {
-              case Def(_: SRAMLoad[_]) => 1
-              case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
-            }
-            val port = portsOf(r, lhs, i).toList.head
-            (par, port)
-          }
-        val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
-        val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
-        val wParZip = writersOf(lhs)
-          .filter{write => dispatchOf(write, lhs) contains i}
-          .filter{w => portsOf(w, lhs, i).toList.length == 1}
-          .map { w => 
-            val par = w.node match {
-              case Def(_: SRAMStore[_]) => 1
-              case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-                case Op(ListVector(elems)) => elems.length // Was this deprecated?
-                case _ => ens.length
-              }
-            }
-            val port = portsOf(w, lhs, i).toList.head
-            (par, port)
-          }
-        val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
-        val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
-        val broadcasts = writersOf(lhs)
-          .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
-          w.node match {
-            case Def(_: SRAMStore[_]) => 1
-            case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-              case Op(ListVector(elems)) => elems.length // Was this deprecated?
-              case _ => ens.length
-            }
-          }
-        }
-        val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
-        val width = bitWidth(lhs.tp.typeArguments.head)
+    case op: SRAMNew[_,_] => emitBankedInitMem(lhs, initialDataOf.get(lhs))(mtyp(op.mT))
 
-        mem match {
-          case BankedMemory(dims, depth, isAccum) =>
-            val strides = src"""List(${dims.map(_.banks)})"""
-            if (depth == 1) {
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
-    List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            } else {
-              appPropertyStats += HasNBufSRAM
-              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
-    List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            }
-          case DiagonalMemory(strides, banks, depth, isAccum) =>
-            if (depth == 1) {
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
-    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            } else {
-              appPropertyStats += HasNBufSRAM
-              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
-    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            }
-          }
-        }
+//     case op@SRAMNew(_) =>
+//       val dimensions = constDimsOf(lhs)
+//       val mem = instanceOf(lhs)
+//       mem match {
+//         case ModBanking
+//       }
+//       val rParZip = readersOf(lhs)
+//         .filter{read => dispatchOf(read, lhs) contains i}
+//         .map { r => 
+//           val par = r.node match {
+//             case Def(_: SRAMLoad[_]) => 1
+//             case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
+//           }
+//           val port = portsOf(r, lhs, i).toList.head
+//           (par, port)
+//         }
+//       val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
+//       val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
+//       val wParZip = writersOf(lhs)
+//         .filter{write => dispatchOf(write, lhs) contains i}
+//         .filter{w => portsOf(w, lhs, i).toList.length == 1}
+//         .map { w => 
+//           val par = w.node match {
+//             case Def(_: SRAMStore[_]) => 1
+//             case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+//               case Op(ListVector(elems)) => elems.length // Was this deprecated?
+//               case _ => ens.length
+//             }
+//           }
+//           val port = portsOf(w, lhs, i).toList.head
+//           (par, port)
+//         }
+//       val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
+//       val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
+//       val broadcasts = writersOf(lhs)
+//         .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
+//         w.node match {
+//           case Def(_: SRAMStore[_]) => 1
+//           case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+//             case Op(ListVector(elems)) => elems.length // Was this deprecated?
+//             case _ => ens.length
+//           }
+//         }
+//       }
+//       val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
+//       val width = bitWidth(lhs.tp.typeArguments.head)
+
+//       mem match {
+//         case BankedMemory(dims, depth, isAccum) =>
+//           val strides = src"""List(${dims.map(_.banks)})"""
+//           if (depth == 1) {
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+//   List(${dims.map(_.banks)}), $strides,
+//   List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           } else {
+//             appPropertyStats += HasNBufSRAM
+//             nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+//             val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+//   List(${dims.map(_.banks)}), $strides,
+//   List($wPar), List($rPar), 
+//   List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           }
+//         case DiagonalMemory(strides, banks, depth, isAccum) =>
+//           if (depth == 1) {
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+//   List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+//   List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           } else {
+//             appPropertyStats += HasNBufSRAM
+//             nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+//             val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+//   List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+//   List($wPar), List($rPar), 
+//   List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           }
+//         }
     
-    case SRAMLoad(sram, dims, is, ofs, en) =>
-      val dispatch = dispatchOf(lhs, sram)
-      val rPar = 1 // Because this is SRAMLoad node    
-      val width = bitWidth(sram.tp.typeArguments.head)
+//     case SRAMLoad(sram, dims, is, ofs, en) =>
+//       val dispatch = dispatchOf(lhs, sram)
+//       val rPar = 1 // Because this is SRAMLoad node    
+//       val width = bitWidth(sram.tp.typeArguments.head)
+//       emit(s"""// Assemble multidimR vector""")
+//       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
+//         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
+//         val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+//         emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
+//         emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${enableRetimeMatch(en, lhs)}.toInt) & $en""")
+//         is.zipWithIndex.foreach{ case(ind,j) => 
+//           emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
+//         }
+//         val p = portsOf(lhs, sram, i).head
+//         val basequote = src"${lhs}_base" // get string before we create the map
+//         emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+//         emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+//         emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
+//       }
 
-      // Check if we need to expose a _ready signal to the read port
-      val streamOuts = pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-          case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
-          case _ => ""
-        }}.filter(_ != "").mkString(" & ")
-
-      emit(s"""// Assemble multidimR vector""")
-      dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
-        val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-        emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-        emit(src"""${swap(lhs, RVec)}(0).en := ${DL(enable, src"${enableRetimeMatch(en, lhs)}.toInt", true)} & $en""")
-        is.zipWithIndex.foreach{ case(ind,j) => 
-          emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
-        }
-        val p = portsOf(lhs, sram, i).head
-        val basequote = src"${lhs}_base" // get string before we create the map
-        if (isStreamChild(controllerStack.head) & streamOuts != "") {
-          emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p, $streamOuts)""")
-        } else {
-          emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
-        }
-        emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
-        emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
-      }
-
-    case SRAMStore(sram, dims, is, ofs, v, en) =>
-      val width = bitWidth(sram.tp.typeArguments.head)
-      val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-      emit(s"""// Assemble multidimW vector""")
-      emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
-      emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
-      emit(src"""${swap(lhs, WVec)}(0).en := $en & ${DL(src"${enable} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt")}""")
-      is.zipWithIndex.foreach{ case(ind,j) => 
-        emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
-      }
-      else {
-        nbufs = nbufs :+ lhs.asInstanceOf[Sym[SRAM[_]]]
-        val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-        emitGlobalModule(src"""val $lhs = Module(new ${memname}(List($dimensions), $depth, $width,
-  List($nBanks), $strides,
-  List($wPar), List($rPar),
-  List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
-))""")
-      }
+//     case SRAMStore(sram, dims, is, ofs, v, en) =>
+//       val width = bitWidth(sram.tp.typeArguments.head)
+//       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
+//       val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+//       emit(s"""// Assemble multidimW vector""")
+//       emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
+//       emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
+//       emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt, rr)""")
+//       is.zipWithIndex.foreach{ case(ind,j) => 
+//         emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
+//       }
+//       else {
+//         nbufs = nbufs :+ lhs.asInstanceOf[Sym[SRAM[_]]]
+//         val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+//         emitGlobalModule(src"""val $lhs = Module(new ${memname}(List($dimensions), $depth, $width,
+//   List($nBanks), $strides,
+//   List($wPar), List($rPar),
+//   List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//       }
 
     case _:SRAMLoad[_]  => throw new Exception(s"Cannot generate unbanked SRAM load.\n${str(lhs)}")
     case _:SRAMStore[_] => throw new Exception(s"Cannot generate unbanked SRAM store.\n${str(lhs)}")
 
-    case BankedSRAMLoad(sram,bank,ofs,ens) => // TODO
+    case BankedSRAMLoad(sram,bank,ofs,ens) =>
+      emitBankedLoad(lhs, sram, bank, ofs, ens)
+
     case BankedSRAMStore(sram,data,bank,ofs,ens) => // TODO
-    */
+    
     /*case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)
       val width = bitWidth(sram.tp.typeArguments.head)
@@ -865,7 +903,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       nbufs.foreach{mem =>
         val info = bufferControlInfo(mem)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""${mem}_${i}.connectStageCtrl(${DL(swap(quote(inf._1), Done), 1, true)}, ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
+          emit(src"""${mem}.connectStageCtrl(${DL(swap(quote(inf._1), Done), 1, true)}, ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
       }
     }

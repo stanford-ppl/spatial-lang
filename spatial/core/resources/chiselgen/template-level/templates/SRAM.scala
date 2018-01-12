@@ -46,6 +46,12 @@ class multidimR(val N: Int, val dims: List[Int], val w: Int) extends Bundle {
   override def cloneType = (new multidimR(N, dims, w)).asInstanceOf[this.type] // See chisel3 bug 358
 }
 
+class R_Info(val ofs_width:Int, val bank_width:Int) extends Bundle {
+  val bank = UInt(bank_width.W)
+  val ofs = UInt(ofs_width.W)
+  val en = Bool()
+}
+
 class Mem1D(val size: Int, bitWidth: Int, syncMem: Boolean = false) extends Module { // Unbanked, inner 1D mem
   def this(size: Int) = this(size, 32)
 

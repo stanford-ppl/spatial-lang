@@ -105,19 +105,19 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       }
 
 
-    case ParFIFODeq(fifo, ens) =>
-      val par = ens.length
-      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
-      emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
-      if (spatialConfig.useCheapFifos){
-        val en = ens.map(quote).mkString("&")
-        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(ens.head, lhs)}.toInt", true)} & $en)""")  
-      } else {
-        val en = ens.map{i => src"$i & ${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(i, lhs)}.toInt", true)}"}
-        emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
-      }
+    // case ParFIFODeq(fifo, ens) =>
+    //   val par = ens.length
+    //   val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
+    //   emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+    //   if (spatialConfig.useCheapFifos){
+    //     val en = ens.map(quote).mkString("&")
+    //     emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(ens.head, lhs)}.toInt", true)} & $en)""")  
+    //   } else {
+    //     val en = ens.map{i => src"$i & ${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(i, lhs)}.toInt", true)}"}
+    //     emit(src"""val ${lhs}_vec = ${quote(fifo)}.connectDeqPort(Vec(List($en)))""")  
+    //   }
 
-      emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
+    //   emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case BankedFIFOEnq(fifo,data,ens) =>
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
