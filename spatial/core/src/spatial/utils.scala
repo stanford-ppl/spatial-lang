@@ -67,7 +67,7 @@ object utils {
 
     if (start.isDefined) {
       val blks = allParents[Blk](start.get, { c: Blk => blkParent(c) }, end).flatten
-      if (blks.lastOption == end) blks.drop(1) else blks
+      if (blks.headOption == end) blks.drop(1) else blks
     }
     else Nil
   }
@@ -1238,6 +1238,12 @@ object utils {
 
   @stateful def isResetter(x: Exp[_]): Boolean = Resetter.unapply(x).isDefined
   def isResetter(d: Def): Boolean = Resetter.unapply(d).isDefined
+
+  @stateful def isStreamingAccess(e: Access): Boolean = isStreamingAccess(e.node)
+  @stateful def isStreamingAccess(e: Exp[_]): Boolean = e match {
+    case Def(_: StreamAccess[_]) => true
+    case _ => false
+  }
 
   @stateful def isAccessWithoutAddress(e: Access): Boolean = isAccessWithoutAddress(e.node)
   @stateful def isAccessWithoutAddress(e: Exp[_]): Boolean = e match {

@@ -3,6 +3,7 @@ package spatial.banking
 import argon.core._
 import spatial.aliases._
 import spatial.metadata._
+import spatial.nodes.{DequeueLike, EnqueueLike, StreamAccess}
 import spatial.utils._
 
 
@@ -119,7 +120,7 @@ trait MemoryChecks { this: MemoryConfigurer =>
     }
 
     if (testStreamingPars) {
-      val streamingAccesses = accesses.filter(isAccessWithoutAddress)
+      val streamingAccesses = accesses.filter(isStreamingAccess)
       val illegalParallelAccesses = streamingAccesses.filter{access =>
         val factors = unrollFactorsOf(access.node) diff unrollFactorsOf(mem)
         factors.flatten.drop(1).exists{c => c.toInt > 1}

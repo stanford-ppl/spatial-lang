@@ -13,7 +13,7 @@ object Modeling {
     error("SPATIAL_HOME was not set!")
     error("Set top directory of spatial using: ")
     error("export SPATIAL_HOME=/path/to/spatial")
-    sys.exit()
+    throw new Exception("Could not find SPATIAL_HOME")
   })
 
   val target = spatial.targets.Zynq

@@ -26,7 +26,7 @@ object Characterization extends AllBenchmarks {
     error("SPATIAL_HOME was not set!")
     error("Set top directory of spatial using: ")
     error("export SPATIAL_HOME=/path/to/spatial")
-    sys.exit()
+    throw new Exception("Could not find SPATIAL_HOME")
   })
 
   def area(dir: JString, synth: Boolean): (Map[JString, scala.Double], String) = {

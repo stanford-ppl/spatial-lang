@@ -1,4 +1,4 @@
-package spatial.nodes
+  package spatial.nodes
 
 import argon.core._
 import argon.transform.SubstTransformer

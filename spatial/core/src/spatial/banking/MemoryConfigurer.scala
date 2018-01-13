@@ -81,6 +81,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     dbg("")
     dbg(s"  Simulating unrolling of access ${matrix.access}")
     dbg(s"  Iterators between access and memory: " + is.zip(ps).map{case (i,p) => c"$i ($p)"}.mkString(", "))
+    dbg(s"  Block of access: ${blkOf.get(matrix.access.node).map(_.toString).getOrElse("<none>")}")
+    dbg(s"  Block of memory: ${blkOf.get(mem).map(_.toString).getOrElse("<none>")}")
     dbg(s"  Blocks between access and memory: ")
     blks.foreach{blk =>
       dbg(s"    ${str(blk.node)} [${blk.block}]")
@@ -335,11 +337,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Returns the subset of writers which may be visible to this set of readers
     */
   def reachingWrites(readGroups: Seq[Set[AccessMatrix]], writeGroups: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[Set[AccessMatrix]] = {
-    dbg("")
+    /*dbg("")
     dbg("  Reaching writes for reads ")
     readGroups.flatten.foreach{rd =>
       dbg(s"    ${str(rd.access.node)} [${rd.id}] [${rd.access.ctrl}]")
-    }
+    }*/
 
     var remainingWrites: Set[AccessMatrix] = Set.empty
     var reachingWrites:  Set[AccessMatrix] = Set.empty
@@ -358,10 +360,10 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       grp intersect reachingWrites
     }.filterNot(_.isEmpty)
 
-    reaching.zipWithIndex.foreach{case (grp, i) =>
+    /*reaching.zipWithIndex.foreach{case (grp, i) =>
       dbg(s"  Group #$i: ")
       grp.foreach{wr => dbg(s"    ${str(wr.access.node)} [${wr.id}] [${wr.access.node}]") }
-    }
+    }*/
     reaching
   }
 
@@ -578,7 +580,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
   protected def mergeReadGroups(readGroups: Seq[Set[AccessMatrix]], writeGroups: Seq[Set[AccessMatrix]], domain: IndexDomain): Seq[InstanceGroup] = {
     val instances = ArrayBuffer[InstanceGroup]()
 
-    readGroups.foreach{group =>
+    readGroups.zipWithIndex.foreach{case (group, groupId) =>
       val orig = bankGroups(Seq(group),writeGroups,domain)
       // TODO: What to do on failure?
       if (orig.isEmpty) throw new Exception(s"Could not bank all $mem reads with writes")
@@ -591,17 +593,23 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         // We already separated out the reads which can't be banked in the same controller, so skip groups which
         // contain any of the same read controllers
         // Exception: reads on global memories (i.e. ArgIn) can be banked together since value is constant
+        dbg(s"  Attempting to merge group #$groupId into instance #$instIdx")
         if (crossControlCompatible(i.ctrls,inst.ctrls) || isGlobalMem) {
           val i2 = bankGroups(group +: inst.reads, writeGroups, domain)
 
           // Merging buffers is only allowed if explicitly enabled (note: this is for PIR)
-          if (i2.isDefined && inst.metapipe.isEmpty || i.metapipe.isEmpty || spatialConfig.enableBufferCoalescing) {
-            if (i2.get.cost < i.cost + inst.cost) {
+          if (i2.isDefined && (inst.metapipe.isEmpty || i.metapipe.isEmpty || spatialConfig.enableBufferCoalescing)) {
+            if (i2.get.cost <= i.cost + inst.cost) {
               instances(instIdx) = i2.get
               mergedIntoInstance = true
+              dbg(s"  Merged group #$groupId into instance #$instIdx")
             }
+            else dbg(s"  Did not merge #$groupId into instance #$instIdx: Too expensive")
           }
+          else if (i2.isEmpty) dbg(s"  Did not merge #$groupId into instance #$instIdx: Conflicting banks")
+          else dbg(s"  Did not merge #$groupId into instance #$instIdx: Buffer conflict")
         }
+        else dbg(s"  Did not merge #$groupId into instance #$instIdx: Control conflict")
         instIdx += 1
       }
       if (!mergedIntoInstance) instances += i

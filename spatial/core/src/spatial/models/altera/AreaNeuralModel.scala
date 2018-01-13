@@ -44,7 +44,7 @@ abstract class AreaNeuralModel(
     }
     catch {case _:Throwable =>
       error(s"Unable to find file $pwd/data/$filename - please set the SPATIAL_HOME environment variable")
-      sys.exit()
+      //sys.exit()
       Array.empty[Array[Double]]
     }
   }

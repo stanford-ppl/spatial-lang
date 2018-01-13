@@ -7,7 +7,7 @@ import spatial.nodes._
 trait ScalaGenLUTs extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: LUTType[_] => src"Array[Array[${tp.child}]]"
+    case tp: LUTType[_] => src"BankedMemory[${tp.child}]"
     case _ => super.remap(tp)
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
@@ -15,19 +15,7 @@ trait ScalaGenLUTs extends ScalaGenMemories {
 
     case _: LUTLoad[_] => throw new Exception(s"Cannot generate unbanked LUT load.\n${str(lhs)}")
 
-    case op@BankedLUTLoad(lut,bank,ofs,ens) =>
-      val banks = instanceOf(lut).nBanks
-      open(src"val $lhs = {")
-      bank.indices.foreach{i =>
-        open(src"val a$i = {")
-        oobBankedApply(op.mT,lut,lhs,bank(i),ofs(i)){
-          val bankAddr = flattenConstDimsAddress(banks, bank(i))
-          emit(src"""if (${ens(i)}) $lut.apply($bankAddr).apply(${ofs(i)}) else ${invalid(op.mT)}""")
-        }
-        close("}")
-      }
-      emit(src"Array[${op.mT}](" + bank.indices.map{i => src"a$i"}.mkString(", ") + ")")
-      close("}")
+    case op@BankedLUTLoad(lut,bank,ofs,ens) => emitBankedLoad(lhs,lut,bank,ofs,ens)(op.mT)
 
     case _ => super.emitNode(lhs, rhs)
   }
