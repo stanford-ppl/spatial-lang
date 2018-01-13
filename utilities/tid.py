@@ -30,6 +30,9 @@ gc = pygsheets.authorize(outh_file = json_key)
 if (sys.argv[4] == "Zynq"):
 	perf=False
 	sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
+elif (sys.argv[4] == "ZCU"):
+	perf=False
+	sh = gc.open_by_key("181pQqQXV_DsoWZyRV4Ve3y9QI6I0VIbVGS3TT0zbEv8")
 elif (sys.argv[4] == "AWS"):
 	perf=False
 	sh = gc.open_by_key("19G95ZMMoruIsi1iMHYJ8Th9VUSX87SGTpo6yHsSCdvU")
@@ -75,9 +78,14 @@ if ("test timestamp" in lol[1]):
 # lasttime=lol[id-2][ttcol]
 
 # Oldest first
-lasthash=lol[2][hcol]
-lastapphash=lol[2][acol]
-lasttime=lol[2][ttcol]
+if (len(lol) < 3): 
+	lasthash="NA"
+	lastapphash="NA"
+	lasttime="2000-01-08 21:15:36"
+else:
+	lasthash=lol[2][hcol]
+	lastapphash=lol[2][acol]
+	lasttime=lol[2][ttcol]
 
 if (perf):
 	new_entry=True
@@ -97,6 +105,8 @@ if (new_entry):
 			# worksheet.update_cell(id,3, t)
 			# worksheet.update_cell(id,4, freq + ' MHz')
 			# worksheet.update_cell(id,5, os.uname()[1])
+		if (worksheet.title == "Properties" and perf):
+			worksheet.update_cells('B3:DQ3', [[' ']*120]) # Clear old pass bitmask
 	sys.stdout.write(str(3))
 else:
 	# get time difference

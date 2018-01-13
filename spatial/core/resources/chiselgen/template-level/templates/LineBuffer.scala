@@ -155,11 +155,11 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
         ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
       }
       if (transientPar != 0) {
-        linebuffer(i).io.w(j).addr(0) := Mux(io.w_en.last, px_transient, MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing))
+        linebuffer(i).io.w(j).ofs := Mux(io.w_en.last, px_transient, MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing))
         linebuffer(i).io.w(j).data := Mux(io.w_en.last, io.data_in(col_wPar*rstride + j), MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing))
         linebuffer(i).io.w(j).en := Mux(io.w_en.last, true.B & (i.U(wCRN_width.W) === transient_row), true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing))
       } else {
-        linebuffer(i).io.w(j).addr(0) := MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing)
+        linebuffer(i).io.w(j).ofs := MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing)
         linebuffer(i).io.w(j).data := MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing)
         linebuffer(i).io.w(j).en := true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing)
       }
@@ -191,8 +191,9 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   for (j <- 0 until col_rPar) {
     var linebuf_read_wires_map = Array.tabulate(num_lines + extra_rows_to_buffer) { i =>
       // when(io.r_en) {  // ENHANCEMENT: r_en to save power, i.e. make the below wire RHS of -> into a reg
-      linebuffer(i).io.r(j).addr(0) := io.col_addr(j)
+      // linebuffer(i).io.r(j).addr(0) := io.col_addr(j)
       linebuffer(i).io.r(j).en := true.B
+      linebuffer(i).io.flow(0) := true.B // This may possibly cause issues
       (i.U -> linebuffer(i).io.output.data(j))
       // }
     }

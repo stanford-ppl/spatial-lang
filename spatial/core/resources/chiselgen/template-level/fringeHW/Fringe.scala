@@ -3,6 +3,7 @@ package fringe
 import chisel3._
 import chisel3.util._
 import templates.Utils.log2Up
+import axi4._
 
 /**
  * Fringe: Top module for FPGA shell
@@ -21,7 +22,8 @@ class Fringe(
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
   val streamOutsInfo: List[StreamParInfo],
-  val blockingDRAMIssue: Boolean = false
+  val blockingDRAMIssue: Boolean = false,
+  val axiParams: AXI4BundleParameters
 ) extends Module {
 //  val numRegs = numArgIns + numArgOuts + 2 - numArgIOs // (command, status registers)
 //  val addrWidth = log2Up(numRegs)
@@ -36,6 +38,8 @@ class Fringe(
   val burstSizeBytes = 64
   val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata
   val regWidth = 64 // Force 64-bit registers
+
+  val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 
   val io = IO(new Bundle {
     // Host scalar interface
@@ -56,6 +60,12 @@ class Fringe(
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = Vec(numChannels, new DRAMStream(w, v))
+
+    // AXI Debuggers
+    val TOP_AXI = new AXI4Probe(axiLiteParams)
+    val DWIDTH_AXI = new AXI4Probe(axiLiteParams)
+    val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
+    val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
     //Accel stream IO
 //    val genericStreamsAccel = Flipped(new GenericStreams(streamInsInfo, streamOutsInfo))
@@ -99,7 +109,7 @@ class Fringe(
     val loadStreams = loadStreamIDs.map { io.memStreams.loads(_) }
     val storeStreams = storeStreamIDs.map { io.memStreams.stores(_) }
 
-    val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, debugChannelID == i))
+    val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, axiParams, debugChannelID == i))
     mag.io.app.loads.zip(loadStreams) foreach { case (l, ls) => l <> ls }
     mag.io.app.stores.zip(storeStreams) foreach { case (s, ss) => s <> ss }
     mag
@@ -176,6 +186,11 @@ class Fringe(
 //  mag.io.app <> io.memStreams
 
   mags.zip(io.dram) foreach { case (mag, d) => mag.io.dram <> d }
+
+  mags(debugChannelID).io.TOP_AXI <> io.TOP_AXI
+  mags(debugChannelID).io.DWIDTH_AXI <> io.DWIDTH_AXI
+  mags(debugChannelID).io.PROTOCOL_AXI <> io.PROTOCOL_AXI
+  mags(debugChannelID).io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   // io.dbg <> mags(debugChannelID).io.dbg
 

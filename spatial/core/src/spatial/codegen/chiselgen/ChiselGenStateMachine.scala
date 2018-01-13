@@ -29,7 +29,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       // }
       emitInhibitor(lhs, None, Some(notDone.result), None)
 
-      emit(src"${swap(lhs, CtrTrivial)} := ${swap(controllerStack.tail.head, CtrTrivial)}.D(1,rr) | false.B")
+      emit(src"${swap(lhs, CtrTrivial)} := ${DL(swap(controllerStack.tail.head, CtrTrivial), 1, true)} | false.B")
       if (iiOf(lhs) <= 1 | levelOf(lhs) == OuterControl) {
         emitGlobalWire(src"""val ${swap(lhs, IIDone)} = true.B""")
       } else {
@@ -39,7 +39,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs, En)}""")
         val stop = if (levelOf(lhs) == InnerControl) { iiOf(lhs) + 1} else {iiOf(lhs)} // I think innerpipes need one extra delay because of logic inside sm
         emit(src"""${lhs}_IICtr.io.input.stop := ${stop}.toInt.S // ${swap(lhs, Retime)}.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")  
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${DL(swap(lhs, IIDone), 1, true)}""")  
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       // emitGlobalWire(src"""val ${swap(lhs, IIDone)} = true.B // Maybe this should handled differently""")
@@ -54,7 +54,7 @@ trait ChiselGenStateMachine extends ChiselCodegen with ChiselGenController {
       emit("// Emitting nextState")
       visitBlock(nextState)
       emit(src"${swap(lhs, SM)}.io.input.enable := ${swap(lhs, En)} ")
-      emit(src"${swap(lhs, SM)}.io.input.nextState := Mux(${swap(lhs, IIDone)}.D(1 max ${swap(lhs, Retime)} - 1), ${nextState.result}.r.asSInt, ${swap(lhs, SM)}.io.output.state.r.asSInt) // Assume always int")
+      emit(src"${swap(lhs, SM)}.io.input.nextState := Mux(${DL(swap(lhs, IIDone), src"1 max ${swap(lhs, Retime)} - 1", true)}, ${nextState.result}.r.asSInt, ${swap(lhs, SM)}.io.output.state.r.asSInt) // Assume always int")
       emit(src"${swap(lhs, SM)}.io.input.initState := ${start}.r.asSInt")
       emitGlobalWire(src"val $state = Wire(${newWire(state.tp)})")
       emit(src"${state}.r := ${swap(lhs, SM)}.io.output.state.r")

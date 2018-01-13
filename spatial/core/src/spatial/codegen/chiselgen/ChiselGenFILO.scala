@@ -53,29 +53,57 @@ trait ChiselGenFILO extends ChiselGenSRAM {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@FILONew(_) =>
       val size = constSizeOf(lhs)
-      val width = bitWidth(op.mT)
-      val rPars = readWidths(lhs)
-      val wPars = writeWidths(lhs)
-
-      if (wPars.distinct.length != 1 || rPars.distinct.length != 1) {
-        error(lhs.ctx, u"FILO $lhs has differing port widths.")
-        error(u"FILOs with differing port widths not yet supported in Chisel.")
-        error(lhs.ctx)
-      }
-      val rPar = rPars.headOption.getOrElse(1)
-      val wPar = wPars.headOption.getOrElse(1)
-
+      // ASSERT that all pars are the same!
+      val rPar = readersOf(lhs).map { r => 
+        r.node match {
+          case Def(_: FILOPop[_]) => 1
+          // case Def(a@ParFILOPop(q,ens)) => ens.length
+        }
+      }.max
+      val wPar = writersOf(lhs).map { w =>
+        w.node match {
+          case Def(_: FILOPush[_]) => 1
+          // case Def(a@ParFILOPush(q,_,ens)) => ens.length
+        }
+      }.max
+      val width = bitWidth(lhs.tp.typeArguments.head)
       emitGlobalModule(src"""val $lhs = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
 
-    case FILOPush(filo,v,en) => throw new Exception("Unbanked FILO push at codegen - should not happen")
-    case FILOPop(filo,en) => throw new Exception("Unbanked FILO pop at codegen - should not happen")
+    case FILOPush(fifo,v,en) => 
+      throw new Exception("Unbanked FILO push at codegen - should not happen")
+      val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      val enabler = src"${swap(writer, DatapathEn)}"
+      emit(src"""${fifo}.connectPushPort(Vec(List(${v}.r)), ${swap(writer, En)} & ${DL(src"$enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)} & $en)""")
+
+
+    case FILOPop(fifo,en) =>
+      throw new Exception("Unbanked FILO push at codegen - should not happen")
+      val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
+      val bug202delay = reader match {
+        case Def(op@SwitchCase(_)) => 
+          if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${enableRetimeMatch(en, lhs)}.toInt" 
+        case _ => src"${enableRetimeMatch(en, lhs)}.toInt" 
+      }
+      val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"
+      emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
+      emit(src"""${lhs}.r := ${fifo}.connectPopPort(${swap(reader, En)} & ${DL(enabler, bug202delay, true)} & $en & ~${swap(reader, Inhibitor)}).apply(0)""")
+
+      // emitGlobalModule(src"""val $lhs = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
+
+    // case ParFILOPop(filo, ens) =>
+    //   val par = ens.length
+    //   val en = ens.map(quote).mkString("&")
+    //   val reader = readersOf(filo).find{_.node == lhs}.get.ctrlNode
+    //   emit(src"val ${lhs} = Wire(${newWire(lhs.tp)})")
+    //   emit(src"""val ${lhs}_vec = ${quote(filo)}.connectPopPort(${DL(src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}", src"${enableRetimeMatch(ens.head, lhs)}.toInt", true)} & $en).reverse""")
+    //   emit(src"""(0 until ${ens.length}).foreach{ i => ${lhs}(i).r := ${lhs}_vec(i) }""")
 
     case BankedFILOPush(filo,data,ens) =>
       val en = ens.map(quote).mkString("&")
       val writer = writersOf(filo).find{_.node == lhs}.get.ctrlNode
       val enabler = src"${swap(writer, DatapathEn)}"
       val datacsv = data.map{d => src"${d}.r"}.mkString(",")
-      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ($enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}).D(${enableRetimeMatch(ens.head, lhs)}.toInt) & $en)""")
+      emit(src"""${filo}.connectPushPort(Vec(List(${datacsv})), ${DL(src"$enabler & ~${swap(writer, Inhibitor)} & ${swap(writer, IIDone)}", src"${enableRetimeMatch(ens.head, lhs)}.toInt", true)} & $en)""")
 
     case BankedFILOPop(filo,ens) =>
       val en = ens.map(quote).mkString("&")

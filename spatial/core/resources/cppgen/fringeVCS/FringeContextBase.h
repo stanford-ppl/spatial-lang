@@ -22,6 +22,8 @@ public:
   virtual void setArg(uint32_t reg, uint64_t data, bool isIO) = 0;
   virtual void setNumArgIns(uint32_t number) = 0;
   virtual void setNumArgIOs(uint32_t number) = 0;
+  virtual void setNumArgOutInstrs(uint32_t number) = 0;
+  virtual void setNumArgOuts(uint32_t number) = 0;
 
   ~FringeContextBase() {
 //    delete dut;

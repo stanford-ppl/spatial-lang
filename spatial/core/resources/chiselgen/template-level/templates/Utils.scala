@@ -65,6 +65,19 @@ object ops {
     def D(delay: Double): Bool = {
       b.D(delay.toInt, true.B)
     }
+    
+    // Stream version
+    def DS(delay: Int, retime_released: Bool, flow: Bool): Bool = {
+//      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
+      Mux(retime_released, Utils.getRetimedStream(b, delay, flow), false.B)
+    }
+    def DS(delay: Double, retime_released: Bool, flow: Bool): Bool = {
+      b.DS(delay.toInt, retime_released, flow)
+    }
+    def DS(delay: Double, flow: Bool): Bool = {
+      b.DS(delay.toInt, true.B, flow)
+    }
+    
 
   }
   
@@ -842,10 +855,29 @@ object Utils {
       } else {
         val sr = Module(new RetimeWrapper(sig.getWidth, delay))
         sr.io.in := sig.asUInt
+        sr.io.flow := true.B
         sig.cloneType.fromBits(sr.io.out)
       }
     }
   }
+
+  // Special retime that allows the retime chain to halt if the flow signal in this controller is low
+  def getRetimedStream[T<:chisel3.core.Data](sig: T, delay: Int, flow: Bool): T = {
+    if (delay == 0) {
+      sig
+    }
+    else {
+      if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
+        chisel3.util.ShiftRegister(sig, delay)
+      } else {
+        val sr = Module(new RetimeWrapper(sig.getWidth, delay))
+        sr.io.in := sig.asUInt
+        sr.io.flow := flow
+        sig.cloneType.fromBits(sr.io.out)
+      }
+    }
+  }
+
   def getRetimed[T<:chisel3.core.Data](sig: T, delay: Double): T = {
     getRetimed(sig, delay.toInt)
   }

@@ -4,6 +4,7 @@ import scala.math._
 import argon.core._
 import argon.codegen.chiselgen.ChiselCodegen
 import argon.nodes._
+import spatial.targets.DE1._
 import spatial.aliases._
 import spatial.banking._
 import spatial.metadata._
@@ -44,13 +45,21 @@ sealed trait AppProperties
 object HasLineBuffer extends AppProperties
 object HasNBufSRAM extends AppProperties
 object HasNBufRegFile extends AppProperties
-object HasVariableCtrBounds extends AppProperties
-object HasVariableCtrStride extends AppProperties
 object HasGeneralFifo extends AppProperties
 object HasTileStore extends AppProperties
 object HasTileLoad extends AppProperties
 object HasGather extends AppProperties
 object HasScatter extends AppProperties
+object HasLUT extends AppProperties
+object HasBreakpoint extends AppProperties
+object HasAlignedLoad extends AppProperties
+object HasAlignedStore extends AppProperties
+object HasUnalignedLoad extends AppProperties
+object HasUnalignedStore extends AppProperties
+object HasStaticCtr extends AppProperties
+object HasVariableCtrBounds extends AppProperties
+object HasVariableCtrStride extends AppProperties
+object HasFloats extends AppProperties
 
 
 trait ChiselGenSRAM extends ChiselCodegen {
@@ -114,12 +123,130 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (spatialConfig.enableRetiming) {
       val latency = latencyOption(op, b)
       if (b.isDefined) {
-        s"""Some(${latency}.toInt)"""
+        s"""Some(${latency})"""
       } else {
-        s"""Some(${latency}.toInt)"""
+        s"""Some(${latency})"""
       }
     } else {
       "None"      
+    }
+  }
+
+  protected def isStreamChild(lhs: Exp[_]): Boolean = {
+    var nextLevel: Option[Exp[_]] = Some(lhs)
+    var result = false
+    while (nextLevel.isDefined) {
+      if (styleOf(nextLevel.get) == StreamPipe) {
+        result = true
+        nextLevel = None
+      } else {
+        nextLevel = parentOf(nextLevel.get)
+      }
+    }
+    result
+  }
+
+  // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS)
+  def DL[T](name: String, latency: T, isBit: Boolean = false): String = {
+    val streamOuts = if (!controllerStack.isEmpty) {
+      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+        case _ => ""
+      }}.filter(_ != "").mkString(" & ")
+    } else { "" }
+
+    latency match {
+      case lat: Int => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"          
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"                    
+        }
+      case lat: Double => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
+      case lat: String => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
+    }
+  }
+
+  // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS), specifically for signals like inhibitor resets that must acknowledeg a done signal that can strobe while stalled
+  def DLI[T](name: String, latency: T, isBit: Boolean = false): String = {
+    val streamOuts = if (!controllerStack.isEmpty) {
+      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}.D(${latency}, rr)"
+        case _ => ""
+      }}.filter(_ != "").mkString(" & ")
+    } else { "" }
+
+    latency match {
+      case lat: Int => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"          
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"                    
+        }
+      case lat: Double => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
+      case lat: String => 
+        if (!controllerStack.isEmpty) {
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
+            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+          } else {
+            if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+            else src"Utils.getRetimed($name, $latency)"
+          }
+        } else {
+          if (isBit) src"(${name}).D(${latency}.toInt, rr)"
+          else src"Utils.getRetimed($name, $latency)"
+        }
     }
   }
 
@@ -350,7 +477,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       if (fsm.isDefined) {
           emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
           emit(src"${swap(lhs, Inhibit)}.io.input.set := Utils.risingEdge(~${fsm.get})")  
-          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${swap(lhs, Done)}.D(1 + ${swap(lhs, Retime)}, rr)")
+          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${DLI(swap(lhs, Done), src"1 + ${swap(lhs, Retime)}", true)}")
           /* or'ed  back in because of BasicCondFSM!! */
           emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| ${fsm.get}*/ // Really want inhibit to turn on at last enabled cycle")        
           emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
@@ -361,14 +488,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
           emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
           emit(src"${swap(lhs, Inhibit)}.io.input.set := ${cchain.get}.io.output.done")  
           emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| ${cchain.get}.io.output.done*/ // Correction not needed because _done should mask dp anyway")
-          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${swap(lhs, Done)}.D(0, rr)")
+          emit(src"${swap(lhs, Inhibit)}.io.input.reset := ${swap(lhs, Done)}")
           emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
         } else {
           emitGlobalModuleMap(src"${lhs}_inhibit", "Module(new SRFF())")
           emit(src"${swap(lhs, Inhibit)}.io.input.set := Utils.risingEdge(${swap(lhs, Done)} /*${lhs}_sm.io.output.ctr_inc*/)")
-          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).nonEmpty) {src"Utils.risingEdge(${swap(lhs, Done)}).D(1 + ${swap(lhs, Retime)}, rr) // Ugly hack, do not try at home"} else src"${swap(lhs, Done)}.D(1, rr)"
+          val rster = if (levelOf(lhs) == InnerControl & listensTo(lhs).distinct.length > 0) {src"${DLI(src"Utils.risingEdge(${swap(lhs, Done)})", src"1 + ${swap(lhs, Retime)}", true)} // Ugly hack, do not try at home"} else src"${DLI(swap(lhs, Done), 1, true)}"
           emit(src"${swap(lhs, Inhibit)}.io.input.reset := $rster")
-          emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data /*| Utils.delay(Utils.risingEdge(${swap(lhs, SM)}.io.output.ctr_inc), 1) // Correction not needed because _done should mask dp anyway*/")
+          emit(src"${swap(lhs, Inhibitor)} := ${swap(lhs, Inhibit)}.io.output.data")
           emit(src"${swap(lhs, Inhibit)}.io.input.asyn_reset := reset")
         }        
       }
@@ -381,12 +508,12 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
       emitGlobalWireMap(src"$lhs", src"Wire(${wire})")
-      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := Utils.getRetimed(${data}(i).r, $delay)}")
+      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ${DL(src"${data}(i).r", delay)}}")
     } else {
       if (isBool) {
-        emitGlobalWireMap(src"""$lhs""", src"""Wire(Bool())""");emit(src"""${lhs} := ${data}.D($delay, rr)""")
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(Bool())""");emit(src"""${lhs} := ${DL(data, delay, true)}""")
       } else {
-        emitGlobalWireMap(src"""$lhs""", src"""Wire(${wire})""");emit(src"""${lhs}.r := Utils.getRetimed(${data}.r, $delay)""")
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${wire})""");emit(src"""${lhs}.r := ${DL(src"${data}.r", delay)}""")
       }
     }
   }
@@ -395,12 +522,12 @@ trait ChiselGenSRAM extends ChiselCodegen {
     if (delay > maxretime) maxretime = delay
     if (isVec) {
       emitGlobalWireMap(src"$lhs", src"Wire(${wire})")
-      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := Utils.getRetimed(${data}(i).r, $delay)}")
+      emit(src"(0 until ${vecWidth}).foreach{i => ${lhs}(i).r := ${DL(src"${data}(i).r", delay)}}")
     } else {
       if (isBool) {
-        emitGlobalWireMap(src"""$lhs""", src"""Wire(Bool())""");emit(src"""${lhs} := ${data}.D($delay, rr)""")
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(Bool())""");emit(src"""${lhs} := ${DL(data, delay, true)}""")
       } else {
-        emitGlobalWireMap(src"""$lhs""", src"""Wire(${wire})""");emit(src"""${lhs}.r := Utils.getRetimed(${data}.r, $delay)""")
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${wire})""");emit(src"""${lhs}.r := ${DL(src"${data}.r", delay)}""")
       }
     }
   }
@@ -438,181 +565,224 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.quote(e)
   } 
 
-  def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
-    val strides = List.tabulate(dims.length){i => (dims.drop(i+1).map(quote) :+ "1").mkString("*") }
-    indices.zip(strides).map{case (i,s) => src"$i*$s" }.mkString(" + ") + ofs.map{o => src" + $o"}.getOrElse("")
+  def emitBankedLoad(lhs: Exp[_], mem: Exp[_], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]])(tp: Type[_]): Unit = {
+    val rPar = ens.length
+    val width = bitWidth(tp)
+    val parent = parentOf(lhs).get //readersOf(mem).find{_.node == lhs}.get.ctrlNode
+    val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+    emit(s"""// Assemble R_Info vector""")
+    emitGlobalWireMap(src"""${lhs}_rVec""", s"Wire(Vec(${rPar}, new R_Info(32, ${List.fill(bank.length)(32)})))")
+    ofs.zipWithIndex.foreach{case (o,i) => 
+      emit(src"""${swap(lhs, RVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
+      emit(src"""${swap(lhs, RVec)}($i).ofs := ${o}.r""")
+      bank(i).zipWithIndex.foreach{case (b,j) => 
+        emit(src"""${swap(lhs, RVec)}($i).banks($j) := ${b}.r""")
+      }
+    }
+    val p = portsOf(lhs, mem).head
+    emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
+    emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+    emit(src"""(0 until ${ens.length}).foreach{case i => ${lhs}(i).r := ${mem}.io.output.data(${lhs}_idx + i)}""")
   }
 
+  def emitBankedStore[T:Type](lhs: Exp[_], mem: Exp[_], data: Seq[Exp[T]], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
+    val wPar = ens.length
+    val width = bitWidth(mem.tp.typeArguments.head)
+    val parent = parentOf(lhs).get
+    val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+    emit(s"""// Assemble W_Info vector""")
+    emitGlobalWireMap(src"""${lhs}_wVec""", s"Wire(Vec(${wPar}, new W_Info(32, ${List.fill(bank.length)(32)}, $width)))")
+    ofs.zipWithIndex.foreach{case (o,i) => 
+      emit(src"""${swap(lhs, WVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
+      emit(src"""${swap(lhs, WVec)}($i).ofs := ${o}.r""")
+      emit(src"""${swap(lhs, WVec)}($i).data := ${data(i)}.r""")
+      bank(i).zipWithIndex.foreach{case (b,j) => 
+        emit(src"""${swap(lhs, WVec)}($i).banks($j) := ${b}.r""")
+      }
+    }
+    emit(src"""${mem}.connectWPort(${swap(lhs, WVec)}, ${portsOf(lhs, mem).head._2.mkString("List(", ",", ")")})""")
+  }
+
+  def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
+    val inst = instanceOf(mem)
+    val dims = constDimsOf(mem)
+    implicit val ctx: SrcCtx = mem.ctx
+
+    val templateName = mem match {
+      case Def(op: SRAMNew[_,_]) => "SRAM"
+    }
+    // val data = init match {
+    //   case Some(elems) =>
+    //     // val nBanks = inst.nBanks.product
+    //     // val bankDepth = Math.ceil(dims.product.toDouble / nBanks).toInt
+    //     // src"""Array[Array[$tp]](${banks.mkString("\n")})"""
+    //   case None =>
+    //     // val banks = inst.totalBanks
+    //     // val bankDepth = Math.ceil(dims.product.toDouble / banks).toInt
+    //     // src"""Array.fill($banks){ Array.fill($bankDepth)(${invalid(tp)}) }"""
+    // }
+
+    val dimensions = dims.map(_.toString).mkString("List(", ",", ")")
+    val numBanks = inst.nBanks.map(_.toString).mkString("List(", ",", ")")
+    val strides = numBanks // TODO: What to do with strides
+    val wPar = writersOf(mem).map {w => w.node match { case Def(BankedSRAMStore(_,_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
+    val rPar = readersOf(mem).map {r => r.node match { case Def(BankedSRAMLoad(_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
+    val bankingMode = "BankedMemory" // TODO: Find correct one
+    val wPort = writersOf(mem).map {w => portsOf(w,mem).toList.head}
+
+    emitGlobalModule(src"""val $mem = Module(new $templateName($dimensions, ${bitWidth(tp)}, $numBanks, $strides, $wPar, $rPar, $bankingMode, ${spatialConfig.enableSyncMem}))""")
+  }
+
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    /*case op@SRAMNew(_) =>
-      val dimensions = constDimsOf(lhs)
-<<<<<<< HEAD
-      val mem = instanceOf(lhs)
-      val nBanks = mem.nBanks
-      val depth = mem.depth
+    case op: SRAMNew[_,_] => emitBankedInitMem(lhs, initialDataOf.get(lhs))(mtyp(op.mT))
 
-      val readers = readersOf(lhs)
-      val writers = writersOf(lhs)
-      val (singleReaders,broadcastReaders) = readers.partition{r => portsOf(r,lhs,0).size == 1}
-      val (singleWriters,broadcastWriters) = writers.partition{w => portsOf(w,lhs,0).size == 1}
+//     case op@SRAMNew(_) =>
+//       val dimensions = constDimsOf(lhs)
+//       val mem = instanceOf(lhs)
+//       mem match {
+//         case ModBanking
+//       }
+//       val rParZip = readersOf(lhs)
+//         .filter{read => dispatchOf(read, lhs) contains i}
+//         .map { r => 
+//           val par = r.node match {
+//             case Def(_: SRAMLoad[_]) => 1
+//             case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
+//           }
+//           val port = portsOf(r, lhs, i).toList.head
+//           (par, port)
+//         }
+//       val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
+//       val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
+//       val wParZip = writersOf(lhs)
+//         .filter{write => dispatchOf(write, lhs) contains i}
+//         .filter{w => portsOf(w, lhs, i).toList.length == 1}
+//         .map { w => 
+//           val par = w.node match {
+//             case Def(_: SRAMStore[_]) => 1
+//             case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+//               case Op(ListVector(elems)) => elems.length // Was this deprecated?
+//               case _ => ens.length
+//             }
+//           }
+//           val port = portsOf(w, lhs, i).toList.head
+//           (par, port)
+//         }
+//       val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
+//       val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
+//       val broadcasts = writersOf(lhs)
+//         .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
+//         w.node match {
+//           case Def(_: SRAMStore[_]) => 1
+//           case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
+//             case Op(ListVector(elems)) => elems.length // Was this deprecated?
+//             case _ => ens.length
+//           }
+//         }
+//       }
+//       val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
+//       val width = bitWidth(lhs.tp.typeArguments.head)
 
-      if (broadcastReaders.nonEmpty) {
-        error(lhs.ctx, "Broadcasted readers are not supported in Chisel.")
-        error(lhs.ctx)
-        error("The following reads are broadcasts: ")
-        broadcastReaders.foreach{r => error(r.node.ctx) }
-      }
-
-      val rParZip = singleReaders.map{r => (accessWidth(r), portsOf(r,lhs,0).head) }
-      val wParZip = singleWriters.map{w => (accessWidth(w), portsOf(w,lhs,0).head) }
-      val rPar = if (rParZip.isEmpty) "1" else rParZip.map{_._1}.mkString(",")
-      val wPar = if (wParZip.isEmpty) "1" else wParZip.map{_._1}.mkString(",")
-      val rBundling = if (rParZip.isEmpty) "0" else rParZip.map{_._2}.mkString(",")
-      val wBundling = if (wParZip.isEmpty) "0" else wParZip.map{_._2}.mkString(",")
-
-      val broadcasts = broadcastWriters.map(accessWidth)
-      val bPar = if (broadcasts.nonEmpty) broadcasts.mkString(",") else "0"
-      val width = bitWidth(lhs.tp.typeArguments.head)
-
-      val strides = src"""List($nBanks)"""
-      if (depth == 1) {
-        emitGlobalModule(src"""val $lhs = Module(new SRAM(List($dimensions), $width,
-  List($nBanks), $strides,
-  List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
-))""")
-=======
-      duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
-        val rParZip = readersOf(lhs)
-          .filter{read => dispatchOf(read, lhs) contains i}
-          .map { r => 
-            val par = r.node match {
-              case Def(_: SRAMLoad[_]) => 1
-              case Def(a@ParSRAMLoad(_,inds,ens)) => inds.length
-            }
-            val port = portsOf(r, lhs, i).toList.head
-            (par, port)
-          }
-        val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
-        val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
-        val wParZip = writersOf(lhs)
-          .filter{write => dispatchOf(write, lhs) contains i}
-          .filter{w => portsOf(w, lhs, i).toList.length == 1}
-          .map { w => 
-            val par = w.node match {
-              case Def(_: SRAMStore[_]) => 1
-              case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-                case Op(ListVector(elems)) => elems.length // Was this deprecated?
-                case _ => ens.length
-              }
-            }
-            val port = portsOf(w, lhs, i).toList.head
-            (par, port)
-          }
-        val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
-        val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
-        val broadcasts = writersOf(lhs)
-          .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
-          w.node match {
-            case Def(_: SRAMStore[_]) => 1
-            case Def(a@ParSRAMStore(_,_,_,ens)) => ens match {
-              case Op(ListVector(elems)) => elems.length // Was this deprecated?
-              case _ => ens.length
-            }
-          }
-        }
-        val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
-        val width = bitWidth(lhs.tp.typeArguments.head)
-
-        mem match {
-          case BankedMemory(dims, depth, isAccum) =>
-            val strides = src"""List(${dims.map(_.banks)})"""
-            if (depth == 1) {
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
-    List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            } else {
-              appPropertyStats += HasNBufSRAM
-              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
-    List(${dims.map(_.banks)}), $strides,
-    List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            }
-          case DiagonalMemory(strides, banks, depth, isAccum) =>
-            if (depth == 1) {
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
-    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            } else {
-              appPropertyStats += HasNBufSRAM
-              nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
-              val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-              emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
-    List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
-    List($wPar), List($rPar), 
-    List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
-  ))""")
-            }
-          }
-        }
+//       mem match {
+//         case BankedMemory(dims, depth, isAccum) =>
+//           val strides = src"""List(${dims.map(_.banks)})"""
+//           if (depth == 1) {
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+//   List(${dims.map(_.banks)}), $strides,
+//   List($wPar), List($rPar), BankedMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           } else {
+//             appPropertyStats += HasNBufSRAM
+//             nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+//             val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+//   List(${dims.map(_.banks)}), $strides,
+//   List($wPar), List($rPar), 
+//   List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           }
+//         case DiagonalMemory(strides, banks, depth, isAccum) =>
+//           if (depth == 1) {
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new SRAM(List($dimensions), $width, 
+//   List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+//   List($wPar), List($rPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           } else {
+//             appPropertyStats += HasNBufSRAM
+//             nbufs = nbufs :+ (lhs.asInstanceOf[Sym[SRAM[_]]], i)
+//             val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+//             emitGlobalModule(src"""val ${lhs}_$i = Module(new ${memname}(List($dimensions), $depth, $width,
+//   List(${(0 until dimensions.length).map{_ => s"$banks"}}), List($strides),
+//   List($wPar), List($rPar), 
+//   List($wBundling), List($rBundling), List($bPar), DiagonalMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//           }
+//         }
     
-    case SRAMLoad(sram, dims, is, ofs, en) =>
-      val dispatch = dispatchOf(lhs, sram)
-      val rPar = 1 // Because this is SRAMLoad node    
-      val width = bitWidth(sram.tp.typeArguments.head)
-      emit(s"""// Assemble multidimR vector""")
-      dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
-        val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-        val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-        emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
-        emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${enableRetimeMatch(en, lhs)}.toInt) & $en""")
-        is.zipWithIndex.foreach{ case(ind,j) => 
-          emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
-        }
-        val p = portsOf(lhs, sram, i).head
-        val basequote = src"${lhs}_base" // get string before we create the map
-        emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
-        emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
-        emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
-      }
+//     case SRAMLoad(sram, dims, is, ofs, en) =>
+//       val dispatch = dispatchOf(lhs, sram)
+//       val rPar = 1 // Because this is SRAMLoad node    
+//       val width = bitWidth(sram.tp.typeArguments.head)
+//       emit(s"""// Assemble multidimR vector""")
+//       dispatch.foreach{ i =>  // TODO: Shouldn't dispatch only have one element?
+//         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
+//         val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+//         emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
+//         emit(src"""${swap(lhs, RVec)}(0).en := Utils.getRetimed($enable, ${enableRetimeMatch(en, lhs)}.toInt) & $en""")
+//         is.zipWithIndex.foreach{ case(ind,j) => 
+//           emit(src"""${swap(lhs, RVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
+//         }
+//         val p = portsOf(lhs, sram, i).head
+//         val basequote = src"${lhs}_base" // get string before we create the map
+//         emit(src"""val ${basequote} = ${sram}_$i.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+//         emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+//         emit(src"""${lhs}.r := ${sram}_$i.io.output.data(${basequote})""")
+//       }
 
-    case SRAMStore(sram, dims, is, ofs, v, en) =>
-      val width = bitWidth(sram.tp.typeArguments.head)
-      val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
-      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-      emit(s"""// Assemble multidimW vector""")
-      emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
-      emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
-      emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt, rr)""")
-      is.zipWithIndex.foreach{ case(ind,j) => 
-        emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
->>>>>>> origin/develop
-      }
-      else {
-        nbufs = nbufs :+ lhs.asInstanceOf[Sym[SRAM[_]]]
-        val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
-        emitGlobalModule(src"""val $lhs = Module(new ${memname}(List($dimensions), $depth, $width,
-  List($nBanks), $strides,
-  List($wPar), List($rPar),
-  List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
-))""")
-      }
+//     case SRAMStore(sram, dims, is, ofs, v, en) =>
+//       val width = bitWidth(sram.tp.typeArguments.head)
+//       val parent = writersOf(sram).find{_.node == lhs}.get.ctrlNode
+//       val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+//       emit(s"""// Assemble multidimW vector""")
+//       emitGlobalWireMap(src"""${lhs}_wVec""", src"""Wire(Vec(1, new multidimW(${dims.length}, List(${constDimsOf(sram)}), $width))) """)
+//       emit(src"""${swap(lhs, WVec)}(0).data := $v.raw""")
+//       emit(src"""${swap(lhs, WVec)}(0).en := $en & (${enable} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(en, lhs)}.toInt, rr)""")
+//       is.zipWithIndex.foreach{ case(ind,j) => 
+//         emit(src"""${swap(lhs, WVec)}(0).addr($j) := ${ind}.raw // Assume always an int""")
+//       }
+//       else {
+//         nbufs = nbufs :+ lhs.asInstanceOf[Sym[SRAM[_]]]
+//         val memname = if (bPar == "0") "NBufSRAMnoBcast" else "NBufSRAM"
+//         emitGlobalModule(src"""val $lhs = Module(new ${memname}(List($dimensions), $depth, $width,
+//   List($nBanks), $strides,
+//   List($wPar), List($rPar),
+//   List($wBundling), List($rBundling), List($bPar), BankedMemory, ${spatialConfig.enableSyncMem}
+// ))""")
+//       }
 
     case _:SRAMLoad[_]  => throw new Exception(s"Cannot generate unbanked SRAM load.\n${str(lhs)}")
     case _:SRAMStore[_] => throw new Exception(s"Cannot generate unbanked SRAM store.\n${str(lhs)}")
 
-    case BankedSRAMLoad(sram,bank,ofs,ens) => // TODO
-    case BankedSRAMStore(sram,data,bank,ofs,ens) => // TODO
-    */
+    case op@BankedSRAMLoad(sram,bank,ofs,ens) =>
+      emitBankedLoad(lhs, sram, bank, ofs, ens)(mtyp(op.mT))
+
+    case op@BankedSRAMStore(sram,data,bank,ofs,ens) =>
+      emitBankedStore(lhs, sram, data, bank, ofs, ens)(mtyp(op.mT))
+
+    
     /*case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)
       val width = bitWidth(sram.tp.typeArguments.head)
       val rPar = inds.length
       val dims = stagedDimsOf(sram)
+
+      // Check if we need to expose a _ready signal to the read port
+      val streamOuts = pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
+          case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+          case _ => ""
+        }}.filter(_ != "").mkString(" & ")
+
       disableSplit = true
       emit(s"""// Assemble multidimR vector""")
       emitGlobalWireMap(src"""${lhs}_rVec""", src"""Wire(Vec(${rPar}, new multidimR(${dims.length}, List(${constDimsOf(sram)}), ${width})))""")
@@ -620,13 +790,17 @@ trait ChiselGenSRAM extends ChiselCodegen {
         val k = dispatch.toList.head 
         val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
         inds.zipWithIndex.foreach{ case (ind, i) =>
-          emit(src"${swap(lhs, RVec)}($i).en := (${swap(parent, En)}).D(${enableRetimeMatch(ens(i), lhs)}.toInt,rr) & ${ens(i)}")
+          emit(src"${swap(lhs, RVec)}($i).en := ${DL(swap(parent, En), src"${enableRetimeMatch(ens(i), lhs)}.toInt", true)} & ${ens(i)}")
           ind.zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${swap(lhs, RVec)}($i).addr($j) := ${a}.raw """)
           }
         }
         val p = portsOf(lhs, sram, k).head
-        emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        if (isStreamChild(controllerStack.head) & streamOuts != "") {
+          emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p, $streamOuts)""")
+        } else {
+          emit(src"""val ${lhs}_base = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}.toArray), $p)""")
+        }
         // sram.tp.typeArguments.head match { 
         //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
               emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""") 
@@ -640,12 +814,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""val ${lhs} = Wire(${newWire(lhs.tp)})""")
         dispatch.zipWithIndex.foreach{ case (k,id) => 
           val parent = readersOf(sram).find{_.node == lhs}.get.ctrlNode
-          emit(src"${swap(lhs, RVec)}($id).en := (${swap(parent, En)}).D(${swap(parent, Retime)}, rr) & ${ens(id)}")
+          emit(src"${swap(lhs, RVec)}($id).en := ${DL(swap(parent, En), swap(parent, Retime), true)} & ${ens(id)}")
           inds(id).zipWithIndex.foreach{ case (a, j) =>
             emit(src"""${swap(lhs, RVec)}($id).addr($j) := ${a}.raw """)
           }
           val p = portsOf(lhs, sram, k).head
-          emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          if (isStreamChild(controllerStack.head) & streamOuts != "") {
+            emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p, $streamOuts) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          } else {
+            emit(src"""val ${lhs}_base_$k = ${sram}_$k.connectRPort(Vec(${swap(lhs, RVec)}($id)), $p) // TODO: No need to connect all rVec lanes to SRAM even though only one is needed""")
+          }
           // sram.tp.typeArguments.head match { 
           //   case FixPtType(s,d,f) => if (spatialNeedsFPType(sram.tp.typeArguments.head)) {
                 emit(s"""${quote(lhs)}($id).r := ${quote(sram)}_$k.io.output.data(${quote(lhs)}_base_$k)""")
@@ -670,7 +848,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         emit(src"""${swap(lhs, WVec)}($i).data := ${d}.r""")
       }
       inds.zipWithIndex.foreach{ case (ind, i) =>
-        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ($enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}).D(${enableRetimeMatch(ens(i), lhs)}.toInt)")
+        emit(src"${swap(lhs, WVec)}($i).en := ${ens(i)} & ${DL(src"$enable & ~${swap(parent, Inhibitor)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(ens(i), lhs)}.toInt")}")
         ind.zipWithIndex.foreach{ case (a, j) =>
           emit(src"""${swap(lhs, WVec)}($i).addr($j) := ${a}.r """)
         }
@@ -745,7 +923,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       nbufs.foreach{mem =>
         val info = bufferControlInfo(mem)
         info.zipWithIndex.foreach{ case (inf, port) => 
-          emit(src"""$mem.connectStageCtrl(${swap(quote(inf._1), Done)}.D(1,rr), ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
+          emit(src"""${mem}.connectStageCtrl(${DL(swap(quote(inf._1), Done), 1, true)}, ${swap(quote(inf._1), BaseEn)}, List(${port})) ${inf._2}""")
         }
       }
     }

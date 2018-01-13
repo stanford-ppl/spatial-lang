@@ -18,6 +18,12 @@ object utils {
   def nbits(e: Exp[_]): Int = e.tp match {case Bits(bT) => bT.length; case _ => 0 }
 
   /**
+    * Return the number of bits required to address this number. Useful for number of
+    * address bits for a memory
+    */
+  def bitsToAddress(n: Int): BigInt = BigInt(2) + scala.math.ceil(scala.math.log((BigInt(1) max n).toDouble)/scala.math.log(2)).toInt
+
+  /**
     * Returns an iterator over the multi-dimensional space `dims`.
     * If dims is empty, trivially returns an iterator with only one element (Nil)
     */

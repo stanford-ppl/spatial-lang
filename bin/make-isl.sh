@@ -4,6 +4,7 @@
 LIB=`ldconfig -p | grep libisl`
 echo $LIB
 
+
 if [ -z "$LIB" ]; then
 	echo "Did not find ISL library - installing now"
 	pushd .
@@ -13,7 +14,11 @@ if [ -z "$LIB" ]; then
 	make
 	make install
 	popd
-	
+fi
+
+BIN="./isl-bin/emptiness"
+if [[ ! -f $BIN ]]; then
+	echo "Making emptiness executable"
 	pushd .
 	cd isl-bin
 	make
