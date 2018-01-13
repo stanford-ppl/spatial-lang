@@ -14,62 +14,25 @@ class Mem1DTests(c: Mem1D) extends PeekPokeTester(c) {
   step(1)
   reset(1)
   for (i <- 0 until c.size ) {
-    poke(c.io.w.addr, i)
+    poke(c.io.w.ofs, i)
     poke(c.io.w.data, i*2)
     poke(c.io.w.en, 1)
+    poke(c.io.wMask, 1)
     step(1) 
     poke(c.io.w.en, 0)
+    poke(c.io.wMask, 0)
     step(1)
   }
 
   for (i <- 0 until c.size ) {
-    poke(c.io.r.addr, i)
+    poke(c.io.r.ofs, i)
     poke(c.io.r.en, 1)
+    poke(c.io.rMask, 1)
     step(1)
     expect(c.io.output.data, i*2)
     poke(c.io.r.en, 0)
+    poke(c.io.rMask, 0)
     step(1)
-  }
-
-}
-
-/**
- * MemND test harness
- */
-class MemNDTests(c: MemND) extends PeekPokeTester(c) {
-  val depth = c.dims.reduce{_*_}
-  val N = c.dims.length
-
-  step(1)
-  reset(1)
-  // poke(c.io.wMask, 1) // Do not mask at all when testing this template directly
-  // poke(c.io.rMask, 1) // Do not mask at all when testing this template directly
-  // Assume only 2D
-  for (i <- 0 until c.dims(0) ) {
-    for (j <- 0 until c.dims(1) ) {
-      c.io.w.addr.zip(List(i,j)).foreach { case (port, addr) => poke(port, addr) }
-      poke(c.io.w.data, (i*c.dims(0) + j)*2)
-      poke(c.io.w.en, 1)
-      poke(c.io.wMask, 1)
-      step(1) 
-      poke(c.io.w.en, 0)
-      poke(c.io.wMask, 0)
-      step(1)
-    }
-  }
-
-  for (i <- 0 until c.dims(0) ) {
-    for (j <- 0 until c.dims(1) ) {
-      c.io.r.addr.zip(List(i,j)).foreach { case (port, addr) => poke(port, addr) }
-      poke(c.io.r.en, 1)
-      poke(c.io.rMask, 1)
-      step(1)
-      // Console.println(s"Expect ${2*(i*c.dims(0) + j)} but got ${peek(c.io.output.data)}")
-      expect(c.io.output.data, 2*(i*c.dims(0) + j))
-      poke(c.io.r.en, 0)
-      poke(c.io.rMask, 0)
-      step(1)
-    }
   }
 
 }
@@ -91,14 +54,11 @@ class SRAMTests(c: SRAM) extends PeekPokeTester(c) {
       var idx = 0
       (0 until c.wPar.length).foreach{ writer => 
         (0 until c.wPar(writer)).foreach { kdim => 
-          poke(c.io.w(idx).addr(0), i)
-          poke(c.io.w(idx).addr(1), j+kdim)
+          poke(c.io.w(idx).banks(0), i % c.banks(0))
+          poke(c.io.w(idx).banks(1), (j+kdim) % c.banks(1))
+          poke(c.io.w(idx).ofs, i / c.banks(0) * c.logicalDims(1) / c.banks(1) + (j+kdim)/c.banks(1))
           poke(c.io.w(idx).data, (i*c.logicalDims(0) + j + kdim)*2)
-          if (writer == 0) {
-            poke(c.io.w(idx).en, true)
-          } else {
-            poke(c.io.w(idx).en, false)
-          }
+          poke(c.io.w(idx).en, writer == 0)
           idx = idx + 1
         }
       }
@@ -119,13 +79,10 @@ class SRAMTests(c: SRAM) extends PeekPokeTester(c) {
       var idx = 0
       (0 until c.rPar.length).foreach{ reader => 
         (0 until c.rPar(reader)).foreach { kdim => 
-          poke(c.io.r(idx).addr(0), i)
-          poke(c.io.r(idx).addr(1), j+kdim)
-          if (reader == 0) {
-            poke(c.io.r(idx).en, true)
-          } else {
-            poke(c.io.r(idx).en, false)
-          }
+          poke(c.io.r(idx).banks(0), i % c.banks(0))
+          poke(c.io.r(idx).banks(1), (j+kdim) % c.banks(1))
+          poke(c.io.r(idx).ofs, i / c.banks(0) * c.logicalDims(1) / c.banks(1) + (j+kdim)/c.banks(1))
+          poke(c.io.r(idx).en, reader == 0)
           idx = idx + 1
         }
       }
@@ -169,14 +126,11 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
         var idx = 0
         (0 until c.wPar.length).foreach{ writer => 
           (0 until c.wPar(writer)).foreach { kdim => 
-            poke(c.io.w(idx).addr(0), i)
-            poke(c.io.w(idx).addr(1), j+kdim)
-            poke(c.io.w(idx).data, 1000*dat + i*c.logicalDims(0) + j + kdim)
-            if (writer == 0) {
-              poke(c.io.w(idx).en, true)
-            } else {             
-              poke(c.io.w(idx).en, false)
-            }
+            poke(c.io.w(idx).banks(0), i % c.banks(0))
+            poke(c.io.w(idx).banks(1), (j+kdim) % c.banks(1))
+            poke(c.io.w(idx).ofs, i / c.banks(0) * c.logicalDims(1) / c.banks(1) + (j+kdim)/c.banks(1))
+            poke(c.io.w(idx).data, 1000*dat + (i*c.logicalDims(0) + j + kdim))
+            poke(c.io.w(idx).en, writer == 0)
             idx = idx + 1
           }
         }
@@ -197,10 +151,11 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
       for (j <- 0 until c.logicalDims(1) by c.bPar.head) {
         // Set addrs
         (0 until c.bPar.head).foreach { kdim => 
-          poke(c.io.broadcast(kdim).addr(0), i)
-          poke(c.io.broadcast(kdim).addr(1), j+kdim)
-          poke(c.io.broadcast(kdim).data, dat + i*c.logicalDims(0) + j + kdim)
-          poke(c.io.broadcast(kdim).en, true)
+            poke(c.io.broadcast(kdim).banks(0), i % c.banks(0))
+            poke(c.io.broadcast(kdim).banks(1), (j+kdim) % c.banks(1))
+            poke(c.io.broadcast(kdim).ofs, i / c.banks(0) * c.logicalDims(1) / c.banks(1) + (j+kdim)/c.banks(1))
+            poke(c.io.broadcast(kdim).data, dat + (i*c.logicalDims(0) + j + kdim))
+            poke(c.io.broadcast(kdim).en, true)        
         }
         step(1)
       }
@@ -222,19 +177,16 @@ class NBufSRAMTests(c: NBufSRAM) extends PeekPokeTester(c) {
         var idx = 0
         (0 until c.rPar.length).foreach{ readers => 
           (0 until c.rPar(readers)).foreach { kdim => 
-            poke(c.io.r(idx).addr(0), i)
-            poke(c.io.r(idx).addr(1), j+kdim)
-            if (readers == 0) {
-              poke(c.io.r(idx).en, true)
-            } else {
-              poke(c.io.r(idx).en, false)
-            }
+            poke(c.io.r(idx).banks(0), i % c.banks(0))
+            poke(c.io.r(idx).banks(1), (j+kdim) % c.banks(1))
+            poke(c.io.r(idx).ofs, i / c.banks(0) * c.logicalDims(1) / c.banks(1) + (j+kdim)/c.banks(1))
+            poke(c.io.r(idx).en, readers == 0)
             idx = idx + 1
           }
         }
         step(1)
         (0 until c.rPar.max).foreach {kdim => 
-          val gold = base*dat + i*c.logicalDims(0) + j + kdim
+          // val gold = base*dat + i*c.logicalDims(0) + j + kdim
           // val a = peek(c.io.output.data(rPort*c.rPar.max + kdim))
           // println(s"Expecting $gold but got $a (${a == gold}) on port $rPort")
           expect(c.io.output.data(rPort*c.rPar.max + kdim), gold)

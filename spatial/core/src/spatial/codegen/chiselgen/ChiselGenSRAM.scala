@@ -565,24 +565,42 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _ => super.quote(e)
   } 
 
-  def emitBankedLoad(lhs: Exp[_], mem: Exp[_], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
-      val rPar = ens.length
-      val width = bitWidth(mem.tp.typeArguments.head)
-      val parent = parentOf(lhs).get //readersOf(mem).find{_.node == lhs}.get.ctrlNode
-      val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-      emit(s"""// Assemble multidimR vector""")
-      ofs.zipWithIndex.foreach{case (o,i) => 
-        emit(src"""${swap(lhs, RVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
-        emit(src"""${swap(lhs, RVec)}($i).ofs := $o""")
-        emit(src"""${swap(lhs, RVec)}($i).bank := ${bank(i)}""")
+  def emitBankedLoad(lhs: Exp[_], mem: Exp[_], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]])(tp: Type[_]): Unit = {
+    val rPar = ens.length
+    val width = bitWidth(tp)
+    val parent = parentOf(lhs).get //readersOf(mem).find{_.node == lhs}.get.ctrlNode
+    val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+    emit(s"""// Assemble R_Info vector""")
+    emitGlobalWireMap(src"""${lhs}_rVec""", s"Wire(Vec(${rPar}, new R_Info(32, ${List.fill(bank.length)(32)})))")
+    ofs.zipWithIndex.foreach{case (o,i) => 
+      emit(src"""${swap(lhs, RVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
+      emit(src"""${swap(lhs, RVec)}($i).ofs := ${o}.r""")
+      bank(i).zipWithIndex.foreach{case (b,j) => 
+        emit(src"""${swap(lhs, RVec)}($i).banks($j) := ${b}.r""")
       }
-      val p = portsOf(lhs, mem).head
-      emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
-      emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
-      emit(src"""${lhs}.r := ${mem}.io.output.data(${lhs}_idx)""")
+    }
+    val p = portsOf(lhs, mem).head
+    emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
+    emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
+    emit(src"""(0 until ${ens.length}).foreach{case i => ${lhs}(i).r := ${mem}.io.output.data(${lhs}_idx + i)}""")
   }
 
   def emitBankedStore[T:Type](lhs: Exp[_], mem: Exp[_], data: Seq[Exp[T]], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
+    val wPar = ens.length
+    val width = bitWidth(mem.tp.typeArguments.head)
+    val parent = parentOf(lhs).get
+    val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+    emit(s"""// Assemble W_Info vector""")
+    emitGlobalWireMap(src"""${lhs}_wVec""", s"Wire(Vec(${wPar}, new W_Info(32, ${List.fill(bank.length)(32)}, $width)))")
+    ofs.zipWithIndex.foreach{case (o,i) => 
+      emit(src"""${swap(lhs, WVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
+      emit(src"""${swap(lhs, WVec)}($i).ofs := ${o}.r""")
+      emit(src"""${swap(lhs, WVec)}($i).data := ${data(i)}.r""")
+      bank(i).zipWithIndex.foreach{case (b,j) => 
+        emit(src"""${swap(lhs, WVec)}($i).banks($j) := ${b}.r""")
+      }
+    }
+    emit(src"""${mem}.connectWPort(${swap(lhs, WVec)}, ${portsOf(lhs, mem).head._2.mkString("List(", ",", ")")})""")
   }
 
   def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
@@ -608,7 +626,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     val numBanks = inst.nBanks.map(_.toString).mkString("List(", ",", ")")
     val strides = numBanks // TODO: What to do with strides
     val wPar = writersOf(mem).map {w => w.node match { case Def(BankedSRAMStore(_,_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
-    val rPar = writersOf(mem).map {r => r.node match { case Def(BankedSRAMLoad(_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
+    val rPar = readersOf(mem).map {r => r.node match { case Def(BankedSRAMLoad(_,_,_,ens)) => ens.length; case _ => -1 }}.mkString("List(", ",", ")")
     val bankingMode = "BankedMemory" // TODO: Find correct one
     val wPort = writersOf(mem).map {w => portsOf(w,mem).toList.head}
 
@@ -746,10 +764,12 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case _:SRAMLoad[_]  => throw new Exception(s"Cannot generate unbanked SRAM load.\n${str(lhs)}")
     case _:SRAMStore[_] => throw new Exception(s"Cannot generate unbanked SRAM store.\n${str(lhs)}")
 
-    case BankedSRAMLoad(sram,bank,ofs,ens) =>
-      emitBankedLoad(lhs, sram, bank, ofs, ens)
+    case op@BankedSRAMLoad(sram,bank,ofs,ens) =>
+      emitBankedLoad(lhs, sram, bank, ofs, ens)(mtyp(op.mT))
 
-    case BankedSRAMStore(sram,data,bank,ofs,ens) => // TODO
+    case op@BankedSRAMStore(sram,data,bank,ofs,ens) =>
+      emitBankedStore(lhs, sram, data, bank, ofs, ens)(mtyp(op.mT))
+
     
     /*case ParSRAMLoad(sram,inds,ens) =>
       val dispatch = dispatchOf(lhs, sram)

@@ -346,7 +346,7 @@ public:
         EPRINTF("=========================================\n");
       }
      sleep(1);
-     dumpDebugRegs();
+     // dumpDebugRegs();
       writeReg(commandReg, 0);
       while (status != 0) {
         step();
@@ -408,7 +408,7 @@ public:
 
   ~FringeContextVCS() {
     if (debugRegs) {
-      dumpDebugRegs();
+      // dumpDebugRegs();
     }
     finish();
   }

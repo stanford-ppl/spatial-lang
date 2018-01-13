@@ -129,10 +129,6 @@ object Arguments {
     50,
     1024
   )
-  val MemND = List(
-    List(4,8),
-    List(5,9)
-  )
   val SRAM = List( // Contain each set of args in its own list
            ( List(1,16), 32, 
              List(1,1), List(1,1), 
@@ -378,14 +374,6 @@ object Launcher {
     (s"Mem1D$i" -> { (backendName: String) =>
     	Driver(() => new Mem1D(arg), "verilator") {
           (c) => new Mem1DTests(c)
-        }
-      }) 
-  }.toMap
-
-  templates = templates ++ Arguments.MemND.zipWithIndex.map{ case(arg,i) => 
-    (s"MemND$i" -> { (backendName: String) =>
-    	Driver(() => new MemND(arg), "verilator") {
-          (c) => new MemNDTests(c)
         }
       }) 
   }.toMap

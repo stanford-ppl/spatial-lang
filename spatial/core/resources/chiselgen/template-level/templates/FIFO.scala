@@ -72,7 +72,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
       val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + i)}.toList)
-      mem.io.w.addr := writer.io.output.count(0).asUInt
+      mem.io.w.ofs := writer.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(enq_options, data_options)
       mem.io.w.en := enq_options.reduce{_|_}
     }
@@ -80,7 +80,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     (0 until pW).foreach { w_i => 
       (0 until (p /-/ pW)).foreach { i => 
         val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + w_i)}.toList)
-        m(w_i + i*-*pW).io.w.addr := writer.io.output.count(0).asUInt
+        m(w_i + i*-*pW).io.w.ofs := writer.io.output.count(0).asUInt
         m(w_i + i*-*pW).io.w.data := Mux1H(enq_options, data_options)
         m(w_i + i*-*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S(sw_width.W))
       }
@@ -90,7 +90,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Connect deqper
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
-      mem.io.r.addr := reader.io.output.count(0).asUInt
+      mem.io.r.ofs := reader.io.output.count(0).asUInt
       mem.io.r.en := deq_options.reduce{_|_}
       io.out(i) := mem.io.output.data
     }
@@ -99,7 +99,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       val rSel = Wire(Vec( (p/pR), Bool()))
       val rData = Wire(Vec( (p/pR), UInt(32.W)))
       (0 until (p /-/ pR)).foreach { i => 
-        m(r_i + i*-*pR).io.r.addr := reader.io.output.count(0).asUInt
+        m(r_i + i*-*pR).io.r.ofs := reader.io.output.count(0).asUInt
         m(r_i + i*-*pR).io.r.en := deq_options.reduce{_|_} & (subReader.io.output.count(0) === i.S(sr_width.W))
         rSel(i) := subReader.io.output.count(0) === i.S(sr_width.W)
         // if (i == 0) { // Strangeness from inc-then-read nuisance
@@ -341,7 +341,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   val active_w_addr = Utils.singleCycleDivide(headCtr.io.output.count, banks.S(width.W))
   (0 until banks).foreach{i => 
     val addr = Mux(i.S(width.W) < active_w_bank, active_w_addr + 1.S(width.W), active_w_addr)
-    m(i).io.w.addr := addr.asUInt
+    m(i).io.w.ofs := addr.asUInt
     m(i).io.w.data := enqCompactor.io.out(i).data
     m(i).io.w.en   := enqCompactor.io.out(i).en
   }
@@ -353,7 +353,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
   val active_r_addr = Utils.singleCycleDivide(tailCtr.io.output.count, banks.S(width.W))
   (0 until banks).foreach{i => 
     val addr = Mux(i.S(width.W) < active_r_bank, active_r_addr + 1.S(width.W), active_r_addr)
-    m(i).io.r.addr := addr.asUInt
+    m(i).io.r.ofs := addr.asUInt
     deqCompactor.io.input.data(i) := m(i).io.output.data
   }
   (0 until pR.reduce{_+_}).foreach{i =>
@@ -487,7 +487,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
       val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + i)}.toList)
-      mem.io.w.addr := accessor.io.output.count(0).asUInt
+      mem.io.w.ofs := accessor.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(push_options, data_options)
       mem.io.w.en := push_options.reduce{_|_}
     }
@@ -495,7 +495,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     (0 until pW).foreach { w_i => 
       (0 until (p /-/ pW)).foreach { i => 
         val data_options = Vec((0 until numWriters).map{ q => io.in(q*-*pW + w_i)}.toList)
-        m(w_i + i*-*pW).io.w.addr := accessor.io.output.count(0).asUInt
+        m(w_i + i*-*pW).io.w.ofs := accessor.io.output.count(0).asUInt
         m(w_i + i*-*pW).io.w.data := Mux1H(push_options, data_options)
         m(w_i + i*-*pW).io.w.en := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*-*pW).S(sa_width.W))
       }
@@ -505,7 +505,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
   // Connect popper
   if (pW == pR) {
     m.zipWithIndex.foreach { case (mem, i) => 
-      mem.io.r.addr := (accessor.io.output.count(0) - 1.S(a_width.W)).asUInt
+      mem.io.r.ofs := (accessor.io.output.count(0) - 1.S(a_width.W)).asUInt
       mem.io.r.en := pop_options.reduce{_|_}
       io.out(i) := mem.io.output.data
     }
@@ -514,7 +514,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       val rSel = Wire(Vec( (p/pR), Bool()))
       val rData = Wire(Vec( (p/pR), UInt(bitWidth.W)))
       (0 until (p /-/ pR)).foreach { i => 
-        m(r_i + i*-*pR).io.r.addr := (accessor.io.output.count(0) - 1.S(sa_width.W)).asUInt
+        m(r_i + i*-*pR).io.r.ofs := (accessor.io.output.count(0) - 1.S(sa_width.W)).asUInt
         m(r_i + i*-*pR).io.r.en := pop_options.reduce{_|_} & (subAccessor_prev === (i*-*pR).S(sa_width.W))
         rSel(i) := subAccessor_prev === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
