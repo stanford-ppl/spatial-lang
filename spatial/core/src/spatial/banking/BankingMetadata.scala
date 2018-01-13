@@ -111,15 +111,16 @@ case class Memory(
     if (banking.length == 1) {
       val b = banking.head.stride
 
+      val inst = instanceOf(mem)
+      val dims = constDimsOf(mem)
+      val nBanks = inst.nBanks.product
+      val maxAddr = Math.ceil(dims.product.toDouble / nBanks).toInt
+      val width = bitsToAddress(maxAddr).toInt
+      implicit val ibits: INT[Any] = INT.from[Any](width)
+      val tp = new FixPtType[TRUE,Any,_0](BOOL[TRUE],ibits, INT[_0])
+      val bits = tp.getBits.get
+
       spatial.lang.Math.sumTree((0 until d).map{t =>
-        val inst = instanceOf(mem)
-        val dims = constDimsOf(mem)
-        val nBanks = inst.nBanks.product
-        val maxAddr = Math.ceil(dims.product.toDouble / nBanks).toInt
-        val width = bitsToAddress(maxAddr).toInt
-        implicit val ibits: INT[Any] = INT.from[Any](width)
-        implicit val tp = new FixPtType[TRUE,Any,_0](BOOL[TRUE],ibits, INT[_0])
-        implicit val bits = tp.getBits.get
         val xt = wrap(addr(t)).as(tp, bits, ctx, state)
         if (t < d - 1) { xt * (w.slice(t+1,d-1).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
         else           { (xt / (n*b)) * b + xt % b }
