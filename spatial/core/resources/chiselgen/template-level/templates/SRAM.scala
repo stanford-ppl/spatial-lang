@@ -244,8 +244,8 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
   val physicalDims = bankingMode match {
-    case DiagonalMemory => logicalDims.zipWithIndex.map { case (dim, i) => if (i == N - 1) math.ceil(dim.toDouble/banks.head).toInt else dim}
-    case BankedMemory => logicalDims.zip(banks).map { case (dim, b) => math.ceil(dim.toDouble/b).toInt}
+    // case DiagonalMemory => logicalDims.zipWithIndex.map { case (dim, i) => if (i == N - 1) math.ceil(dim.toDouble/banks.head).toInt else dim}
+    case BankedMemory => math.ceil(logicalDims.product.toDouble / banks.product).toInt
   }
   val numMems = bankingMode match {
     case DiagonalMemory => banks.head
@@ -254,7 +254,7 @@ class SRAM(val logicalDims: List[Int], val bitWidth: Int,
 
   // Create list of (mem: Mem1D, coords: List[Int] <coordinates of bank>)
   val m = (0 until numMems).map{ i => 
-    val mem = Module(new Mem1D(physicalDims.reduce{_*_}, bitWidth, syncMem))
+    val mem = Module(new Mem1D(physicalDims, bitWidth, syncMem))
     val coords = banks.zipWithIndex.map{ case (b,j) => 
       i % (banks.drop(j).product) / banks.drop(j+1).product
     }
@@ -409,7 +409,7 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
 
   // Get info on physical dims
   // TODO: Upcast dims to evenly bank
-  val physicalDims = logicalDims.zip(banks).map { case (dim, b) => dim/b}
+  val physicalDims = logicalDims.product / banks.product
   val numMems = banks.reduce{_*_}
 
   // Create physical mems
