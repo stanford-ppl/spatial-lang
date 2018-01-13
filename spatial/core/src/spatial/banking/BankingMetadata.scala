@@ -124,7 +124,7 @@ case class Memory(
         val xt = wrap(addr(t)).as(tp, bits, ctx, state)
         if (t < d - 1) { xt * (w.slice(t+1,d-1).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
         else           { (xt / (n*b)) * b + xt % b }
-      }).s
+      }).as[Index].s
     }
     else if (banking.length == w.length) {
       val b = banking.map(_.stride)
