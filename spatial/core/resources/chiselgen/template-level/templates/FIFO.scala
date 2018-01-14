@@ -75,6 +75,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       mem.io.w.ofs := writer.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(enq_options, data_options)
       mem.io.w.en := enq_options.reduce{_|_}
+      mem.io.wMask := enq_options.reduce{_|_}
     }
   } else {
     (0 until pW).foreach { w_i => 
@@ -83,6 +84,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
         m(w_i + i*-*pW).io.w.ofs := writer.io.output.count(0).asUInt
         m(w_i + i*-*pW).io.w.data := Mux1H(enq_options, data_options)
         m(w_i + i*-*pW).io.w.en := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S(sw_width.W))
+        m(w_i + i*-*pW).io.wMask := enq_options.reduce{_|_} & (subWriter.io.output.count(0) === i.S(sw_width.W))
       }
     }
   }
@@ -92,6 +94,7 @@ class FIFO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     m.zipWithIndex.foreach { case (mem, i) => 
       mem.io.r.ofs := reader.io.output.count(0).asUInt
       mem.io.r.en := deq_options.reduce{_|_}
+      mem.io.rMask := deq_options.reduce{_|_}
       io.out(i) := mem.io.output.data
     }
   } else {
@@ -490,6 +493,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       mem.io.w.ofs := accessor.io.output.count(0).asUInt
       mem.io.w.data := Mux1H(push_options, data_options)
       mem.io.w.en := push_options.reduce{_|_}
+      mem.io.wMask := push_options.reduce{_|_}
     }
   } else {
     (0 until pW).foreach { w_i => 
@@ -498,6 +502,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
         m(w_i + i*-*pW).io.w.ofs := accessor.io.output.count(0).asUInt
         m(w_i + i*-*pW).io.w.data := Mux1H(push_options, data_options)
         m(w_i + i*-*pW).io.w.en := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*-*pW).S(sa_width.W))
+        m(w_i + i*-*pW).io.wMask := push_options.reduce{_|_} & (subAccessor.io.output.count(0) === (i*-*pW).S(sa_width.W))
       }
     }
   }
@@ -507,6 +512,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
     m.zipWithIndex.foreach { case (mem, i) => 
       mem.io.r.ofs := (accessor.io.output.count(0) - 1.S(a_width.W)).asUInt
       mem.io.r.en := pop_options.reduce{_|_}
+      mem.io.rMask := pop_options.reduce{_|_}
       io.out(i) := mem.io.output.data
     }
   } else {

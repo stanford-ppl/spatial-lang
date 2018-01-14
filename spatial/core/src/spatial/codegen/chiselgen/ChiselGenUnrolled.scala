@@ -129,7 +129,6 @@ trait ChiselGenUnrolled extends ChiselGenController {
       else if (levelOf(lhs) == InnerControl) {depthStats += controllerStack.length}
       emitGlobalWireMap(src"${lhs}_II_done", "Wire(Bool())")
       emitController(lhs, Some(cchain), Some(iters.flatten))
-      // allocateValids(lhs, cchain, iters, valids)
       if (levelOf(lhs) == InnerControl) emitInhibitor(lhs, Some(cchain), None, None)
       // if (styleOf(lhs) == MetaPipe & childrenOf(lhs).length > 1) allocateRegChains(lhs, iters.flatten, cchain) // Needed to generate these global wires before visiting children who may use them
       // if (styleOf(lhs) == MetaPipe) createValidsPassMap(lhs, cchain, iters, valids)

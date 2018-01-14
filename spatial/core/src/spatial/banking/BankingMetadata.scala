@@ -107,18 +107,16 @@ case class Memory(
     val w = constDimsOf(mem)
     val d = w.length
     val n = banking.map(_.nBanks).product
-
+    val inst = instanceOf(mem)
+    val dims = constDimsOf(mem)
+    val nBanks = inst.nBanks.product
+    val maxAddr = Math.ceil(dims.product.toDouble).toInt
+    val width = bitsToAddress(maxAddr).toInt
+    implicit val ibits: INT[Any] = INT.from[Any](width)
+    val tp = new FixPtType[TRUE,Any,_0](BOOL[TRUE],ibits, INT[_0])
+    val bits = tp.getBits.get
     if (banking.length == 1) {
       val b = banking.head.stride
-
-      val inst = instanceOf(mem)
-      val dims = constDimsOf(mem)
-      val nBanks = inst.nBanks.product
-      val maxAddr = Math.ceil(dims.product.toDouble / nBanks).toInt
-      val width = bitsToAddress(maxAddr).toInt
-      implicit val ibits: INT[Any] = INT.from[Any](width)
-      val tp = new FixPtType[TRUE,Any,_0](BOOL[TRUE],ibits, INT[_0])
-      val bits = tp.getBits.get
 
       spatial.lang.Math.sumTree((0 until d).map{t =>
         val xt = wrap(addr(t)).as(tp, bits, ctx, state)
@@ -132,9 +130,9 @@ case class Memory(
       val dims = (0 until d).map{t => (t+1 until d).map{k => math.ceil(w(k)/n(k)).toInt }.product }
 
       spatial.lang.Math.sumTree((0 until d).map{t =>
-        val xt = wrap(addr(t))
+        val xt = wrap(addr(t)).as(tp, bits, ctx, state)
         ( ( xt/(b(t)*n(t)) )*b(t) + xt%b(t) ) * dims(t)
-      }).s
+      }).as[Index].s
     }
     else {
       // TODO: Bank address for mixed dimension groups
