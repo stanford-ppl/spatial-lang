@@ -145,6 +145,7 @@ build_spatial() {
 
   logger "Making spatial..."
   cd $SPATIAL_HOME
+  bash bin/make-isl.sh
   # sbt compile > /tmp/log 2>&1
   # make lang > /tmp/log 2>&1
   # make apps > /tmp/log 2>&1

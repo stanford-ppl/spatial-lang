@@ -347,6 +347,7 @@ class GeneralFIFO(val pR: List[Int], val pW: List[Int], val depth: Int, val bitW
     m(i).io.w.ofs := addr.asUInt
     m(i).io.w.data := enqCompactor.io.out(i).data
     m(i).io.w.en   := enqCompactor.io.out(i).en
+    m(i).io.wMask  := enqCompactor.io.out(i).en
   }
 
   // Create dequeue compacting network
