@@ -3,6 +3,7 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import argon.emul.FixedPoint
 
 trait ScalaGenSpatialFltPt extends ScalaGenBits {
 
@@ -43,6 +44,18 @@ trait ScalaGenSpatialFltPt extends ScalaGenBits {
     case StringToFltPt(x) =>
       val FltPtType(g,e) = lhs.tp
       emit(src"val $lhs = FloatPoint($x, FltFormat(${g-1},$e))")
+      x match {
+        case Def(ArrayApply(array, i)) => 
+          array match {
+            case Def(InputArguments()) => 
+              val ii = i match {case c: Const[_] => c match {case Const(c: FixedPoint) => c.toInt; case _ => -1}; case _ => -1}
+              if (cliArgs.contains(ii)) cliArgs += (ii -> s"${cliArgs(ii)} / ${lhs.name.getOrElse(s"${lhs.ctx}")}")
+              else cliArgs += (ii -> lhs.name.getOrElse(s"${lhs.ctx}"))
+            case _ =>
+          }
+        case _ =>          
+      }
+
 
     case FltRandom(Some(max)) =>
       val FltPtType(g,e) = lhs.tp
