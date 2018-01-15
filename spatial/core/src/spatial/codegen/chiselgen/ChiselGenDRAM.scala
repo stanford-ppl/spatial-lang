@@ -137,7 +137,9 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val (sizeMSB, sizeLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "size")
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
       val bug241_backoff = (math.random*7).toInt
-      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := wdata($dataMSB,$dataLSB) }""")
+      if (writersOf(dataStream).head.node match {case Def(BankedStreamWrite(_,_,ens)) => ens.length > 1}) 
+        emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := wdata($dataMSB,$dataLSB) }""")
+      else emit(src"""io.memStreams.stores($id).wdata.bits(0) := ${dataStream}($dataMSB, $dataLSB)""")
       emit(src"""io.memStreams.stores($id).wdata.valid := ${swap(dataStream, Valid)}""")
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DL(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${DL(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")

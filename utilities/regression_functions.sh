@@ -552,5 +552,6 @@ launch_tests_sbt() {
   else
     captype="Scala"
   fi
+  logger "Running - bash bin/regression $thredz $branch $captype"
   bash bin/regression $thredz $branch $captype
 }

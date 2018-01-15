@@ -338,8 +338,6 @@ trait ControllerUnrolling extends UnrollingBase {
       val accValue = withSubstScope(load.input -> accum){ inroll(load) }
       val isFirst = Math.reduceTree(iters.zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
-      isReduceStarter(accValue) = true
-
       if (spatialConfig.enablePIR) {
         inCycle(redType){ reduce.inline(treeResult, accValue) }
       }
@@ -359,8 +357,6 @@ trait ControllerUnrolling extends UnrollingBase {
           mux
       }
     }
-
-    isReduceResult(result) = true
 
     inReduction(isInner){ withSubstScope(store.inputB -> result, store.inputA -> accum){ inroll(store) } }
   }
@@ -426,7 +422,7 @@ trait ControllerUnrolling extends UnrollingBase {
     rV:     (Bound[T],Bound[T]),      // Bound symbols used to reify rFunc
     iters:  Seq[Bound[Index]]         // Bound iterators for map loop
   )(implicit mT: Type[T], bT: Bits[T], ctx: SrcCtx): Exp[_] = {
-    logs(s"Unrolling reduce $lhs")
+    logs(s"Unrolling reduce $lhs -> $accum")
     val lanes = PartialUnroller(cchain, iters, isInnerControl(lhs))
     val inds2 = lanes.indices
     val vs = lanes.indexValids
@@ -456,6 +452,7 @@ trait ControllerUnrolling extends UnrollingBase {
     val effects = blk.effects
     val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchain, blk, inds2, vs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
+    accumulatesTo(lhs2) = accum
     logs(s"Created reduce ${str(lhs2)}")
     lhs2
   }
@@ -493,7 +490,7 @@ trait ControllerUnrolling extends UnrollingBase {
     itersMap:  Seq[Bound[Index]],     // Bound iterators for map loop
     itersRed:  Seq[Bound[Index]]      // Bound iterators for reduce loop
   )(implicit mT: Type[T], bT: Bits[T], mC: Type[C[T]], ctx: SrcCtx): Exp[_] = {
-    logs(s"Unrolling accum-fold $lhs")
+    logs(s"Unrolling accum-fold $lhs -> $accum")
 
     val mapLanes = PartialUnroller(cchainMap, itersMap, isInnerLoop = false)
     val isMap2 = mapLanes.indices
@@ -575,8 +572,6 @@ trait ControllerUnrolling extends UnrollingBase {
               val treeResult = unrollReduceTree(inputs, valids, ident, reduce.toFunction2)
               val isFirst = Math.reduceTree(isMap2.map(_.head).zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
-              isReduceStarter(accValue) = true
-
               if (spatialConfig.enablePIR) {
                 inCycle(redType){ reduce.inline(treeResult, accValue) }
               }
@@ -594,8 +589,6 @@ trait ControllerUnrolling extends UnrollingBase {
               }
             }
 
-            isReduceResult(result) = true
-            isReduceStarter(accValue) = true
             register(reduce.result -> result)  // Lane-specific substitution
 
             tab -= 1
@@ -622,6 +615,7 @@ trait ControllerUnrolling extends UnrollingBase {
     val effects = blk.effects
     val lhs2 = stageEffectful(UnrolledReduce(globalValids ++ en, cchainMap, blk, isMap2, mvs), effects.star)(ctx)
     transferMetadata(lhs, lhs2)
+    accumulatesTo(lhs2) = accum
 
     logs(s"[Accum-fold] Created reduce ${str(lhs2)}")
     lhs2

@@ -143,9 +143,9 @@ trait ChiselGenReg extends ChiselGenSRAM {
             }
           case _ => lhs.tp match {
             case FixPtType(s,d,f) =>
-              emit(src"""$lhs.r := ${swap(src"${reg}_$inst", Blank)}.read(${port.head})""")
-            case BooleanType() => emit(src"""$lhs.r := ${swap(src"${reg}_$inst", Blank)}.read(${port.head}) === 1.U(1.W)""")
-            case _ => emit(src"""$lhs.r := ${swap(src"${reg}_$inst", Blank)}.read(${port.head})""")
+              emit(src"""$lhs.r := ${swap(src"${reg}", Blank)}.read(${port.head})""")
+            case BooleanType() => emit(src"""$lhs.r := ${swap(src"${reg}", Blank)}.read(${port.head}) === 1.U(1.W)""")
+            case _ => emit(src"""$lhs.r := ${swap(src"${reg}", Blank)}.read(${port.head})""")
           }
         }
       }

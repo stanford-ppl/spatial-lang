@@ -253,6 +253,18 @@ case class WrittenMems(written: List[Exp[_]]) extends Metadata[WrittenMems] {
 }
 
 /**
+  * Accumulating memory for an UnrolledReduce
+  **/
+case class AccumulatingMem(mem: Exp[_]) extends Metadata[AccumulatingMem] {
+  def mirror(f:Tx) = AccumulatingMem(f(mem))
+}
+@data object accumulatesTo {
+  def apply(x: Exp[_]): Option[Exp[_]] = metadata[AccumulatingMem](x).map(_.mem)
+  def update(x: Exp[_], mem: Exp[_]): Unit = metadata.add(x, AccumulatingMem(mem))
+}
+
+
+/**
   * List of fifos or streams popped in a given controller, for handling streampipe control flow
   **/
 case class ListenStreams(listen: List[StreamInfo]) extends Metadata[ListenStreams] {
@@ -428,18 +440,6 @@ case class MReduceType(func: Option[ReduceFunction]) extends Metadata[MReduceTyp
   def apply(e: Exp[_]): Option[ReduceFunction] = metadata[MReduceType](e).flatMap(_.func)
   def update(e: Exp[_], func: ReduceFunction) = metadata.add(e, MReduceType(Some(func)))
   def update(e: Exp[_], func: Option[ReduceFunction]) = metadata.add(e, MReduceType(func))
-}
-
-case class UnrolledResult(isIt: Boolean) extends Metadata[UnrolledResult] { def mirror(f:Tx) = this }
-@data object isReduceResult {
-  def apply(e: Exp[_]) = metadata[UnrolledResult](e).exists(_.isIt)
-  def update(e: Exp[_], isIt: Boolean) = metadata.add(e, UnrolledResult(isIt))
-}
-
-case class ReduceStarter(isIt: Boolean) extends Metadata[ReduceStarter] { def mirror(f:Tx) = this }
-@data object isReduceStarter {
-  def apply(e: Exp[_]) = metadata[ReduceStarter](e).exists(_.isIt)
-  def update(e: Exp[_], isIt: Boolean) = metadata.add(e, ReduceStarter(isIt))
 }
 
 case class PartOfTree(node: Exp[_]) extends Metadata[PartOfTree] { def mirror(f:Tx) = this }

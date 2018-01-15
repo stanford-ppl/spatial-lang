@@ -87,12 +87,15 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emitGlobalModule(src"${swap(src"${lhs}_valid_srff", Blank)}.io.input.asyn_reset := ${swap(src"${lhs}_valid_stops", Blank)}.reduce{_|_} | reset.toBool", forceful = true)
       emitGlobalModule(src"${swap(lhs, Valid)} := ${swap(src"${lhs}_valid_srff", Blank)}.io.output.data | ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
-        case Def(BankedStreamWrite(_, data, ens)) =>
+        case Def(BankedStreamWrite(_, data, ens)) if ens.length > 1 =>
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${ens.length*writersOf(lhs).length}, ${newWire(data.head.tp)}))")
           emitGlobalWire(src"""val $lhs = Vec((0 until ${ens.length}).map{i =>
             val ${lhs}_slice_options = (0 until ${writersOf(lhs).length}).map{j => ${swap(lhs, DataOptions)}(i*${writersOf(lhs).length}+j)}
             Mux1H(${swap(lhs, ValidOptions)}, ${lhs}_slice_options)
           }.toList)""")
+        case Def(BankedStreamWrite(_, data, ens)) if ens.length == 1 =>
+          emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${writersOf(lhs).length}, ${newWire(data.head.tp)}))", forceful = true)
+          emitGlobalWire(src"val $lhs = Mux1H(${swap(lhs, ValidOptions)}, ${swap(lhs, DataOptions)})", forceful = true)
         case Def(e@StreamWrite(_, data, _)) => 
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))", forceful = true)
           emitGlobalWire(src"val $lhs = Mux1H(${swap(lhs, ValidOptions)}, ${swap(lhs, DataOptions)})", forceful = true)
