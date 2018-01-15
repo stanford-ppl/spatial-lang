@@ -195,7 +195,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     if (isInnerControl(ctrl))
       appendResetter(resetter, ctrl)
     else {
-      throw new Exception("Cannot have resetter outside of an inner pipe!")
+      throw new spatial.StrayResetterException(resetter, ctrl)(resetter.ctx, state)
     }
   }
 

@@ -106,6 +106,11 @@ CompilerException(1025, c"$lhs had empty dispatch information") {
   bug(c"had empty dispatch information.")
 }
 
+class StrayResetterException(resetter: Exp[_], ctrl: Ctrl)(implicit ctx: SrcCtx, state: State) extends
+CompilerException(1026, c"Found illegal resetter $resetter existing outside an inner controller $ctrl"){
+  bug(ctx, c"Found illegal resetter $resetter existing outside an inner controller $ctrl")
+}
+
 
 // --- User exceptions
 object Nth {
