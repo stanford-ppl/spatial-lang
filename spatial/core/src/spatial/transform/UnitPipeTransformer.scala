@@ -124,7 +124,7 @@ case class UnitPipeTransformer(var IR: State) extends ForwardTransformer with Sp
         val calculated = stage.nodes.map{case TP(s,d) => s}
         val innerDeps = calculated ++ deps.take(i).flatten // Things in this Unit Pipe
         val escaping = calculated.filter{sym => (sym == block.result || (sym.dependents diff innerDeps).nonEmpty) && !isRegisterRead(sym) }
-        val (escapingUnits, escapingValues) = escaping.partition{_. tp == UnitType}
+        val (escapingUnits, escapingValues) = escaping.partition{_.tp == UnitType}
 
         val (escapingBits, escapingVars) = escapingValues.partition{sym => Bits.unapply(sym.tp).isDefined }
 
