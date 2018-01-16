@@ -213,7 +213,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
           case _ => // Not an accum
             val dup = instanceOf(reg)
             val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
-            emit(src"""${reg}.write($v, $en & ${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool ${manualReset}, List($ports), ${name(reg.asInstanceOf[Dyn[_]])}_initval.number, accumulating = ${isAccum(lhs)}) //path3""")
+            emit(src"""${reg}.write($v, $en & ${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool ${manualReset}, List($ports), ${rawquote(reg)}_initval.number, accumulating = ${isAccum(lhs)}) //path3""")
         }
       }
 
