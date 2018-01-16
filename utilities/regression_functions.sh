@@ -219,11 +219,11 @@ git commit -m "Automated incron update"
 git push
 
 logger "Removing packet ${packet} so those waiting are clear to launch"
+mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 rm $packet
 
 sleep 2000
 stubborn_delete ${dirname}
-mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
 # ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
