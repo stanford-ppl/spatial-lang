@@ -580,9 +580,10 @@ trait ChiselGenSRAM extends ChiselCodegen {
       }
     }
     val p = portsOf(lhs, mem).head
-    emit(src"""val ${lhs}_idx = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
+    val lhs_name = src"${lhs}_idx"
+    emit(src"""val ${lhs_name} = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
     emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
-    emit(src"""(0 until ${ens.length}).foreach{case i => ${lhs}(i).r := ${mem}.io.output.data(${lhs}_idx + i)}""")
+    emit(src"""(0 until ${ens.length}).foreach{case i => ${lhs}(i).r := ${mem}.io.output.data(${lhs_name} + i)}""")
   }
 
   def emitBankedStore[T:Type](lhs: Exp[_], mem: Exp[_], data: Seq[Exp[T]], bank: Seq[Seq[Exp[Index]]], ofs: Seq[Exp[Index]], ens: Seq[Exp[Bit]]): Unit = {
