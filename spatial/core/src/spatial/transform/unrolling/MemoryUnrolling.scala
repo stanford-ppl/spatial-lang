@@ -249,6 +249,7 @@ trait MemoryUnrolling extends UnrollingBase {
       banked.s.foreach{s =>
         portsOf(s,mem2,0) = ports
         muxIndexOf(s,Seq(0),mem2) = muxIndex
+        cloneFuncs.foreach{func => func(s) }
         dbgs(s"  ${str(s)}"); strMeta(s, tab+1)
       }
 
@@ -348,6 +349,7 @@ trait MemoryUnrolling extends UnrollingBase {
       banked.s.foreach{s =>
         portsOf(s,mem2,0) = ports
         muxIndexOf(s,Seq(0),mem2) = muxIndex
+        cloneFuncs.foreach{func => func(s) }
         dbgs(s"  ${str(s)}"); strMeta(s, tab)
       }
 
