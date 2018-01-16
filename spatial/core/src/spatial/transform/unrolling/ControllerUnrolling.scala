@@ -337,6 +337,7 @@ trait ControllerUnrolling extends UnrollingBase {
       dbgs(s"Inlining load function in reduce")
       val accValue = withSubstScope(load.input -> accum){ inroll(load) }
       val isFirst = Math.reduceTree(iters.zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
+      reduceType(accValue) = redType
 
       if (spatialConfig.enablePIR) {
         inCycle(redType){ reduce.inline(treeResult, accValue) }
@@ -358,7 +359,9 @@ trait ControllerUnrolling extends UnrollingBase {
       }
     }
 
-    inReduction(isInner){ withSubstScope(store.inputB -> result, store.inputA -> accum){ inroll(store) } }
+    val accStore =  withSubstScope(store.inputB -> result, store.inputA -> accum){ inroll(store) } 
+    reduceType(accStore) = redType
+    inReduction(isInner){ accStore }
   }
 
   def fullyUnrollReduce[T](

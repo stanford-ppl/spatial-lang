@@ -79,7 +79,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
               }
             }
             // Figure out if we need to tie down direct ports
-            val direct_tiedown = writersOf(lhs).map{w => reduceType(w.node).isDefined}.reduce{_&_}
+            val direct_tiedown = writersOf(lhs).map{w => reduceType(lhs).isDefined}.reduce{_&_}
             if (direct_tiedown) {
               emitGlobalModule(src"""$lhs.io.input.direct_enable := false.B""")
             }
@@ -129,8 +129,8 @@ trait ChiselGenReg extends ChiselGenSRAM {
       else {
         emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""")
 
-        val inst = instanceOf(lhs) // Reads should only have one index
-        val port = portsOf(lhs, reg, 0)
+        val inst = instanceOf(reg) // Reads should only have one index
+        val port = portsOf(lhs, reg).values.toList
         // Console.println(s"working on $lhs $reg $inst $duplicates")
         reduceType(lhs) match {
           case Some(FixPtSum) if inst.isAccum =>
@@ -196,7 +196,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                   emit(src"""${swap(src"${reg}", Blank)}.io.input.reset := reset.toBool | ${DL(src"${swap(reg, Resetter)} ${manualReset}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}""")
                   emit(src"""${lhs} := ${swap(src"${reg}", Blank)}.io.output""")
                 } else {
-                  val ports = portsOf(lhs, reg) // Port only makes sense if it is not the accumulating duplicate
+                  val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
                   val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
                   emit(src"""${swap(src"${reg}", Blank)}.write(${data_string}, $en & ${DL(src"${swap(reg, Wren)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt+1", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                 }

@@ -153,7 +153,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         val rstr = wireMap(src"${accum}_resetter")
         // Need to delay reset by controller retime if not specialized reduction
         if (isSpecializedReduce(accum)) {
-        emit(src"$rstr := ${swap(lhs, RstEn)}")
+        emit(src"$rstr := Utils.risngEdge(${swap(lhs, En)})")
         } else {
           emit(src"$rstr := ${DL(swap(lhs, RstEn), swap(lhs, Retime), true)} // Delay was added on 12/5/2017, not sure why it wasn't there before")
         }
