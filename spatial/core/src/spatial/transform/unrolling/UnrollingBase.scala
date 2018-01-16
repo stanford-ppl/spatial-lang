@@ -72,11 +72,11 @@ trait UnrollingBase extends ForwardTransformer {
 
     result
   }
-  def inReduction[T](isInner: Boolean)(blk: => T): T = {
-    duringClone{e => if (spatialConfig.enablePIR && !isInner) reduceType(e) = None }{ blk }
-  }
-  def inCycle[T](reduceTp: Option[ReduceFunction])(blk: => T): T = {
-    duringClone{e => if (spatialConfig.enablePIR) reduceType(e) = reduceTp }{ blk }
+  def inReduce[T](red: Option[ReduceFunction], isInner: Boolean)(blk: => T): T = {
+    duringClone{e =>
+      if (spatialConfig.enablePIR && !isInner) reduceType(e) = None
+      else reduceType(e) = red
+    }{ blk }
   }
 
 

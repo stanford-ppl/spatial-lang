@@ -8,7 +8,6 @@ import spatial.lang.Math
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-
 import org.virtualized.SourceContext
 
 trait ControllerUnrolling extends UnrollingBase {
@@ -330,17 +329,17 @@ trait ControllerUnrolling extends UnrollingBase {
     start:  Seq[Exp[Index]],       // Start for each iterator
     isInner: Boolean
   )(implicit ctx: SrcCtx): Exp[MUnit] = {
-    val treeResult = inReduction(isInner){ unrollReduceTree[T](inputs, valids, ident, reduce.toFunction2) }
     val redType = reduceType(reduce.result)
+    val treeResult = inReduce(redType,isInner){ unrollReduceTree[T](inputs, valids, ident, reduce.toFunction2) }
 
-    val result = inReduction(isInner){
+    val result = inReduce(redType,isInner){
       dbgs(s"Inlining load function in reduce")
       val accValue = withSubstScope(load.input -> accum){ inroll(load) }
       val isFirst = Math.reduceTree(iters.zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
       reduceType(accValue) = redType
 
       if (spatialConfig.enablePIR) {
-        inCycle(redType){ reduce.inline(treeResult, accValue) }
+        reduce.inline(treeResult, accValue)
       }
       else fold match {
         // FOLD: On first iteration, use init value rather than zero
@@ -359,9 +358,9 @@ trait ControllerUnrolling extends UnrollingBase {
       }
     }
 
-    val accStore =  withSubstScope(store.inputB -> result, store.inputA -> accum){ inroll(store) } 
-    reduceType(accStore) = redType
-    inReduction(isInner){ accStore }
+    inReduce(redType,isInner){
+      withSubstScope(store.inputB -> result, store.inputA -> accum){ inroll(store) }
+    }
   }
 
   def fullyUnrollReduce[T](
@@ -512,9 +511,9 @@ trait ControllerUnrolling extends UnrollingBase {
       if (isUnitCounterChain(cchainRed)) {
         logs(s"[Accum-fold $lhs] Unrolling unit pipe reduction")
         val rpipe = Pipe.op_unit_pipe(globalValids, () => {
-          val values = inReduction(false){ mapLanes.map{_ => inroll(loadRes) } }
+          val values = inReduce(redType,false){ mapLanes.map{_ => inroll(loadRes) } }
           val foldValue = if (fold) { Some( inroll(loadAcc) ) } else None
-          inReduction(false){ unrollReduceAccumulate[T,C](accum, values, mvalids(), ident, foldValue, reduce, loadAcc, storeAcc, isMap2.map(_.head), start, isInner = false) }
+          unrollReduceAccumulate[T,C](accum, values, mvalids(), ident, foldValue, reduce, loadAcc, storeAcc, isMap2.map(_.head), start, isInner = false)
           unit
         })
         styleOf(rpipe) = SeqPipe
@@ -536,7 +535,7 @@ trait ControllerUnrolling extends UnrollingBase {
           logs(c"[Accum-fold $lhs] Unrolling map loads")
           //logs(c"  memories: $mems")
 
-          val values: Seq[Seq[Exp[T]]] = inReduction(false){
+          val values: Seq[Seq[Exp[T]]] = inReduce(redType,false){
             mapLanes.map{i =>
               withSubstScope(intermed -> mems(i)) {
                 unrollMap(loadRes, reduceLanes)(mT, ctx)
@@ -550,7 +549,7 @@ trait ControllerUnrolling extends UnrollingBase {
             itersRed.foreach{i => logs(s"  $i -> ${f(i)}") }
           }
 
-          val accValues = inReduction(false){ withSubstScope(loadAcc.input -> accum){
+          val accValues = inReduce(redType,false){ withSubstScope(loadAcc.input -> accum){
             unrollMap(loadAcc, reduceLanes)(mT,ctx)
           }}
 
@@ -571,14 +570,11 @@ trait ControllerUnrolling extends UnrollingBase {
 
             val accValue = accValues(p)
 
-            val result = inReduction(true){
+            val result = inReduce(redType,true){
               val treeResult = unrollReduceTree(inputs, valids, ident, reduce.toFunction2)
               val isFirst = Math.reduceTree(isMap2.map(_.head).zip(start).map{case (i,st) => FixPt.eql(i, st) }){(x,y) => Bit.and(x,y) }
 
-              if (spatialConfig.enablePIR) {
-                inCycle(redType){ reduce.inline(treeResult, accValue) }
-              }
-              else if (fold) {
+              if (fold || spatialConfig.enablePIR) {
                 // FOLD: On first iteration, use value of accumulator value rather than zero
                 //val accumOrFirst = math_mux(isFirst, init, accValue)
                 reduce.inline(treeResult, accValue)
@@ -600,7 +596,7 @@ trait ControllerUnrolling extends UnrollingBase {
 
           logs(s"[Accum-fold $lhs] Unrolling accumulator store")
           // Use a default substitution for the reduction result to satisfy the block scheduler
-          inReduction(false){ withSubstScope(storeAcc.inputA -> accum, reduce.result -> results.head){
+          inReduce(redType,false){ withSubstScope(storeAcc.inputA -> accum, reduce.result -> results.head){
             unrollMap(storeAcc, reduceLanes)
           }}
           unit
