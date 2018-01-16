@@ -121,18 +121,18 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(src"""${rf}.connectWPort(${lhs}_wVec, List(${portsOf(lhs, rf).toList})) """)
 
     case op@RegFileShiftIn(rf,data,addr,en,axis) =>
-      // val width = bitWidth(op.mT)
-      // val parent = ctrlOf(lhs).node
-      // val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-      // emit(s"""// Assemble multidimW vector""")
-      // emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${addr.length}, List(${constDimsOf(rf)}), ${width}))) """)
-      // emit(src"""${lhs}_wVec(0).data := ${data}.r""")
-      // emit(src"""${lhs}_wVec(0).shiftEn := ${en} & ${DL(enable, enableRetimeMatch(en, lhs), true)}""")
-      // inds.zipWithIndex.foreach{ case(ind,j) => 
-      //   emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
-      // }
-      // emit(src"""${lhs}_wVec(0).en := false.B""")
-      // emit(src"""$rf.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf, 0)})) """)
+      val width = bitWidth(op.mT)
+      val parent = ctrlOf(lhs).node
+      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+      emit(s"""// Assemble multidimW vector""")
+      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new multidimRegW(${addr.length}, List(${constDimsOf(rf)}), ${width}))) """)
+      emit(src"""${lhs}_wVec(0).data := ${data}.r""")
+      emit(src"""${lhs}_wVec(0).shiftEn := ${en} & ${DL(enable, enableRetimeMatch(en, lhs), true)}""")
+      addr.zipWithIndex.foreach{ case(ind,j) => 
+        emit(src"""${lhs}_wVec(0).addr($j) := ${ind}.r // Assume always an int""")
+      }
+      emit(src"""${lhs}_wVec(0).en := false.B""")
+      emit(src"""$rf.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf, 0)})) """)
 
     case op@RegFileVectorShiftIn(rf,data,addr,en,axis,len) =>
       val width = bitWidth(op.mT)
