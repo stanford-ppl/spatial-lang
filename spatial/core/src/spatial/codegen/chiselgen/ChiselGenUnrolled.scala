@@ -167,7 +167,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${swap(parentOf(lhs).get, Done)}, 2)")
         emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
         val rstr = wireMap(src"${accum}_resetter")
-        emit(src"$rstr := ${swap(lhs, RstEn)}")
+        emit(src"$rstr := Utils.risingEdge(${swap(lhs, En)})")
       }
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")

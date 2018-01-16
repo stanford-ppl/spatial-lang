@@ -86,9 +86,9 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
       emit(src"val $lhs = Wire(${newWire(lhs.tp)})")
       if (ens.length == 1) {
         if (spatialConfig.useCheapFifos) {
-          emit(src"""${lhs}.r := ${fifo}.connectDeqPort(${swap(reader, En)} & ${DL(invisibleEnable, bug202delay, true)} & ${ens.mkString("List(", ",", ")")}.reduce{_&&_}).apply(0)""")
+          emit(src"""${lhs}(0).r := ${fifo}.connectDeqPort(${swap(reader, En)} & ${DL(invisibleEnable, bug202delay, true)} & ${ens.map(quote(_)).mkString("List(", ",", ")")}.reduce{_&&_}).apply(0)""")
         } else {
-          emit(src"""${lhs}.r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ${DL(invisibleEnable, bug202delay, true)} & ${ens.mkString("List(", ",", ")")}.reduce{_&&_}))).apply(0)""")
+          emit(src"""${lhs}(0).r := ${fifo}.connectDeqPort(Vec(List(${swap(reader, En)} & ${DL(invisibleEnable, bug202delay, true)} & ${ens.map(quote(_)).mkString("List(", ",", ")")}.reduce{_&&_}))).apply(0)""")
         }
       } else {
         if(spatialConfig.useCheapFifos) {

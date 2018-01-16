@@ -54,6 +54,9 @@ elif (sys.argv[4] == "pre-master"):
 elif (sys.argv[4] == "master"):
 	perf=True
 	sh = gc.open_by_key("1eAVNnz2170dgAiSywvYeeip6c4Yw6MrPTXxYkJYbHWo")
+elif (sys.argv[4] == "compile"):
+	perf=True
+	sh = gc.open_by_key("18swzCk2i7u1pqA5RaeLaEE62nEZI7JhM0Y2D3WnUiBQ")
 else:
 	print("No spreadsheet for " + sys.argv[4])
 	exit()

@@ -81,6 +81,12 @@ elif (sys.argv[1] == "master"):
 	except:
 		print("WARN: Couldn't get sheet")
 		exit()
+elif (sys.argv[1] == "compile"):
+	try: 
+		sh = gc.open_by_key("18swzCk2i7u1pqA5RaeLaEE62nEZI7JhM0Y2D3WnUiBQ")
+	except:
+		print("WARN: Couldn't get sheet")
+		exit()
 else:
 	print("No spreadsheet for " + sys.argv[4])
 	exit()

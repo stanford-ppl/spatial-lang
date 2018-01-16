@@ -220,11 +220,11 @@ git commit -m "Automated incron update"
 git push
 
 logger "Removing packet ${packet} so those waiting are clear to launch"
+mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 rm $packet
 
 sleep 2000
 stubborn_delete ${dirname}
-mv /remote/regression/mapping/${tim}.${branch}.${type_todo}---${this_machine} /remote/regression/graveyard
 
 # ps aux | grep -ie mattfel | grep -v ssh | grep -v bash | grep -iv screen | grep -v receive | awk '{system("kill -9 " $2)}'
 
@@ -398,6 +398,8 @@ elif [[ $branch = "pre-master" ]]; then
   gspread_hash='18lj4_mBza_908JU0K2II8d6jPhV57KktGaI27h_R1-s'
 elif [[ $branch = "master" ]]; then
   gspread_hash='1eAVNnz2170dgAiSywvYeeip6c4Yw6MrPTXxYkJYbHWo'
+elif [[ $branch = "compile" ]]; then
+  gspread_hash='18swzCk2i7u1pqA5RaeLaEE62nEZI7JhM0Y2D3WnUiBQ'
 else
   gspread_hash='NA'
 fi
