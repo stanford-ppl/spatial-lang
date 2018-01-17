@@ -175,8 +175,10 @@ trait ChiselGenReg extends ChiselGenSRAM {
             } else {
               emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")
             }
-          }
-          emit(src"""${swap(reg, EnOptions)}(${lhs}_wId) := $en & ${DL(swap(parent, DatapathEn), src"${enableRetimeMatch(en, lhs)}.toInt")}""")
+          case _ => 
+            emit(src"""${swap(reg, DataOptions)}(${lhs}_wId) := ${v}.r""")                  
+        }
+        emit(src"""${swap(reg, EnOptions)}(${lhs}_wId) := $en & ${DL(swap(parent, DatapathEn), src"${enableRetimeMatch(en, lhs)}.toInt")}""")
       } else {
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => // is an accumulator

@@ -87,6 +87,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Def(DelayLine(size,_)) => size.toDouble // Undo subtraction
       case Def(RegRead(_)) => latencyOption("RegRead", None)
       case Def(FixEql(a,_)) => latencyOption("FixEql", Some(bitWidth(a.tp)))
+      case Def(FixLt(a,_)) => latencyOption("FixLt", Some(bitWidth(a.tp)))
       case b: Bound[_] => 0.0
       case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
     }
@@ -581,7 +582,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     }
     val p = portsOf(lhs, mem).head
     val lhs_name = src"${lhs}_idx"
-    emit(src"""val ${lhs_name} = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._1})""") // TODO: ._1 the correct field?
+    emit(src"""val ${lhs_name} = ${mem}.connectRPort(Vec(${swap(lhs, RVec)}.toArray), ${p._2.head})""") // TODO: ._1 the correct field?
     emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(lhs.tp)})""") 
     emit(src"""(0 until ${ens.length}).foreach{case i => ${lhs}(i).r := ${mem}.io.output.data(${lhs_name} + i)}""")
   }
@@ -607,21 +608,23 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
     val inst = instanceOf(mem)
     val dims = constDimsOf(mem)
+    val broadcasts = writersOf(mem).filter{w => portsOf(w, mem).toList.length > 1}.map { w =>
+      w.node match {
+        case Def(a@BankedSRAMStore(_,_,_,_,ens)) => ens.length
+      }
+    }
+
     implicit val ctx: SrcCtx = mem.ctx
 
     val templateName = mem match {
-      case Def(op: SRAMNew[_,_]) => "SRAM"
+      case Def(op: SRAMNew[_,_]) => 
+        if (inst.depth == 1) "SRAM" 
+        else if (broadcasts.length > 0) {appPropertyStats += HasNBufSRAM; nbufs = nbufs :+ (mem.asInstanceOf[Sym[SRAM[_]]]); "NBufSRAM"} 
+        else {appPropertyStats += HasNBufSRAM; nbufs = nbufs :+ (mem.asInstanceOf[Sym[SRAM[_]]]);"NBufSRAMnoBcast"}
     }
-    // val data = init match {
-    //   case Some(elems) =>
-    //     // val nBanks = inst.nBanks.product
-    //     // val bankDepth = Math.ceil(dims.product.toDouble / nBanks).toInt
-    //     // src"""Array[Array[$tp]](${banks.mkString("\n")})"""
-    //   case None =>
-    //     // val banks = inst.totalBanks
-    //     // val bankDepth = Math.ceil(dims.product.toDouble / banks).toInt
-    //     // src"""Array.fill($banks){ Array.fill($bankDepth)(${invalid(tp)}) }"""
-    // }
+    val wBundling = writersOf(mem).filter{w => portsOf(w,mem).toList.length == 1}.map{w => portsOf(w, mem).toList.head._2.head}.mkString("List(", ",", ")")
+    val rBundling = readersOf(mem).filter{r => portsOf(r,mem).toList.length == 1}.map{r => portsOf(r, mem).toList.head._2.head}.mkString("List(", ",", ")")
+    val bPar = if (broadcasts.length > 0) broadcasts.mkString("List(",",",")") else "List(0)"
 
     val dimensions = dims.map(_.toString).mkString("List(", ",", ")")
     val numBanks = inst.nBanks.map(_.toString).mkString("List(", ",", ")")
@@ -631,7 +634,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     val bankingMode = "BankedMemory" // TODO: Find correct one
     val wPort = writersOf(mem).map {w => portsOf(w,mem).toList.head}
 
-    emitGlobalModule(src"""val $mem = Module(new $templateName($dimensions, ${bitWidth(tp)}, $numBanks, $strides, $wPar, $rPar, $bankingMode, ${spatialConfig.enableSyncMem}))""")
+    emitGlobalModule(src"""val $mem = Module(new $templateName($dimensions, ${inst.depth}, ${bitWidth(tp)}, $numBanks, $strides, $wPar, $rPar, $wBundling, $rBundling, $bPar, $bankingMode, ${spatialConfig.enableSyncMem}))""")
   }
 
 

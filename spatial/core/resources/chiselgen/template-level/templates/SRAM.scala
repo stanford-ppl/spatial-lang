@@ -200,22 +200,24 @@ class Mem1D(val size: Int, bitWidth: Int, syncMem: Boolean = false) extends Modu
                                                                         
                                                                     
 */
-class SRAM(val logicalDims: List[Int], val bitWidth: Int, 
+class SRAM(val logicalDims: List[Int], val numBufs: Int/*unused*/, val bitWidth: Int, 
            val banks: List[Int], val strides: List[Int], 
-           val wPar: List[Int], val rPar: List[Int], val bankingMode: BankingMode, val syncMem: Boolean = false) extends Module { 
+           val wPar: List[Int], val rPar: List[Int], 
+           val wBundling: List[Int]/*unused*/, val rBundling: List[Int]/*unused*/, val bPar: List[Int]/*unused*/, 
+           val bankingMode: BankingMode, val syncMem: Boolean = false) extends Module { 
 
   // Overloaded construters
   // Tuple unpacker
   def this(tuple: (List[Int], Int, List[Int], List[Int], 
-           List[Int], List[Int], BankingMode)) = this(tuple._1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,tuple._7)
+           List[Int], List[Int], BankingMode)) = this(tuple._1,1,tuple._2,tuple._3,tuple._4,tuple._5,tuple._6,List(0),List(0),List(0),tuple._7)
   // Bankmode-less
   def this(logicalDims: List[Int], bitWidth: Int, 
            banks: List[Int], strides: List[Int], 
-           wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, banks, strides, wPar, rPar, BankedMemory)
+           wPar: List[Int], rPar: List[Int]) = this(logicalDims, 1, bitWidth, banks, strides, wPar, rPar, List(1), List(1), List(1), BankedMemory)
   // If 1D, spatial will make banks and strides scalars instead of lists
   def this(logicalDims: List[Int], bitWidth: Int, 
            banks: Int, strides: Int, 
-           wPar: List[Int], rPar: List[Int]) = this(logicalDims, bitWidth, List(banks), List(strides), wPar, rPar, BankedMemory)
+           wPar: List[Int], rPar: List[Int]) = this(logicalDims, 1, bitWidth, List(banks), List(strides), List(0), List(0), List(0), wPar, rPar, BankedMemory)
 
   val depth = logicalDims.reduce{_*_} // Size of memory
   val N = logicalDims.length // Number of dimensions
@@ -414,9 +416,9 @@ class NBufSRAM(val logicalDims: List[Int], val numBufs: Int, val bitWidth: Int,
 
   // Create physical mems
   val srams = (0 until numBufs).map{ i => Module(
-    new SRAM(logicalDims,
+    new SRAM(logicalDims, depth,
             bitWidth, banks, strides, 
-            List(wPar, bPar).flatten, List(maxR), bankingMode, syncMem)
+            List(wPar, bPar).flatten, List(maxR), wBundling, rBundling, bPar, bankingMode, syncMem)
   )}
 
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
@@ -671,9 +673,9 @@ class NBufSRAMnoBcast(val logicalDims: List[Int], val numBufs: Int, val bitWidth
 
   // Create physical mems
   val srams = (0 until numBufs).map{ i => Module(
-    new SRAM(logicalDims,
+    new SRAM(logicalDims, depth,
             bitWidth, banks, strides, 
-            List(wPar, bPar).flatten, List(maxR), bankingMode, syncMem)
+            List(wPar, bPar).flatten, List(maxR), wBundling, rBundling, bPar, bankingMode, syncMem)
   )}
 
   val sEn_latch = (0 until numBufs).map{i => Module(new SRFF())}
