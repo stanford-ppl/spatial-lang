@@ -3,6 +3,7 @@ AWS_V_DIR=verilog-aws
 AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 ZCU_V_DIR=verilog-zcu
+ARRIA10_V_DIR=verilog-arria10
 APPNAME=$(shell basename $(shell pwd))
 BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
@@ -267,14 +268,14 @@ arria10: arria10-hw
 
 arria10-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs arria10"
-	sed -i 's/SRFF/SRFF_sp/g' verilog-arria10/Top.v
-	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' verilog-arria10/Top.v
-	sed -i 's/module\ Top/module Top_DUT/g' verilog-arria10/Top.v
-	cat ./chisel/template-level/fringeArria10/*.v >> verilog-arria10/Top.v
-	mv verilog-arria10/Top.v verilog-arria10/Top_DUT.v
-	cp chisel/template-level/build* verilog-arria10/
-	cd verilog-arria10 && ./fit.sh
-	cp verilog-arria10/output_files/pr_region_alt.rbf ./
+	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
+	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' ${ARRIA10_V_DIR}/Top.v
+	sed -i 's/module\ Top/module Top_DUT/g' ${ARRIA10_V_DIR}/Top.v
+	cat ./chisel/template-level/fringeArria10/*.v >> ${ARRIA10_V_DIR}/Top.v
+	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
+	cp chisel/template-level/build* ${ARRIA10_V_DIR}/
+	cd ${ARRIA10_V_DIR} && ./fit.sh
+	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./
 
 arria10-sw:
 	cp arria10.mk cpp/Makefile
