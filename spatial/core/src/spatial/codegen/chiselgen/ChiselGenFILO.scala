@@ -56,14 +56,12 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       // ASSERT that all pars are the same!
       val rPar = readersOf(lhs).map { r => 
         r.node match {
-          case Def(_: FILOPop[_]) => 1
-          // case Def(a@ParFILOPop(q,ens)) => ens.length
+          case Def(BankedFILOPop(_,ens)) => ens.length
         }
       }.max
       val wPar = writersOf(lhs).map { w =>
         w.node match {
-          case Def(_: FILOPush[_]) => 1
-          // case Def(a@ParFILOPush(q,_,ens)) => ens.length
+          case Def(BankedFILOPush(_,_,ens)) => ens.length
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
