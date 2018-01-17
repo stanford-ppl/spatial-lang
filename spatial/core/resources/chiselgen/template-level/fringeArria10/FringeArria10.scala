@@ -67,17 +67,14 @@ class FringeArria10 (
 
   // Common Fringe
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs,
-                                        numChannels, numArgInstrs, loadStreamInfo, 
-                                        storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
+                                        numChannels, numArgInstrs, loadStreamInfo,
+                                        storeStreamInfo, streamInsInfo, streamOutsInfo,
+                                        blockingDRAMIssue, axiParams))
 
-  // AXI-lite bridge
-    // Connect to Avalon Slave
-  // Avalon is using reset and write_n
+  // Connect to Avalon Slave
   fringeCommon.reset := reset
   fringeCommon.io.raddr := io.S_AVALON.address
-  // TODO: is it write_n or something else?
   fringeCommon.io.wen := io.S_AVALON.write
-  // Seems that read enable is not needed
   fringeCommon.io.waddr := io.S_AVALON.address
   fringeCommon.io.wdata := io.S_AVALON.writedata
   io.S_AVALON.readdata := fringeCommon.io.rdata
@@ -89,13 +86,14 @@ class FringeArria10 (
     io.argIns := fringeCommon.io.argIns
   }
 
-  if (io.argOuts.length > 0) {      
+  if (io.argOuts.length > 0) {
     fringeCommon.io.argOuts.zip(io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
       fringeArgOut.bits := accelArgOut.bits
       fringeArgOut.valid := accelArgOut.valid
     }
   }
 
+  // Memory interface
   io.memStreams <> fringeCommon.io.memStreams
 
   // AXI bridge
