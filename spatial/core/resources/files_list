@@ -1656,3 +1656,5 @@
 ./chiselgen/app-level/Top.scala
 ./chiselgen/app-level/build.sbt
 ./dotgen/run.sh
+./chiselgen/template-level/fringeArria10/build/ghrd_10as066n2
+./chiselgen/template-level/fringeArria10/build/output_files/pr_base.sof
