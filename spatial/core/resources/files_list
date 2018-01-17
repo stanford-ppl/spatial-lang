@@ -946,12 +946,12 @@
 ./chiselgen/template-level/fringeAWS/bigIP/BigIPAWS.scala
 ./chiselgen/template-level/fringeAWS/SRAMVerilogAWS.v
 ./chiselgen/template-level/project/build.properties
-./chiselgen/app-level/arria10.mk
 ./chiselgen/app-level/Makefile
 ./chiselgen/app-level/findDiff.sh
 ./chiselgen/app-level/run.sh
 ./chiselgen/app-level/scripts/zynq.mk
 ./chiselgen/app-level/scripts/scrape.sh
+./chiselgen/app-level/scripts/arria10.mk
 ./chiselgen/app-level/scripts/xsim.mk
 ./chiselgen/app-level/scripts/de1soc.mk
 ./chiselgen/app-level/scripts/vcs.mk
