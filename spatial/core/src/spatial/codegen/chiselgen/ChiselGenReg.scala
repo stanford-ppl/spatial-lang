@@ -68,33 +68,33 @@ trait ChiselGenReg extends ChiselGenSRAM {
       val numBroadcasters = writersOf(lhs).count{write => portsOf(write, lhs, 0).size > 1 }
       val numWriters = writersOf(lhs).count{w => portsOf(w, lhs, 0).size == 1}.max(1)
       reduceType(lhs) match {
-        case Some(FixPtSum) =>
-          if (d.isAccum) {
-            if (!spatialNeedsFPType(op.mT)) {
-              emitGlobalModule(src"""val $lhs = Module(new SpecialAccum(1,"add","UInt", List(${width}))) """)
-            } else {
-              op.mT match {
-                case FixPtType(s,d,f) => emitGlobalModule(src"""val $lhs = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f)))""")
-                case _ => emitGlobalModule(src"""val $lhs = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: No match""")
-              }
-            }
-            // Figure out if we need to tie down direct ports
-            val direct_tiedown = writersOf(lhs).map{w => reduceType(lhs).isDefined}.reduce{_&_}
-            if (direct_tiedown) {
-              emitGlobalModule(src"""$lhs.io.input.direct_enable := false.B""")
-            }
-          } else {
-            if (d.depth > 1) {
-              nbufs = nbufs :+ lhs.asInstanceOf[Sym[Reg[_]]]
-              if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
-              emitGlobalModuleMap(src"$lhs", src"Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters}))")
-              if (numBroadcasters == 0){
-                emit(src"${swap(src"$lhs", Blank)}.io.broadcast.enable := false.B")
-              }
-            } else {
-              emitGlobalModuleMap(src"$lhs",src"Module(new templates.FF(${width}, ${numWriters}))")
-            }
-          }
+        // case Some(FixPtSum) =>
+        //   if (d.isAccum) {
+        //     if (!spatialNeedsFPType(op.mT)) {
+        //       emitGlobalModule(src"""val $lhs = Module(new SpecialAccum(1,"add","UInt", List(${width}))) """)
+        //     } else {
+        //       op.mT match {
+        //         case FixPtType(s,d,f) => emitGlobalModule(src"""val $lhs = Module(new SpecialAccum(1,"add","FixedPoint", List(${if (s) 1 else 0},$d,$f)))""")
+        //         case _ => emitGlobalModule(src"""val $lhs = Module(new SpecialAccum(1,"add","UInt", List(${width}))) // TODO: No match""")
+        //       }
+        //     }
+        //     // Figure out if we need to tie down direct ports
+        //     val direct_tiedown = writersOf(lhs).map{w => reduceType(lhs).isDefined}.reduce{_&_}
+        //     if (direct_tiedown) {
+        //       emitGlobalModule(src"""$lhs.io.input.direct_enable := false.B""")
+        //     }
+        //   } else {
+        //     if (d.depth > 1) {
+        //       nbufs = nbufs :+ lhs.asInstanceOf[Sym[Reg[_]]]
+        //       if (numWriters > 1) warn(s"You have multiple writers to an NBufFF ( ${lhs.name.getOrElse("")} = ${numWriters} writes ).  Have you considered the loop-carry dependency issues?")
+        //       emitGlobalModuleMap(src"$lhs", src"Module(new NBufFF(${d.depth}, ${width}, numWriters = ${numWriters}))")
+        //       if (numBroadcasters == 0){
+        //         emit(src"${swap(src"$lhs", Blank)}.io.broadcast.enable := false.B")
+        //       }
+        //     } else {
+        //       emitGlobalModuleMap(src"$lhs",src"Module(new templates.FF(${width}, ${numWriters}))")
+        //     }
+        //   }
 
         case Some(_: ReduceFunction) =>
           if (d.depth > 1) {
@@ -133,14 +133,14 @@ trait ChiselGenReg extends ChiselGenSRAM {
         val port = portsOf(lhs, reg).values.toList
         // Console.println(s"working on $lhs $reg $inst $duplicates")
         reduceType(lhs) match {
-          case Some(FixPtSum) if inst.isAccum =>
-            if (spatialNeedsFPType(op.mT)) {
-              op.mT match {
-                case FixPtType(s,d,f) => emit(src"""$lhs.r := Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval).r // get reset value that was created by reduce controller""")
-              }
-            } else {
-              emit(src"""$lhs.r := ${reg}_initval // get reset value that was created by reduce controller""")
-            }
+          // case Some(FixPtSum) if inst.isAccum =>
+          //   if (spatialNeedsFPType(op.mT)) {
+          //     op.mT match {
+          //       case FixPtType(s,d,f) => emit(src"""$lhs.r := Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval).r // get reset value that was created by reduce controller""")
+          //     }
+          //   } else {
+          //     emit(src"""$lhs.r := ${reg}_initval // get reset value that was created by reduce controller""")
+          //   }
           case _ => lhs.tp match {
             case FixPtType(s,d,f) =>
               emit(src"""$lhs.r := ${swap(src"${reg}", Blank)}.read(${port.head})""")
@@ -188,18 +188,18 @@ trait ChiselGenReg extends ChiselGenSRAM {
             emitGlobalWireMap(src"""${lhs}""", src"""Wire(${newWire(reg.tp.typeArguments.head)})""")
             val dup = instanceOf(reg)
             fps match {
-              case FixPtSum =>
-                if (dup.isAccum) {
-                  emit(src"""${swap(src"${reg}", Blank)}.io.input.next := ${v}.number""")
-                  emit(src"""${swap(src"${reg}", Blank)}.io.input.enable := ${DL(swap(reg, Wren), src"${enableRetimeMatch(en, lhs)}.toInt", true)}""")
-                  emit(src"""${swap(src"${reg}", Blank)}.io.input.init := ${reg}_initval.number""")
-                  emit(src"""${swap(src"${reg}", Blank)}.io.input.reset := reset.toBool | ${DL(src"${swap(reg, Resetter)} ${manualReset}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}""")
-                  emit(src"""${lhs} := ${swap(src"${reg}", Blank)}.io.output""")
-                } else {
-                  val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
-                  val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-                  emit(src"""${swap(src"${reg}", Blank)}.write(${data_string}, $en & ${DL(src"${swap(reg, Wren)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt+1", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)}) //path4""")
-                }
+              // case FixPtSum =>
+              //   if (dup.isAccum) {
+              //     emit(src"""${swap(src"${reg}", Blank)}.io.input.next := ${v}.number""")
+              //     emit(src"""${swap(src"${reg}", Blank)}.io.input.enable := ${DL(swap(reg, Wren), src"${enableRetimeMatch(en, lhs)}.toInt", true)}""")
+              //     emit(src"""${swap(src"${reg}", Blank)}.io.input.init := ${reg}_initval.number""")
+              //     emit(src"""${swap(src"${reg}", Blank)}.io.input.reset := reset.toBool | ${DL(src"${swap(reg, Resetter)} ${manualReset}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}""")
+              //     emit(src"""${lhs} := ${swap(src"${reg}", Blank)}.io.output""")
+              //   } else {
+              //     val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
+              //     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
+              //     emit(src"""${swap(src"${reg}", Blank)}.write(${data_string}, $en & ${DL(src"${swap(reg, Wren)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt+1", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)}) //path4""")
+              //   }
               case _ =>
                 val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
                 val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
