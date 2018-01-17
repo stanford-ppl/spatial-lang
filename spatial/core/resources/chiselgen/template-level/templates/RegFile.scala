@@ -172,20 +172,14 @@ class ShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val str
     wId += wBundle.length
   }
 
-  def readValue(addrs: List[UInt], port: Int): UInt = { // This randomly screws up sometimes
+  def readValue(ofs: UInt, port: Int): UInt = { // This randomly screws up sometimes
     // chisel seems to have broke MuxLookup here...
 
     val result = Wire(UInt(bitWidth.W))
     val regvals = (0 until dims.reduce{_*_}).map{ i => 
       (i.U(muxWidth.W) -> io.data_out(i)) 
     }
-    val flat_addr = addrs.zipWithIndex.map{ case( a,i ) =>
-      val aa = Wire(UInt(muxWidth.W))
-      aa := a
-      // fringe.FringeGlobals.bigIP.multiply(aa, (dims.drop(i).reduce{_.*-*(_,None)}/-/dims(i)).U(muxWidth.W), 0)
-      aa.*-*((dims.drop(i).reduce{_*_}/-/dims(i)).U(muxWidth.W), None)
-    }.reduce{_+_}
-    result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
+    result := chisel3.util.MuxLookup(ofs, 0.U(bitWidth.W), regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))
@@ -293,19 +287,13 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
     wIdMap += (ports.head -> newbase)
   }
 
-  def readValue(addrs: List[UInt], port: Int): UInt = { // This randomly screws up sometimes, so I don't use it anywhere anymore
+  def readValue(ofs: UInt, port: Int): UInt = { // This randomly screws up sometimes, so I don't use it anywhere anymore
     // chisel seems to have broke MuxLookup here...
     val result = Wire(UInt(bitWidth.W))
     val regvals = (0 until numBufs*dims.reduce{_*_}).map{ i => 
       (i.U(muxWidth.W) -> io.data_out(i)) 
     }
-    val flat_addr = (port*dims.reduce{_*_}).U(muxWidth.W) + addrs.zipWithIndex.map{ case( a,i ) =>
-      val aa = Wire(UInt(muxWidth.W))
-      aa := a
-      // fringe.FringeGlobals.bigIP.multiply(aa, (dims.drop(i).reduce{_.*-*(_,None)}/-/dims(i)).U(muxWidth.W), 0)
-      aa.*-*((dims.drop(i).reduce{_*_}/-/dims(i)).U(muxWidth.W), None)
-    }.reduce{_+_}
-    result := chisel3.util.MuxLookup(flat_addr, 0.U(bitWidth.W), regvals)
+    result := chisel3.util.MuxLookup(ofs + (port*dims.reduce{_*_}).U(muxWidth.W), 0.U(bitWidth.W), regvals)
     result
 
     // val result = Wire(UInt(bitWidth.W))

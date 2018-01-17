@@ -103,7 +103,9 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val port = portsOf(lhs, rf).toList.head._2
       val addr = ofs.map{i => src"${i}.r"}.mkString(",")
       emitGlobalWireMap(src"""${lhs}""",src"""Wire(${newWire(lhs.tp)})""")
-      emit(src"""${lhs}(0).r := ${rf}.readValue(List($addr), $port)""")
+      ofs.zipWithIndex.foreach{case (o,i) => 
+        emit(src"""${lhs}($i).r := ${rf}.readValue(${o}.r, $port)""")
+      }
 
     // TODO
     case BankedRegFileStore(rf, data, bank, ofs, ens) => //FIXME: Not correct for more than par=1
