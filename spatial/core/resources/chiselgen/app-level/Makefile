@@ -269,8 +269,12 @@ arria10-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs arria10"
 	sed -i 's/SRFF/SRFF_sp/g' verilog-arria10/Top.v
 	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' verilog-arria10/Top.v
+	sed -i 's/module\ Top/module Top_DUT/g' verilog-arria10/Top.v
 	cat ./chisel/template-level/fringeArria10/*.v >> verilog-arria10/Top.v
-
+	mv verilog-arria10/Top.v verilog-arria10/Top_DUT.v
+	cp chisel/template-level/build* verilog-arria10/
+	cd verilog-arria10 && ./fit.sh
+	cp verilog-arria10/output_files/pr_region_alt.rbf ./
 
 arria10-sw:
 	cp arria10.mk cpp/Makefile
@@ -278,7 +282,6 @@ arria10-sw:
 	cp cpp/generated_debugRegs.h cpp/fringeArria10
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
-
 
 arria10-sw-clean:
 	cd cpp && make clean
@@ -318,7 +321,7 @@ zcu-clean:
 
 de1soc: de1soc-hw de1soc-sw
 
-de1soc-sw: 
+de1soc-sw:
 	cp scripts/de1soc.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/DE1SoC.h cpp/fringeDE1SoC/
