@@ -523,6 +523,7 @@ class FILO(val pR: Int, val pW: Int, val depth: Int, val numWriters: Int, val nu
       (0 until (p /-/ pR)).foreach { i => 
         m(r_i + i*-*pR).io.r.ofs := (accessor.io.output.count(0) - 1.S(sa_width.W)).asUInt
         m(r_i + i*-*pR).io.r.en := pop_options.reduce{_|_} & (subAccessor_prev === (i*-*pR).S(sa_width.W))
+        m(r_i + i*-*pR).io.rMask := pop_options.reduce{_|_} & (subAccessor_prev === (i*-*pR).S(sa_width.W))
         rSel(i) := subAccessor_prev === i.S
         // if (i == 0) { // Strangeness from inc-then-read nuisance
         //   rSel((p/pR)-1) := subReader.io.output.count(0) === i.U

@@ -395,13 +395,18 @@ trait ChiselGenSRAM extends ChiselCodegen {
   protected def bufferControlInfo(mem: Exp[_]): List[(Exp[_], String)] = {
     val readers = readersOf(mem)
     val writers = writersOf(mem)
-    val readPorts = readers.groupBy{a => portsOf(a, mem, 0) }.toList
-    val writePorts = writers.groupBy{a => portsOf(a, mem, 0) }.toList
-    // Console.println(s"working on $mem $i $readers $readPorts $writers $writePorts")
+    val readPorts = readers.groupBy{a => portsOf(a, mem).values.toList.head }.toList
+    val writePorts = writers.groupBy{a => portsOf(a, mem).values.toList.head }.toList
+    // Console.println(s"writePorts ${writers.map{a => portsOf(a,mem)}}")
+    // Console.println(s"working on $mem $readers $writers")
     // Console.println(s"${readPorts.map{case (_, readers) => readers}}")
-    // Console.println(s"innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node}")
-    // Console.println(s"middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get}")
-    // Console.println(s"outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem,i)}.head}.head.node).get)}")
+    // Console.println(s"read innermost ${readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem)}.head}.head.node}")
+    // Console.println(s"read middle ${parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem)}.head}.head.node).get}")
+    // Console.println(s"read outermost ${childrenOf(parentOf(readPorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem)}.head}.head.node).get)}")
+    // Console.println(s"${writePorts.map{case (_, readers) => readers}}")
+    // Console.println(s"write innermost ${writePorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem)}.head}.head.node}")
+    // Console.println(s"write middle ${parentOf(writePorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem)}.head}.head.node).get}")
+    // Console.println(s"write outermost ${childrenOf(parentOf(writePorts.map{case (_, readers) => readers.flatMap{a => topControllerOf(a,mem)}.head}.head.node).get)}")
     var specialLB = false
     val readCtrls = readPorts.map{case (port, reads) =>
       val readTops = reads.flatMap{a => topControllerOf(a, mem) }
@@ -432,8 +437,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem) }}.filter(_.nonEmpty).map{_.head.node}
       val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
       val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
-      val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
-      val lastActivePort = math.max( readPortsNumbers.max, writePortsNumbers.max )
+      val firstActivePort = if (readPortsNumbers.isEmpty) writePortsNumbers.min else if (writePortsNumbers.isEmpty) readPortsNumbers.min else math.min( readPortsNumbers.min, writePortsNumbers.min )
+      val lastActivePort = if (readPortsNumbers.isEmpty) writePortsNumbers.max else if (writePortsNumbers.isEmpty) readPortsNumbers.max else math.max( readPortsNumbers.max, writePortsNumbers.max )
       val numStagesInbetween = lastActivePort - firstActivePort
 
       val info = (0 to numStagesInbetween).map { port =>
@@ -608,7 +613,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
   def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
     val inst = instanceOf(mem)
     val dims = constDimsOf(mem)
-    val broadcasts = writersOf(mem).filter{w => portsOf(w, mem).toList.length > 1}.map { w =>
+    val broadcasts = writersOf(mem).filter{w => portsOf(w, mem).values.head.toList.length > 1}.map { w =>
       w.node match {
         case Def(a@BankedSRAMStore(_,_,_,_,ens)) => ens.length
       }

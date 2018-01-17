@@ -69,9 +69,9 @@ class Mem1D(val size: Int, bitWidth: Int, syncMem: Boolean = false) extends Modu
   val addrWidth = Utils.log2Up(size)
 
   val io = IO( new Bundle {
-    val r = Input(new R_Info(32, List(1)))
+    val r = Input(new R_Info(addrWidth, List(1)))
     val rMask = Input(Bool())
-    val w = Input(new W_Info(32, List(1), bitWidth))
+    val w = Input(new W_Info(addrWidth, List(1), bitWidth))
     val wMask = Input(Bool())
     val flow = Input(Bool())
     val output = new Bundle {
