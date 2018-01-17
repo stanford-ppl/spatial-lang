@@ -92,3 +92,9 @@ object consumerOf extends MOneToManyMap with MetadataMaps {
   type V = (Any, CU) // (reader, consumer)
   override def apply(k:K):VV = map.getOrElse(k, mutable.Set[V]())
 }
+
+object isInnerCounter extends MOneToOneMap with MetadataMaps {
+  type K = Expr 
+  type V = Boolean
+}
+

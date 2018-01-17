@@ -5,7 +5,7 @@ import spatial.utils._
 import spatial.metadata._
 import scala.collection.mutable
 
-trait PIRGenController extends PIRCodegen {
+trait PIRGenControllerOld extends PIRCodegen {
 
   val genControlLogic = false
 
@@ -61,7 +61,7 @@ trait PIRGenController extends PIRCodegen {
     case _ => // No preallocation
   }
 
-  override def emitCU(lhs: Exp[_], cu: CU): Unit = {
+  def emitCU(lhs: Exp[_], cu: CU): Unit = {
     val Def(rhs) = lhs
     //emit(s"""// Def($lhs) = $rhs [isControlNode=${isControlNode(lhs)}]""")
 

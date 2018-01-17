@@ -2,14 +2,16 @@ package spatial.codegen.pirgen
 
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core._
+import argon.nodes._
 import spatial.aliases._
 import spatial.nodes._
 import spatial.utils._
+import spatial.metadata._
 
 import scala.collection.mutable
 import scala.language.postfixOps
 
-trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
+trait PIRCodegen extends Codegen with FileDependencies with PIRLogger with PIRStruct {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
@@ -18,71 +20,278 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger {
 
   lazy val structAnalyzer = new PIRStructAnalyzer
   lazy val memoryAnalyzer = new PIRMemoryAnalyzer
-  lazy val allocater      = new PIRAllocation
-  lazy val scheduler      = new PIRScheduler
-  lazy val optimizer      = new PIROptimizer
-  lazy val pirStats       = new PIRStats
-  lazy val splitter       = new PIRSplitter
-  lazy val dse            = new PIRDSE
-  lazy val printout       = new PIRPrintout
-  lazy val areaModel      = new PIRAreaModelHack
+  lazy val controlAnalyzer = new PIRControlAnalyzer
 
   val preprocessPasses = mutable.ListBuffer[PIRTraversal]()
 
   def reset = {
-    globals.clear
     metadatas.foreach { _.reset }
   }
 
   override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
     reset
-    
     preprocessPasses += structAnalyzer
     preprocessPasses += memoryAnalyzer
-    preprocessPasses += allocater
-    preprocessPasses += scheduler
-    preprocessPasses += optimizer
-
-    preprocessPasses += areaModel
-    preprocessPasses += pirStats
-
-    if (spatialConfig.enableSplitting) {
-      preprocessPasses += printout
-      preprocessPasses += splitter
-      preprocessPasses += optimizer
-    }
-    preprocessPasses += printout
-
-    if (spatialConfig.enableArchDSE) {
-      preprocessPasses += dse
-    } else {
-      preprocessPasses += pirStats
-    }
+    preprocessPasses += controlAnalyzer
 
     preprocessPasses.foreach { pass => pass.runAll(block) }
-
-    cus.foreach(dbgcu)
     super.preprocess(block) // generateHeader
   }
 
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
-  override protected def quoteConst(c: Const[_]): String = s"Const($c)"
-  override protected def quote(x: Exp[_]): String = super.quote(x) 
-
-  def emitCU(lhs: Exp[_], cu: CU): Unit
+  override protected def quoteConst(c: Const[_]): String = s"$c"
+  override protected def quote(x: Exp[_]): String = {
+    x match {
+      case x if isConstant(compose(x)) => s"${super.quote(x)}$quoteCtrl"
+      case x => super.quote(x)
+    }
+  }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    dbgblk(s"Emitting $lhs = $rhs") {
-      rhs match {
-        case Hwblock(_, _) => 
-        case _ =>
-          mappingOf.getT[CU](lhs).foreach { _.foreach( cu => emitCU(lhs, cu) ) }
-      }
-    }
+    emit(lhs, rhs, s"TODO: Unmached Node")
     rhs.blocks.foreach(emitBlock)
   }
 
   override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 
+  val controlStack = mutable.Stack[Expr]()
+  def currCtrl = controlStack.top
+  def inHwBlock = controlStack.nonEmpty
+
+  def quoteCtrl = {
+    if (controlStack.isEmpty) ".ctrl(top)"
+    else s".ctrl($currCtrl)"
+  }
+
+  def emit(lhs:Any, rhs:Any):Unit = {
+    emit(s"""val $lhs = $rhs$quoteCtrl.name("$lhs")""")
+  }
+  def emit(lhs:Any, rhs:Any, comment:Any):Unit = {
+    emit(s"""val $lhs = $rhs.name("$lhs")$quoteCtrl // $comment""")
+  }
 }
 
+trait PIRGenController extends PIRCodegen with PIRGenFringe with PIRGenCounter with PIRGenOp with PIRGenMem with PIRGenDummy { //TODO
+
+  def emitIters(cchain:Expr, iters:Seq[Seq[Expr]], valids:Seq[Seq[Expr]], isInnerControl:Boolean) = {
+    val Def(CounterChainNew(counters)) = cchain
+    counters.zip(iters.zip(valids)).foreach { case (counter, (iters, valids)) =>
+      iters.zip(valids).zipWithIndex.foreach { case ((iter, valid), i) =>
+        val offset = if (isInnerControl && counter == counters.last) None else Some(i)
+        emit(iter, s"IterDef($counter, $offset)")
+        emit(valid, s"DummyDef()")
+      }
+    }
+  }
+
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
+    if (isControlNode(lhs)) {
+      rhs match {
+        case UnrolledForeach(en, cchain, func, iters, valids) => 
+          emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
+          emitIters(cchain, iters, valids, isInnerControl(lhs))
+        case UnrolledReduce(en, cchain, accum, func, iters, valids) => 
+          emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
+          emitIters(cchain, iters, valids, isInnerControl(lhs))
+        case _ =>
+          emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=CounterChain.unit)", rhs)
+      }
+      controlStack.push(lhs)
+      rhs.blocks.foreach(emitBlock)
+      controlStack.pop
+    } else {
+      super.emitNode(lhs, rhs)
+    }
+  }
+}
+
+trait PIRGenFringe extends PIRCodegen {
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
+    lhs match {
+      case _ if isFringe(lhs) =>
+        val children = rhs.allInputs.filter { e => isDRAM(e) || isStream(e) || isStreamOut(e) }.flatMap { e => decompose(e) }
+        emit(lhs, s"CUContainer(${children.mkString(s",")})", rhs)
+      case _ => super.emitNode(lhs, rhs)
+    }
+  }
+}
+
+trait PIRGenCounter extends PIRCodegen {
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
+    rhs match {
+      case CounterNew(start, end, step, par) =>
+        val parInt = getConstant(par).get.asInstanceOf[Int]
+        emit(lhs, s"Counter(min=${quote(start)}, max=${quote(end)}, step=${quote(step)}, par=$parInt)", rhs)
+      case CounterChainNew(counters) =>
+        emit(lhs, s"CounterChain($counters)", rhs)
+      case _ => super.emitNode(lhs, rhs)
+    }
+  }
+}
+
+trait PIRGenOp extends PIRCodegen {
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
+    nodeToOp(rhs) match {
+      case Some(op) if reduceType(lhs).isDefined => 
+        val inputs = rhs.expInputs
+        val (accumAccess::_, input::_) = inputs.partition { in => isReduceStarter(in) }
+        var accumInput = s"$input"
+        val innerPar = getInnerPar(currCtrl)
+        val numReduceStages = (Math.log(innerPar) / Math.log(2)).toInt
+        (0 until numReduceStages).foreach { i =>
+          emit(s"${input}_$i", s"ReduceDef(op=$op, input=$accumInput)", rhs)
+          accumInput = s"${input}_$i"
+        }
+        emit(lhs, s"AccumDef(op=$op, input=$accumInput, accum=$accumAccess)", rhs)
+      case Some(op) if inHwBlock =>
+        val inputs = rhs.expInputs
+        emit(lhs, s"OpDef(op=$op, inputs=${inputs.map(quote)})", rhs)
+      case Some(op) =>
+      case None => 
+        rhs match {
+          case FixConvert(x) => emit(s"val $lhs = $x // $rhs")
+          case VectorApply(vec, idx) =>
+            if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
+            decompose(vec).zip(decompose(lhs)).foreach { case (dvec, dlhs) =>
+              emit(s"val $dlhs = $dvec // $lhs = $rhs")
+            }
+          case SimpleStruct(elems) =>
+            emit(s"// $lhs = $rhs")
+          case _ => super.emitNode(lhs, rhs)
+        }
+    }
+  }
+}
+
+trait PIRGenMem extends PIRCodegen {
+  def quote(dmem:Expr, instId:Int, bankId:Int) = {
+    s"${dmem}_d${instId}_b$bankId"
+  }
+
+  def quote(dmem:Expr, instId:Int) = {
+    if (duplicatesOf(compose(dmem)).size==1) s"$dmem" else s"${dmem}_d${instId}"
+  }
+
+  def getInnerBank(mem:Expr, inst:Memory, instId:Int) = {
+    innerDimOf.get((mem, instId)).fold { s"NoBanking" } { case (dim, ctrls) =>
+      inst match {
+        case BankedMemory(dims, depth, isAccum) =>
+          dims(dim) match { case Banking(stride, banks, isOuter) =>
+            // Inner loop dimension 
+            assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
+            s"Strided(banks=$banks, stride=$stride)"
+          }
+        case DiagonalMemory(strides, banks, depth, isAccum) =>
+          throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+      }
+    }
+  }
+
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
+    rhs match {
+      case SRAMNew(dims) =>
+        decompose(lhs).foreach { dlhs => 
+          duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+            val size = constDimsOf(lhs).product / inst.totalBanks
+            val numOuterBanks = numOuterBanksOf((lhs, instId))
+            (0 until numOuterBanks).map { bankId =>
+              val innerBanks = getInnerBank(lhs, inst, instId)
+              emit(quote(dlhs, instId, bankId), s"SRAM(size=$size, banking=$innerBanks)", s"$lhs = $rhs")
+            }
+          }
+        }
+      case RegNew(init) =>
+        decompose(lhs).zip(decompose(init)).foreach { case (dlhs, dinit) => 
+          duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+            emit(quote(dlhs, instId), s"Reg(init=${quote(dinit)})", s"$lhs = $rhs")
+          }
+        }
+      case ArgInNew(init) =>
+        emit(quote(lhs, 0), s"top.argIn(init=${quote(init)})", rhs)
+
+      case ArgOutNew(init) =>
+        emit(quote(lhs, 0), s"top.argOut(init=${quote(init)})", rhs)
+
+      case GetDRAMAddress(dram) =>
+        emit(lhs, s"top.dramAddress($dram)", rhs)
+
+      case _:StreamInNew[_] =>
+        decomposed(lhs).right.get.foreach { case (field, dlhs) =>
+          emit(quote(dlhs, 0), s"""StreamIn(field="$field")""", s"$lhs = $rhs")
+        }
+
+      case _:StreamOutNew[_] =>
+        decomposed(lhs).right.get.foreach { case (field, dlhs) =>
+          emit(quote(dlhs, 0), s"""StreamOut(field="$field")""", s"$lhs = $rhs")
+        }
+
+      case DRAMNew(dims, zero) =>
+        decompose(lhs).foreach { dlhs => emit(dlhs, s"DRAM()", s"$lhs = $rhs") }
+
+      case ParLocalReader((mem, Some(addrs::_), _)::_) if isSRAM(mem) =>
+        val instIds = getDispatches(lhs, mem)
+        decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
+          val mems = instIds.flatMap { instId =>
+            staticBanksOf(lhs).map { bankId => quote(dmem, instId, bankId) }
+          }
+          emit(dlhs, s"LoadDef($mems, Some($addrs))", rhs)
+        }
+      case ParLocalWriter((mem, Some(value::_), Some(addrs::_), _)::_) if isSRAM (mem) =>
+        val instIds = getDispatches(lhs, mem)
+        decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
+          val mems = instIds.flatMap { instId =>
+            staticBanksOf(lhs).map { bankId => quote(dmem, instId, bankId) }
+          }
+          emit(dlhs, s"StoreDef($mems, Some($addrs), $dvalue)", rhs)
+        }
+      case ParLocalReader((mem, None, _)::_) if !isSRAM(mem) =>
+        val instIds = getDispatches(lhs, mem)
+        decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
+          val mems = instIds.map { instId => quote(dmem, instId) }
+          emit(dlhs, s"LoadDef($mems, None)", rhs)
+        }
+      case ParLocalWriter((mem, Some(value::_), None, _)::_) if !isSRAM (mem) =>
+        val instIds = getDispatches(lhs, mem)
+        decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
+          val mems = instIds.map { instId => quote(dmem, instId) }
+          emit(dlhs, s"StoreDef($mems, None, $dvalue)", rhs)
+        }
+      case _ => super.emitNode(lhs, rhs)
+    }
+  }
+  def getDispatches(access:Expr, mem:Expr) = {
+    val instIds = if (isStreamOut(mem) || isArgOut(mem) || isGetDRAMAddress(mem) || isArgIn(mem) || isStreamIn(mem)) {
+      List(0)
+    } else {
+      dispatchOf(access, mem).toList
+    }
+    if (isReader(access)) {
+      assert(instIds.size==1, 
+        s"number of dispatch = ${instIds.size} for reader $access but expected to be 1")
+    }
+    instIds
+  }
+}
+
+trait PIRGenDummy extends PIRCodegen {
+  override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
+    rhs match {
+      case _:ArrayApply[_] =>
+      case _:ArrayZip[_, _, _] =>
+      case _:ArrayReduce[_] =>
+      case _:ArrayLength[_] =>
+      case _:StringToFixPt[_, _, _] =>
+      case _:MapIndices[_] =>
+      case _:FixRandom[_, _, _] =>
+      case _:SetArg[_] =>
+      case _:GetArg[_] =>
+      case _:SetMem[_] =>
+      case _:GetMem[_] =>
+      case _:InputArguments =>
+      case _:PrintlnIf =>
+      case _:StringConcat =>
+      case _:ToString[_] =>
+      case _ => super.emitNode(lhs, rhs)
+    }
+  }
+}
