@@ -66,3 +66,4 @@ history.txt
 regTests.sh
 ./VideoSysSim
 ./moduleSims
+./regen.sh

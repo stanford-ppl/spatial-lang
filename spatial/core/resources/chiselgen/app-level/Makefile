@@ -273,8 +273,8 @@ arria10-hw:
 	sed -i 's/module\ Top/module Top_DUT/g' ${ARRIA10_V_DIR}/Top.v
 	cat ./chisel/template-level/fringeArria10/*.v >> ${ARRIA10_V_DIR}/Top.v
 	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
-	cp chisel/template-level/fringeArria10/build* ${ARRIA10_V_DIR}/
-	cd ${ARRIA10_V_DIR} && ./fit.sh
+	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}/
+	cd ${ARRIA10_V_DIR} && bash fit.sh
 	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./
 
 arria10-sw:
