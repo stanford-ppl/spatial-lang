@@ -119,7 +119,7 @@ public:
   }
 
   virtual void load() {
-    std::string cmd = "cd /boot && dtbt -r pr_region_alt.dtbo -p /boot && dtbt -a pr_region_alt.dtbo -p /boot";
+    std::string cmd = "cp pr_region_alt.rbf /lib/firmware/ && cd /boot && dtbt -r pr_region_alt.dtbo -p /boot && dtbt -a pr_region_alt.dtbo -p /boot";
     system(cmd.c_str());
   }
 

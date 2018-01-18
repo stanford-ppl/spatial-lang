@@ -279,7 +279,6 @@ arria10-hw:
 	# TODO: mannually create the link
 	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
 	cd ${ARRIA10_V_DIR} && bash fit.sh
-	cd ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./
 
 arria10-sw:
 	cp scripts/arria10.mk cpp/Makefile
@@ -287,7 +286,9 @@ arria10-sw:
 	cp cpp/generated_debugRegs.h cpp/fringeArria10
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
-	tar -czf $(APPNAME).tar.gz ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./cpp/Top
+	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./ && cp ./cpp/Top ./
+	tar -czf $(APPNAME).tar.gz pr_region_alt.rbf Top
+	rm pr_region_alt.rbf Top
 
 arria10-sw-clean:
 	cd cpp && make clean
