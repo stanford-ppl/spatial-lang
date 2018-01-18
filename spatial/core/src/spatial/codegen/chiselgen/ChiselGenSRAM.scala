@@ -88,6 +88,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       case Def(RegRead(_)) => latencyOption("RegRead", None)
       case Def(FixEql(a,_)) => latencyOption("FixEql", Some(bitWidth(a.tp)))
       case Def(FixLt(a,_)) => latencyOption("FixLt", Some(bitWidth(a.tp)))
+      case Def(FixLeq(a,_)) => latencyOption("FixLeq", Some(bitWidth(a.tp)))
       case b: Bound[_] => 0.0
       case _ => throw new Exception(s"Node enable $en not yet handled in partial retiming")
     }
@@ -577,7 +578,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     val parent = parentOf(lhs).get //readersOf(mem).find{_.node == lhs}.get.ctrlNode
     val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
     emit(s"""// Assemble R_Info vector""")
-    emitGlobalWireMap(src"""${lhs}_rVec""", s"Wire(Vec(${rPar}, new R_Info(32, ${List.fill(bank.length)(32)})))")
+    emitGlobalWireMap(src"""${lhs}_rVec""", s"Wire(Vec(${rPar}, new R_Info(32, ${List.fill(bank.head.length)(32)})))")
     ofs.zipWithIndex.foreach{case (o,i) => 
       emit(src"""${swap(lhs, RVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
       emit(src"""${swap(lhs, RVec)}($i).ofs := ${o}.r""")
@@ -598,7 +599,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     val parent = parentOf(lhs).get
     val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
     emit(s"""// Assemble W_Info vector""")
-    emitGlobalWireMap(src"""${lhs}_wVec""", s"Wire(Vec(${wPar}, new W_Info(32, ${List.fill(bank.length)(32)}, $width)))")
+    emitGlobalWireMap(src"""${lhs}_wVec""", s"Wire(Vec(${wPar}, new W_Info(32, ${List.fill(bank.head.length)(32)}, $width)))")
     ofs.zipWithIndex.foreach{case (o,i) => 
       emit(src"""${swap(lhs, WVec)}($i).en := ${DL(invisibleEnable, enableRetimeMatch(ens(i), lhs), true)} & ${ens(i)}""")
       emit(src"""${swap(lhs, WVec)}($i).ofs := ${o}.r""")
