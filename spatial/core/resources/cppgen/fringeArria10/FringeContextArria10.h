@@ -292,6 +292,10 @@ public:
     numArgIns = number;
   }
 
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
   virtual void setNumArgIOs(uint32_t number) {
   }
 
@@ -305,7 +309,7 @@ public:
   }
 
   virtual void writeReg(uint32_t reg, uint32_t data) {
-    *(fringeScalarBase + reg) = data;  
+    *(fringeScalarBase + reg) = data;
   }
 
   virtual uint32_t readReg(uint32_t reg) {
