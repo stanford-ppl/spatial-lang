@@ -266,7 +266,7 @@ zynq-clean:
 	rm -rf target
 
 # Build the hardware for arria10
-arria10: arria10-hw
+arria10: arria10-hw arria10-sw
 
 arria10-hw:
 	sbt "run-main top.Instantiator --verilog --testArgs arria10"
@@ -279,14 +279,15 @@ arria10-hw:
 	# TODO: mannually create the link
 	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
 	cd ${ARRIA10_V_DIR} && bash fit.sh
-	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./
+	cd ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./
 
 arria10-sw:
-	cp arria10.mk cpp/Makefile
+	cp scripts/arria10.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/generated_debugRegs.h cpp/fringeArria10
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
+	tar -czf $(APPNAME).tar.gz ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./cpp/Top
 
 arria10-sw-clean:
 	cd cpp && make clean

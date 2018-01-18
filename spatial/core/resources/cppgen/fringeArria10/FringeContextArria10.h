@@ -93,6 +93,7 @@ class FringeContextArria10 : public FringeContextBase<void> {
 public:
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
+  uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
 
   FringeContextArria10(std::string path = "") : FringeContextBase(path) {
@@ -292,11 +293,15 @@ public:
     numArgIns = number;
   }
 
+  virtual void setNumArgIOs(uint32_t number) {
+  }
+
   virtual void setNumArgOuts(uint32_t number) {
     numArgOuts = number;
   }
 
-  virtual void setNumArgIOs(uint32_t number) {
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
   }
 
   virtual void setArg(uint32_t arg, uint32_t data, bool isIO) {
@@ -320,9 +325,9 @@ public:
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = numArgOuts == 0 ? 1 : numArgOuts;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
     int debugRegStart = 2 + argIns + argOuts;
-    int totalRegs = argIns + argOuts + 2 + NUM_DEBUG_SIGNALS;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
 
     for (int i=0; i<totalRegs; i++) {
       uint32_t value = readReg(i);
@@ -340,12 +345,12 @@ public:
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
     EPRINTF("argInOffset: %d\n", argInOffset);
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint32_t value = readReg(argInOffset + argOutOffset + 2 + i);
+      uint32_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
       EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
