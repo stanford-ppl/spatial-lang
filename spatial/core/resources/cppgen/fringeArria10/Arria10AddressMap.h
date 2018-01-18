@@ -7,9 +7,10 @@
 #include <unistd.h>
 
 // Memory mapping related constants
-#define FRINGE_MEM_BASEADDR     0x20000000
+#define FRINGE_MEM_BASEADDR     0x00000000
 #define FRINGE_SCALAR_BASEADDR  0xff200000
-#define MEM_SIZE                0x20000000
+// Map 4 pages for now
+#define MEM_SIZE                0x00004000
 #define MAP_LEN                 0x10000
 #define FREEZE_BRIDGE_OFFSET    0x00000800
 
@@ -32,4 +33,4 @@ typedef unsigned int u32;
     assert(0);  \
   }
 
-#endif 
+#endif

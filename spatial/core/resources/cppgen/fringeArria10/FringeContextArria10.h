@@ -77,9 +77,7 @@ class FringeContextArria10 : public FringeContextBase<void> {
     // The page frame number is in bits 0-54 so read the first 7 bytes and clear the 55th bit
     unsigned long page_frame_number = 0;
     fread(&page_frame_number, 1, PAGEMAP_LENGTH-1, pagemap);
-
     page_frame_number &= 0x7FFFFFFFFFFFFF;
-
     fclose(origmap);
 
     // Find the difference from the virt to the page boundary
@@ -108,14 +106,14 @@ public:
     }
 
     // Initialize pointers to fringeScalarBase
-    void* ptr = (void *)mmap(NULL, MAP_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_SCALAR_BASEADDR);
-    fringeScalarBase = (volatile uint32_t *)((char *)ptr + FREEZE_BRIDGE_OFFSET);
+    void* ptr;
+    ptr = (void *)mmap(NULL, MAP_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_SCALAR_BASEADDR);
+    fringeScalarBase = (volatile uint32_t*)((char *)ptr + FREEZE_BRIDGE_OFFSET);
 
     // Initialize pointer to fringeMemBase
-    // TODO: need to figure out the avalon protocol
-    // ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
-    // fringeMemBase = (u32) ptr;
-    // fpgaMallocPtr = fringeMemBase;
+    ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
+    fringeMemBase = (u32) ptr;
+    fpgaMallocPtr = fringeMemBase;
   }
 
   virtual void load() {
@@ -132,70 +130,31 @@ public:
   }
 
   virtual uint64_t malloc(size_t bytes) {
-
     size_t paddedSize = alignedSize(burstSizeBytes, bytes);
-
-//    int fd = open("/dev/zero", O_RDWR);
-//    void *ptr = mmap(0, bytes, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE, fd, 0);
-//    close(fd);
-//
-//    // Lock the page in memory
-//    // Do this before writing data to the buffer so that any copy-on-write
-//    // mechanisms will give us our own page locked in memory
-//    if(mlock(ptr, bytes) == -1) {
-//      fprintf(stderr, "Failed to lock page in memory: %s\n", strerror(errno));
-//      exit(1);
-//    }
-//#ifdef USE_PHYS_ADDR
-//    uint64_t physAddr = virtToPhys(ptr);
-//    physToVirtMap[physAddr] = ptr;
-//    return physAddr;
-//#else
-//    uint64_t addr = (uint64_t)ptr;
-//    return addr;
-//#endif
-
     ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %u, available %u\n", paddedSize, fpgaFreeMemSize);
 
     uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
 
     for (int i = 0; i < paddedSize / sizeof(u32); i++) {
       u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
-      *addr = 4081516 + i;
+      *addr = i;
     }
+
     fpgaMallocPtr += paddedSize;
     fpgaFreeMemSize -= paddedSize;
     uint64_t physAddr = getFPGAPhys(virtAddr);
     EPRINTF("[malloc] virtAddr = %lx, physAddr = %lx\n", virtAddr, physAddr);
     return physAddr;
-
   }
 
   virtual void free(uint64_t buf) {
     EPRINTF("[free] devmem = %lx\n", buf);
-    // TODO: Freeing memory in a linear allocator is tricky. Just don't do anything until a more 'real' allocator is added
-//#ifdef USE_PHYS_ADDR
-//    std::free(physToVirt(buf));
-//#else
-//    std::free((void*)buf);
-//#endif
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
     EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
-//#ifdef USE_PHYS_ADDR
-//    void *dst = physToVirt(devmem);
-//#else
-//    void *dst = (void*) devmem;
-//#endif
-
     void* dst = (void*) getFPGAVirt(devmem);
     std::memcpy(dst, hostmem, size);
-
-    // Flush CPU cache
-//    char *start = (char*)dst;
-//    char *end = start + size;
-//    __clear_cache(start, end);
 
     // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
     int cacheSizeWords = 512 * (1 << 10) / sizeof(int);
@@ -213,12 +172,6 @@ public:
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-//#ifdef USE_PHYS_ADDR
-//    void *src = physToVirt(devmem);
-//#else
-//    void *src = (void*) devmem;
-//#endif
-
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
     std::memcpy(hostmem, src, size);
