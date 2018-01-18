@@ -200,22 +200,22 @@ trait ChiselGenReg extends ChiselGenSRAM {
               //   } else {
               //     val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
               //     val data_string = if (fully_unrolled_accum) src"$v" else src"$lhs"
-              //     emit(src"""${swap(src"${reg}", Blank)}.write(${data_string}, $en & ${DL(src"${swap(reg, Wren)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt+1", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)}) //path4""")
+              //     emit(src"""${swap(src"${reg}", Blank)}.write(${data_string}, $en & ${DL(src"${swap(reg, Wren)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt+1", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
               //   }
               case _ =>
                 val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
                 val dlay = if (accumsWithIIDlay.contains(reg)) {src"${reg}_II_dlay"} else "0" // Ultra hacky
                 if (dup.isAccum) {
-                  emit(src"""${swap(src"${reg}", Blank)}.write($v, $en & ${DL(src"${swap(reg, Wren)} & ${DL(swap(parent, IIDone), dlay, true)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool | ${DL(swap(reg, Resetter), src"${enableRetimeMatch(en, lhs)}.toInt", true)} ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)}) //path1""")
+                  emit(src"""${swap(src"${reg}", Blank)}.write($v, $en & ${DL(src"${swap(reg, Wren)} & ${DL(swap(parent, IIDone), dlay, true)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool | ${DL(swap(reg, Resetter), src"${enableRetimeMatch(en, lhs)}.toInt", true)} ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                 } else {
-                  emit(src"""${swap(src"${reg}", Blank)}.write($v, $en & ${DL(src"${swap(reg, Wren)} & ${DL(swap(parent, IIDone), dlay, true)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)}) //path2""")
+                  emit(src"""${swap(src"${reg}", Blank)}.write($v, $en & ${DL(src"${swap(reg, Wren)} & ${DL(swap(parent, IIDone), dlay, true)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool ${manualReset}, List($ports), ${reg}_initval.number, accumulating = ${isAccum(lhs)})""")
                 }
                 
             }
           case _ => // Not an accum
             val dup = instanceOf(reg)
             val ports = portsOf(lhs, reg).values.toList // Port only makes sense if it is not the accumulating duplicate
-            emit(src"""${reg}.write($v, $en & ${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool ${manualReset}, List($ports), ${rawquote(reg)}_initval.number, accumulating = ${isAccum(lhs)}) //path3""")
+            emit(src"""${reg}.write($v, $en & ${DL(src"${swap(parent, DatapathEn)} & ${swap(parent, IIDone)}", src"${enableRetimeMatch(en, lhs)}.toInt", true)}, reset.toBool ${manualReset}, List($ports), ${rawquote(reg)}_initval.number, accumulating = ${isAccum(lhs)})""")
         }
       }
 
