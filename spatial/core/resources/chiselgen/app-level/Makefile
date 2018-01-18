@@ -4,6 +4,8 @@ AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 ZCU_V_DIR=verilog-zcu
 ARRIA10_V_DIR=verilog-arria10
+GHRD_DIR=/opt/intelFPGA_pro/17.1/ghrd_pr/a10_soc_devkit_ghrd
+
 APPNAME=$(shell basename $(shell pwd))
 BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
@@ -274,6 +276,8 @@ arria10-hw:
 	cat ./chisel/template-level/fringeArria10/*.v >> ${ARRIA10_V_DIR}/Top.v
 	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
 	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}/
+	# TODO: mannually create the link
+	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
 	cd ${ARRIA10_V_DIR} && bash fit.sh
 	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./
 
