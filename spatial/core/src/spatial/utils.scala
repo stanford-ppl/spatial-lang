@@ -133,9 +133,14 @@ object utils {
     * Also returns the paths from the least common ancestor to each node.
     * The paths do not contain the LCA, as it may be undefined.
     */
-  def leastCommonAncestorWithPaths[T](x: T, y: T, parent: T => Option[T]): (Option[T], List[T], List[T]) = {
+  @stateful def leastCommonAncestorWithPaths[T](x: T, y: T, parent: T => Option[T], verbose: Boolean = false): (Option[T], List[T], List[T]) = {
     val pathX = allParents(x, parent)
     val pathY = allParents(y, parent)
+    if (verbose) {
+      dbg(s"$x: " + pathX.mkString(" -> "))
+      dbg(s"$y: " + pathY.mkString(" -> " ))
+    }
+
     // Choose last node where paths are the same
     val lca = pathX.zip(pathY).filter{case (x,y) => x == y}.lastOption.flatMap(_._1)
     val pathToX = pathX.drop(pathX.indexOf(lca)+1).map(_.get)
@@ -143,7 +148,7 @@ object utils {
     (lca,pathToX,pathToY)
   }
 
-  def leastCommonAncestor[T](x: T, y: T, parent: T => Option[T]): Option[T] = {
+  @stateful def leastCommonAncestor[T](x: T, y: T, parent: T => Option[T]): Option[T] = {
     leastCommonAncestorWithPaths(x,y,parent)._1
   }
 
@@ -279,10 +284,10 @@ object utils {
     *
     * @return The LCA of a and b and the pipeline distance.
     */
-  @stateful def lcaWithDistance(a: Ctrl, b: Ctrl): (Ctrl, Int) = {
+  @stateful def lcaWithDistance(a: Ctrl, b: Ctrl, verbose: Boolean = false): (Ctrl, Int) = {
     if (a == b) (a, 0)
     else {
-      val (lca, pathA, pathB) = leastCommonAncestorWithPaths[Ctrl](a, b, {node => parentOf(node)})
+      val (lca, pathA, pathB) = leastCommonAncestorWithPaths[Ctrl](a, b, {node => parentOf(node)}, verbose)
       if (lca.isEmpty) throw new NoCommonParentException(a,b)
 
       val parent = lca.get
@@ -337,8 +342,8 @@ object utils {
     *
     * @return The LCA of a and b and the coarse-grained pipeline distance
     **/
-  @stateful def lcaWithCoarseDistance(a: Ctrl, b: Ctrl): (Ctrl, Int) = {
-    val (lca, dist) = lcaWithDistance(a, b)
+  @stateful def lcaWithCoarseDistance(a: Ctrl, b: Ctrl, verbose: Boolean = false): (Ctrl, Int) = {
+    val (lca, dist) = lcaWithDistance(a, b, verbose)
     val coarseDistance = if (isMetaPipe(lca) || isStreamPipe(lca)) dist else 0
     (lca, coarseDistance)
   }
@@ -364,19 +369,24 @@ object utils {
     }.toSet
   }
 
-  @stateful def findAllMetaPipes(mem: Exp[_], accesses: Seq[Access]): Map[Ctrl,Seq[(Access,Access)]] = {
-    assert(accesses.nonEmpty)
+  @stateful def findAllMetaPipes(mem: Exp[_], writers: Seq[Access], readers: Seq[Access], verbose: Boolean = false): Map[Ctrl,Seq[(Access,Access)]] = {
+    assert(writers.nonEmpty || readers.nonEmpty)
 
-    val lcas = accesses.indices.flatMap{i =>
-      (i + 1 until accesses.length).map{j =>
-        val (lca,dist) = lcaWithCoarseDistance(accesses(i).ctrl, accesses(j).ctrl)
-        (lca,dist,(accesses(i),accesses(j)))
+    val lcas = writers.indices.flatMap{i =>
+      (i+1 until writers.length).map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(writers(i).ctrl, writers(j).ctrl, verbose)
+        (lca,dist,(writers(i),writers(j)))
+      } ++
+      readers.map{reader =>
+        val (lca,dist) = lcaWithCoarseDistance(writers(i).ctrl, reader.ctrl, verbose)
+        (lca,dist,(writers(i),reader))
       }
     }
 
-    /*dbg("")
-    dbg(c"  accesses: $accesses")
-    lcas.foreach{case (lca,dist,access) => dbg(c"    lca(${access._1}, ${access._2}) = $lca ($dist)") }*/
+    if (verbose) {
+      dbg("")
+      lcas.foreach{case (lca,dist,access) => dbg(c"  lca(${access._1}, ${access._2}) = $lca ($dist)") }
+    }
 
     // Find accesses which require n-buffering, group by their controller
     lcas.filter(_._2 != 0).groupBy(_._1).mapValues(_.map(_._3))
@@ -385,7 +395,7 @@ object utils {
   /**
     * Returns metapipe controller for given accesses
     **/
-  @stateful def findMetaPipe(mem: Exp[_], readers: Seq[Access], writers: Seq[Access]): (Option[Ctrl], Map[Access,Int]) = {
+  @stateful def findMetaPipe(mem: Exp[_], readers: Seq[Access], writers: Seq[Access], verbose: Boolean = false): (Option[Ctrl], Map[Access,Int]) = {
 
     def ambiguousMetapipesError(lcas: Map[Ctrl,Seq[(Access,Access)]]): Unit = {
       error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
@@ -393,7 +403,13 @@ object utils {
       error(mem.ctx)
       lcas.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
-        error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
+        //error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
+        error(c"  accesses: ")
+        accs.foreach{a =>
+          error(c"    ${str(a._1.node)} [${a._1.ctrl}]")
+          error(c"    ${str(a._2.node)} [${a._2.ctrl}]")
+          error("")
+        }
         error(str(pipe.node))
         error(pipe.node.ctx)
         error("")
@@ -406,7 +422,7 @@ object utils {
     }
 
     val accesses = readers ++ writers
-    val metapipeLCAs = findAllMetaPipes(mem, accesses)
+    val metapipeLCAs = findAllMetaPipes(mem, writers, readers, verbose)
 
     // Hierarchical metapipelining is currently disallowed
     if (metapipeLCAs.keys.size > 1) ambiguousMetapipesError(metapipeLCAs)

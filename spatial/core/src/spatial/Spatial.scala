@@ -195,6 +195,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += ctrlAnalyzer      // Control signal analysis
     passes += affineAnalyzer    // Memory access patterns
     passes += reduceAnalyzer    // Reduce/accumulator specialization
+    passes += printer
     passes += memAnalyzer       // Finalize banking/buffering
 
     // TODO: Resurrect this for SRAM views

@@ -243,14 +243,14 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         grp.filter{w => ports(w.access).contains(port) }
            .foreach{w =>
              val muxIdx = muxIndexOf(w,mem)
-             dbg(c"      $port: (mux:$muxIdx) [WR] $w")
+             dbg(c"""      $port: (mux:$muxIdx) [WR] ${w._1} [${w._2}] {${w._3.mkString(",")}}""")
            }
       }
       reads.foreach { grp =>
         grp.filter{r => ports(r.access).contains(port) }
            .foreach{r =>
              val muxIdx = muxIndexOf(r,mem)
-             dbg(c"      $port: (mux:$muxIdx) [RD] $r")
+             dbg(c"""      $port: (mux:$muxIdx) [RD] ${r._1} [${r._2}] {${r._3.mkString(",")}}""")
            }
       }
     }
@@ -550,7 +550,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val bankings = strategy.bankAccesses(mem, dims, readGroups, reachWrites, domain, dimensionGroupings)
     if (bankings.nonEmpty) {
       // TODO: Multiple metapipe parents should cause backtrack eventually
-      val (metapipe, ports) = findMetaPipe(mem, reads, writes)
+      dbg(s"  Group LCAs:")
+      val (metapipe, ports) = findMetaPipe(mem, reads, writes, verbose = true)
       val depth = ports.values.max + 1
       val bankingCosts = bankings.map { b => (b, cost(b, depth)) }
       val (banking, bankCost) = bankingCosts.minBy(_._2)
@@ -559,9 +560,15 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     else None
   }
 
-  protected def crossControlCompatible(candidate: Set[Ctrl], ctrls: Set[Ctrl]): Boolean = {
-    candidate.forall{c => !ctrls.contains(c) && !ctrls.exists{c2 => lca(c,c2).exists(isParallel) } } &&
-    findAllCtrlMetaPipes(mem, candidate ++ ctrls).size <= 1
+  // 1. Cannot combine across the same common LCA controller
+  // 2. Cannot combine across parallel controllers
+  // 3. Cannot combine such that we create hierarchical buffers (for now)
+  // 4. Cannot combine local accumulators with other buffers UNLESS the accumulation is a Reduce
+  protected def mergeCompatible(a: InstanceGroup, b: InstanceGroup): Boolean = {
+    (a.ctrls intersect b.ctrls).isEmpty &&
+    a.ctrls.forall{cA => !b.ctrls.exists{cB => lca(cA,cB).exists(isParallel) } } &&
+    findAllCtrlMetaPipes(mem, a.ctrls ++ b.ctrls).size <= 1 &&
+    !a.isAcc && !b.isAcc
   }
 
   /** Special case primarily for registers - allow concurrent accesses with constant addresses **/
@@ -584,35 +591,35 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       val orig = bankGroups(Seq(group),writeGroups,domain)
       // TODO: What to do on failure?
       if (orig.isEmpty) throw new Exception(s"Could not bank all $mem reads with writes")
-      val i = orig.get
+      val i1 = orig.get
 
       var instIdx = 0
       var mergedIntoInstance = false
       while (instIdx < instances.length && !mergedIntoInstance) {
-        val inst = instances(instIdx)
+        val i2 = instances(instIdx)
         // We already separated out the reads which can't be banked in the same controller, so skip groups which
         // contain any of the same read controllers
         // Exception: reads on global memories (i.e. ArgIn) can be banked together since value is constant
         dbg(s"  Attempting to merge group #$groupId into instance #$instIdx")
-        if (crossControlCompatible(i.ctrls,inst.ctrls) || isGlobalMem) {
-          val i2 = bankGroups(group +: inst.reads, writeGroups, domain)
+        if (mergeCompatible(i1,i2) || isGlobalMem) {
+          val i_p = bankGroups(group +: i2.reads, writeGroups, domain) // i'
 
           // Merging buffers is only allowed if explicitly enabled (note: this is for PIR)
-          if (i2.isDefined && (inst.metapipe.isEmpty || i.metapipe.isEmpty || spatialConfig.enableBufferCoalescing)) {
-            if (i2.get.cost <= i.cost + inst.cost) {
-              instances(instIdx) = i2.get
+          if (i_p.isDefined && (i2.metapipe.isEmpty || i1.metapipe.isEmpty || spatialConfig.enableBufferCoalescing)) {
+            if (i_p.get.cost <= i1.cost + i2.cost) {
+              instances(instIdx) = i_p.get
               mergedIntoInstance = true
               dbg(s"  Merged group #$groupId into instance #$instIdx")
             }
             else dbg(s"  Did not merge #$groupId into instance #$instIdx: Too expensive")
           }
-          else if (i2.isEmpty) dbg(s"  Did not merge #$groupId into instance #$instIdx: Conflicting banks")
+          else if (i_p.isEmpty) dbg(s"  Did not merge #$groupId into instance #$instIdx: Conflicting banks")
           else dbg(s"  Did not merge #$groupId into instance #$instIdx: Buffer conflict")
         }
         else dbg(s"  Did not merge #$groupId into instance #$instIdx: Control conflict")
         instIdx += 1
       }
-      if (!mergedIntoInstance) instances += i
+      if (!mergedIntoInstance) instances += i1
     }
     instances
   }

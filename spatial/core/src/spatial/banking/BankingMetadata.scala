@@ -74,7 +74,14 @@ case class InstanceGroup(
   var depth:    Int,                    // Depth of n-buffer
   var cost:     Int,                    // Cost estimate of this configuration
   var ports:    Map[Access,Int]         // Ports
-)
+) {
+  // This is an accumulating group if there exists an accumulating write and a read in the same controller
+  @stateful def isAcc: Boolean = {
+    writes.exists{wrs => wrs.exists{wr =>
+      isAccum(wr.access.node) && reads.exists{rds => rds.exists{rd => rd.access.ctrl == wr.access.ctrl }}
+    }}
+  }
+}
 
 /**
   * Used internally in memory analysis to track finalized results
