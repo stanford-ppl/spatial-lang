@@ -68,3 +68,4 @@ regTests.sh
 ./moduleSims
 ./regen.sh
 *.csv
+./csv_bak

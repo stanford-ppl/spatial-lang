@@ -6,6 +6,7 @@
 # scp set_sdram_hps root@arria10:~/
 # scp read_sdram_hps root@arria10:~/
 
-DESIGN=read_sdram_hps
+# DESIGN=read_sdram_hps
+DESIGN=clean
 arm-linux-gnueabi-gcc -Wall -o ${DESIGN} ${DESIGN}.c
 scp ${DESIGN} root@arria10:~/

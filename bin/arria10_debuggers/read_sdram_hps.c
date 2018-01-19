@@ -27,11 +27,11 @@ int main(int argc, char ** argv)
   // read back 64 locations
   int *memIntPtr = (int *)virtualBase;
   int i;
-  int range = 64;
+  int range = 128;
   for (i = 0; i < range; i ++)
   {
     int *currPtr = memIntPtr + i;
-    printf("read val = 0x%x\n", *currPtr);
+    printf("read val = %d\n", *currPtr);
   }
 
   return 0;
