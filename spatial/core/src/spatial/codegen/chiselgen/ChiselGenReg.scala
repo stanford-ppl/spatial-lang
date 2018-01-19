@@ -154,11 +154,11 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case RegReset(reg,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(reg).map{_._1}.indexOf(lhs)
-      emit(src"${reg}_manual_reset_$id := $en & ${DL(swap(parent, DatapathEn), src"${enableRetimeMatch(en, lhs)}.toInt")} ")
+      emit(src"${rawquote(reg)}_manual_reset_$id := $en & ${DL(swap(parent, DatapathEn), src"${enableRetimeMatch(en, lhs)}.toInt")} ")
 
     case op@RegWrite(reg,v,en) =>
       val fully_unrolled_accum = !writersOf(reg).exists{w => readersOf(reg).exists{ r => w.node.dependsOn(r.node) }}
-      val manualReset = if (resettersOf(reg).nonEmpty) {s"| ${quote(reg)}_manual_reset"} else ""
+      val manualReset = if (resettersOf(reg).nonEmpty) {s"| ${rawquote(reg)}_manual_reset"} else ""
       val parent = writersOf(reg).find{_.node == lhs}.get.ctrlNode
       if (isArgOut(reg) | isHostIO(reg)) {
         val id = argMapping(reg).argOutId
