@@ -47,11 +47,13 @@ set_global_assignment -name MAX_CORE_JUNCTION_TEMP 100
 set_global_assignment -name POWER_AUTO_COMPUTE_TJ ON
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name REVISION_TYPE PR_SYN
+set_global_assignment -name SYSTEMVERILOG_FILE RetimeShiftRegister.sv
+set_global_assignment -name VERILOG_FILE SRAMVerilogAWS.v
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_mm_bridge_0.ip
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_reset_in.ip
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_clock_in.ip
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_sysid_qsys_0.ip
-set_global_assignment -name REVISION_TYPE PR_SYN
 set_global_assignment -name QSYS_FILE pr_region_alternate.qsys
 set_global_assignment -name IP_FILE ip/pr_region_default/pr_region_default_clock_in.ip
 set_global_assignment -name IP_FILE ip/pr_region_default/pr_region_default_sysid_qsys_0.ip

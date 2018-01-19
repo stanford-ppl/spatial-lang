@@ -973,6 +973,11 @@
 ./chiselgen/template-level/fringeArria10/build/ip/external_logo_module/rawlogo_g.mif
 ./chiselgen/template-level/fringeArria10/build/ip/external_logo_module/ICON_GEN_ST_hw.tcl
 ./chiselgen/template-level/fringeArria10/build/ip/external_logo_module/rawlogo_b.mif
+./chiselgen/template-level/fringeArria10/build/qdb/_compiler/pr_alternate_synth/_flat/17.1.0/legacy/1/pr_alternate_synth.db_info
+./chiselgen/template-level/fringeArria10/build/qdb/_compiler/pr_alternate_fit/_flat/17.1.0/legacy/1/pr_alternate_fit.db_info
+./chiselgen/template-level/fringeArria10/build/qdb/_compiler/pr_base/_flat/17.1.0/legacy/1/pr_base.db_info
+./chiselgen/template-level/fringeArria10/build/RetimeShiftRegister.sv
+./chiselgen/template-level/fringeArria10/build/pr_base.qws
 ./chiselgen/template-level/fringeArria10/build/pr_alternate_synth_description.txt
 ./chiselgen/template-level/fringeArria10/build/fpga_dp.sdc
 ./chiselgen/template-level/fringeArria10/build/fit.sh
@@ -1000,6 +1005,7 @@
 ./chiselgen/template-level/fringeArria10/build/pr_region_default.qsys
 ./chiselgen/template-level/fringeArria10/build/pr_alternate_synth.done
 ./chiselgen/template-level/fringeArria10/build/hps_sgmii.sdc
+./chiselgen/template-level/fringeArria10/build/SRAMVerilogAWS.v
 ./chiselgen/template-level/fringeArria10/build/ghrd_10as066n2.dts
 ./chiselgen/template-level/fringeArria10/build/jtag.sdc
 ./chiselgen/template-level/fringeArria10/build/Top_hw.tcl
