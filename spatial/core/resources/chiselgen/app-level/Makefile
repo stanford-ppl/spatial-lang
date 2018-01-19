@@ -273,9 +273,7 @@ arria10-hw:
 	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
 	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' ${ARRIA10_V_DIR}/Top.v
 	sed -i 's/module\ Top/module Top_DUT/g' ${ARRIA10_V_DIR}/Top.v
-	cat ./chisel/template-level/fringeArria10/*.v >> ${ARRIA10_V_DIR}/Top.v
 	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
-	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}/
 	# TODO: mannually create the link
 	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
 	cd ${ARRIA10_V_DIR} && bash fit.sh
