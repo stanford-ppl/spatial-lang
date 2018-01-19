@@ -118,6 +118,33 @@ if [[ $1 = "Zynq" ]]; then
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
     python3 scripts/report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
+elif [[ $1 = "ZCU" ]]; then
+	APP=$(basename $(pwd))
+	scp $(basename $(pwd)).tar.gz root@zcu102:
+	ssh root@zcu102 "
+	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
+	  if [[ \$locked -gt 0 ]]; then
+	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
+	    rm -rf /home/regression/${APP}*
+	  else
+	    mkdir $APP
+	    tar -xvf ${APP}.tar.gz -C $APP
+	    pushd $APP
+	    mkdir verilog
+	    mv accel.bit.bin verilog
+	    popd
+	    cd $APP
+	    touch /home/sync/\$(whoami)
+	    ./Top $2 $3 $4 $5 $6 $7 $8
+	    rm /home/sync/\$(whoami)
+	    rm -rf /home/regression/${APP}*	  
+	fi" &> log
+    timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
+    locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
+    runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
+    if [[ $runtime = "" ]]; then runtime=NA; fi
+    pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
+    python3 scripts/report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	
 fi
 
 # Fake out regression
