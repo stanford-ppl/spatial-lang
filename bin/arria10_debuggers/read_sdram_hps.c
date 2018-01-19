@@ -24,10 +24,10 @@ int main(int argc, char ** argv)
 
   printf("virtualBase = 0x%x\n", (unsigned int)virtualBase);
 
-  // read back 16 locations
+  // read back 64 locations
   int *memIntPtr = (int *)virtualBase;
   int i;
-  int range = 16;
+  int range = 64;
   for (i = 0; i < range; i ++)
   {
     int *currPtr = memIntPtr + i;
