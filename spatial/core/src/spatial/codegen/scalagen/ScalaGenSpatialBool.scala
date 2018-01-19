@@ -3,6 +3,8 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import argon.emul.FixedPoint
+
 
 trait ScalaGenSpatialBool extends ScalaGenBits {
 
@@ -32,6 +34,20 @@ trait ScalaGenSpatialBool extends ScalaGenBits {
 
     case RandomBoolean(None) => emit(src"val $lhs = Bool(java.util.concurrent.ThreadLocalRandom.current().nextBoolean())")
     case RandomBoolean(Some(max)) => emit(src"val $lhs = Bool(java.util.concurrent.ThreadLocalRandom.current().nextBoolean() && $max)")
+    case StringToBoolean(x) => 
+      emit(src"val $lhs = ${x}.toInt != 0")
+      x match {
+        case Def(ArrayApply(array, i)) => 
+          array match {
+            case Def(InputArguments()) => 
+              val ii = i match {case c: Const[_] => c match {case Const(c: FixedPoint) => c.toInt; case _ => -1}; case _ => -1}
+              if (cliArgs.contains(ii)) cliArgs += (ii -> s"${cliArgs(ii)} / ${lhs.name.getOrElse(s"${lhs.ctx}")}")
+              else cliArgs += (ii -> lhs.name.getOrElse(s"${lhs.ctx}"))
+            case _ =>
+          }
+        case _ =>          
+      }
+
     case _ => super.emitNode(lhs, rhs)
   }
 }

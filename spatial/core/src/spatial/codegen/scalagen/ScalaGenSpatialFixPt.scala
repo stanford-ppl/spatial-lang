@@ -3,6 +3,7 @@ package spatial.codegen.scalagen
 import argon.core._
 import argon.nodes._
 import spatial.aliases._
+import argon.emul.FixedPoint
 
 
 trait ScalaGenSpatialFixPt extends ScalaGenBits {
@@ -64,6 +65,17 @@ trait ScalaGenSpatialFixPt extends ScalaGenBits {
     case StringToFixPt(x) =>
       val FixPtType(s,i,f) = lhs.tp
       emit(src"val $lhs = FixedPoint($x, FixFormat($s,$i,$f))")
+      x match {
+        case Def(ArrayApply(array, i)) => 
+          array match {
+            case Def(InputArguments()) => 
+              val ii = i match {case c: Const[_] => c match {case Const(c: FixedPoint) => c.toInt; case _ => -1}; case _ => -1}
+              if (cliArgs.contains(ii)) cliArgs += (ii -> s"${cliArgs(ii)} / ${lhs.name.getOrElse(s"${lhs.ctx}")}")
+              else cliArgs += (ii -> lhs.name.getOrElse(s"${lhs.ctx}"))
+            case _ =>
+          }
+        case _ =>          
+      }
 
     case FixRandom(Some(max)) =>
       val FixPtType(s,i,f) = lhs.tp
