@@ -153,9 +153,9 @@ trait ChiselGenUnrolled extends ChiselGenController {
         val rstr = wireMap(src"${accum}_resetter")
         // Need to delay reset by controller retime if not specialized reduction
         if (isSpecializedReduce(accum)) {
-        emit(src"$rstr := Utils.risingEdge(${swap(lhs, En)})")
+          emit(src"$rstr := Utils.risingEdge(${swap(lhs, En)})")
         } else {
-          emit(src"$rstr := ${DL(swap(lhs, RstEn), swap(lhs, Retime), true)} // Delay was added on 12/5/2017, not sure why it wasn't there before")
+          emit(src"$rstr := Utils.risingEdge(${DL(swap(lhs, En), swap(lhs, Retime), true)}) // Delay was added on 12/5/2017, not sure why it wasn't there before")
         }
       } else {
         if (spatialConfig.enableRetiming) {
