@@ -135,10 +135,11 @@ public:
 
     uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
 
-    for (int i = 0; i < paddedSize / sizeof(u32); i++) {
-      u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
-      *addr = i;
-    }
+    // Tian: For now just disable the writes. This is creating unnecessary DRAM Writes
+    // for (int i = 0; i < paddedSize / sizeof(u32); i++) {
+    //   u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
+    //   *addr = i;
+    // }
 
     fpgaMallocPtr += paddedSize;
     fpgaFreeMemSize -= paddedSize;
