@@ -129,6 +129,9 @@ trait ChiselGenReg extends ChiselGenSRAM {
       if (isArgIn(reg) | isHostIO(reg)) {
         emitGlobalWireMap(src"""${lhs}""",src"Wire(${newWire(reg.tp.typeArguments.head)})")
         emitGlobalWire(src"""${lhs}.r := io.argIns(${argMapping(reg).argInId})""")
+      } else if (isArgOut(reg)) {
+        emitGlobalWireMap(src"""${lhs}""",src"Wire(${newWire(reg.tp.typeArguments.head)})")
+        emit(src"""${lhs}.r := io.argOuts(${argMapping(reg).argOutId}).bits NEED TO EXPOSE REG OUTPUT IF AN ARGOUT IS READ IN ACCEL""")
       } else {
         emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""") 
         if (dispatchOf(lhs, reg).isEmpty) {
