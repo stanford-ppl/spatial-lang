@@ -70,6 +70,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     }
   }
 
+  def randomAddrs(access: Access, is: Seq[Exp[Index]], pattern: IndexPattern): Map[(Exp[Index],Seq[Int]),Exp[Index]] = {
+    val xs = is.filter{case _:Bound[_] => false; case _ => true}
+    xs.flatMap{x => unrollRandomAddress(access,Some(x),pattern).toSeq.map{case (id,x2) => (x2,id) -> x } }.toMap
+  }
+
   /**
     * Convert this compact access matrix to multiple unrolled access matrices
     * by simulating loop parallelization/unrolling
@@ -93,7 +98,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       case RandomVector(_,uroll,Some(vecId)) =>
         val xp = uroll.apply(id)
         val as = indices.map{i => if (i == xp) 1 else 0 }.toArray
-        AffineVector(as,indices,vecId)
+        AffineVector(as,indices,vecId,Map.empty)
 
       case RandomVector(_,uroll,None) =>
         val xp = uroll.apply(id) //.take(len))
@@ -103,20 +108,30 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       //  is      - iterators defined between the memory and this access
       //  inds    - iterators used by this affine access
       //  indices - iterators used by ALL accesses to this memory
-      case AffineVector(as,inds,b) =>
+      case AffineVector(as,inds,b,uroll) =>
         val unrolled = indices.map{i =>
-          val idxAccess = inds.indexOf(i)
-          val idxHierarchy = is.indexOf(i)
-          val a_orig = if (idxAccess >= 0) as(idxAccess) else 0
-          val p = if (idxHierarchy >= 0) ps(idxHierarchy) else 0
-          val n = if (idxHierarchy >= 0) id(idxHierarchy) else 0
-          val a = a_orig*p
-          val b_i = a_orig*n
-          (a, b_i)
+
+          if (uroll.contains((i,id))) {
+            val x_orig = uroll((i,id))
+            val idxAccess = inds.indexOf(x_orig)
+            val a = if (idxAccess >= 0) as(idxAccess) else 0
+            (a, 0)
+          }
+          else {
+            val idxAccess = inds.indexOf(i)
+            val idxHierarchy = is.indexOf(i)
+            val a_orig = if (idxAccess >= 0) as(idxAccess) else 0
+            val p = if (idxHierarchy >= 0) ps(idxHierarchy) else 0
+            val n = if (idxHierarchy >= 0) id(idxHierarchy) else 0
+
+            val a = a_orig * p
+            val b_i = a_orig * n
+            (a, b_i)
+          }
         }
         val as2 = unrolled.map(_._1).toArray
         val b2 = unrolled.map(_._2).sum + b
-        val uvec = AffineVector(as2,indices,b2)
+        val uvec = AffineVector(as2,indices,b2,Map.empty)
         uvec
     }
 
@@ -214,6 +229,15 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
         Memory(banking,depth,isAccum)
     }
 
+    val allAccesses: Set[Access] = (readersOf(mem) ++ writersOf(mem)).toSet
+    val usedAccesses: Set[Access] = instances.flatMap{inst => inst.reads.flatMap(_.map(_.access)) ++ inst.writes.flatMap(_.map(_.access)) }.toSet
+    val unusedAccesses: Set[Access] = allAccesses diff usedAccesses
+    unusedAccesses.foreach{access =>
+      warn(access.node.ctx, u"Access to memory ${access.node} appears to be unused")
+      warn(access.node.ctx)
+      isUnusedAccess(access.node) = true
+    }
+
     printInstances(instances)
     duplicatesOf(mem) = duplicates
   }
@@ -265,24 +289,28 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * TODO: The bounds logic should eventually be moved elsewhere (to ScalarAnalyzer)?
     */
   def getIterDomain(indices: Seq[Exp[Index]]): IndexDomain = IndexDomain(indices.zipWithIndex.flatMap{case (i,iIdx) =>
-    def sparseBound(i: Option[IndexPattern], default: Int): AffineVector = i match {
-      case Some(Affine(as,is,b)) => AffineVector(as,is,b).remap(indices)
-      case _ => AffineVector(Array.empty,Nil,default).remap(indices)
+    def sparseBound(i: Option[IndexPattern]): Option[AffineVector] = i match {
+      case Some(Affine(as,is,b)) => Some(AffineVector(as,is,b,Map.empty).remap(indices))
+      case _ => None
     }
-    val (min,max) = ctrOf(i) match {
+    ctrOf(i) match {
       case Some(ctr) =>
-        val min = sparseBound(accessPatternOf(counterStart(ctr)).headOption, Integer.MIN_VALUE)
-        val max = sparseBound(accessPatternOf(counterEnd(ctr)).headOption, Integer.MAX_VALUE)
-        (min,max)
-      case _ => (sparseBound(None,Integer.MIN_VALUE), sparseBound(None, Integer.MAX_VALUE))
+        val min = sparseBound(accessPatternOf(counterStart(ctr)).headOption).map{m =>
+          // a0*i0 + ... + aN*iN + b <= iX  |->  -a0*i0 + ... + iX + ... + -aN*iN - b >= 0
+          val minA = m.as.zipWithIndex.map{case (x,d) => if (d == iIdx) 1 else -x}
+          val minC = -m.b
+          Seq(minA :+ minC)
+        }.getOrElse(Nil)
+        val max = sparseBound(accessPatternOf(counterEnd(ctr)).headOption).map{m =>
+          // a0*i0 + ... + aN*iN + b >= iX  |->  a0*i0 + ... + -iX + ... + aN*iN + b >= 0
+          val maxA = m.as; maxA(iIdx) = -1
+          val maxC = m.b
+          Seq(maxA :+ maxC)
+        }.getOrElse(Nil)
+        min ++ max
+
+      case _ => Nil
     }
-    // a0*i0 + ... + aN*iN + b <= iX  |->  -a0*i0 + ... + iX + ... + -aN*iN - b >= 0
-    val minA = min.as.zipWithIndex.map{case (x,d) => if (d == iIdx) 1 else -x}
-    val minC = -min.b
-    // a0*i0 + ... + aN*iN + b >= iX  |->  a0*i0 + ... + -iX + ... + aN*iN + b >= 0
-    val maxA = max.as; maxA(iIdx) = -1
-    val maxC = max.b
-    Seq(minA :+ minC, maxA :+ maxC)
   }.toArray)
 
 
@@ -343,6 +371,9 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
       dbg(s"    ${str(rd.access.node)} [${rd.id}] [${rd.access.ctrl}]")
     }*/
 
+    // Hack: return all writers for argOuts for now
+    if (isGlobalMem) return writeGroups
+
     var remainingWrites: Set[AccessMatrix] = Set.empty
     var reachingWrites:  Set[AccessMatrix] = Set.empty
     writeGroups.foreach{grp => remainingWrites ++= grp }
@@ -372,7 +403,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     * Simulates unrolling for random accesses to model each distinct random access as an "iterator"
     */
   def indexPatternToAccessVector(access: Access, addr: Option[Exp[Index]], pattern: IndexPattern, vecId: Option[Int]): AccessVector = pattern match {
-    case Affine(as, is, b)  => AffineVector(as, is, b + vecId.getOrElse(0))
+    case Affine(as, is, b)  => AffineVector(as, is, b + vecId.getOrElse(0), randomAddrs(access,is,pattern))
     case _ =>
       //if (isVecOfs) addr.foreach{a => inVector += a } // TODO: Not yet used
       val uroll = unrollRandomAddress(access, addr, pattern)
@@ -421,7 +452,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val is = accessIterators(access.node, mem)
     val ps = is.map{i => parFactorOf(i).toInt }
     val as = Array.tabulate(is.length){i => ps.drop(i + 1).product }
-    CompactMatrix(Array(AffineVector(as, is, 0)), access, None)
+    CompactMatrix(Array(AffineVector(as, is, 0, Map.empty)), access, None)
   }
 
   /**
@@ -454,7 +485,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
 
     val readDenseMatrices = addrReaders.flatMap(getAccessVector) ++ streamReadVectors
     val writeDenseMatrices = addrWriters.flatMap(getAccessVector) ++ streamWriteVectors
-    val indices = (readDenseMatrices ++ writeDenseMatrices).flatMap(_.indices).distinct.sortBy{case s:Dyn[_] => s.id; case _ => 0}
+    val indices = (readDenseMatrices ++ writeDenseMatrices).flatMap(_.unrollIndices).distinct.sortBy{case s:Dyn[_] => s.id; case _ => 0}
 
     dbg(s"  Found the following compact access matrices: ")
     dbg(s"  Reads: ")
@@ -473,6 +504,11 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     val domain = getIterDomain(indices)
     val readMatrices = readDenseMatrices.flatMap{mat => unroll(mat, indices) }
     val writeMatrices = writeDenseMatrices.flatMap{mat => unroll(mat, indices) }
+
+    dbg("Indices: " + indices.mkString(", "))
+    dbg("Domain: ")
+    dbg(domain.str)
+    dbg("")
 
     dbg(s"  Pseudo-unrolling resulted in the following access matrices: ")
     dbg(s"  Reads: ")

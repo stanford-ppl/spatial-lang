@@ -151,10 +151,10 @@ case class Memory(
       val b = banking.head.stride
 
       spatial.lang.Math.sumTree((0 until d).map{t =>
-        val xt = wrap(addr(t)).as(tp, bits, ctx, state)
+        val xt = wrap(addr(t)).asInternal(tp, bits, ctx, state)
         if (t < d - 1) { xt * (w.slice(t+1,d-1).product * math.ceil(w(d-1).toDouble / (n*b)).toInt * b) }
         else           { (xt / (n*b)) * b + xt % b }
-      }).as[Index].s
+      }).asInternal[Index].s
     }
     else if (banking.length == w.length) {
       val b = banking.map(_.stride)
@@ -162,9 +162,9 @@ case class Memory(
       val dims = (0 until d).map{t => (t+1 until d).map{k => math.ceil(w(k)/n(k)).toInt }.product }
 
       spatial.lang.Math.sumTree((0 until d).map{t =>
-        val xt = wrap(addr(t)).as(tp, bits, ctx, state)
+        val xt = wrap(addr(t)).asInternal(tp, bits, ctx, state)
         ( ( xt/(b(t)*n(t)) )*b(t) + xt%b(t) ) * dims(t)
-      }).as[Index].s
+      }).asInternal[Index].s
     }
     else {
       // TODO: Bank address for mixed dimension groups
@@ -266,6 +266,14 @@ case class AccessDispatch(mapping: mutable.HashMap[Exp[_], mutable.HashMap[Seq[I
   //def clear(access: Access, mem: Exp[_]): Unit = { dispatchOf(access, mem) = Set[Int]() }
 }
 
+
+case class UnusedAccess(flag: Boolean) extends Metadata[UnusedAccess] {
+  def mirror(f:Tx) = this
+}
+@data object isUnusedAccess {
+  def apply(access: Exp[_]): Boolean = metadata[UnusedAccess](access).exists(_.flag)
+  def update(access: Exp[_], flag: Boolean): Unit = metadata.add(access, UnusedAccess(flag))
+}
 
 /**
   * Metadata for which n-buffered ports a given access should connect to. Ports should either be:

@@ -11,7 +11,7 @@ class RegConfigurer(override val mem: Exp[_], override val strategy: BankingStra
 
   override def unroll(matrix: CompactMatrix, indices: Seq[Exp[Index]]): Seq[AccessMatrix] = {
     lazy val zeros = Array.fill(indices.length)(0)
-    lazy val const = Array[AccessVector](AffineVector(zeros,indices,0))
+    lazy val const = Array[AccessVector](AffineVector(zeros,indices,0,Map.empty))
 
     val accesses = super.unroll(matrix, indices)
 

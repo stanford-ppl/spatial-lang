@@ -82,15 +82,25 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
       case Some(elems) =>
         val nBanks = inst.nBanks.product
         val bankDepth = Math.ceil(dims.product.toDouble / nBanks).toInt
+
+        dbg(s"Generating initialized memory: ${str(mem)}")
+        dbg(s"# Banks: $nBanks")
+        dbg(s"Bank Depth: $bankDepth")
+
+        // Import an implicit lexicographic ordering for the bank addresses (allows us to group and sort by bank addr)
+        import scala.math.Ordering.Implicits._
+
         val banks = multiLoopWithIndex(dims).map { case (is, i) =>
           val bankAddr = inst.constBankAddress(is)
           val ofs = inst.constBankOffset(mem, is)
+          dbg("  " + is.mkString(", ") + s" ($i): elem:${elems(i)}, bankAddr:$bankAddr, ofs:$ofs" )
+
           (elems(i), bankAddr, ofs)
-        }.toArray.groupBy(_._2).map { case (_, vals) =>
-          val elems = (0 until bankDepth).map { i => vals.find(_._3 == i).map(_._1).getOrElse(invalid(tp)) }
-          src"Array[$tp]($elems)"
-        }
-        src"""Array[Array[$tp]](${banks.mkString("\n")})"""
+        }.toArray.groupBy(_._2).toList.sortBy(_._1).map{case (_, vals) =>
+            val elems = (0 until bankDepth).map { i => vals.find(_._3 == i).map(_._1).getOrElse(invalid(tp)) }
+            src"Array[$tp]($elems)"
+          }
+        src"""Array[Array[$tp]](${banks.mkString(",\n")})"""
       case None =>
         val banks = inst.totalBanks
         val bankDepth = Math.ceil(dims.product.toDouble / banks).toInt

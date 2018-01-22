@@ -14,7 +14,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
     * Note that the total size is O(N**rank)
     */
   def Alphas(rank: Int, N: Int): Iterator[Seq[Int]] = {
-    val a2 = (1 until N).filter(x => isPow2(x) || x == 1)
+    val a2 = (0 until N).filter(x => isPow2(x) || x == 1 || x == 0)
     def Alphas2(dim: Int, prev: Seq[Int]): Iterator[Seq[Int]] = {
       if (dim < rank) {
         a2.iterator.flatMap{aD => Alphas2(dim+1, prev :+ aD) }
@@ -27,7 +27,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
       }
       else (0 until N).iterator.map{aR => prev :+ aR }.filterNot(_.forall(x => isPow2(x) || x == 1))
     }
-    Alphas2(1, Nil) ++ AlphasX(1, Nil)
+    Alphas2(1, Nil).filterNot(_.forall(_ == 0)) ++ AlphasX(1, Nil).filterNot(_.forall(_ == 0))
   }
 
   def checkConflicts(grp: Seq[AccessPair])(func: (Matrix,Matrix,Seq[Int],Seq[Int]) => Boolean): Boolean = {
@@ -90,10 +90,11 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
 
   /**
     * TODO: Absolutely need a better exploration method here!
-    * This has a worst case runtime of O[A**(rank+3)], where A is max parallel accesses to mem, rank is # of dimensions
+    * This has a worst case runtime of O[A**(rank+3)], where A is max parallel accesses to mem
     */
   final val Bs = Seq(2, 4, 8, 16, 32, 64, 128, 256) ++ (3 until 256).filterNot(isPow2)
-  def findBanking(rank: Int, grps: Seq[Seq[AccessPair]], dims: Seq[Int], dC: String, dBC: String): ModBanking = {
+  def findBanking(grps: Seq[Seq[AccessPair]], dims: Seq[Int], dC: String, dBC: String): ModBanking = {
+    val rank = dims.length
     if (grps.isEmpty) return ModBanking.Unit(dims.length)
 
     //    if (grps.isEmpty) throw new Exception("Cannot find banking for empty groups!")
@@ -182,7 +183,7 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
             grp.toSeq.flatMap{access => access.getAccessPairsIfAffine(dimensions) }.distinct
           }
           dbg(s"    Dimensions: $dimensions")
-          findBanking(dims.length, accesses, dimensions, dC, dBC)
+          findBanking(accesses, dimensions, dC, dBC)
         }
         if (isValidBanking(banking,reads,writes)) Some(banking) else None
       }

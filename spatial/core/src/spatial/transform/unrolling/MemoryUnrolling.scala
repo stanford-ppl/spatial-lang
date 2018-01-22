@@ -307,64 +307,75 @@ trait MemoryUnrolling extends UnrollingBase {
     en:     Option[Exp[Bit]],
     lanes:  Unroller
   )(implicit ctx: SrcCtx): List[Exp[_]] = {
-    val mems = getInstances(access, mem, lanes, isLoad = data.isEmpty, None)
+    if (!isUnusedAccess(access)) {
+      val mems = getInstances(access, mem, lanes, isLoad = data.isEmpty, None)
 
-    dbgs(s"Unrolling ${str(access)}"); strMeta(access, tab)
+      dbgs(s"Unrolling ${str(access)}"); strMeta(access, tab)
 
-    mems.flatMap{case UnrollInstance(mem2,dispatchIds,laneIds,muxIndex,_) =>
-      dbgs(s"  Dispatch: $dispatchIds")
-      dbgs(s"  Lane IDs: $laneIds")
-      dbgs(s"  Mux Index: $muxIndex")
+      mems.flatMap{case UnrollInstance(mem2,dispatchIds,laneIds,muxIndex,_) =>
+        dbgs(s"  Dispatch: $dispatchIds")
+        dbgs(s"  Lane IDs: $laneIds")
+        dbgs(s"  Mux Index: $muxIndex")
 
-      val ens   = en.map{e => lanes.inLanes(laneIds){_ => Bit.and(f(e),globalValid()) }}
-      val inst  = instanceOf(mem2)
-      val addrOpt = addr.map{a =>
-        val a2 = lanes.inLanes(laneIds){p => (f(a),p) }               // lanes of ND addresses
-        val distinct = a2.groupBy(_._1).mapValues(_.map(_._2)).toSeq  // ND address -> lane IDs
-        val addr: Seq[Seq[Exp[Index]]] = distinct.map(_._1)           // Vector of ND addresses
-        val take: Seq[Int] = distinct.map(_._2.last)                  // Last index of each distinct address
-        val mapping: Map[Int,Int] = distinct.zipWithIndex.flatMap{case (entry,aId) => entry._2.map{laneId => laneId -> aId }}.toMap
-        (addr, take, mapping)
+        val ens   = en.map{e => lanes.inLanes(laneIds){_ => Bit.and(f(e),globalValid()) }}
+        val inst  = instanceOf(mem2)
+        val addrOpt = addr.map{a =>
+          val a2 = lanes.inLanes(laneIds){p => (f(a),p) }               // lanes of ND addresses
+          val distinct = a2.groupBy(_._1).mapValues(_.map(_._2)).toSeq  // ND address -> lane IDs
+          val addr: Seq[Seq[Exp[Index]]] = distinct.map(_._1)           // Vector of ND addresses
+          val take: Seq[Int] = distinct.map(_._2.last)                  // Lane ID for each distinct address
+          val lane2Vec: Map[Int,Int] = distinct.zipWithIndex.flatMap{case (entry,aId) => entry._2.map{laneId => laneId -> aId }}.toMap
+          val vec2Lane: Map[Int,Int] = distinct.zipWithIndex.flatMap{case (entry,aId) => entry._2.map{laneId => aId -> laneId }}.toMap
+          (addr, take, lane2Vec, vec2Lane)
+        }
+        val addr2   = addrOpt.map(_._1)                            // Vector of ND addresses
+        val take    = addrOpt.map(_._2).getOrElse(laneIds.indices) // List of lanes which do not require broadcast
+        val lane2Vec = addrOpt.map(_._3)                           // Lane -> Vector ID
+        val vec2Lane = addrOpt.map(_._4)                           // Vector ID -> Lane
+        def vecLength: Int = addr2.map(_.length).getOrElse(laneIds.length)
+        def laneToVecAddr(lane: Int): Int = lane2Vec.map(_.apply(lane)).getOrElse(laneIds.indexOf(lane))
+        def vecToLaneAddr(vec: Int): Int = vec2Lane.map(_.apply(vec)).getOrElse(laneIds.apply(vec))
+
+        dbgs(s"  Take: $take // Non-duplicated lane indices")
+
+        // Writing two different values to the same address currently just writes the last value
+        val data2 = data.map{d =>
+          val d2 = lanes.inLanes(laneIds){_ => f(d) }
+          take.map{t => d2(t) }
+        }
+
+        val bank  = addr2.map{a => bankAddress(access,a,inst,lanes) }
+        val ofs   = addr2.map{a => bankOffset(mem,access,a,inst,lanes) }
+        val ports = dispatchIds.flatMap{d => portsOf(access, mem, d) }.toSet
+
+        val banked = bankedAccess[T](access, mem2, data2.asInstanceOf[Option[Seq[Exp[T]]]], bank, ofs, ens)
+
+        banked.s.foreach{s =>
+          portsOf(s,mem2,0) = ports
+          muxIndexOf(s,Seq(0),mem2) = muxIndex
+          cloneFuncs.foreach{func => func(s) }
+          dbgs(s"  ${str(s)}"); strMeta(s, tab)
+        }
+
+        banked match{
+          case Vec(vec) =>
+            val elems = take.indices.map{i => Vector.select[T](vec, i) }
+            lanes.inLanes(laneIds){p =>
+              val elem = elems(laneToVecAddr(p))
+              register(access -> elem)
+              elem
+            }
+          case Read(v)      => lanes.unifyLanes(laneIds)(access,v)
+          case Write(write) => lanes.unifyLanes(laneIds)(access,write)
+          case MultiWrite(vs) => lanes.unifyLanes(laneIds)(access, vs.head.s.head)
+        }
       }
-      val addr2   = addrOpt.map(_._1)                            // Vector of ND addresses
-      val take    = addrOpt.map(_._2).getOrElse(laneIds.indices) // List of lanes which do not require broadcast
-      val addrMap = addrOpt.map(_._3)                            // Lane -> vector ID
-      def vecLength: Int = addr2.map(_.length).getOrElse(laneIds.length)
-      def laneToVecAddr(lane: Int): Int = addrMap.map(_.apply(lane)).getOrElse(laneIds.indexOf(lane))
-
-      dbgs(s"  Take: $take // Non-duplicated lane indices")
-
-      // Writing two different values to the same address currently just writes the last value
-      val data2 = data.map{d =>
-        val d2 = lanes.inLanes(laneIds){_ => f(d) }
-        take.map{t => d2(laneToVecAddr(t)) }
-      }
-
-      val bank  = addr2.map{a => bankAddress(access,a,inst,lanes) }
-      val ofs   = addr2.map{a => bankOffset(mem,access,a,inst,lanes) }
-      val ports = dispatchIds.flatMap{d => portsOf(access, mem, d) }.toSet
-
-      val banked = bankedAccess[T](access, mem2, data2.asInstanceOf[Option[Seq[Exp[T]]]], bank, ofs, ens)
-
-      banked.s.foreach{s =>
-        portsOf(s,mem2,0) = ports
-        muxIndexOf(s,Seq(0),mem2) = muxIndex
-        cloneFuncs.foreach{func => func(s) }
-        dbgs(s"  ${str(s)}"); strMeta(s, tab)
-      }
-
-      banked match{
-        case Vec(vec) =>
-          val elems = take.indices.map{i => Vector.select[T](vec, i) }
-          lanes.inLanes(laneIds){p =>
-            val elem = elems(laneToVecAddr(p))
-            register(access -> elem)
-            elem
-          }
-        case Read(v)      => lanes.unifyLanes(laneIds)(access,v)
-        case Write(write) => lanes.unifyLanes(laneIds)(access,write)
-        case MultiWrite(vs) => lanes.unifyLanes(laneIds)(access, vs.head.s.head)
-      }
+    }
+    else {
+      case class RemovedAccess() { override def toString: String = c"Removed access $access "}
+      // Should never be used
+      val removed = constant(access.tp)(RemovedAccess())
+      lanes.unify(access, removed)
     }
   }
 

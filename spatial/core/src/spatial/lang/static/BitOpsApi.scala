@@ -37,8 +37,12 @@ trait BitOpsApi { this: SpatialApi =>
       */
     @api def as[B:Type:Bits]: B = {
       checkLengthMismatch[A,B]()
+      asInternal[B]
+    }
+
+    @api def asInternal[B:Type:Bits]: B = {
       val len = bits[B].length
-      implicit val vT = VectorN.typeFromLen[Bit](len)
+      implicit val vT: Type[VectorN[Bit]] = VectorN.typeFromLen[Bit](len)
       val vector = dataAsBitVector(x)
       bitVectorAsData[B](vector, enWarn = true)
     }

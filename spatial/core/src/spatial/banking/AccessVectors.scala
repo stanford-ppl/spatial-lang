@@ -2,6 +2,7 @@ package spatial.banking
 
 import argon.core._
 import forge._
+import spatial.aliases
 import spatial.aliases._
 import spatial.metadata._
 import spatial.poly.Polytope
@@ -15,22 +16,27 @@ case class IndexDomain(domain: Array[Array[Int]]) {
 }
 
 abstract class AccessVector {
-  def is: Seq[Exp[Index]]
+  def indices: Seq[Exp[Index]]
+  def unrollIndices: Seq[Exp[Index]]
   def str(i: Int): String
 }
 
 case class RandomVector(x: Option[Exp[Index]], uroll: Map[Seq[Int],Exp[Index]], vecId: Option[Int]) extends AccessVector {
-  def is: Seq[Exp[Index]] = uroll.values.toSeq // TODO: Should this be Nil if vecId is undefined?
+  def indices: Seq[Exp[Index]] = x.toSeq // TODO: Should this be Nil if vecId is undefined?
+  def unrollIndices: Seq[Exp[Index]] = uroll.values.toSeq
   def str(i: Int): String = "*"
 }
 
-case class AffineVector(as: Array[Int], is: Seq[Exp[Index]], b: Int) extends AccessVector {
+case class AffineVector(as: Array[Int], is: Seq[Exp[Index]], b: Int, uroll: Map[(Exp[Index],Seq[Int]),Exp[Index]]) extends AccessVector {
+  def indices: Seq[Exp[Index]] = is
+  def unrollIndices: Seq[Exp[Index]] = is.filterNot(x => uroll.values.exists{y => x == y}) ++ uroll.keys.map(_._1)
+
   def remap(indices: Seq[Exp[Index]]): AffineVector = {
     val as2 = indices.map{ind =>
       val pos = is.indexOf(ind)
       if (pos >= 0) as(pos) else 0
     }.toArray
-    AffineVector(as2, indices, b)
+    AffineVector(as2, indices, b, uroll)
   }
   def str(i: Int): String = if (i < as.length) as(i).toString else b.toString
   override def toString: String = {
@@ -40,7 +46,8 @@ case class AffineVector(as: Array[Int], is: Seq[Exp[Index]], b: Int) extends Acc
 }
 
 case class CompactMatrix(vectors: Array[AccessVector], access: Access, vecId: Option[Int] = None) {
-  def indices: Seq[Exp[Index]] = vectors.flatMap(_.is)
+  def indices: Seq[Exp[Index]] = vectors.flatMap(_.indices)
+  def unrollIndices: Seq[Exp[Index]] = vectors.flatMap(_.unrollIndices)
 
   @stateful def printWithTab(tab: String): Unit = {
     dbg(tab + s"""${str(access.node)}""")
@@ -131,7 +138,7 @@ case class AccessMatrix(
     */
   @stateful def intersects(b: AccessMatrix, domain: IndexDomain): Boolean = {
     val vecs = this.vectors.zip(b.vectors).collect{
-      case (AffineVector(a0,_,c0), AffineVector(a1,_,c1)) =>
+      case (AffineVector(a0,_,c0,_), AffineVector(a1,_,c1,_)) =>
         val dA = Array.tabulate(a0.length){i => a0(i) - a1(i) }
         val dC = c0 - c1
         s"""0 ${dA.mkString(" ")} $dC"""

@@ -4,11 +4,36 @@ import argon.core._
 import argon.nodes._
 import spatial.nodes._
 import forge._
+import argon.emul.Bool
+
 
 object BitOps {
   /** Constructors **/
-  @internal def data_as_bits[A:Type:Bits](a: Exp[A])(implicit mV: Type[BitVector]): Exp[BitVector] = stage(DataAsBits[A](a))(ctx)
-  @internal def bits_as_data[A:Type:Bits](a: Exp[BitVector]): Exp[A] = stage(BitsAsData[A](a,typ[A]))(ctx)
+  @internal def data_as_bits[A:Type:Bits](a: Exp[A])(implicit mV: Type[BitVector]): Exp[BitVector] = a match {
+    case Const(c: FixedPoint) => Vector.fromseq[Bit,VectorN](c.bits.map(_.value).map(Bit.const))
+    case _ => stage(DataAsBits[A](a))(ctx)
+  }
+  @internal def bits_as_data[A:Type:Bits](a: Exp[BitVector]): Exp[A] = a match {
+    case Def(ListVector(elems)) if elems.forall(_.isConst) => typ[A] match {
+      case tp: FixPtType[_,_,_] =>
+        val FixPtType(s,i,f) = tp
+        val c = FixedPoint.fromBits(elems.map{case Const(b:Boolean) => Bool(b)}.toArray, FixFormat(s,i,f))
+        FixPt.const(c)(tp.mS,tp.mI,tp.mF,ctx,state).asInstanceOf[Exp[A]]
+
+      case tp: FltPtType[_,_] =>
+        val FltPtType(g,e) = tp
+        val c = FloatPoint.fromBits(elems.map{case Const(b:Boolean) => Bool(b)}.toArray, FltFormat(g-1,e))
+        FltPt.const(c)(tp.mG,tp.mE,ctx,state).asInstanceOf[Exp[A]]
+
+      case BooleanType() =>
+        val x = elems.last match {case Const(b: Boolean) => b}
+        Bit.const(x).asInstanceOf[Exp[A]]
+
+      case _ => stage(BitsAsData[A](a,typ[A]))(ctx)
+    }
+
+    case _ => stage(BitsAsData[A](a,typ[A]))(ctx)
+  }
 
   @internal def dataAsBitVector[A:Type:Bits](x: A)(implicit ctx: SrcCtx): BitVector = typ[A] match {
     case tp: StructType[_] =>

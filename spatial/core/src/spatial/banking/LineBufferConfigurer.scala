@@ -33,7 +33,7 @@ class LineBufferConfigurer(override val mem: Exp[_], override val strategy: Bank
 
   override protected def createStreamingVector(access: Access): CompactMatrix = {
     val mat = super.createStreamingVector(access)
-    mat.copy(vectors = AffineVector(Array.empty,Nil,0) +: mat.vectors)
+    mat.copy(vectors = AffineVector(Array.empty,Nil,0,Map.empty) +: mat.vectors)
   }
 
   protected def annotateTransientAccesses(accesses: Seq[Access]): Unit = accesses.foreach{case (node,ctrl) =>
