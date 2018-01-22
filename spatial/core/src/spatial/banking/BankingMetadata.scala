@@ -15,12 +15,37 @@ object Affine {
   def unapply(pattern: IndexPattern): Option[(Array[Int], Seq[Exp[Index]], Int)] = pattern match {
     case SymbolicAffine(products, offset) =>
       val asOpt = products.map(p => p.a.getEval{case Literal(c) => c.toInt })
-      val bOpt = offset.getEval{case Literal(c) => c.toInt }
-      if (asOpt.forall(_.isDefined) && bOpt.isDefined) {
+      val (b,bFunc) = offset.partialEval{case Literal(c) => c.toInt}
+      if (asOpt.forall(_.isDefined)) {
         val as = asOpt.map(_.get).toArray
-        val b = bOpt.get
         val is = products.map(_.i)
-        Some((as, is, b))
+
+        // TODO: Should be a simpler way to identify this. This seems excessively complicated
+        bFunc match {
+          case Some(SumOfProds(prods)) =>
+            val pe = prods.map{
+              case Left(s)  => Some((1,s))
+              case Right(f) =>
+                val (a,x) = f.partialEval{case Literal(c) => c.toInt }
+                x match {
+                  case Some(p: Prod) if p.x.length == 1 => p.x.head match {
+                    case Left(s) => Some((a,s))
+                    case _ => None
+                  }
+                  case _ => None
+                }
+            }
+            if (pe.forall(_.isDefined)) {
+              val ofs = pe.map(_.get)
+              val xas = ofs.map(_._1)
+              val xs  = ofs.map(_._2)
+              Some((as ++ xas, is ++ xs, b))
+            }
+            else None
+
+          case None => Some((as,is,b))
+          case _ => None
+        }
       }
       else None
     case _ => None

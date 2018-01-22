@@ -432,7 +432,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def prescheduleLocalMemWrite(mem: Expr, writer:Expr) = {
+  def   prescheduleLocalMemWrite(mem: Expr, writer:Expr) = {
     dbgblk(s"prescheduleLocalMemWrite(writer=$writer, mem=${quote(mem)})") {
       val writerPar = getInnerPar(writer)
       val remoteReaders = getRemoteReaders(mem, writer)

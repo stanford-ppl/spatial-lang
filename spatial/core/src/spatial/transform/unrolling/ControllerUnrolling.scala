@@ -389,7 +389,7 @@ trait ControllerUnrolling extends UnrollingBase {
         val pipe = Pipe.op_unit_pipe(globalValids, () => {
           val foldValid = fold.map{_ => Bit.const(true) }
           val result = unrollReduceTree[T]((fold ++ values).toSeq, (foldValid ++ valids()).toSeq, ident, reduce.toFunction2)
-          withSubstScope(store.inputB -> result){ inroll(store) }
+          withSubstScope(store.inputA -> accum, store.inputB -> result){ inroll(store) }
         })
         styleOf(pipe) = SeqPipe
         levelOf(pipe) = InnerControl
@@ -398,7 +398,7 @@ trait ControllerUnrolling extends UnrollingBase {
         dbgs("Fully unrolling inner reduce")
         val foldValid = fold.map{_ => Bit.const(true) }
         val result = unrollReduceTree[T]((fold ++ values).toSeq, (foldValid ++ valids()).toSeq, ident, reduce.toFunction2)
-        withSubstScope(store.inputB -> result){ inroll(store) }
+        withSubstScope(store.inputA -> accum, store.inputB -> result){ inroll(store) }
       }
       unit
     }

@@ -551,7 +551,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     if (bankings.nonEmpty) {
       // TODO: Multiple metapipe parents should cause backtrack eventually
       dbg(s"  Group LCAs:")
-      val (metapipe, ports) = findMetaPipe(mem, reads, writes, verbose = true)
+      val (metapipe, ports) = findMetaPipe(mem, reads, writes) //, verbose = true)
       val depth = ports.values.max + 1
       val bankingCosts = bankings.map { b => (b, cost(b, depth)) }
       val (banking, bankCost) = bankingCosts.minBy(_._2)

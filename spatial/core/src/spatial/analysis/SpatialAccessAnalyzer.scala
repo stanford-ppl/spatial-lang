@@ -69,10 +69,10 @@ trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   }
 
 
-  override def isInvariant(b: Exp[Index], i: Bound[Index]): Boolean = b match {
-    case Exact(_) => true
-    case Def(RegRead(reg)) =>
-      val loop = loopFromIndex(i)
+  override def isInvariant(b: Exp[Index], i: Exp[Index]): Boolean = (b,i) match {
+    case (Exact(_), _) => true
+    case (Def(RegRead(reg)), i: Bound[_]) =>
+      val loop = loopFromIndex(i.asInstanceOf[Bound[Index]])
       writersOf(reg).forall{writer =>
         val common = lca(writer.ctrl, (loop,-1))
         // Either no common ancestor at all (unlikely), or the common ancestor is not the same as the controller
