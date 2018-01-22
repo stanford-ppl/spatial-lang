@@ -1,6 +1,7 @@
 CC=g++
 LINK=g++
 CROSS_COMPILE=arm-linux-gnueabihf-
+
 FRINGE_SRC=./fringeArria10
 HOST_SRC=./
 STATIC_SRC=./datastructures/static
@@ -8,6 +9,7 @@ STATIC_SRC=./datastructures/static
 SOURCES := $(wildcard ${HOST_SRC}/*.cpp ${STATIC_SRC}/*.cpp ${FRINGE_SRC}/*.cpp)
 
 INCLUDES +=													\
+			-I${HOST_SRC}/                \
 			-I${HOST_SRC}/datastructures 	\
 			-I$(JAVA_HOME)/include 				\
 			-I$(JAVA_HOME)/include/linux 	\

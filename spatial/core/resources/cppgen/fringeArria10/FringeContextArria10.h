@@ -263,7 +263,6 @@ public:
   }
 
   virtual uint32_t getArg(uint32_t arg, bool isIO) {
-    numArgOuts++;
     return readReg(numArgIns+2+arg);
   }
 
@@ -280,8 +279,14 @@ public:
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
     int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
-    int debugRegStart = 2 + argIns + argOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
     int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
+
+    EPRINTF("argIns: %d\n", argIns);
+    EPRINTF("argOuts: %d\n", argOuts);
+    EPRINTF("debugRegStart: %d\n", debugRegStart);
+    EPRINTF("totalRegs: %d\n", totalRegs);
+    EPRINTF("numArgOutInstrs: %d\n", numArgOutInstrs);
 
     for (int i=0; i<totalRegs; i++) {
       uint32_t value = readReg(i);
@@ -311,7 +316,8 @@ public:
   }
 
   ~FringeContextArria10() {
-    dumpDebugRegs();
+    // dumpDebugRegs();
+    dumpAllRegs();
   }
 };
 

@@ -284,7 +284,6 @@ arria10-sw:
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
 	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
-	cp cpp/generated_debugRegs.h cpp/fringeArria10
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
 	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./ && cp ./cpp/Top ./
