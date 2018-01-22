@@ -67,5 +67,6 @@ regTests.sh
 ./VideoSysSim
 ./moduleSims
 ./regen.sh
+./regen_all.sh
 *.csv
 ./csv_bak
