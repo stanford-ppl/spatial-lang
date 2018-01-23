@@ -180,7 +180,8 @@ class Top(
   val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
 
   val numChannels = target match {
-    case "zynq" | "zcu"     => 4
+    case "zynq"             => 4
+    case "zcu"              => 2
     case "aws" | "aws-sim"  => 1
     case _                  => 1
   }
