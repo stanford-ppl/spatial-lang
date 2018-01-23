@@ -11,7 +11,7 @@ import templates.Utils.log2Up
  * @param numArgIns: Number of 'argin' registers that can be read in parallel
  * @param numArgOuts: Number of 'argOut' registers that can be written to in parallel
  */
-class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0, val numArgIOs: Int = 0) extends Module {
+class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0, val numArgIOs: Int = 0, val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int]) extends Module {
   val addrWidth = if (FringeGlobals.target == "zynq" || FringeGlobals.target == "zcu") 32 else log2Up(d)
   val pureArgIns = numArgIns-numArgIOs
   val pureArgOuts = numArgOuts-numArgIOs
@@ -47,6 +47,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
     val rdata = Output(Bits(w.W))
     val argIns = Output(Vec(numArgIns, (UInt(w.W))))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
+    val argOutLoopbacks = Output(Vec(argOutLoopbacksMap.toList.length, UInt(w.W)))
   })
 
   // Sanity-check module parameters
@@ -64,6 +65,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
     } else if (argOutRange contains i) {
       ff.io.enable := io.argOuts(argOutRange.indexOf(i)).valid | (io.wen & (io.waddr === id.U(addrWidth.W)))
       ff.io.in := Mux(io.argOuts(regIdx2ArgOut(i)).valid, io.argOuts(regIdx2ArgOut(i)).bits, io.wdata)
+      if (argOutLoopbacksMap.contains(regIdx2ArgOut(i-1))) io.argOutLoopbacks(argOutLoopbacksMap(regIdx2ArgOut(i-1))) := ff.io.out
     } else {
       ff.io.enable := io.wen & (io.waddr === id.U(addrWidth.W))
       ff.io.in := io.wdata

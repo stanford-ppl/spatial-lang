@@ -18,6 +18,7 @@ class FringeZynq(
   val numArgIOs: Int,
   val numChannels: Int,
   val numArgInstrs: Int,
+  val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int],
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -58,6 +59,7 @@ class FringeZynq(
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(w.W)))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
+    val argOutLoopbacks = Output(Vec(argOutLoopbacksMap.toList.length, UInt(w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -70,7 +72,7 @@ class FringeZynq(
   })
 
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, axiParams))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, axiParams))
 
   fringeCommon.io.TOP_AXI <> io.TOP_AXI
   fringeCommon.io.DWIDTH_AXI <> io.DWIDTH_AXI

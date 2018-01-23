@@ -18,6 +18,7 @@ class Fringe(
   val numArgIOs: Int,
   val numChannels: Int,
   val numArgInstrs: Int,
+  val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int],
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -56,6 +57,7 @@ class Fringe(
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(regWidth.W)))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(regWidth.W)))))
+    val argOutLoopbacks = Output(Vec(argOutLoopbacksMap.toList.length, UInt(regWidth.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -121,7 +123,7 @@ class Fringe(
   val numRegs = numArgIns + numArgOuts + 2 - numArgIOs + numDebugs // (command, status registers)
 
   // Scalar, command, and status register file
-  val regs = Module(new RegFile(regWidth, numRegs, numArgIns+2, numArgOuts+1+numDebugs, numArgIOs))
+  val regs = Module(new RegFile(regWidth, numRegs, numArgIns+2, numArgOuts+1+numDebugs, numArgIOs, argOutLoopbacksMap))
   regs.io.raddr := io.raddr
   regs.io.waddr := io.waddr
   regs.io.wen := io.wen
@@ -167,11 +169,13 @@ class Fringe(
     } else if (i <= numArgOuts) {
       argOutReg.bits := io.argOuts(i-1).bits
       argOutReg.valid := io.argOuts(i-1).valid
-    } else {
+    } else { // MAG debug regs
       argOutReg.bits := mags(debugChannelID).io.debugSignals(i-numArgOuts-1)
       argOutReg.valid := 1.U
     }
   }
+
+  io.argOutLoopbacks := regs.io.argOutLoopbacks
 
   // Memory address generator
   val magConfig = Wire(new MAGOpcode())
