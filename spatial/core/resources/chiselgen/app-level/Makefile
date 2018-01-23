@@ -269,7 +269,7 @@ zynq-clean:
 arria10: arria10-hw arria10-sw
 
 arria10-hw:
-	sbt "run-main top.Instantiator --verilog --testArgs arria10"
+	sbt "runMain top.Instantiator --verilog --testArgs arria10"
 	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
 	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' ${ARRIA10_V_DIR}/Top.v
 	sed -i 's/module\ Top/module Top_DUT/g' ${ARRIA10_V_DIR}/Top.v

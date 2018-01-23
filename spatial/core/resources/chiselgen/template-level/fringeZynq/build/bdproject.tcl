@@ -52,6 +52,11 @@ switch $TARGET {
 
     # Do HP# stuff
     set_property -dict [list CONFIG.PSU__USE__S_AXI_GP2 {1} CONFIG.PSU__USE__S_AXI_GP3 {1} CONFIG.PSU__USE__S_AXI_GP4 {1} CONFIG.PSU__USE__S_AXI_GP5 {1}] [get_bd_cells zynq_ultra_ps_e_0]
+
+    # Use kingston ddr4
+    # set_property -dict [list CONFIG.SUBPRESET1 {DDR4_KINGSTON_KVR21SE15S8}] [get_bd_cells zynq_ultra_ps_e_0]
+    # set_property -dict [list CONFIG.SUBPRESET1 {DDR4_MICRON_MT40A256M16GE_083E}] [get_bd_cells zynq_ultra_ps_e_0]
+    # set_property -dict [list CONFIG.SUBPRESET1 {DDR4_SAMSUNG_K4A8G165WB_BCRC}] [get_bd_cells zynq_ultra_ps_e_0]
     # Connect HP# to faster clocks
   
     ## CLOCK CROSSING HACK
@@ -136,6 +141,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_awready] [get_bd_pins Top_0/io_M_AXI_0_AWREADY]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWADDR] [get_bd_pins Top_0/io_TOP_AXI_AWADDR]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_awaddr] [get_bd_pins Top_0/io_M_AXI_0_AWADDR]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWLEN] [get_bd_pins Top_0/io_TOP_AXI_AWLEN]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_awlen] [get_bd_pins Top_0/io_M_AXI_0_AWLEN]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_RVALID] [get_bd_pins Top_0/io_TOP_AXI_RVALID]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_rvalid] [get_bd_pins Top_0/io_M_AXI_0_RVALID]
@@ -177,6 +184,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_DWIDTH_AXI_AWADDR]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awlen] [get_bd_pins Top_0/io_DWIDTH_AXI_AWLEN]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awlen] [get_bd_pins axi_dwidth_converter_0/m_axi_awlen]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_RVALID]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]
@@ -358,6 +367,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_awready] [get_bd_pins Top_0/io_M_AXI_0_AWREADY]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWADDR] [get_bd_pins Top_0/io_TOP_AXI_AWADDR]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_awaddr] [get_bd_pins Top_0/io_M_AXI_0_AWADDR]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWLEN] [get_bd_pins Top_0/io_TOP_AXI_AWLEN]
+    connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_awlen] [get_bd_pins Top_0/io_M_AXI_0_AWLEN]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_RVALID] [get_bd_pins Top_0/io_TOP_AXI_RVALID]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_rvalid] [get_bd_pins Top_0/io_M_AXI_0_RVALID]
@@ -400,6 +411,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_DWIDTH_AXI_AWADDR]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awlen] [get_bd_pins Top_0/io_DWIDTH_AXI_AWLEN]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awlen] [get_bd_pins axi_dwidth_converter_0/m_axi_awlen]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_RVALID]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]

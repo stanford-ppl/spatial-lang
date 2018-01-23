@@ -469,8 +469,12 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </&> c      
     }
 
-    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+    def %-% (c: FixedPoint): FixedPoint = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,None)
+    }
+
+    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,delay)
     }
 
     def %-% (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far

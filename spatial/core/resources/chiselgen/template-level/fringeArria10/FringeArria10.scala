@@ -18,6 +18,7 @@ class FringeArria10 (
   val numArgIOs: Int,
   val numChannels: Int,
   val numArgInstrs: Int,
+  val argOutLoopbacksMap: scala.collection.immutable.Map[Int, Int],
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -53,6 +54,7 @@ class FringeArria10 (
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(w.W)))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -67,7 +69,7 @@ class FringeArria10 (
 
   // Common Fringe
   val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs,
-                                        numChannels, numArgInstrs, loadStreamInfo,
+                                        numChannels, numArgInstrs, argOutLoopbacksMap, loadStreamInfo,
                                         storeStreamInfo, streamInsInfo, streamOutsInfo,
                                         blockingDRAMIssue, axiParams))
 
@@ -84,6 +86,10 @@ class FringeArria10 (
 
   if (io.argIns.length > 0) {
     io.argIns := fringeCommon.io.argIns
+  }
+
+  if (io.argOutLoopbacks.length > 0) {
+    io.argOutLoopbacks := fringeCommon.io.argOutLoopbacks
   }
 
   if (io.argOuts.length > 0) {

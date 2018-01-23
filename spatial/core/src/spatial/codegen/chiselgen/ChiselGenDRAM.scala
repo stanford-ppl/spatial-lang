@@ -49,13 +49,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     case FringeDenseLoad(dram,cmdStream,dataStream) =>
       appPropertyStats += HasTileLoad
-      // If cmdStream echos the cmd to a FIFO with type IssuedCmd, then this is unaligned
-      val unaligned = pushesTo(parentOf(writersOf(cmdStream).head.ctrl).get).map{pt => pt.memory match {
-        case Def(op:FIFONew[_]) => s"${op.mT}".contains("IssuedCmd") // TODO: how to properly match this?....
-        case _ => false
-      }}.reduce{_|_}
-      if (unaligned) appPropertyStats += HasUnalignedLoad
-      else appPropertyStats += HasAlignedLoad
+      if (isAligned(cmdStream)) appPropertyStats += HasAlignedLoad
+      else appPropertyStats += HasUnalignedLoad
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = readersOf(dataStream).head.node match {
@@ -118,13 +113,10 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       appPropertyStats += HasTileStore
-      // If cmdStream echos the cmd to a FIFO with type IssuedCmd, then this is unaligned
-      val unaligned = pushesTo(parentOf(writersOf(cmdStream).head.ctrl).get).map{pt => pt.memory match {
-        case Def(op:FIFONew[_]) => s"${op.mT}".contains("IssuedCmd") // TODO: how to properly match this?....
-        case _ => false
-      }}.reduce{_|_}
-      if (unaligned) appPropertyStats += HasUnalignedLoad
-      else appPropertyStats += HasAlignedLoad
+
+      if (isAligned(cmdStream)) appPropertyStats += HasAlignedStore
+      else appPropertyStats += HasUnalignedStore
+
       // Get parallelization of datastream
       emit(src"// This transfer belongs in channel ${transferChannel(parentOf(lhs).get)}")
       val par = writersOf(dataStream).head.node match {

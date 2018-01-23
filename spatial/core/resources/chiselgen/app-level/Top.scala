@@ -28,6 +28,7 @@ case class TopParams(
   val numArgIOs: Int,
   val numChannels: Int,
   val numArgInstrs: Int,
+  val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int],
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -159,6 +160,7 @@ class Top(
   val numArgOuts: Int,
   val numArgIOs: Int,
   val numArgInstrs: Int,
+  val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int],
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
@@ -169,12 +171,13 @@ class Top(
   // the argIn/argOut interfaces do no become undirected null vectors
   val totalArgIns = math.max(1, numArgIns)
   val totalArgOuts = math.max(1, numArgOuts)
+  val totalArgOutLoobacks = math.max(1, argOutLoopbacksMap.toList.length)
   val totalRegs = totalArgIns + totalArgOuts + 2  // (command, status registers)
 
   val addrWidth = if (target == "zcu") 40 else 32
   val v = 16
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
-	val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
+  val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
 
   val numChannels = target match {
     case "zynq" | "zcu"     => 4
@@ -182,7 +185,7 @@ class Top(
     case _                  => 1
   }
 
-  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
+  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
 
   FringeGlobals.target = target
 
@@ -201,14 +204,14 @@ class Top(
   }
 
   // Accel
-  val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
+  val accel = Module(new AccelTop(w, totalArgIns, totalArgOuts, numArgIOs, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo))
 
   target match {
     case "verilator" | "vcs" | "xsim" | "asic" =>
       // Simulation Fringe
       val blockingDRAMIssue = false
       val topIO = io.asInstanceOf[VerilatorInterface]
-      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
+      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.raddr := topIO.raddr
@@ -222,6 +225,10 @@ class Top(
 
       if (accel.io.argIns.length > 0) {
         accel.io.argIns := fringe.io.argIns
+      }
+
+      if (accel.io.argOutLoopbacks.length > 0) {
+        accel.io.argOutLoopbacks := fringe.io.argOutLoopbacks
       }
 
       if (accel.io.argOuts.length > 0) {
@@ -239,7 +246,7 @@ class Top(
       val blockingDRAMIssue = false
       val topIO = io.asInstanceOf[Arria10Interface]
       val fringe = Module(new FringeArria10(w, totalArgIns, totalArgOuts,
-                                            numArgIOs, numChannels, numArgInstrs,
+                                            numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap,
                                             totalLoadStreamInfo, totalStoreStreamInfo,
                                             streamInsInfo, streamOutsInfo, blockingDRAMIssue,
                                             topIO.axiLiteParams, topIO.axiParams))
@@ -252,6 +259,10 @@ class Top(
       // TODO: add memstream connections here
       if (accel.io.argIns.length > 0) {
         accel.io.argIns := fringe.io.argIns
+      }
+
+      if (accel.io.argOutLoopbacks.length > 0) {
+        accel.io.argOutLoopbacks := fringe.io.argOutLoopbacks
       }
 
       if (accel.io.argOuts.length > 0) {
@@ -273,7 +284,7 @@ class Top(
       // DE1SoC Fringe
       val blockingDRAMIssue = false
       val topIO = io.asInstanceOf[DE1SoCInterface]
-      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
+      val fringe = Module(new FringeDE1SoC(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AVALON <> topIO.S_AVALON
@@ -355,7 +366,7 @@ class Top(
       val topIO = io.asInstanceOf[ZynqInterface]
 
       val blockingDRAMIssue = false // Allow only one in-flight request, block until response comes back
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> Host connections
       fringe.io.S_AXI <> topIO.S_AXI
@@ -369,6 +380,7 @@ class Top(
       topIO.CLOCKCONVERT_AXI <> fringe.io.CLOCKCONVERT_AXI
 
       accel.io.argIns := fringe.io.argIns
+      accel.io.argOutLoopbacks := fringe.io.argOutLoopbacks
       fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
           fringeArgOut.bits := accelArgOut.bits
           fringeArgOut.valid := accelArgOut.valid
@@ -388,7 +400,7 @@ class Top(
       val topIO = io.asInstanceOf[AWSInterface]
       val blockingDRAMIssue = false  // Allow only one in-flight request, block until response comes back
 //      val fringe = Module(new Fringe(w, totalArgIns, totalArgOuts, numArgIOs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue))
-      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
+      val fringe = Module(new FringeZynq(w, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, topIO.axiLiteParams, topIO.axiParams))
 
       // Fringe <-> DRAM connections
 //      topIO.dram <> fringe.io.dram
