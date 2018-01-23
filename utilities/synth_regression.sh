@@ -49,6 +49,7 @@ export PATH=/opt/intelFPGA_pro/$QVER/quartus/sopc_builder/bin:$PATH
 export ALTERAOCLSDKROOT="/opt/intelFPGA_pro/$QVER/hld"
 export LM_LICENSE_FILE=“/opt/intelFPGA_pro/licenses/arria10-license.dat”:$LM_LICENSE_FILE
 export ALTERAD_LICENSE_FILE=“/opt/intelFPGA_pro/licenses/arria10-license.dat”
+export USING_THIS_QUARTUS=`which quartus`
 
 # Current hash matches previous hash, skip test
 if [[ $tid = "-1" ]]; then
