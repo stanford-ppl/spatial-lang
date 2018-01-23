@@ -59,6 +59,12 @@ elif (sys.argv[7] == "ZCU"):
 	except:
 		print("WARN: Could not get sheet")
 		exit()
+elif (sys.argv[7] == "Arria10"):
+	try: 
+		sh = gc.open_by_key("1IgPolABXEo58kG0cCQTr-lLwuPtzwPUqbkAF74hnss8")
+	except:
+		print("WARN: Could not get sheet")
+		exit()
 elif (sys.argv[7] == "AWS"):
 	# sh = gc.open("AWS Regression") # Open by name
 	try: 

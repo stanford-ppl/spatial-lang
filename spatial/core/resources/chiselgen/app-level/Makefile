@@ -3,6 +3,9 @@ AWS_V_DIR=verilog-aws
 AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 ZCU_V_DIR=verilog-zcu
+ARRIA10_V_DIR=verilog-arria10
+GHRD_DIR=/opt/intelFPGA_pro/17.1/ghrd_pr/a10_soc_devkit_ghrd
+
 APPNAME=$(shell basename $(shell pwd))
 BIGIP_SCRIPT=bigIP.tcl
 timestamp := $(shell /bin/date "+%Y-%m-%d---%H-%M-%S")
@@ -27,7 +30,7 @@ help:
 	@echo "make zynq        : Zynq SW + HW build"
 	@echo "make zynq-hw     : Build Chisel for Zynq"
 	@echo "make zynq-hw     : Build software for Zynq"
-	@echo "make zcu         : Zynq Ultrascale SW + HW build"
+	@echo "make zcu        	: Zynq Ultrascale SW + HW build"
 	@echo "make zcu-hw      : Build Chisel for Zynq Ultrascale"
 	@echo "make zcu-hw      : Build software for Zynq Ultrascale"
 	@echo "make vcs         : VCS SW + HW build"
@@ -38,7 +41,8 @@ help:
 	@echo "make xsim        : XSIM SW + HW build"
 	@echo "make xsim-hw     : Build Chisel for XSIM"
 	@echo "make sim-clean   : Verilator simulation clean up"
-	@echo "make de1soc	: Build Chisel for DE1-SoC"
+	@echo "make de1soc			: Build Chisel for DE1-SoC"
+	@echo "make arria10			: Build Chisel for Arria10"
 	@echo "------- END HELP -------"
 
 sim: sim-hw
@@ -178,7 +182,7 @@ else
 	$(error Invalid CLOCK_FREQ_MHZ ${CLOCK_FREQ_MHZ})
 endif
 	# Use the following line instead for faster builds:
-	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2 
+	# cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -strategy BASIC -clock_recipe_a A2
 	# ----------------------------------------------------------------------------
 	# Step 2: Upload bitstream to S3 and create AFI (currently done manually, TODO: script this)
 	# This will eventually be a new Makefile target, which runs only when the final DCP is created (after synthesis/place/route)
@@ -261,6 +265,35 @@ zynq-clean:
 	rm -f $(APPNAME).tar.gz ${BIGIP_SCRIPT}
 	rm -rf target
 
+# Build the hardware for arria10
+arria10: arria10-hw arria10-sw
+
+arria10-hw:
+	sbt "runMain top.Instantiator --verilog --testArgs arria10"
+	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
+	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' ${ARRIA10_V_DIR}/Top.v
+	sed -i 's/module\ Top/module Top_DUT/g' ${ARRIA10_V_DIR}/Top.v
+	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
+	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}
+	# TODO: mannually create the link
+	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
+	cd ${ARRIA10_V_DIR} && bash fit.sh
+
+arria10-sw:
+	cp scripts/arria10.mk cpp/Makefile
+	cp cpp/cpptypes.h cpp/datastructures
+	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
+	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
+	make -C cpp -j8
+	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./ && cp ./cpp/Top ./
+	tar -czf $(APPNAME).tar.gz pr_region_alt.rbf Top
+	rm pr_region_alt.rbf Top
+
+arria10-sw-clean:
+	cd cpp && make clean
+
+
 zcu: zcu-hw zcu-sw
 
 zcu-sw:
@@ -282,7 +315,7 @@ zcu-hw:
 	mv ${ZCU_V_DIR}/fsbl.elf._ ${ZCU_V_DIR}/fsbl.elf
 	mv ${ZCU_V_DIR}/u-boot.elf._ ${ZCU_V_DIR}/u-boot.elf
 	sed -i "s/^set TARGET .*/set TARGET ZCU102/g" ${ZCU_V_DIR}/settings.tcl
-	sed -i "s/bash convert_bitstream accel.bit accel.bit.bin.*/bash convert_bitstream accel.bit accel.bit.bin ZCU102/g" ${ZCU_V_DIR}/Makefile 
+	sed -i "s/bash convert_bitstream accel.bit accel.bit.bin.*/bash convert_bitstream accel.bit accel.bit.bin ZCU102/g" ${ZCU_V_DIR}/Makefile
 	make -C ${ZCU_V_DIR}
 	echo "$$(date +%s)" > end.log
 
@@ -295,7 +328,7 @@ zcu-clean:
 
 de1soc: de1soc-hw de1soc-sw
 
-de1soc-sw: 
+de1soc-sw:
 	cp scripts/de1soc.mk cpp/Makefile
 	cp cpp/cpptypes.h cpp/datastructures
 	cp cpp/DE1SoC.h cpp/fringeDE1SoC/
