@@ -12,6 +12,7 @@ import spatial.utils._
 trait ChiselGenReg extends ChiselGenSRAM {
   var argIns: List[Sym[Reg[_]]] = List()
   var argOuts: List[Sym[Reg[_]]] = List()
+  var argOutLoopbacks = scala.collection.mutable.HashMap[Int, Int]()
   var argIOs: List[Sym[Reg[_]]] = List()
   // var outMuxMap: Map[Sym[Reg[_]], Int] = Map()
   private var nbufs: List[Sym[Reg[_]]]  = List()
@@ -123,14 +124,20 @@ trait ChiselGenReg extends ChiselGenSRAM {
 
     case op@RegRead(reg) =>
       if (isArgIn(reg) | isHostIO(reg)) {
-        emitGlobalWireMap(src"""$lhs""",src"Wire(${newWire(op.mT)})")
-        emitGlobalWire(src"""$lhs.r := io.argIns(${argMapping(reg).argInId})""")
-      }
-      else {
-        emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""")
-
-        val inst = instanceOf(reg) // Reads should only have one index
-        val port = portsOf(lhs, reg).values.toList
+        emitGlobalWireMap(src"""${lhs}""",src"Wire(${newWire(reg.tp.typeArguments.head)})")
+        emitGlobalWire(src"""${lhs}.r := io.argIns(${argMapping(reg).argInId})""")
+      } else if (isArgOut(reg)) {
+        argOutLoopbacks.getOrElseUpdate(argMapping(reg).argOutId, argOutLoopbacks.toList.length)
+        emitGlobalWireMap(src"""${lhs}""",src"Wire(${newWire(reg.tp.typeArguments.head)})")
+        emit(src"""${lhs}.r := io.argOutLoopbacks(${argOutLoopbacks(argMapping(reg).argOutId)})""")
+      } else {
+        emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""") 
+        if (dispatchOf(lhs, reg).isEmpty) {
+          throw new spatial.EmptyDispatchException(lhs)
+        }
+        val inst = dispatchOf(lhs, reg).head // Reads should only have one index
+        val port = portsOf(lhs, reg, inst)
+        val duplicates = duplicatesOf(reg)
         // Console.println(s"working on $lhs $reg $inst $duplicates")
         reduceType(lhs) match {
           // case Some(FixPtSum) if inst.isAccum =>
@@ -252,6 +259,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         emit(s"""//${quote(p)} = argIOs($i) ( ${p.name.getOrElse("")} )""")
       // argOutsByName = argOutsByName :+ s"${quote(p)}"
       }
+      emit(s"val io_argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int] = ${argOutLoopbacks}")
     }
 
     withStream(getStream("IOModule")) {
@@ -259,6 +267,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
       emit(s"val io_numArgIns_reg = ${argIns.length}")
       emit(s"val io_numArgOuts_reg = ${argOuts.length}")
       emit(s"val io_numArgIOs_reg = ${argIOs.length}")
+      emit(s"val io_argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int] = ${argOutLoopbacks}")
 
       // emit("// ArgOut muxes")
       // argOuts.foreach{ a => 

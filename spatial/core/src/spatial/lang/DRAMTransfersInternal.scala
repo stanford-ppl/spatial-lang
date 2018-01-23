@@ -98,6 +98,7 @@ object DRAMTransfersInternal {
 
     def alignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
+      isAligned(cmdStream.s) = true
       // val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamOut[MTuple2[T,Bit]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bit](BurstAckBus)
@@ -188,6 +189,7 @@ object DRAMTransfersInternal {
     @virtualize
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
+      isAligned(cmdStream.s) = false
 //      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamOut[MTuple2[T,Bit]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bit](BurstAckBus)
@@ -229,6 +231,7 @@ object DRAMTransfersInternal {
 
     def alignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
+      isAligned(cmdStream.s) = true
       // val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
       val dataStream = StreamIn[T](BurstDataBus[T]())
 
@@ -258,6 +261,7 @@ object DRAMTransfersInternal {
     @virtualize
     def unalignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
+      isAligned(cmdStream.s) = false
       val issueQueue = FIFO[IssuedCmd](16)  // TODO: Size of issued queue?
       val dataStream = StreamIn[T](BurstDataBus[T]())
 

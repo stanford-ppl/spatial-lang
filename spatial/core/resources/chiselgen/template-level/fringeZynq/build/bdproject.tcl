@@ -38,8 +38,6 @@ switch $TARGET {
     apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config {Master "/zynq_ultra_ps_e_0/M_AXI_HPM0_FPD" Clk "/zynq_ultra_ps_e_0/pl_clk0 ($CLOCK_FREQ_MHZ MHz)" }  [get_bd_intf_pins Top_0/io_S_AXI]
 
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins zynq_ultra_ps_e_0/maxihpm1_fpd_aclk]
-    # Disable HP1
-    set_property -dict [list CONFIG.PSU__USE__M_AXI_GP1 {0}] [get_bd_cells zynq_ultra_ps_e_0]
 
     # # Make AXI4 to AXI3 protocol converters
     # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_protocol_converter:2.1 axi_protocol_converter_0
@@ -51,7 +49,14 @@ switch $TARGET {
     set_property -dict [list CONFIG.PSU__PCIE__PERIPHERAL__ENABLE {0} CONFIG.PSU__DISPLAYPORT__PERIPHERAL__ENABLE {0}] [get_bd_cells zynq_ultra_ps_e_0]
 
     # Do HP# stuff
-    set_property -dict [list CONFIG.PSU__USE__S_AXI_GP2 {1} CONFIG.PSU__USE__S_AXI_GP3 {1} CONFIG.PSU__USE__S_AXI_GP4 {1} CONFIG.PSU__USE__S_AXI_GP5 {1}] [get_bd_cells zynq_ultra_ps_e_0]
+    set_property -dict [list CONFIG.PSU__USE__S_AXI_GP2 {0} CONFIG.PSU__USE__S_AXI_GP3 {0} CONFIG.PSU__USE__S_AXI_GP4 {0} CONFIG.PSU__USE__S_AXI_GP5 {0}] [get_bd_cells zynq_ultra_ps_e_0]
+    # set_property -dict [list CONFIG.PSU__USE__S_AXI_ACP {1}] [get_bd_cells zynq_ultra_ps_e_0]
+    set_property -dict [list CONFIG.PSU__USE__S_AXI_GP0 {1} CONFIG.PSU__USE__S_AXI_GP1 {1}] [get_bd_cells zynq_ultra_ps_e_0]
+
+    # Use kingston ddr4
+    # set_property -dict [list CONFIG.SUBPRESET1 {DDR4_KINGSTON_KVR21SE15S8}] [get_bd_cells zynq_ultra_ps_e_0]
+    # set_property -dict [list CONFIG.SUBPRESET1 {DDR4_MICRON_MT40A256M16GE_083E}] [get_bd_cells zynq_ultra_ps_e_0]
+    # set_property -dict [list CONFIG.SUBPRESET1 {DDR4_SAMSUNG_K4A8G165WB_BCRC}] [get_bd_cells zynq_ultra_ps_e_0]
     # Connect HP# to faster clocks
   
     ## CLOCK CROSSING HACK
@@ -59,31 +64,31 @@ switch $TARGET {
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihpc0_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihpc1_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp2_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxihp3_fpd_aclk] [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] 
     # 512-to-64 data width converters
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_1
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_2
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_3
+    # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_2
+    # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_3
     set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_0]
     set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_1]
-    set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_2]
-    set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_3]
+    # set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_2]
+    # set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_3]
     set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_0]
     set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_1]
-    set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_2]
-    set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_3]
+    # set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_2]
+    # set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_3]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_1/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_2/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_3/s_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_2/s_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_3/s_axi_aclk]
     connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn]
     connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_1/s_axi_aresetn]
-    connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_2/s_axi_aresetn]
-    connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_3/s_axi_aresetn]
+    # connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_2/s_axi_aresetn]
+    # connect_bd_net [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_3/s_axi_aresetn]
 
     # # AXI4 to AXI3 protocol converter
     # set_property -dict [list CONFIG.MI_PROTOCOL.VALUE_SRC USER CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.SI_PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_protocol_converter_0]
@@ -98,18 +103,18 @@ switch $TARGET {
     # connect_bd_net [get_bd_pins axi_protocol_converter_2/aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
     # connect_bd_net [get_bd_pins axi_protocol_converter_3/aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
     # # Clock converters from FCLKCLK0 <-> FCLKCLK1
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_1
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_2
-    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_3
-    set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_0]
-    set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_1]
-    set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_2]
-    set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_3]
-    set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_0]
-    set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_1]
-    set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_2]
-    set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_3]
+    # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
+    # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_1
+    # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_2
+    # create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_3
+    # set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_0]
+    # set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_1]
+    # set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_2]
+    # set_property -dict [list CONFIG.ID_WIDTH.VALUE_SRC USER CONFIG.DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER] [get_bd_cells axi_clock_converter_3]
+    # set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_0]
+    # set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_1]
+    # set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_2]
+    # set_property -dict [list CONFIG.PROTOCOL {AXI4} CONFIG.DATA_WIDTH {128} CONFIG.ID_WIDTH {6}] [get_bd_cells axi_clock_converter_3]
 
     # Loopback debuggers
     # top signals
@@ -136,6 +141,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_awready] [get_bd_pins Top_0/io_M_AXI_0_AWREADY]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWADDR] [get_bd_pins Top_0/io_TOP_AXI_AWADDR]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_awaddr] [get_bd_pins Top_0/io_M_AXI_0_AWADDR]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWLEN] [get_bd_pins Top_0/io_TOP_AXI_AWLEN]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_awlen] [get_bd_pins Top_0/io_M_AXI_0_AWLEN]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_RVALID] [get_bd_pins Top_0/io_TOP_AXI_RVALID]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_rvalid] [get_bd_pins Top_0/io_M_AXI_0_RVALID]
@@ -154,92 +161,94 @@ switch $TARGET {
 
     # dwidth signals
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_ARVALID]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_arvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arready] [get_bd_pins Top_0/io_DWIDTH_AXI_ARREADY]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arready] [get_bd_pins axi_dwidth_converter_0/m_axi_arready]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arready] [get_bd_pins axi_dwidth_converter_0/m_axi_arready]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_araddr] [get_bd_pins Top_0/io_DWIDTH_AXI_ARADDR]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_araddr] [get_bd_pins axi_dwidth_converter_0/m_axi_araddr]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_araddr] [get_bd_pins axi_dwidth_converter_0/m_axi_araddr]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arlen] [get_bd_pins Top_0/io_DWIDTH_AXI_ARLEN]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arlen] [get_bd_pins axi_dwidth_converter_0/m_axi_arlen]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arlen] [get_bd_pins axi_dwidth_converter_0/m_axi_arlen]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arsize] [get_bd_pins Top_0/io_DWIDTH_AXI_ARSIZE]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arsize] [get_bd_pins axi_dwidth_converter_0/m_axi_arsize]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arsize] [get_bd_pins axi_dwidth_converter_0/m_axi_arsize]
     # connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arid] [get_bd_pins Top_0/io_DWIDTH_AXI_ARID]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arid] [get_bd_pins axi_dwidth_converter_0/m_axi_arid]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arid] [get_bd_pins axi_dwidth_converter_0/m_axi_arid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arburst] [get_bd_pins Top_0/io_DWIDTH_AXI_ARBURST]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arburst] [get_bd_pins axi_dwidth_converter_0/m_axi_arburst]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arburst] [get_bd_pins axi_dwidth_converter_0/m_axi_arburst]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_arlock] [get_bd_pins Top_0/io_DWIDTH_AXI_ARLOCK]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arlock] [get_bd_pins axi_dwidth_converter_0/m_axi_arlock]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arlock] [get_bd_pins axi_dwidth_converter_0/m_axi_arlock]
 
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_AWVALID]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_awvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awready] [get_bd_pins Top_0/io_DWIDTH_AXI_AWREADY]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_DWIDTH_AXI_AWADDR]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awlen] [get_bd_pins Top_0/io_DWIDTH_AXI_AWLEN]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awlen] [get_bd_pins axi_dwidth_converter_0/m_axi_awlen]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_RVALID]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rready] [get_bd_pins Top_0/io_DWIDTH_AXI_RREADY]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_rready] [get_bd_pins axi_dwidth_converter_0/m_axi_rready]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_rready] [get_bd_pins axi_dwidth_converter_0/m_axi_rready]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_WVALID]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bready] [get_bd_pins Top_0/io_DWIDTH_AXI_BREADY]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_bready] [get_bd_pins axi_dwidth_converter_0/m_axi_bready]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_bready] [get_bd_pins axi_dwidth_converter_0/m_axi_bready]
 
     # # clockconverter signals
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARVALID]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arvalid] [get_bd_pins axi_clock_converter_0/m_axi_arvalid]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arvalid] [get_bd_pins axi_clock_converter_0/m_axi_arvalid]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARREADY]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arready] [get_bd_pins axi_clock_converter_0/m_axi_arready]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arready] [get_bd_pins axi_clock_converter_0/m_axi_arready]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_araddr] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARADDR]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_araddr] [get_bd_pins axi_clock_converter_0/m_axi_araddr]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_araddr] [get_bd_pins axi_clock_converter_0/m_axi_araddr]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arlen] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARLEN]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arlen] [get_bd_pins axi_clock_converter_0/m_axi_arlen]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arlen] [get_bd_pins axi_clock_converter_0/m_axi_arlen]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arsize] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARSIZE]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arsize] [get_bd_pins axi_clock_converter_0/m_axi_arsize]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arsize] [get_bd_pins axi_clock_converter_0/m_axi_arsize]
     # # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARID]
-    # # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arid] [get_bd_pins axi_clock_converter_0/m_axi_arid]
+    # # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arid] [get_bd_pins axi_clock_converter_0/m_axi_arid]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arburst] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARBURST]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arburst] [get_bd_pins axi_clock_converter_0/m_axi_arburst]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arburst] [get_bd_pins axi_clock_converter_0/m_axi_arburst]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_arlock] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_ARLOCK]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_arlock] [get_bd_pins axi_clock_converter_0/m_axi_arlock]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_arlock] [get_bd_pins axi_clock_converter_0/m_axi_arlock]
 
 
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_awvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWVALID]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awvalid] [get_bd_pins axi_clock_converter_0/m_axi_awvalid]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awvalid] [get_bd_pins axi_clock_converter_0/m_axi_awvalid]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_awready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWREADY]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awready] [get_bd_pins axi_clock_converter_0/m_axi_awready]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awready] [get_bd_pins axi_clock_converter_0/m_axi_awready]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_AWADDR]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_awaddr] [get_bd_pins axi_clock_converter_0/m_axi_awaddr]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_awaddr] [get_bd_pins axi_clock_converter_0/m_axi_awaddr]
 
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_RVALID]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_rvalid] [get_bd_pins axi_clock_converter_0/m_axi_rvalid]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_rvalid] [get_bd_pins axi_clock_converter_0/m_axi_rvalid]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_rready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_RREADY]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_rready] [get_bd_pins axi_clock_converter_0/m_axi_rready]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_rready] [get_bd_pins axi_clock_converter_0/m_axi_rready]
 
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_WVALID]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_wvalid] [get_bd_pins axi_clock_converter_0/m_axi_wvalid]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wvalid] [get_bd_pins axi_clock_converter_0/m_axi_wvalid]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_wready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_WREADY]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_wready] [get_bd_pins axi_clock_converter_0/m_axi_wready]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wready] [get_bd_pins axi_clock_converter_0/m_axi_wready]
 
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BVALID]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_bvalid] [get_bd_pins axi_clock_converter_0/m_axi_bvalid]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_bvalid] [get_bd_pins axi_clock_converter_0/m_axi_bvalid]
     # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_bready] [get_bd_pins Top_0/io_CLOCKCONVERT_AXI_BREADY]
-    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp2_bready] [get_bd_pins axi_clock_converter_0/m_axi_bready]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_bready] [get_bd_pins axi_clock_converter_0/m_axi_bready]
 
 
     # # top -> dwidth converter
     connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_0] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
     connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_1] [get_bd_intf_pins axi_dwidth_converter_1/S_AXI]
-    connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_2] [get_bd_intf_pins axi_dwidth_converter_2/S_AXI]
-    connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_3] [get_bd_intf_pins axi_dwidth_converter_3/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_2] [get_bd_intf_pins axi_dwidth_converter_2/S_AXI]
+    # connect_bd_intf_net [get_bd_intf_pins Top_0/io_M_AXI_3] [get_bd_intf_pins axi_dwidth_converter_3/S_AXI]
     # CLOCK CROSSING HACK
     # # data width converter -> clock converter
     # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
@@ -253,34 +262,34 @@ switch $TARGET {
     # connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
 
     # data width converter -> Top
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP0_FPD]
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP1_FPD]
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_2/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP2_FPD]
-    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
+    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HPC0_FPD]
+    connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_1/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HPC1_FPD]
+    # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_2/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP2_FPD]
+    # connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_3/M_AXI] [get_bd_intf_pins zynq_ultra_ps_e_0/S_AXI_HP3_FPD]
 
     # Wire up the resets
-    connect_bd_net [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins axi_clock_converter_1/s_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_1/s_axi_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_1/m_axi_aresetn] [get_bd_pins axi_clock_converter_2/s_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_2/s_axi_aresetn] [get_bd_pins axi_clock_converter_2/m_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_2/m_axi_aresetn] [get_bd_pins axi_clock_converter_3/s_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_3/s_axi_aresetn] [get_bd_pins axi_clock_converter_3/m_axi_aresetn]
-    connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins axi_clock_converter_1/s_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_1/s_axi_aresetn] [get_bd_pins axi_clock_converter_1/m_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_1/m_axi_aresetn] [get_bd_pins axi_clock_converter_2/s_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_2/s_axi_aresetn] [get_bd_pins axi_clock_converter_2/m_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_2/m_axi_aresetn] [get_bd_pins axi_clock_converter_3/s_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_3/s_axi_aresetn] [get_bd_pins axi_clock_converter_3/m_axi_aresetn]
+    # connect_bd_net [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rst_ps8_0_${RST_FREQ}M/peripheral_aresetn]
     
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/s_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/s_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/s_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/s_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/s_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/s_axi_aclk]
     ## CLOCK CROSSING HACK
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk1] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
-    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_0/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_1/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_2/m_axi_aclk]
+    # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_clock_converter_3/m_axi_aclk]
     # what to do about Clock converter -> HP0?
     # what to do about Address assignment to HP0?
 
@@ -358,6 +367,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_awready] [get_bd_pins Top_0/io_M_AXI_0_AWREADY]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWADDR] [get_bd_pins Top_0/io_TOP_AXI_AWADDR]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_awaddr] [get_bd_pins Top_0/io_M_AXI_0_AWADDR]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_AWLEN] [get_bd_pins Top_0/io_TOP_AXI_AWLEN]
+    connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_awlen] [get_bd_pins Top_0/io_M_AXI_0_AWLEN]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_RVALID] [get_bd_pins Top_0/io_TOP_AXI_RVALID]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_rvalid] [get_bd_pins Top_0/io_M_AXI_0_RVALID]
@@ -400,6 +411,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awready] [get_bd_pins axi_dwidth_converter_0/m_axi_awready]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr] [get_bd_pins Top_0/io_DWIDTH_AXI_AWADDR]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awaddr] [get_bd_pins axi_dwidth_converter_0/m_axi_awaddr]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_awlen] [get_bd_pins Top_0/io_DWIDTH_AXI_AWLEN]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_awlen] [get_bd_pins axi_dwidth_converter_0/m_axi_awlen]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_RVALID]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_rvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_rvalid]

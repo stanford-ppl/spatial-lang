@@ -137,7 +137,7 @@ for prop in sys.argv[8].split(","):
 			write(worksheet, i+1, col, prop)
 			found = True
 	if (found == False):
-		write(worksheet, len(lol)+1,4, prop)
+		write(worksheet, len(lol)+1,1, prop)
 		write(worksheet, len(lol),col, prop)
 
 # Page 3 - STATUS
