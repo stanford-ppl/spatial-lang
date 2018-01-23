@@ -9,7 +9,7 @@ import spatial.utils._
 trait ScalaGenRegFile extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: RegFileType[_] => src"ShiftableMemory[${tp.child}]"
+    case tp: RegFileType[_] => src"Ptr[ShiftableMemory[${tp.child}]]"
     case _ => super.remap(tp)
   }
 

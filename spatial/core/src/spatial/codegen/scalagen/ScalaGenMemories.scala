@@ -11,15 +11,11 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
   dependencies ::= FileDep("scalagen", "OOB.scala")
   dependencies ::= FileDep("scalagen", "BankedMemory.scala")
   dependencies ::= FileDep("scalagen", "Warn.scala")
+  dependencies ::= FileDep("scalagen", "Ptr.scala")
 
   override def emitPostMain(): Unit = {
     super.emitPostMain()
     emit("Warn.close()")
-  }
-
-  def emitMem(lhs: Exp[_], x: String): Unit = {
-    if (globalMems) emit(s"if ($lhs == null) $x")
-    else emit(src"var $lhs: ${lhs.tp} = null")
   }
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
@@ -72,6 +68,10 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
     oob(tp, mem, lhs, bank :+ ofs, pre, post, isRead = false)(lines)
   }
 
+  def emitMem(lhs: Exp[_], x: String): Unit = {
+    if (globalMems) emit(s"$lhs.init{ $x }")
+    else emit(src"val $lhs: ${lhs.tp} = Ptr(None)")
+  }
 
   def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
     val inst = instanceOf(mem)
@@ -109,17 +109,10 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
     val dimensions = dims.map(_.toString).mkString("Seq(", ",", ")")
     val numBanks = inst.nBanks.map(_.toString).mkString("Seq(", ",", ")")
 
-    def emitMemDef(rhs: => Unit) = {
-      if (globalMems) {
-        open(src"if ($mem eq null) { $mem = {")
+    def emitMemDef(rhs: => Unit): Unit = {
+      open(src"$mem.init{")
         rhs
-        close("}}")
-      }
-      else {
-        open(src"val $mem = {")
-        rhs
-        close("}")
-      }
+      close("}")
     }
 
     if (isRegFile(mem)) {

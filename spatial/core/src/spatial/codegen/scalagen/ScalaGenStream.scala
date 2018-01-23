@@ -14,8 +14,8 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
   var bufferedOuts: List[Exp[_]] = Nil
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"
-    case tp: StreamOutType[_] => src"scala.collection.mutable.Queue[${tp.child}]"
+    case tp: StreamInType[_]  => src"Ptr[scala.collection.mutable.Queue[${tp.child}]]"
+    case tp: StreamOutType[_] => src"Ptr[scala.collection.mutable.Queue[${tp.child}]]"
     case _ => super.remap(tp)
   }
 
@@ -71,7 +71,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@StreamInNew(bus)  =>
       streamIns :+= lhs
-      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"new scala.collection.mutable.Queue[${op.mT}]")
       // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
       if (!bus.isInstanceOf[DRAMBus[_]]) {
         val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
@@ -100,7 +100,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
     case op@StreamOutNew(bus) =>
       streamOuts :+= lhs
 
-      emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}]")
+      emitMem(lhs, src"new scala.collection.mutable.Queue[${op.mT}]")
       // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
 
       if (!bus.isInstanceOf[DRAMBus[_]]) {

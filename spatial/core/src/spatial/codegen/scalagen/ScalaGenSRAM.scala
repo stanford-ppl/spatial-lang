@@ -7,7 +7,7 @@ import spatial.nodes._
 trait ScalaGenSRAM extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: SRAMType[_] => src"BankedMemory[${tp.child}]"
+    case tp: SRAMType[_] => src"Ptr[BankedMemory[${tp.child}]]"
     case _ => super.remap(tp)
   }
 

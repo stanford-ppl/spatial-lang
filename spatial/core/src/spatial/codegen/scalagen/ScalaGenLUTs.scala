@@ -7,7 +7,7 @@ import spatial.nodes._
 trait ScalaGenLUTs extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: LUTType[_] => src"BankedMemory[${tp.child}]"
+    case tp: LUTType[_] => src"Ptr[BankedMemory[${tp.child}]]"
     case _ => super.remap(tp)
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {

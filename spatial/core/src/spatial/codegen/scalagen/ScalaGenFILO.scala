@@ -11,12 +11,12 @@ import org.virtualized.SourceContext
 trait ScalaGenFILO extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: FILOType[_] => src"scala.collection.mutable.Stack[${tp.child}]"
+    case tp: FILOType[_] => src"Ptr[scala.collection.mutable.Stack[${tp.child}]]"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FILONew(size)    => emitMem(lhs, src"$lhs = new scala.collection.mutable.Stack[${op.mT}] // size: $size")
+    case op@FILONew(size)    => emitMem(lhs, src"new scala.collection.mutable.Stack[${op.mT}]")
     case FILOPush(filo,v,en) => emit(src"val $lhs = if ($en) $filo.push($v)")
     case FILOEmpty(filo)     => emit(src"val $lhs = $filo.isEmpty")
     case FILOAlmostEmpty(filo)  =>

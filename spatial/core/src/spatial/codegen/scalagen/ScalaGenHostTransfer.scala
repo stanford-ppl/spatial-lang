@@ -7,8 +7,8 @@ import spatial.nodes._
 trait ScalaGenHostTransfer extends ScalaGenMemories {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case SetArg(reg, v) => emit(src"val $lhs = $reg.update(0, $v)")
-    case GetArg(reg)    => emit(src"val $lhs = $reg.apply(0)")
+    case SetArg(reg, v) => emit(src"val $lhs = $reg.set($v)")
+    case GetArg(reg)    => emit(src"val $lhs = $reg.value")
     case op@SetMem(dram, data) =>
       open(src"val $lhs = {")
         open(src"for (i <- 0 until $data.length) {")
