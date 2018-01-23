@@ -47,6 +47,8 @@ export PATH=/usr/bin:$VCS_HOME/amd64/bin:/opt/intelFPGA_pro/$QVER/quartus/bin:$P
 export QSYS_ROOTDIR="/opt/intelFPGA_pro/$QVER/qsys/bin/"
 export PATH=/opt/intelFPGA_pro/$QVER/quartus/sopc_builder/bin:$PATH
 export ALTERAOCLSDKROOT="/opt/intelFPGA_pro/$QVER/hld"
+export LM_LICENSE_FILE=“/opt/intelFPGA_pro/licenses/arria10-license.dat”:$LM_LICENSE_FILE
+export ALTERAD_LICENSE_FILE=“/opt/intelFPGA_pro/licenses/arria10-license.dat”
 
 # Current hash matches previous hash, skip test
 if [[ $tid = "-1" ]]; then
