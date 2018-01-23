@@ -47,7 +47,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
     val rdata = Output(Bits(w.W))
     val argIns = Output(Vec(numArgIns, (UInt(w.W))))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
-    val argOutLoopbacks = Output(Vec(argOutLoopbacksMap.toList.length, UInt(w.W)))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
   })
 
   // Sanity-check module parameters

@@ -59,7 +59,7 @@ class FringeZynq(
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(w.W)))
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
-    val argOutLoopbacks = Output(Vec(argOutLoopbacksMap.toList.length, UInt(w.W)))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
