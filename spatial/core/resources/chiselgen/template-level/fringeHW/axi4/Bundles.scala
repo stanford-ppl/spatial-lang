@@ -221,10 +221,11 @@ class AXI4Probe(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 class AvalonSlave(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 {
   val readdata = Output(UInt((params.dataBits).W ))
-  val address = Input(UInt((params.addrBits).W ))
+  val address = Input(UInt((params.addrBits).W))
   val chipselect = Input(Bool())
 //  val reset_n = Input(Bool())
-  val write_n = Input(Bool())
+  val write = Input(Bool())
+  val read = Input(Bool())
   val writedata = Input(UInt((params.dataBits).W))
 }
 

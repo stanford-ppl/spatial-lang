@@ -70,6 +70,16 @@ class ZynqInterface(p: TopParams) extends TopInterface {
   val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 }
 
+class Arria10Interface(p: TopParams) extends TopInterface {
+  // To fit the sysid interface, we only want to have 7 bits for 0x0000 ~ 0x01ff
+  val axiLiteParams = new AXI4BundleParameters(7, p.dataWidth, 1)
+  // TODO: This group of params is for memory
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
+  val S_AVALON = new AvalonSlave(axiLiteParams) // scalars
+  val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
+}
+
+
 class DE1SoCInterface(p: TopParams) extends TopInterface {
   private val axiLiteParams = new AXI4BundleParameters(16, p.dataWidth, 1)
   val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
@@ -188,6 +198,7 @@ class Top(
     case "zynq"       => IO(new ZynqInterface(topParams))
     case "zcu"        => IO(new ZynqInterface(topParams))
     case "de1soc"     => IO(new DE1SoCInterface(topParams))
+    case "arria10"    => IO(new Arria10Interface(topParams))
     case "asic"       => IO(new VerilatorInterface(topParams))
     case _ => throw new Exception(s"Unknown target '$target'")
   }
@@ -230,14 +241,44 @@ class Top(
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
 
-      // Fringe <-> Peripheral connections
-//      fringe.io.genericStreamInTop <> topIO.genericStreamIn
-//      fringe.io.genericStreamOutTop <> topIO.genericStreamOut
 
-      // Fringe <-> Accel stream connections
-//      accel.io.genericStreams <> fringe.io.genericStreamsAccel
-//      fringe.io.genericStreamsAccel <> accel.io.genericStreams
-//      topIO.dbg <> fringe.io.dbg
+    case "arria10" =>
+      val blockingDRAMIssue = false
+      val topIO = io.asInstanceOf[Arria10Interface]
+      val fringe = Module(new FringeArria10(w, totalArgIns, totalArgOuts,
+                                            numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap,
+                                            totalLoadStreamInfo, totalStoreStreamInfo,
+                                            streamInsInfo, streamOutsInfo, blockingDRAMIssue,
+                                            topIO.axiLiteParams, topIO.axiParams))
+      // Fringe <-> Host Connections
+      fringe.io.S_AVALON <> topIO.S_AVALON
+
+      // Fringe <-> DRAM Connections
+      topIO.M_AXI <> fringe.io.M_AXI
+
+      // TODO: add memstream connections here
+      if (accel.io.argIns.length > 0) {
+        accel.io.argIns := fringe.io.argIns
+      }
+
+      if (accel.io.argOutLoopbacks.length > 0) {
+        accel.io.argOutLoopbacks := fringe.io.argOutLoopbacks
+      }
+
+      if (accel.io.argOuts.length > 0) {
+        fringe.io.argOuts.zip(accel.io.argOuts) foreach { case (fringeArgOut, accelArgOut) =>
+          fringeArgOut.bits := accelArgOut.bits
+          fringeArgOut.valid := accelArgOut.valid
+        }
+      }
+
+      // memStream connections
+      fringe.io.externalEnable := false.B
+      fringe.io.memStreams <> accel.io.memStreams
+
+      accel.io.enable := fringe.io.enable
+      fringe.io.done := accel.io.done
+      accel.reset := reset.toBool
 
     case "de1soc" =>
       // DE1SoC Fringe
