@@ -5,6 +5,7 @@ import chisel3._
 import chisel3.util._
 import templates.SRFF
 import templates.Utils.log2Up
+import templates.Utils
 import scala.language.reflectiveCalls
 import axi4._
 
@@ -167,7 +168,7 @@ class MAGCore(
 
   val cmdDeqValidMux = Module(new MuxN(Bool(), numStreams))
   cmdDeqValidMux.io.sel := cmdArbiter.io.tag
-  
+
   val dramCmdMux = Module(new MuxN(Valid(io.dram.cmd.bits), numStreams))
   dramCmdMux.io.sel := cmdArbiter.io.tag
   dramCmdMux.io.ins.zipWithIndex.foreach { case (i, id) =>
@@ -189,8 +190,8 @@ class MAGCore(
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load size sent")
     } else {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
-      connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")      
-      connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "Last store size sent")      
+      connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")
+      connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "Last store size sent")
     }
 
   }
@@ -285,6 +286,20 @@ class MAGCore(
     m.io.deqVld := stream.rdata.ready
 
     connectDbgSig(debugCounter(m.io.enqVld).io.out, s"rdataFifo $i enq")
+    connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"number of bad elements")
+
+    val sDeq_latch = Module(new SRFF())
+    sDeq_latch.io.input.set := m.io.deqVld
+    sDeq_latch.io.input.reset := reset.toBool
+    sDeq_latch.io.input.asyn_reset := reset.toBool
+
+    val sEnq_latch = Module(new SRFF())
+    sEnq_latch.io.input.set := m.io.enqVld
+    sEnq_latch.io.input.reset := reset.toBool
+    sEnq_latch.io.input.asyn_reset := reset.toBool
+
+    connectDbgSig(debugFF(m.io.deq, ~sDeq_latch.io.output.data & Utils.risingEdge(m.io.deqVld)).io.out, s"m.io.deq")
+    connectDbgSig(debugFF(m.io.enq, ~sEnq_latch.io.output.data & Utils.risingEdge(m.io.enqVld)).io.out, s"m.io.enq")
 
     m
   }
@@ -483,19 +498,19 @@ class MAGCore(
   connectDbgSig(debugCounter((io.dram.rresp.valid & io.dram.rresp.ready)).io.out, "# Read Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "# RResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready).io.out, "Cycles RResp ready and idle (~valid)")
-  (0 until loadStreamInfo.size).map{i => 
+  (0 until loadStreamInfo.size).map{i =>
     val signal = s" # from load stream $i"
     connectDbgSig(debugCounter(io.dram.rresp.valid & io.dram.rresp.ready & (getStreamId(io.dram.rresp.bits.streamId) === i.U)).io.out, signal)
   }
   connectDbgSig(debugCounter((io.dram.wresp.valid & io.dram.wresp.ready)).io.out, "# Write Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.wresp.valid & ~io.dram.wresp.ready).io.out, "# WResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.wresp.valid & io.dram.wresp.ready).io.out, "Cycles WResp ready and idle (~valid)")
-  (0 until storeStreamInfo.size).map{i => 
+  (0 until storeStreamInfo.size).map{i =>
     val signal = s" # from store stream $i"
     connectDbgSig(debugCounter(io.dram.wresp.valid & io.dram.wresp.ready & (io.dram.wresp.bits.streamId === (i+loadStreamInfo.length).U)).io.out, signal)
   }
 
-  denseLoadBuffers.zipWithIndex foreach { case (b,i) => 
+  denseLoadBuffers.zipWithIndex foreach { case (b,i) =>
     connectDbgSig(debugCounter(b.io.full).io.out, "(load) fifo converter " + i + " # cycles full")
     connectDbgSig(debugCounter(b.io.almostFull).io.out, "(load) fifo converter " + i + " # cycles almostFull")
     connectDbgSig(debugCounter(b.io.empty).io.out, "(load) fifo converter " + i + " # cycles empty")
@@ -506,8 +521,8 @@ class MAGCore(
   }
   connectDbgSig(debugCounter(getStreamId(io.dram.rresp.bits.streamId) >= denseLoadBuffers.length.U).io.out, "(load) # cycles streamId >= last")
   connectDbgSig(debugFF(getStreamId(io.dram.rresp.bits.streamId), io.dram.rresp.valid).io.out, "(load) last streamId")
-  
-  denseStoreBuffers.zipWithIndex foreach { case (b,i) => 
+
+  denseStoreBuffers.zipWithIndex foreach { case (b,i) =>
     connectDbgSig(debugCounter(b.io.full).io.out, "(store) fifo converter " + i + " # cycles full")
     connectDbgSig(debugCounter(b.io.almostFull).io.out, "(store) fifo converter " + i + " # cycles almostFull")
     connectDbgSig(debugCounter(b.io.empty).io.out, "(store) fifo converter " + i + " # cycles empty")

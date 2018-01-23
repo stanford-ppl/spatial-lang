@@ -57,7 +57,7 @@ abstract class GenericRAM[T <: Data](val t: T, val d: Int) extends Module {
 
 class FFRAM[T <: Data](override val t: T, override val d: Int) extends GenericRAM(t, d) {
   val rf = Module(new RegFilePure(t, d))
-  rf.io.raddr := RegNext(io.raddr, 0.U)
+  rf.io.raddr := RegNext(io.raddr, 5.U)
   rf.io.wen := io.wen
   rf.io.waddr := io.waddr
   rf.io.wdata := io.wdata
@@ -67,7 +67,7 @@ class FFRAM[T <: Data](override val t: T, override val d: Int) extends GenericRA
 class SRAM[T <: Data](override val t: T, override val d: Int) extends GenericRAM(t, d) {
   // Customize SRAM here
   FringeGlobals.target match {
-    case "aws" | "zynq" | "zcu" =>
+    case "aws" | "zynq" | "zcu" | "arria10" =>
       val mem = Module(new SRAMVerilogAWS(t, d))
       mem.io.clk := clock
       mem.io.raddr := io.raddr
