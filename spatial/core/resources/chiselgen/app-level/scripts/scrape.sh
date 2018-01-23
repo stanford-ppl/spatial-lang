@@ -161,11 +161,7 @@ elif [[ $1 = "Arria10" ]]; then
 	    rm -rf /home/regression/${APP}*
 	  else
 	    mkdir $APP
-	    tar -xvf ${APP}.tar.gz -C $APP
-	    pushd $APP
-	    mkdir verilog
-	    mv accel.bit.bin verilog
-	    popd
+	    untar ${APP}.tar.gz
 	    cd $APP
 	    touch /home/sync/\$(whoami)
 	    ./Top $2 $3 $4 $5 $6 $7 $8
