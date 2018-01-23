@@ -39,6 +39,14 @@ elif [[ $1 = "aws" ]]; then
 fi
 
 export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:/opt/Xilinx/Vivado/2017.1/bin:/opt/Xilinx/SDK/2017.1/bin:$PATH
+export LM_LICENSE_FILE=1717@cadlic0.stanford.edu:7195@cadlic0.stanford.edu:7193@cadlic0.stanford.edu:/opt/Xilinx/awsF1.lic:27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
+export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
+export QVER=17.1
+alias qsys=/opt/intelFPGA_pro/$QVER/qsys/bin/qsys-edit
+export PATH=/usr/bin:$VCS_HOME/amd64/bin:/opt/intelFPGA_pro/$QVER/quartus/bin:$PATH
+export QSYS_ROOTDIR="/opt/intelFPGA_pro/$QVER/qsys/bin/"
+export PATH=/opt/intelFPGA_pro/$QVER/quartus/sopc_builder/bin:$PATH
+export ALTERAOCLSDKROOT="/opt/intelFPGA_pro/$QVER/hld"
 
 # Current hash matches previous hash, skip test
 if [[ $tid = "-1" ]]; then
