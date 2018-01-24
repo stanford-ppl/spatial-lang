@@ -149,13 +149,13 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
   def bankAccesses(mem: Exp[_], dims: Seq[Int], reads: Seq[Set[AccessMatrix]], writes: Seq[Set[AccessMatrix]], domain: IndexDomain, dimGrps: Seq[Seq[Seq[Int]]]): Seq[Seq[ModBanking]] = {
     val cyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, a.last))) }
     val blockCyclicIndexBounds = domain.map{a => Constraint(1, Vector(a.dropRight(1) ++ Array(0, 0, a.last))) }
-    val nIters = domain.headOption.map(_.length - 1).getOrElse(0)
+    val baseCols = domain.nCols + 1 // Account for the Type column
 
     val cyclicIndexStr = cyclicIndexBounds.map(_.toString).mkString("\n")
-    val dC = s"${cyclicIndexBounds.length+1} ${nIters + 3}\n$cyclicIndexStr\n"
+    val dC = s"${cyclicIndexBounds.length+1} ${baseCols + 1}\n$cyclicIndexStr\n" // Adds K
 
     val blockCyclicIndexStr = blockCyclicIndexBounds.map(_.toString).mkString("\n")
-    val dBC = s"${blockCyclicIndexBounds.length+4} ${nIters + 4}\n$blockCyclicIndexStr\n"
+    val dBC = s"${blockCyclicIndexBounds.length+4} ${baseCols + 2}\n$blockCyclicIndexStr\n"   // Adds K0 and K1
 
     val groups: Seq[Set[AccessMatrix]] = reads ++ writes
 

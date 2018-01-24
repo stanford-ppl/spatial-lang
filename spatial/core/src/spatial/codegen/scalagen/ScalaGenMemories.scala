@@ -5,21 +5,18 @@ import argon.core._
 import spatial.aliases._
 import spatial.banking._
 import spatial.utils._
+import spatial.nodes._
 
 trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
   var globalMems: Boolean = false
   dependencies ::= FileDep("scalagen", "OOB.scala")
   dependencies ::= FileDep("scalagen", "BankedMemory.scala")
   dependencies ::= FileDep("scalagen", "Warn.scala")
+  dependencies ::= FileDep("scalagen", "Ptr.scala")
 
   override def emitPostMain(): Unit = {
     super.emitPostMain()
     emit("Warn.close()")
-  }
-
-  def emitMem(lhs: Exp[_], x: String): Unit = {
-    if (globalMems) emit(s"if ($lhs == null) $x")
-    else emit(src"var $lhs: ${lhs.tp} = null")
   }
 
   def flattenAddress(dims: Seq[Exp[Index]], indices: Seq[Exp[Index]], ofs: Option[Exp[Index]]): String = {
@@ -72,6 +69,13 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
     oob(tp, mem, lhs, bank :+ ofs, pre, post, isRead = false)(lines)
   }
 
+  def emitMemObject(lhs: Exp[_])(contents: => Unit): Unit = {
+    withStream(getStream(src"$lhs")){
+      emitFileHeader()
+      contents
+      emitFileFooter()
+    }
+  }
 
   def emitBankedInitMem(mem: Exp[_], init: Option[Seq[Exp[_]]])(tp: Type[_]): Unit = {
     val inst = instanceOf(mem)
@@ -109,19 +113,6 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
     val dimensions = dims.map(_.toString).mkString("Seq(", ",", ")")
     val numBanks = inst.nBanks.map(_.toString).mkString("Seq(", ",", ")")
 
-    def emitMemDef(rhs: => Unit) = {
-      if (globalMems) {
-        open(src"if ($mem eq null) { $mem = {")
-        rhs
-        close("}}")
-      }
-      else {
-        open(src"val $mem = {")
-        rhs
-        close("}")
-      }
-    }
-
     if (isRegFile(mem)) {
       // HACK: Stage, then generate, the banking and offset addresses for the regfile on the fly
       val addr = Seq.fill(rankOf(mem)){ fresh[Index] }
@@ -132,11 +123,11 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
       }
       val offsetFunc = fakeStageScopeHack{ inst.bankOffset(mem,addr) }
 
-      emitMemDef{
-        val name = u""""$mem""""
-        open(src"new ShiftableMemory($name, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined}, {")
+      val name = u""""$mem""""
+      emitMemObject(mem) {
+        open(src"object $mem extends ShiftableMemory($name, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined}, {")
           emit(src"""case Seq(${addr.mkString(",")}) => """)
-          bankAddrFunc.foreach(visitStm)
+        bankAddrFunc.foreach(visitStm)
           emit(src"${bankAddrFunc.last.lhs.head}")
         close("},")
         open("{")
@@ -147,9 +138,9 @@ trait ScalaGenMemories extends ScalaGenBits with ScalaFileGen {
       }
     }
     else {
-      emitMemDef {
+      emitMemObject(mem){
         val name = u""""$mem""""
-        emit(src"new BankedMemory($name, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined})")
+        emit(src"object $mem extends BankedMemory($name, $dimensions, $numBanks, $data, ${invalid(tp)}, saveInit = ${init.isDefined})")
       }
     }
   }

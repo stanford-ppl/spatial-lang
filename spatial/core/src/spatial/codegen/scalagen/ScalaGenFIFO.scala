@@ -15,8 +15,10 @@ trait ScalaGenFIFO extends ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FIFONew(size)   => emitMem(lhs, src"$lhs = new scala.collection.mutable.Queue[${op.mT}] // size: $size")
-    case FIFOEnq(fifo,v,en) => emit(src"val $lhs = if ($en) $fifo.enqueue($v)")
+    case op@FIFONew(size)   => emitMemObject(lhs){ emit(src"object $lhs extends scala.collection.mutable.Queue[${op.mT}]") }
+    case FIFOEnq(fifo,v,en) => throw new Exception(s"Cannot generate unbanked FIFO enqueue\n${str(lhs)}")
+    case FIFODeq(fifo,en)   => throw new Exception(s"Cannot generate unbanked FIFO dequeue\n${str(lhs)}")
+
     case FIFOEmpty(fifo)    => emit(src"val $lhs = $fifo.isEmpty")
 
     case FIFOAlmostEmpty(fifo)  =>
@@ -30,7 +32,6 @@ trait ScalaGenFIFO extends ScalaGenMemories {
     case op@FIFOPeek(fifo) => emit(src"val $lhs = if ($fifo.nonEmpty) $fifo.head else ${invalid(op.mT)}")
     case FIFONumel(fifo) => emit(src"val $lhs = $fifo.size")
     case FIFOFull(fifo)  => emit(src"val $lhs = $fifo.size >= ${stagedSizeOf(fifo)} ")
-    case op@FIFODeq(fifo,en) => emit(src"val $lhs = if ($en && $fifo.nonEmpty) $fifo.dequeue() else ${invalid(op.mT)}")
 
     case op@BankedFIFODeq(fifo, ens) =>
       open(src"val $lhs = {")

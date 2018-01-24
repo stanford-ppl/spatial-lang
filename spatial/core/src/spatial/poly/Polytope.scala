@@ -23,10 +23,16 @@ object Polytope {
         proc.kill()
       }
 
-      val lines = proc.blockAndReturnOut()
+      val (lines,err) = proc.blockAndReturnOut()
+      if (err.nonEmpty) {
+        dbg("Errors:")
+        err.foreach{e => dbg(e) }
+      }
       dbg("Got lines: ")
       lines.foreach{line => dbg(line) }
-      lines.contains{"empty"}
+      if (lines.contains{"empty"}) true
+      else if (lines.contains("elements")) false
+      else throw new Exception("Failed isEmpty check")
     }
     catch {case t: Throwable =>
       bug(s"Could not open the ISL subprocess.")

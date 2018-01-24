@@ -1,6 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.core._
+import argon.nodes.UnitType
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
@@ -46,22 +47,93 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
       }
     }
     else {
-      emitBlock(block)
+      visitBlock(block)
+      if (block.result.tp != UnitType) emit(src"${block.result}")
     }
+  }
+
+  private def emitUnrolledLoop(
+    lhs:    Exp[_],
+    cchain: Exp[CounterChain],
+    iters:  Seq[Seq[Bound[Index]]],
+    valids: Seq[Seq[Bound[Bit]]]
+  )(func: => Unit): Unit = {
+
+    val ctrs = countersOf(cchain)
+
+    for (i <- iters.indices) {
+      if (isForever(ctrs(i))) {
+        val inputs = getReadStreamsAndFIFOs(lhs)
+        if (inputs.nonEmpty) {
+          emit(src"def hasItems_$lhs: Boolean = " + inputs.map(quote).map(_ + ".nonEmpty").mkString(" || "))
+        }
+        else {
+          emit(s"""print("No Stream inputs detected for loop at ${lhs.ctx}. Enter number of iterations: ")""")
+          emit(src"val ${lhs}_iters_$i = Console.readLine.toInt")
+          emit(src"var ${lhs}_ctr_$i = 0")
+          emit(src"def hasItems_$lhs: Boolean = { val has = ${lhs}_ctr_$i < ${lhs}_iters_$i ; ${lhs}_ctr_$i += 1; has }")
+        }
+
+        open(src"while(hasItems_$lhs) {")
+        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = FixedPoint(1)") }
+        valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = Bool(true,true)") }
+      }
+      else {
+        open(src"$cchain($i).foreach{case (is,vs) => ")
+        iters(i).zipWithIndex.foreach { case (iter, j) => emit(src"val $iter = is($j)") }
+        valids(i).zipWithIndex.foreach { case (valid, j) => emit(src"val $valid = vs($j)") }
+      }
+    }
+
+    func
+    iters.reverse.foreach{is =>
+      emitControlIncrement(lhs, is)
+      close("}")
+    }
+  }
+
+  private def emitControlObject(lhs: Sym[_], ens: Seq[Exp[Bit]], func: Block[_])(contents: => Unit): Unit = {
+    val (ins,stms) = blockInputsAndNestedContents(func)
+
+    val binds = getDef(lhs).map{d => d.binds ++ d.blocks.map(_.result) }.getOrElse(Nil)
+    val inputs = (getDef(lhs).map{_.inputs}.getOrElse(Nil) ++ ins).distinct.filterNot(isMemory) diff binds
+    val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+
+    dbgs(s"${str(lhs)}")
+    inputs.foreach{in => dbgs(s" - ${str(in)}") }
+
+    withStream(getStream(src"$lhs")) {
+      emitFileHeader()
+      open(src"object $lhs {")
+        open(src"def run(")
+          inputs.zipWithIndex.foreach{case (in,i) => emit(src"$in: ${in.tp}" + (if (i == inputs.length-1) "" else ",")) }
+        closeopen("): Unit = {")
+          open(src"if ($en) {")
+            contents
+          close("}")
+        close("}")
+      close("}")
+      emitFileFooter()
+    }
+    emit(src"$lhs.run($inputs)")
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
-      localMems.filterNot(isOffChipMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = null") }
-      localMems.filter(isInternalStreamMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = new ${lhs.tp}") }
+      //localMems.filterNot(isOffChipMemory).foreach{case lhs@Op(rhs) => emit(src"val $lhs: ${lhs.tp} = ${lhs.tp}()") }
+      //localMems.filter(isInternalStreamMemory).foreach{case lhs@Op(rhs) => emit(src"val $lhs: ${lhs.tp} = ${lhs.tp}()") }
 
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       globalMems = true
       if (!willRunForever(lhs)) {
         open(src"def accel(): Unit = {")
-        open(src"val $lhs = {")
-          emitBlock(func)
-        close("}")
+          open(src"val $lhs = try {")
+            visitBlock(func)
+          close("}")
+          open("catch {")
+            emit(src"""case x: Exception if x.getMessage == "exit" =>  """)
+            emit(src"""case t: Throwable => throw t""")
+          close("}")
         close("}")
         emit("accel()")
       }
@@ -81,31 +153,50 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
         emit(src"val $lhs = ()")
       }
       streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
-        if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
+        if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"$x.dump()") // HACK: Print out streams after block finishes running
       }
       emitControlDone(lhs)
-      bufferedOuts.foreach{buff => emit(src"close_$buff()") }
+      bufferedOuts.foreach{buff => emit(src"$buff.close()") }
       globalMems = false
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
 
     case UnitPipe(ens, func) =>
-      emit(src"/** BEGIN UNIT PIPE $lhs **/")
-      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
-      open(src"val $lhs = if ($en) {")
+      emitControlObject(lhs, ens, func) {
+        emit(src"/** BEGIN UNIT PIPE $lhs **/")
         emitControlBlock(lhs, func)
         emitControlDone(lhs)
-      close("}")
-      emit(src"/** END UNIT PIPE $lhs **/")
+        emit(src"/** END UNIT PIPE $lhs **/")
+      }
+
 
     case ParallelPipe(ens, func) =>
-      emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
-      val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
-      open(src"val $lhs = if ($en) {")
-        emitBlock(func)
+      emitControlObject(lhs, ens, func){
+        emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
+        visitBlock(func)
         emitControlDone(lhs)
-      close("}")
-      emit(src"/** END PARALLEL PIPE $lhs **/")
+        emit(src"/** END PARALLEL PIPE $lhs **/")
+      }
+
+    case UnrolledForeach(ens,cchain,func,iters,valids) =>
+      emitControlObject(lhs, ens, func) {
+        emit(src"/** BEGIN UNROLLED FOREACH $lhs **/")
+        emitUnrolledLoop(lhs, cchain, iters, valids) {
+          emitControlBlock(lhs, func)
+        }
+        emitControlDone(lhs)
+        emit(src"/** END UNROLLED FOREACH $lhs **/")
+      }
+
+    case UnrolledReduce(ens,cchain,func,iters,valids) =>
+      emitControlObject(lhs, ens, func) {
+        emit(src"/** BEGIN UNROLLED REDUCE $lhs **/")
+        emitUnrolledLoop(lhs, cchain, iters, valids) {
+          emitControlBlock(lhs, func)
+        }
+        emitControlDone(lhs)
+        emit(src"/** END UNROLLED REDUCE $lhs **/")
+      }
 
 
     // These should no longer exist in the IR at codegen time

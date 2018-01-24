@@ -9,7 +9,7 @@ trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenString with ScalaGenUnit with ScalaGenFunction with ScalaGenVariables
   with ScalaGenDebugging with ScalaGenFILO
   with ScalaGenController with ScalaGenCounter with ScalaGenDRAM with ScalaGenFIFO with ScalaGenHostTransfer with ScalaGenMath
-  with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenUnrolled with ScalaGenVector
+  with ScalaGenRange with ScalaGenReg with ScalaGenSRAM with ScalaGenVector
   with ScalaGenStream with ScalaGenAssert
   with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenBinaryFileIO
   with ScalaGenDelays with ScalaGenLUTs

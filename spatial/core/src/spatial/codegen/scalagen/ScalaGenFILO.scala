@@ -16,8 +16,10 @@ trait ScalaGenFILO extends ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@FILONew(size)    => emitMem(lhs, src"$lhs = new scala.collection.mutable.Stack[${op.mT}] // size: $size")
-    case FILOPush(filo,v,en) => emit(src"val $lhs = if ($en) $filo.push($v)")
+    case op@FILONew(size)    => emitMemObject(lhs){ emit(src"object $lhs extends scala.collection.mutable.Stack[${op.mT}]") }
+    case FILOPush(filo,v,en) => throw new Exception(s"Cannot generate unbanked FILO push\n${str(lhs)}")
+    case FILOPop(filo,en)    => throw new Exception(s"Cannot generate unbanked FILO pop\n${str(lhs)}")
+
     case FILOEmpty(filo)     => emit(src"val $lhs = $filo.isEmpty")
     case FILOAlmostEmpty(filo)  =>
       val rPar = maxReadWidth(filo)
@@ -29,7 +31,6 @@ trait ScalaGenFILO extends ScalaGenMemories {
     case op@FILOPeek(fifo) => emit(src"val $lhs = if ($fifo.nonEmpty) $fifo.head else ${invalid(op.mT)}")
     case FILONumel(filo) => emit(src"val $lhs = $filo.size")
     case FILOFull(filo)  => emit(src"val $lhs = $filo.size >= ${stagedSizeOf(filo)} ")
-    case op@FILOPop(filo,en) => emit(src"val $lhs = if ($en && $filo.nonEmpty) $filo.pop() else ${invalid(op.mT)}")
 
     case op@BankedFILOPop(filo, ens) =>
       open(src"val $lhs = {")

@@ -288,7 +288,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     *
     * TODO: The bounds logic should eventually be moved elsewhere (to ScalarAnalyzer)?
     */
-  def getIterDomain(indices: Seq[Exp[Index]]): IndexDomain = IndexDomain(indices.zipWithIndex.flatMap{case (i,iIdx) =>
+  def getIterDomain(indices: Seq[Exp[Index]]): IndexDomain = IndexDomain(indices, indices.zipWithIndex.flatMap{case (i,iIdx) =>
     def sparseBound(i: Option[IndexPattern]): Option[AffineVector] = i match {
       case Some(Affine(as,is,b)) => Some(AffineVector(as,is,b,Map.empty).remap(indices))
       case _ => None

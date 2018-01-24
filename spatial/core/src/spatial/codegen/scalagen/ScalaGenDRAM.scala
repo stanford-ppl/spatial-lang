@@ -8,19 +8,21 @@ import spatial.nodes._
 trait ScalaGenDRAM extends ScalaGenMemories {
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: DRAMType[_] => src"Array[${tp.child}]"
+    case tp: DRAMType[_] => src"Memory[${tp.child}]"
     case _ => super.remap(tp)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims,zero) =>
+      emitMemObject(lhs){
+        val name = u""""$lhs""""
+        emit(src"object $lhs extends Memory[${op.mT}]($name, $zero)")
+      }
       val elementsPerBurst = spatialConfig.target.burstSize / op.bT.length
-      open(src"val $lhs = {")
-        emit(src"""Array.fill(${dims.map(quote).mkString("*")} + $elementsPerBurst)($zero)""") //${invalid(op.mA)})""")
-      close("}")
+      val size = src"""${dims.map(quote).mkString("*")} + $elementsPerBurst"""
+      emit(src"$lhs.initMem($size)")
 
-    case GetDRAMAddress(dram) =>
-      emit(src"val $lhs = 0")
+    case GetDRAMAddress(dram)  => emit(src"val $lhs = 0")
 
     // Fringe templates expect byte-based addresses and sizes, while Scala gen expects word-based
     case e@FringeDenseLoad(dram,cmdStream,dataStream) =>

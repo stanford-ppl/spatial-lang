@@ -8,17 +8,21 @@ import spatial.metadata._
 import spatial.poly.Polytope
 import spatial.utils._
 
-case class IndexDomain(domain: Array[Array[Int]]) {
-  lazy val str: String = domain.map{vec => s"""1 ${vec.mkString(" ")}""" }.mkString("\n") + "\n"
+case class IndexDomain(indices: Seq[Exp[Index]], domain: Array[Array[Int]]) {
+  lazy val str: String = if (domain.isEmpty) "" else {
+    domain.map{vec => s"""1 ${vec.mkString(" ")}""" }.mkString("\n") + "\n"
+  }
   def map[T](func: Array[Int] => T): Seq[T] = domain.map(func)
   def headOption: Option[Array[Int]] = domain.headOption
-  def length: Int = domain.length
+  def nRows: Int = domain.length
+  def nCols: Int = indices.length + 1  // Includes constant
 }
 
 abstract class AccessVector {
   def indices: Seq[Exp[Index]]
   def unrollIndices: Seq[Exp[Index]]
   def str(i: Int): String
+  def length: Int = indices.length + 1
 }
 
 case class RandomVector(x: Option[Exp[Index]], uroll: Map[Seq[Int],Exp[Index]], vecId: Option[Int]) extends AccessVector {
@@ -147,8 +151,8 @@ case class AccessMatrix(
     }
     if (vecs.isEmpty) true
     else {
-      val nCols = domain.headOption.map(_.length).getOrElse(0) + 1
-      val nRows = vecs.length + domain.length
+      val nCols = domain.nCols + 1  // Includes the Type column (0 or 1)
+      val nRows = vecs.length + domain.nRows
 
       val mat = s"$nRows $nCols\n" + domain.str + vecs.mkString("\n")
       !Polytope.isEmpty(mat)

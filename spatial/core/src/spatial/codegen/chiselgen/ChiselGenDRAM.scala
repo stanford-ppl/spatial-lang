@@ -39,7 +39,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@DRAMNew(dims,zero) =>
-    dramsList = dramsList :+ lhs
+      dramsList = dramsList :+ lhs
       if (argMapping(lhs) == (-1,-1,-1)) {
         throw new spatial.UnusedDRAMException(lhs, lhs.name.getOrElse("noname"))
       }

@@ -1,5 +1,16 @@
 import scala.reflect.ClassTag
 
+class Memory[T:ClassTag](
+  name: String,
+  zero: T
+) {
+  var data: Array[T] = _
+  def initMem(size: Int): Unit = { data = Array.fill(size)(zero) }
+
+  def apply(i: Int): T = data.apply(i)
+  def update(i: Int, x: T): Unit = data.update(i, x)
+}
+
 class BankedMemory[T:ClassTag](
   name:     String,
   dims:     Seq[Int],

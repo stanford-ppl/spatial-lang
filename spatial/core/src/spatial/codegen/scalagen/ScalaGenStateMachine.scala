@@ -12,7 +12,7 @@ trait ScalaGenStateMachine extends ScalaCodegen {
       val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
 
       open(src"""val $lhs = if ($en) {""")
-        emit(src"var ${state}: ${state.tp} = $start")
+        emit(src"var $state: ${state.tp} = $start")
         open(src"def notDone() = {")
           emitBlock(notDone)
         close("}")

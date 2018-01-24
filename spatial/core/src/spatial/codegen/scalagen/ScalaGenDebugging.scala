@@ -17,7 +17,7 @@ trait ScalaGenDebugging extends ScalaCodegen {
       emit(src"val $lhs = if ($en) { System.out.println($bp); Console.readLine() }")
     case ExitIf(en)        =>
       val exit = '"' + "Exit" + '"'      
-      emit(src"val $lhs = if ($en) { System.out.println($exit); return }")      
+      emit(src"""val $lhs = if ($en) { System.out.println($exit); throw new Exception("exit") }""")
     case _ => super.emitNode(lhs, rhs)
   }
 
