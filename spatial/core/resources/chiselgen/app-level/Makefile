@@ -269,6 +269,8 @@ zynq-clean:
 arria10: arria10-hw arria10-sw
 
 arria10-hw:
+	@echo "alterad license: $(ALTERAD_LICENSE_FILE)"
+	@echo "quartus version: $(USING_THIS_QUARTUS)"
 	sbt "runMain top.Instantiator --verilog --testArgs arria10"
 	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
 	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' ${ARRIA10_V_DIR}/Top.v
@@ -276,7 +278,7 @@ arria10-hw:
 	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
 	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}
 	# TODO: mannually create the link
-	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
+	cd ${ARRIA10_V_DIR} && if [[ -L ghrd_10as066n2 ]]; then rm ghrd_10as066n2; fi && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && if [[ -L pr_base_static.qdb ]]; then rm pr_base_static.qdb; fi && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && if [[ -d output_files ]]; then rm -rf output_files; fi && mkdir output_files && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
 	cd ${ARRIA10_V_DIR} && bash fit.sh
 
 arria10-sw:
