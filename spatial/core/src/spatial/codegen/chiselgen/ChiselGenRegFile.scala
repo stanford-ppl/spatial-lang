@@ -168,6 +168,17 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       val numReaders = readersOf(lhs).length
       emitGlobalModule(src"""val $lhs = Module(new LUT(List($dims), List($lut_consts), $numReaders, $width, $f))""")
       
+    case op@BankedLUTLoad(lut,bank,ofs,ens) => 
+      val ensquote = ens.map(quote(_)).mkString("List(", ",", ")")
+      val idquote = src"${lhs}_id"
+      emitGlobalWireMap(src"""$lhs""",src"""Wire(${newWire(lhs.tp)})""")
+      val parent = parentOf(lhs).get
+      ens.zipWithIndex.foreach{case (en, i) => 
+        emit(src"""val ${idquote}_$i = ${lut}.connectRPort(List(${bank(i)}.r, ${ofs(i)}.r), $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(ens.head, lhs), true)})""")
+        emit(src"""${lhs}($i).r := ${lut}.io.data_out(${idquote}_$i)""")
+      }
+
+
     case LUTLoad(lut,addr,en) =>
       // val idquote = src"${lhs}_id"
       // emitGlobalWireMap(src"""$lhs""",src"""Wire(${newWire(lhs.tp)})""")

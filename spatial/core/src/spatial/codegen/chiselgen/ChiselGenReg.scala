@@ -132,11 +132,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
         emit(src"""${lhs}.r := io.argOutLoopbacks(${argOutLoopbacks(argMapping(reg).argOutId)})""")
       } else {
         emitGlobalWireMap(src"""$lhs""", src"""Wire(${newWire(lhs.tp)})""") 
-        if (dispatchOf(lhs, reg).isEmpty) {
-          throw new spatial.EmptyDispatchException(lhs)
-        }
-        val inst = dispatchOf(lhs, reg).head // Reads should only have one index
-        val port = portsOf(lhs, reg, inst)
+        val port = portsOf(lhs, reg).values.toList
         val duplicates = duplicatesOf(reg)
         // Console.println(s"working on $lhs $reg $inst $duplicates")
         reduceType(lhs) match {
