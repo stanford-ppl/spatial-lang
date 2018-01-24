@@ -44,10 +44,10 @@ export VCS_HOME=/cad/synopsys/vcs/K-2015.09-SP2-7
 export QVER=17.1
 alias qsys=/opt/intelFPGA_pro/$QVER/qsys/bin/qsys-edit
 export PATH=/usr/bin:$VCS_HOME/amd64/bin:/opt/intelFPGA_pro/$QVER/quartus/bin:$PATH
-export QSYS_ROOTDIR="/opt/intelFPGA_pro/$QVER/qsys/bin/"
+export QSYS_ROOTDIR=/opt/intelFPGA_pro/$QVER/qsys/bin/
 export PATH=/opt/intelFPGA_pro/$QVER/quartus/sopc_builder/bin:$PATH
-export ALTERAOCLSDKROOT="/opt/intelFPGA_pro/$QVER/hld"
-export LM_LICENSE_FILE=“/opt/intelFPGA_pro/licenses/arria10-license.dat”:$LM_LICENSE_FILE
+export ALTERAOCLSDKROOT=/opt/intelFPGA_pro/$QVER/hld
+export LM_LICENSE_FILE=/opt/intelFPGA_pro/licenses/arria10-license.dat:$LM_LICENSE_FILE
 export ALTERAD_LICENSE_FILE=“/opt/intelFPGA_pro/licenses/arria10-license.dat”
 export USING_THIS_QUARTUS=`which quartus`
 
