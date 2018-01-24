@@ -13,11 +13,12 @@ trait ScalaGenReg extends ScalaCodegen with ScalaGenMemories {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@ArgInNew(init)  => emit(src"val $lhs = ${op.mR}().init($init)")
-    case op@ArgOutNew(init) => emit(src"val $lhs = ${op.mR}().init($init)")
-    case op@HostIONew(init) => emit(src"val $lhs = ${op.mR}().init($init)")
-    case op@RegNew(init)    => emitMem(lhs, src"$init")
-    case RegReset(reg, en) => 
+    case op@ArgInNew(init)  => emitMemObject(lhs){ emit(src"object $lhs extends Ptr[${op.mT}]($init)") }
+    case op@ArgOutNew(init) => emitMemObject(lhs){ emit(src"object $lhs extends Ptr[${op.mT}]($init)") }
+    case op@HostIONew(init) => emitMemObject(lhs){ emit(src"object $lhs extends Ptr[${op.mT}]($init)") }
+    case op@RegNew(init)    => emitMemObject(lhs){ emit(src"object $lhs extends Ptr[${op.mT}]($init)") }
+
+    case RegReset(reg, en) =>
       val init = reg match {
         case Def(RegNew(init)) => init
       }

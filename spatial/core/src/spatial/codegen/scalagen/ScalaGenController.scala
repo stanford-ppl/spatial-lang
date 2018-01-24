@@ -1,6 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.core._
+import argon.nodes.UnitType
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
@@ -46,7 +47,8 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
       }
     }
     else {
-      emitBlock(block)
+      visitBlock(block)
+      if (block.result.tp != UnitType) emit(src"${block.result}")
     }
   }
 
@@ -91,8 +93,14 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
   }
 
   private def emitControlObject(lhs: Sym[_], ens: Seq[Exp[Bit]], func: Block[_])(contents: => Unit): Unit = {
-    val inputs = blockInputs(func)
+    val (ins,stms) = blockInputsAndNestedContents(func)
+
+    val binds = getDef(lhs).map{d => d.binds ++ d.blocks.map(_.result) }.getOrElse(Nil)
+    val inputs = (getDef(lhs).map{_.inputs}.getOrElse(Nil) ++ ins).distinct.filterNot(isMemory) diff binds
     val en = if (ens.isEmpty) "true" else ens.map(quote).mkString(" && ")
+
+    dbgs(s"${str(lhs)}")
+    inputs.foreach{in => dbgs(s" - ${str(in)}") }
 
     withStream(getStream(src"$lhs")) {
       emitFileHeader()
@@ -112,16 +120,20 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case Hwblock(func,isForever) =>
-      localMems.filterNot(isOffChipMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = ${lhs.tp}()") }
-      localMems.filter(isInternalStreamMemory).foreach{case lhs@Op(rhs) => emit(src"var $lhs: ${lhs.tp} = ${lhs.tp}()") }
+      //localMems.filterNot(isOffChipMemory).foreach{case lhs@Op(rhs) => emit(src"val $lhs: ${lhs.tp} = ${lhs.tp}()") }
+      //localMems.filter(isInternalStreamMemory).foreach{case lhs@Op(rhs) => emit(src"val $lhs: ${lhs.tp} = ${lhs.tp}()") }
 
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       globalMems = true
       if (!willRunForever(lhs)) {
         open(src"def accel(): Unit = {")
-        open(src"val $lhs = {")
-          emitBlock(func)
-        close("}")
+          open(src"val $lhs = try {")
+            visitBlock(func)
+          close("}")
+          open("catch {")
+            emit(src"""case x: Exception if x.getMessage == "exit" =>  """)
+            emit(src"""case t: Throwable => throw t""")
+          close("}")
         close("}")
         emit("accel()")
       }
@@ -141,10 +153,10 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
         emit(src"val $lhs = ()")
       }
       streamOuts.foreach{case x@Def(StreamOutNew(bus)) =>
-        if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"print_$x()") // HACK: Print out streams after block finishes running
+        if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"$x.dump()") // HACK: Print out streams after block finishes running
       }
       emitControlDone(lhs)
-      bufferedOuts.foreach{buff => emit(src"close_$buff()") }
+      bufferedOuts.foreach{buff => emit(src"$buff.close()") }
       globalMems = false
       emit(src"/** END HARDWARE BLOCK $lhs **/")
 
@@ -161,7 +173,7 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
     case ParallelPipe(ens, func) =>
       emitControlObject(lhs, ens, func){
         emit(src"/** BEGIN PARALLEL PIPE $lhs **/")
-        emitBlock(func)
+        visitBlock(func)
         emitControlDone(lhs)
         emit(src"/** END PARALLEL PIPE $lhs **/")
       }

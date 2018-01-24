@@ -12,10 +12,12 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
   var streamIns: List[Exp[_]] = Nil
   var streamOuts: List[Exp[_]] = Nil
   var bufferedOuts: List[Exp[_]] = Nil
+  dependencies ::= FileDep("scalagen", "Stream.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: StreamInType[_]  => src"Ptr[scala.collection.mutable.Queue[${tp.child}]]"
-    case tp: StreamOutType[_] => src"Ptr[scala.collection.mutable.Queue[${tp.child}]]"
+    case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"
+    case tp: StreamOutType[_] => src"scala.collection.mutable.Queue[${tp.child}]"
+    case tp: BufferedOutType[_] => src"Memory[${tp.child}]"
     case _ => super.remap(tp)
   }
 
@@ -26,7 +28,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
     val bufferedOuts = written.filter(isBufferedOut)
     if (bufferedOuts.nonEmpty) {
       emit("/** Dump BufferedOuts **/")
-      bufferedOuts.foreach{buff => emit(src"dump_$buff()") }
+      bufferedOuts.foreach{buff => emit(src"$buff.dump()") }
       emit("/***********************/")
     }
   }
@@ -70,64 +72,28 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@StreamInNew(bus)  =>
+      val name = lhs.name.map(_ + " (" + lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
       streamIns :+= lhs
-      emitMem(lhs, src"new scala.collection.mutable.Queue[${op.mT}]")
-      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
-      if (!bus.isInstanceOf[DRAMBus[_]]) {
-        val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
-        open(src"def populate_$lhs() = {")
-          emit(src"""print("Enter name of file to use for StreamIn $name: ")""")
-          emit(src"val filename = Console.readLine()")
-          open(src"try {")
-            emit(src"val source = scala.io.Source.fromFile(filename)")
-            open(src"source.getLines.foreach{line => ")
-              open(src"if (line.exists(_.isDigit)) {")
-                bitsFromString("elem", "line", op.mT)
-                emit(src"$lhs.enqueue(elem)")
-              close("}")
-            close("}")
-          close("}")
-          open(src"catch {case e: Throwable => ")
-            emit(src"""println("There was a problem while opening the specified file for reading.")""")
-            emit(src"""println(e.getMessage)""")
-            emit(src"""e.printStackTrace()""")
-            emit(src"sys.exit(1)")
-          close("}")
-        close("}")
-        emit(src"populate_$lhs()")
+
+      emitMemObject(lhs){
+        open(src"""object $lhs extends StreamIn[${op.mT}]("$name", {str => """)
+          bitsFromString("x", "str", op.mT)
+          emit(src"x")
+        close(src"})")
       }
+      if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"$lhs.initMem()")
 
     case op@StreamOutNew(bus) =>
+      val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
       streamOuts :+= lhs
 
-      emitMem(lhs, src"new scala.collection.mutable.Queue[${op.mT}]")
-      // emit(src"val $lhs = new scala.collection.mutable.Queue[${op.mT}]")
-
-      if (!bus.isInstanceOf[DRAMBus[_]]) {
-        val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
-
-        emit(src"""print("Enter name of file to use for StreamOut $name: ")""")
-        emit(src"var ${lhs}_writer: java.io.PrintWriter = null")
-        open(src"try {")
-          emit(src"val filename = Console.readLine()")
-          emit(src"${lhs}_writer = new java.io.PrintWriter(new java.io.File(filename))")
-        close("}")
-        open("catch{ case e: Throwable => ")
-          emit(src"""println("There was a problem while opening the specified file for writing.")""")
-          emit(src"""println(e.getMessage)""")
-          emit(src"""e.printStackTrace()""")
-          emit(src"sys.exit(1)")
-        close("}")
-
-        open(src"def print_$lhs(): Unit = {")
-          open(src"$lhs.foreach{elem => ")
-            bitsToString("line", "elem", op.mT)
-            emit(src"${lhs}_writer.println(line)")
-          close("}")
-          emit(src"${lhs}_writer.close()")
-        close("}")
+      emitMemObject(lhs){
+        open(src"""object $lhs extends StreamOut[${op.mT}]("$name", {elem => """)
+          bitsToString("x", "elem", op.mT)
+          emit(src"x")
+        close("})")
       }
-
+      if (!bus.isInstanceOf[DRAMBus[_]]) emit(src"$lhs.initMem()")
 
     case op@StreamWrite(strm, data, en) => emit(src"val $lhs = if ($en) $strm.enqueue($data)")
     case op@StreamRead(strm, en) => emit(src"val $lhs = if ($en && $strm.nonEmpty) $strm.dequeue() else ${invalid(op.mT)}")
@@ -149,29 +115,18 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
 
     case op@BufferedOutNew(dims, bus) =>
       bufferedOuts :+= lhs
-      emit(src"""val $lhs = Array.fill(${dims.map(quote).mkString("*")})(${invalid(op.mT)})""")
 
       val name = lhs.name.map(_ + " (" +lhs.ctx + ")").getOrElse("defined at " + lhs.ctx)
-      emit(src"""print("Enter name of file to use for BufferedOut $name: ")""")
-      emit(src"var ${lhs}_writer: java.io.PrintWriter = null")
-      open(src"try {")
-        emit(src"val filename = Console.readLine()")
-        emit(src"${lhs}_writer = new java.io.PrintWriter(new java.io.File(filename))")
-      close("}")
-      open("catch{ case e: Throwable => ")
-        emit(src"""println("There was a problem while opening the specified file for writing.")""")
-        emit(src"""println(e.getMessage)""")
-        emit(src"""e.printStackTrace()""")
-        emit(src"sys.exit(1)")
-      close("}")
+      val size = dims.map(quote).mkString("*")
 
-      open(src"def dump_$lhs(): Unit = {")
-        open(src"$lhs.foreach{elem => ")
-          bitsToString("line", "elem", op.mT)
-          emit(src"${lhs}_writer.println(line)")
-        close("}")
-      close("}")
-      emit(src"def close_$lhs(): Unit = ${lhs}_writer.close()")
+      emitMemObject(lhs){
+        open(src"""object $lhs extends BufferedOut[${op.mT}]("$name", $size, ${invalid(op.mT)}, {elem => """)
+          bitsToString("x", "elem", op.mT)
+          emit(src"x")
+        close("})")
+      }
+
+      emit(src"$lhs.initMem()")
 
 
     case op@BufferedOutWrite(buffer,data,inds,en) =>

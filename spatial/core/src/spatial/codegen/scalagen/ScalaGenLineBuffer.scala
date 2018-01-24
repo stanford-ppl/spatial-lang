@@ -11,7 +11,7 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
   dependencies ::= FileDep("scalagen", "LineBuffer.scala")
 
   override protected def remap(tp: Type[_]): String = tp match {
-    case tp: LineBufferType[_] => src"Ptr[LineBuffer[${tp.child}]]"
+    case tp: LineBufferType[_] => src"LineBuffer[${tp.child}]"
     case _ => super.remap(tp)
   }
 
@@ -55,7 +55,9 @@ trait ScalaGenLineBuffer extends ScalaGenMemories with ScalaGenControl {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@LineBufferNew(rows, cols,stride) =>
       val banks = instanceOf(lhs).nBanks.last
-      emitMem(lhs, src"LineBuffer[${op.mT}]($rows.toInt, $cols.toInt, $banks, $stride.toInt, ${invalid(op.mT)})")
+      emitMemObject(lhs) {
+        emit(src"object $lhs extends LineBuffer[${op.mT}]($rows.toInt, $cols.toInt, $banks, $stride.toInt, ${invalid(op.mT)})")
+      }
 
     case _: LineBufferRowSlice[_] => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
     case _: LineBufferColSlice[_] => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")

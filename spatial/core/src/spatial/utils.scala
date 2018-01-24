@@ -987,6 +987,8 @@ object utils {
     case _ => false
   }
 
+  @stateful def isMemory(e: Exp[_]): Boolean = isLocalMemory(e) || isOffChipMemory(e)
+
   @stateful def isLocalMemory(e: Exp[_]): Boolean = e.tp match {
     case _:SRAMType[_] | _:FIFOType[_] | _:FILOType[_] | _:RegType[_] | _:LineBufferType[_] | _:RegFileType[_] => true
     case _:LUTType[_] => true

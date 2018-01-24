@@ -104,7 +104,7 @@ case class UnrolledForeach(
 ) extends Loop {
   def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Foreach.op_unrolled_foreach(f(en)++addEn,f(cchain),f(func),iters,valids)
 
-  override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
+  override def inputs = dyns(en) ++ dyns(cchain) ++ dyns(func)
   override def binds = super.binds ++ iters.flatten ++ valids.flatten
 }
 
@@ -117,6 +117,6 @@ case class UnrolledReduce(
 ) extends Loop {
   def mirrorWithEn(f:Tx, addEn: Seq[Exp[Bit]]) = Reduce.op_unrolled_reduce(f(en)++addEn,f(cchain),f(func),iters,valids)
 
-  override def inputs = syms(en) ++ syms(cchain) ++ syms(func)
+  override def inputs = dyns(en) ++ dyns(cchain) ++ dyns(func)
   override def binds = super.binds ++ iters.flatten ++ valids.flatten
 }
