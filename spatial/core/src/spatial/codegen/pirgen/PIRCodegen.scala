@@ -49,6 +49,7 @@ trait PIRCodegen extends Codegen with FileDependencies with PIRLogger with PIRSt
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     emit(lhs, rhs, s"TODO: Unmached Node")
+    warn(s"Unmatched node! $lhs = $rhs")
     rhs.blocks.foreach(emitBlock)
   }
 
@@ -89,14 +90,16 @@ trait PIRGenController extends PIRCodegen with PIRGenFringe with PIRGenCounter w
       rhs match {
         case UnrolledForeach(en, cchain, func, iters, valids) => 
           emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
+          controlStack.push(lhs)
           emitIters(cchain, iters, valids, isInnerControl(lhs))
         case UnrolledReduce(en, cchain, accum, func, iters, valids) => 
           emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
+          controlStack.push(lhs)
           emitIters(cchain, iters, valids, isInnerControl(lhs))
         case _ =>
           emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=CounterChain.unit)", rhs)
+          controlStack.push(lhs)
       }
-      controlStack.push(lhs)
       rhs.blocks.foreach(emitBlock)
       controlStack.pop
     } else {
@@ -110,7 +113,7 @@ trait PIRGenFringe extends PIRCodegen {
     lhs match {
       case _ if isFringe(lhs) =>
         val children = rhs.allInputs.filter { e => isDRAM(e) || isStream(e) || isStreamOut(e) }.flatMap { e => decompose(e) }
-        emit(lhs, s"CUContainer(${children.mkString(s",")})", rhs)
+        emit(lhs, s"FringeContainer(${children.mkString(s",")})", rhs)
       case _ => super.emitNode(lhs, rhs)
     }
   }
@@ -155,8 +158,16 @@ trait PIRGenOp extends PIRCodegen {
             decompose(vec).zip(decompose(lhs)).foreach { case (dvec, dlhs) =>
               emit(s"val $dlhs = $dvec // $lhs = $rhs")
             }
-          case SimpleStruct(elems) =>
-            emit(s"// $lhs = $rhs")
+          case VectorSlice(vec, end, start) =>
+            val mask = (List.fill(start)(0) ++ List.fill(end - start)(1) ++ List.fill(32 - end)(0)).reverse
+            val strMask = mask.mkString
+            val integer = Integer.parseInt(strMask, 2)
+            emit(lhs, s"OpDef(op=BitAnd, inputs=List(${vec}, Const($integer)))", s"$rhs strMask=$strMask")
+          case SimpleStruct(elems) => emit(s"// $lhs = $rhs")
+          case DataAsBits(a) => emit(s"val $lhs = $a // $lhs = $rhs")
+          case BitsAsData(a, tp) => emit(s"val $lhs = $a // $lhs = $rhs")
+          case FieldApply(coll, field) =>
+            emit(s"val $lhs = ${lookupField(coll, field).get} // $lhs = $rhs")
           case _ => super.emitNode(lhs, rhs)
         }
     }
@@ -192,7 +203,7 @@ trait PIRGenMem extends PIRCodegen {
       case SRAMNew(dims) =>
         decompose(lhs).foreach { dlhs => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-            val size = constDimsOf(lhs).product / inst.totalBanks
+            val size = constDimsOf(lhs).product / inst.totalBanks //TODO: should this be number of outer banks?
             val numOuterBanks = numOuterBanksOf((lhs, instId))
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
@@ -203,14 +214,21 @@ trait PIRGenMem extends PIRCodegen {
       case RegNew(init) =>
         decompose(lhs).zip(decompose(init)).foreach { case (dlhs, dinit) => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-            emit(quote(dlhs, instId), s"Reg(init=${quote(dinit)})", s"$lhs = $rhs")
+            emit(quote(dlhs, instId), s"Reg(init=${getConstant(init).get})", s"$lhs = $rhs")
+          }
+        }
+      case FIFONew(size) =>
+        decompose(lhs).foreach { dlhs => 
+          val size = constDimsOf(lhs).product
+          duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+            emit(quote(dlhs, instId), s"FIFO(size=$size)", s"$lhs = $rhs")
           }
         }
       case ArgInNew(init) =>
-        emit(quote(lhs, 0), s"top.argIn(init=${quote(init)})", rhs)
+        emit(quote(lhs, 0), s"top.argIn(init=${getConstant(init).get})", rhs)
 
       case ArgOutNew(init) =>
-        emit(quote(lhs, 0), s"top.argOut(init=${quote(init)})", rhs)
+        emit(quote(lhs, 0), s"top.argOut(init=${getConstant(init).get})", rhs)
 
       case GetDRAMAddress(dram) =>
         emit(lhs, s"top.dramAddress($dram)", rhs)
@@ -276,10 +294,13 @@ trait PIRGenMem extends PIRCodegen {
 trait PIRGenDummy extends PIRCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     rhs match {
+      case _:ArrayNew[_] =>
       case _:ArrayApply[_] =>
       case _:ArrayZip[_, _, _] =>
       case _:ArrayReduce[_] =>
       case _:ArrayLength[_] =>
+      case _:ArrayMap[_,_] =>
+      case _:ArrayFlatMap[_,_] =>
       case _:StringToFixPt[_, _, _] =>
       case _:MapIndices[_] =>
       case _:FixRandom[_, _, _] =>
@@ -289,8 +310,10 @@ trait PIRGenDummy extends PIRCodegen {
       case _:GetMem[_] =>
       case _:InputArguments =>
       case _:PrintlnIf =>
+      case _:PrintIf =>
       case _:StringConcat =>
       case _:ToString[_] =>
+      case _:RangeForeach =>
       case _ => super.emitNode(lhs, rhs)
     }
   }
