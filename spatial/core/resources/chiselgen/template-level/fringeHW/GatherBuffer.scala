@@ -54,8 +54,6 @@ class GatherBuffer(
   val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSize))
   cmdAddr.bits := io.cmd.bits.addr
 
-  val rrespTag = io.rresp.bits.tag.asTypeOf(new DRAMCmdTag(w))
-
   io.hit := b.map { _.map { i =>
     i.valid & (cmdAddr.burstTag === i.rdata.meta.addr.burstTag) & ~i.rdata.meta.valid
   }.reduce { _|_ } }.reduce { _|_ } & io.cmd.valid
@@ -75,7 +73,7 @@ class GatherBuffer(
     val wdata = b(i).map { _.wdata }
     val wen = b(i).map { _.wen }
     val respHits = rdata.map { _.meta }.zip(valid).map { case (m, v) =>
-      v & io.rresp.valid & (m.addr.burstTag === rrespTag.addr) & ~m.valid
+      v & io.rresp.valid & (m.addr.burstTag === io.rresp.bits.tag.uid) & ~m.valid
     }
 
     config.outSelect.zip(rdata).foreach { case (s, d) =>
