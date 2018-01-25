@@ -154,19 +154,33 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
 
     case op@LUTNew(dims, init) =>
       appPropertyStats += HasLUT
+      implicit val ctx: SrcCtx = lhs.ctx
+
+      val inst = instanceOf(lhs)
+      val dims = constDimsOf(lhs)
       val width = bitWidth(lhs.tp.typeArguments.head)
       val f = lhs.tp.typeArguments.head match {
         case a: FixPtType[_,_,_] => a.fracBits
         case _ => 0
       }
-      val lut_consts = if (width == 1) {
-        getConstValues(init).toList.map{a => if (a == true) "1.0" else "0.0"}.mkString(",")
-      } else {
-        getConstValues(init).toList.map{a => src"${a}d"}.mkString(",")
-      }
 
-      val numReaders = readersOf(lhs).length
-      emitGlobalModule(src"""val $lhs = Module(new LUT(List($dims), List($lut_consts), $numReaders, $width, $f))""")
+      val nBanks = inst.nBanks.product
+      val bankDepth = Math.ceil(dims.product.toDouble / nBanks).toInt
+      // Import an implicit lexicographic ordering for the bank addresses (allows us to group and sort by bank addr)
+      import scala.math.Ordering.Implicits._
+
+      val info = multiLoopWithIndex(dims).map { case (is, i) =>
+        val bankAddr = inst.constBankAddress(is)
+        val ofs = inst.constBankOffset(lhs, is)
+        val elem = if (width == 1) {if (getConstValue(init(i)) == true) "1.0" else "0.0"}
+                   else {src"${getConstValue(init(i))}d"}
+        
+        ((bankAddr :+ ofs) -> elem)
+      }.toArray.mkString("Map(", ",", ")")
+
+      val numBanks = inst.nBanks.map(_.toString).mkString("List(", ",", ")")
+      val numReaders = readersOf(lhs).map{ r => r.node match { case Def(_@BankedLUTLoad(_,_,_,ens)) => ens.length}}.sum
+      emitGlobalModule(src"""val $lhs = Module(new LUT(List($dims), ${numBanks}, $bankDepth, $info, $numReaders, $width, $f))""")
       
     case op@BankedLUTLoad(lut,bank,ofs,ens) => 
       val ensquote = ens.map(quote(_)).mkString("List(", ",", ")")

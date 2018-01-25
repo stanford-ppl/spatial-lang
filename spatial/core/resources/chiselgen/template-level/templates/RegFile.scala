@@ -325,44 +325,41 @@ class NBufShiftRegFile(val dims: List[Int], val inits: Option[List[Double]], val
   
 }
 
-class LUT(val dims: List[Int], val inits: List[Double], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
 
-  def this(tuple: (List[Int], List[Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+class LUT(val dims: List[Int], val banks: List[Int], val bankDepth: Int, val inits: Map[List[Int], Double], val numReaders: Int, val width: Int, val fracBits: Int) extends Module {
+
+  def this(tuple: (List[Int], List[Int], Int, Map[List[Int], Double], Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7)
   val muxWidth = Utils.log2Up(dims.reduce{_*_})
+  val portWidth = banks.length+1
 
   val io = IO(new Bundle { 
-    val addr = Vec(numReaders*dims.length, Input(UInt(muxWidth.W)))
+    val addr = Vec(numReaders*portWidth, Input(UInt(muxWidth.W)))
     // val en = Vec(numReaders, Input(Bool()))
     val data_out = Vec(numReaders, Output(UInt(width.W)))
   })
 
-  assert(dims.reduce{_*_} == inits.length)
-  val options = (0 until dims.reduce{_*_}).map { i => 
-    val initval = (inits(i)*scala.math.pow(2,fracBits)).toLong
-    // initval.U
-    ( i.U(muxWidth.W) -> initval.S((width+1).W).apply(width-1,0) )
+  val numMems = banks.product * bankDepth
+  val m = (0 until numMems).map{ i => 
+    val coords = (banks :+ bankDepth).zipWithIndex.map{ case (b,j) => 
+      i % ((banks :+ bankDepth).drop(j).product) / (banks :+ bankDepth).drop(j+1).product
+    }
+
+    val initval = (inits(coords)*scala.math.pow(2,fracBits)).toLong
+    val mem = initval.S((width+1).W).apply(width-1,0)
+    (mem,coords,i)
   }
 
-  val flat_addr = (0 until numReaders).map{ k => 
-    val base = k*dims.length
-    (0 until dims.length).map{ i => 
-      // (fringe.FringeGlobals.bigIP.multiply(io.addr(i + base), (dims.drop(i).reduce{_.*-*(_,None)}/-/dims(i)).U(muxWidth.W), 0))
-      (io.addr(i + base).*-*((dims.drop(i).reduce{_*_}/-/dims(i)).U(muxWidth.W),None))
-    }.reduce{_+_}
+  (0 until numReaders).map{ j => 
+    val base = portWidth * j
+    val bitmask = m.map{mem => (0 until portWidth).map{k => io.addr(base + k) === mem._2(k).U}.reduce{_&&_}}
+    io.data_out(j) := Mux1H(bitmask, m.map(_._1))
   }
-
-  // val active_addr = Mux1H(io.en, flat_addr)
-
-  // io.data_out := Mux1H(onehot, options)
-  (0 until numReaders).foreach{i =>
-    io.data_out(i) := MuxLookup(flat_addr(i), 0.U(width.W), options).asUInt
-  }
-  // val selected = MuxLookup(active_addr, 0.S, options)
 
   var rId = 0
   def connectRPort(addrs: List[UInt], en: Bool): Int = {
+    assert(addrs.length == portWidth)
+    val base = rId *-* addrs.length
     (0 until addrs.length).foreach{ i => 
-      val base = rId *-* addrs.length
       io.addr(base + i) := addrs(i)
     }
     // io.en(rId) := en
