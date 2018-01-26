@@ -52,6 +52,8 @@ class ShiftRegFile(val dims: List[Int], val banks: List[Int], val bankDepth: Int
   val numMems = banks.product * bankDepth
   assert(numMems == dims.product)
 
+  Console.println(s"dims are $dims, banks $banks $bankDepth, num mmems $numMems, wparstride $wPar * $stride, readers $numReaders")
+
   // Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
   val io = IO(new Bundle { 
     // Signals for dumping data from one buffer to next
@@ -59,11 +61,11 @@ class ShiftRegFile(val dims: List[Int], val banks: List[Int], val bankDepth: Int
     val dump_data = Vec(numMems, Input(UInt(bitWidth.W)))
     val dump_en = Input(Bool())
 
-    val w = Vec(wPar * stride, Input(new RegW_Info(32, List.fill(banks.length)(32), bitWidth)))
-    val r = Vec(numReaders, Input(new RegR_Info(32, List.fill(banks.length)(32)))) 
+    val w = Vec(1 max (wPar * stride), Input(new RegW_Info(32, List.fill(banks.length)(32), bitWidth)))
+    val r = Vec(1 max numReaders, Input(new RegR_Info(32, List.fill(banks.length)(32)))) 
 
     val reset    = Input(Bool())
-    val data_out = Vec(numReaders, Output(UInt(bitWidth.W)))
+    val data_out = Vec(1 max numReaders, Output(UInt(bitWidth.W)))
 
   })
 
@@ -252,9 +254,9 @@ class NBufShiftRegFile(val dims: List[Int], val banks: List[Int], val bankDepth:
   }
 
   var x = 0
-  shiftRegs.zip(numReaders).foreach{ case (reg, nr) => 
-    reg.io.r.zipWithIndex.foreach{case (rport, i) => 
-      rport := io.r(x)
+  shiftRegs.zip(numReaders).zipWithIndex.foreach{ case ((reg, nr),k) => 
+    (0 until numReaders(k)).foreach{ i =>
+      reg.io.r(i) := io.r(x)
       x = x + 1
     }
   }

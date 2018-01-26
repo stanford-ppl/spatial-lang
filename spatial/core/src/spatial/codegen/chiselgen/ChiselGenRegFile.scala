@@ -64,6 +64,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         val port = portsOf(w, lhs).toList.head._2
         w.node match {
           case Def(op: RegFileVectorShiftIn[_]) => (port, op.addr.length, op.len) // Get stride
+          case Def(op: RegFileShiftIn[_]) => (port, op.addr.length, 1) // Get stride
           case Def(op: BankedRegFileStore[_]) => (port, op.ens.length, 1)
         }
       }
@@ -77,7 +78,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       } else {
         appPropertyStats += HasNBufRegFile
         nbufs = nbufs :+ lhs
-        emitGlobalModule(src"""val $lhs = Module(new NBufShiftRegFile(List(${dims}), $numBanks, $bankDepth, $info, $stride, $depth, Map(${parInfo.mkString(",")}), $numReaders, $width, $f))""")
+        emitGlobalModule(src"""val $lhs = Module(new NBufShiftRegFile(List(${dims}), $numBanks, $bankDepth, $info, $stride, $depth, Map(${parInfo.mkString(",")}), ${numReaders.mkString("List(",",",")")}, $width, $f))""")
       }
       resettersOf(lhs).indices.foreach{ ii => emitGlobalWire(src"""val ${lhs}_manual_reset_$ii = Wire(Bool())""")}
       if (resettersOf(lhs).nonEmpty) {
@@ -153,22 +154,20 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       emit(src"""${rf}.connectWPort(${swap(lhs, WVec)}, ${portsOf(lhs, rf).head._2.mkString("List(", ",", ")")})""")
 
     case op@RegFileShiftIn(rf,data,addr,en,axis) =>
-      // val wPar = ens.length
-      // val width = bitWidth(rf.tp.typeArguments.head)
-      // val parent = parentOf(lhs).get
-      // val invisibleEnable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
-      // emit(s"""// Assemble RegW_Info vector""")
-      // emitGlobalWireMap(src"""${lhs}_wVec""", s"Wire(Vec(${wPar}, new W_Info(32, ${List.fill(bank.head.length)(32)}, $width)))")
-      // ofs.zipWithIndex.foreach{case (o,i) => 
-      //   emit(src"""${swap(lhs, WVec)}($i).en := false.B""")
-      //   emit(src"""${swap(lhs, WVec)}($i).ofs := ${o}.r""")
-      //   emit(src"""${swap(lhs, WVec)}($i).data := ${data(i)}.r""")
-      //   emit(src"""${swap(lhs, WVec)}($i).shiftEn := ${en} & ${DL(enable, enableRetimeMatch(en, lhs), true)}""")
-      //   bank(i).zipWithIndex.foreach{case (b,j) => 
-      //     emit(src"""${swap(lhs, WVec)}($i).banks($j) := ${b}.r""")
-      //   }
-      // }
-      // emit(src"""${rf}.connectShiftPort(${swap(lhs, WVec)}, ${portsOf(lhs, rf).head._2.mkString("List(", ",", ")")})""")
+      val width = bitWidth(op.mT)
+      val parent = ctrlOf(lhs).node
+      val enable = src"""${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}"""
+      emit(s"""// Assemble multidimW vectors""")
+      emit(src"""val ${lhs}_wVec = Wire(Vec(1, new RegW_Info(${addr.length}, List(${constDimsOf(rf)}), ${width}))) """)
+      emit(src"""${lhs}_wVec(0).data := ${data}.r""")
+      emit(src"""${lhs}_wVec(0).shiftEn := ${en} & ${DL(enable, enableRetimeMatch(en, lhs), true)}""")
+      emit(src"""${lhs}_wVec(0).ofs := ${addr.last}.r""")
+      addr.dropRight(1).zipWithIndex.foreach{case (b,j) => 
+        emit(src"""${lhs}_wVec(0).banks($j) := ${b}.r""")
+      }
+      emit(src"""${lhs}_wVec(0).en := false.B""")
+      emit(src"""$rf.connectWPort(${lhs}_wVec, ${portsOf(lhs, rf).head._2.mkString("List(", ",", ")")}) """)
+
 
     case op@RegFileVectorShiftIn(rf,data,addr,en,axis,len) =>
       val width = bitWidth(op.mT)
@@ -179,12 +178,13 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       open(src"""for (${lhs}_i <- 0 until ${data}.length) {""")
         emit(src"""${lhs}_wVec(${lhs}_i).data := ${data}(${lhs}_i).r""")
         emit(src"""${lhs}_wVec(${lhs}_i).shiftEn := ${en} & ${DL(enable, enableRetimeMatch(en, lhs), true)}""")
-        // inds.zipWithIndex.foreach{ case(ind,j) => 
-        //   emit(src"""${lhs}_wVec(${lhs}_i).addr($j) := ${ind}.r // Assume always an int""")
-        // }
+        emit(src"""${lhs}_wVec(${lhs}_i).ofs := ${addr.last}.r""")
+        addr.dropRight(1).zipWithIndex.foreach{case (b,j) => 
+          emit(src"""${lhs}_wVec(${lhs}_i).banks($j) := ${b}.r""")
+        }
         emit(src"""${lhs}_wVec(${lhs}_i).en := false.B""")
       close(src"}")
-      emit(src"""$rf.connectShiftPort(${lhs}_wVec, List(${portsOf(lhs, rf)})) """)
+      emit(src"""$rf.connectWPort(${lhs}_wVec, ${portsOf(lhs, rf).head._2.mkString("List(", ",", ")")}) """)
 
     case op@LUTNew(dims, init) =>
       appPropertyStats += HasLUT
