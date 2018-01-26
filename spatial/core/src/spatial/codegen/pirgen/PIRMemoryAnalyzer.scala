@@ -148,12 +148,15 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def setStaticBank(mem:Expr):Unit = {
     (readersOf(mem) ++ writersOf(mem)).map(_.node).foreach { access =>
-      if (isFIFO(mem)) staticBanksOf(access) = Seq(0)
+      if (isFIFO(mem)) {
+        val instIds = getDispatches(mem, access)
+        staticBanksOf((access, 0)) = Seq(0)
+      }
       else setStaticBank(mem, access)
     }
   }
 
-  def setStaticBank(mem:Expr, access:Expr):Unit = staticBanksOf(access) = dbgblk(s"setStaticBankOf($mem, $access)") {
+  def setStaticBank(mem:Expr, access:Expr):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
     val instIds = getDispatches(mem, access)
     val insts = duplicatesOf(mem).zipWithIndex.filter { case (inst, instId) =>
       instIds.contains(instId)
@@ -162,7 +165,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case ParLocalReader(List((_, Some(addr), _))) => addr
       case ParLocalWriter(List((_, _, Some(addr), _))) => addr
     }
-    insts.flatMap { case (inst, instId) =>
+    insts.foreach { case (inst, instId) =>
       inst match {
         case m@BankedMemory(dims, depth, isAccum) =>
           val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
@@ -207,7 +210,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
           val banks = indComb(bankInds.toList, Nil)
           dbgs(s"access=$access uses banks=$banks for inst=$inst")
-          banks
+          staticBanksOf((access, instId)) = banks
         case DiagonalMemory(strides, banks, depth, isAccum) =>
           //TODO
           throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")

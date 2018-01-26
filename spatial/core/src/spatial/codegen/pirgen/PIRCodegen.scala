@@ -126,7 +126,7 @@ trait PIRGenCounter extends PIRCodegen {
         val parInt = getConstant(par).get.asInstanceOf[Int]
         emit(lhs, s"Counter(min=${quote(start)}, max=${quote(end)}, step=${quote(step)}, par=$parInt)", rhs)
       case CounterChainNew(counters) =>
-        emit(lhs, s"CounterChain($counters)", rhs)
+        emit(lhs, s"CounterChain(List(${counters.mkString(",")}))", rhs)
       case _ => super.emitNode(lhs, rhs)
     }
   }
@@ -184,7 +184,7 @@ trait PIRGenMem extends PIRCodegen {
   }
 
   def getInnerBank(mem:Expr, inst:Memory, instId:Int) = {
-    innerDimOf.get((mem, instId)).fold { s"NoBanking" } { case (dim, ctrls) =>
+    innerDimOf.get((mem, instId)).fold { s"NoBanking()" } { case (dim, ctrls) =>
       inst match {
         case BankedMemory(dims, depth, isAccum) =>
           dims(dim) match { case Banking(stride, banks, isOuter) =>
@@ -250,17 +250,17 @@ trait PIRGenMem extends PIRCodegen {
         val instIds = getDispatches(lhs, mem)
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
           val mems = instIds.flatMap { instId =>
-            staticBanksOf(lhs).map { bankId => quote(dmem, instId, bankId) }
+            staticBanksOf((lhs, instId)).map { bankId => quote(dmem, instId, bankId) }
           }
-          emit(dlhs, s"LoadDef($mems, Some($addrs))", rhs)
+          emit(dlhs, s"LoadDef($mems, Some(List(${addrs.mkString(",")})))", rhs)
         }
       case ParLocalWriter((mem, Some(value::_), Some(addrs::_), _)::_) if isSRAM (mem) =>
         val instIds = getDispatches(lhs, mem)
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           val mems = instIds.flatMap { instId =>
-            staticBanksOf(lhs).map { bankId => quote(dmem, instId, bankId) }
+            staticBanksOf((lhs, instId)).map { bankId => quote(dmem, instId, bankId) }
           }
-          emit(dlhs, s"StoreDef($mems, Some($addrs), $dvalue)", rhs)
+          emit(dlhs, s"StoreDef($mems, Some(List(${addrs.mkString(",")})), $dvalue)", rhs)
         }
       case ParLocalReader((mem, None, _)::_) if !isSRAM(mem) =>
         val instIds = getDispatches(lhs, mem)

@@ -411,7 +411,10 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     var cus = allocateMemoryCU(dmem)
     val instIds = getDispatches(mem, access)
     cus = cus.filter { _.srams.exists { sram => instIds.contains(instOf(sram)) } }
-    cus = cus.filter { _.srams.exists { sram => staticBanksOf(access).contains(bankOf(sram)) } } 
+    cus = cus.filter { _.srams.exists { sram => 
+      val banks = instIds.map { instId => staticBanksOf((access, instId)) }
+      banks.contains(bankOf(sram)) }
+    } 
     cus
   } 
 

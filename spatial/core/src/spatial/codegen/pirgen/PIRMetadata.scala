@@ -67,8 +67,8 @@ object instOf extends MOneToOneMap with MetadataMaps {
 
 // Static analysis of which bank an access belongs to
 object staticBanksOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr 
-  type V = Seq[Int]
+  type K = (Expr, Int) // (access, instId)
+  type V = Seq[Int] // List of banks 
 }
 
 /*
