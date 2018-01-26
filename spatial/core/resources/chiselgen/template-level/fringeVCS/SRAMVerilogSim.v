@@ -10,6 +10,7 @@ module SRAMVerilogSim
   input raddrEn,
   input waddrEn,
   input wen,
+  input flow,
   input  [DWIDTH-1:0] wdata,
   output [DWIDTH-1:0] rdata
 );
@@ -27,6 +28,7 @@ module SRAMVerilogSim
           .raddrEn(raddrEn),
           .waddrEn(waddrEn),
           .wen(wen),
+          .flow(flow),
           .wdata(wdata),
           .rdata(rdata)
       );
@@ -43,6 +45,7 @@ module SRAMVerilogSim
             .raddrEn(raddrEn),
             .waddrEn(waddrEn),
             .wen(wen),
+            .flow(flow),
             .wdata(wdata),
             .rdata(rdata)
         );	  
@@ -58,6 +61,7 @@ module SRAMVerilogSim
             .raddrEn(raddrEn),
             .waddrEn(waddrEn),
             .wen(wen),
+            .flow(flow),
             .wdata(wdata),
             .rdata(rdata)
         );
@@ -79,6 +83,7 @@ module SFFArray
   input raddrEn,
   input waddrEn,
   input wen,
+  input flow,
   input [DWIDTH-1:0] wdata,
   output reg [DWIDTH-1:0] rdata
 );
@@ -90,12 +95,14 @@ module SFFArray
   always @(posedge clk) begin
     wen_delayed <= wen;
     wdata_delayed <= wdata;
-	
-    if (wen_delayed && (waddr == raddr)) begin
-      rdata <= wdata_delayed;
-    end else begin
-      rdata <= rdata_wire;
-    end	
+
+    if (flow) begin
+      if (wen_delayed && (waddr == raddr)) begin
+        rdata <= wdata_delayed;
+      end else begin
+        rdata <= rdata_wire;
+      end
+    end
   end
 
   DW_ram_r_w_s_dff #(
@@ -128,6 +135,7 @@ module BFFArray
   input raddrEn,
   input waddrEn,
   input wen,
+  input flow,
   input [DWIDTH-1:0] wdata,
   output reg [DWIDTH-1:0] rdata
 );
@@ -144,11 +152,13 @@ module BFFArray
     if (wen) begin
       mem[waddr] <= wdata;
     end
-
-    if (wen_delayed && (waddr == raddr)) begin
-      rdata <= wdata_delayed;
-    end else begin
-      rdata <= mem[raddr];
+    
+    if (flow) begin
+      if (wen_delayed && (waddr == raddr)) begin
+        rdata <= wdata_delayed;
+      end else begin
+        rdata <= mem[raddr];
+      end
     end
   end
 
