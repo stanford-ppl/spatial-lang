@@ -169,23 +169,23 @@ object Arguments {
     (List(5,5), List(3,3), List(0,1.0,0,1.0,0,1.0,0,1.0,0), List(0,0,0,0,1,0,0,0,0), None, Max, 32, 0)
   )
   val ShiftRegFile = List(
-    (List(6),None,1,1,false,32,0),
-    (List(6),None,2,1,false,32,0),
-    (List(21),None,4,1,false,32,0),
-    (List(1,3),None,1,1,false,32,0),
-    (List(4,12),None,4,4,false,32,0),
-    (List(3,7),None,1,3,false,32,0)
+    (List(6),List(1),6,None,1,1,false,1,32,0),
+    (List(6),List(1),6,None,2,1,false,1,32,0),
+    (List(21),List(1),21,None,4,1,false,1,32,0),
+    (List(1,3),List(1),3,None,1,1,false,1,32,0),
+    (List(4,12),List(4),12,None,4,4,false,1,32,0),
+    (List(3,7),List(3),7,None,1,3,false,1,32,0)
   )
 
-  // Need to retest     (List(3,3,5),None,2,9,false,32,0) above
+  // Need to retest     (List(3,3,5),List(1),None,2,9,false,32,0) above
   
   val NBufShiftRegFile = List(
-    (List(8),None,1,2,Map((0->1)),32,0),
-    (List(8),None,2,2,Map((0->1)),32,0),
-    (List(1,8),None,1,3,Map((0->1)),32,0),
-    (List(3,7),None,1,3,Map((0->3)),32,0),
-    (List(3,9),None,3,3,Map((0->3)),32,0),
-    (List(3,3),None,1,3,Map((0->3)),32,0)
+    (List(8),List(1),8,None,1,2,Map((0->1)),List(1,1),32,0),
+    (List(8),List(1),8,None,2,2,Map((0->1)),List(1,1),32,0),
+    (List(1,8),List(1),8,None,1,3,Map((0->1)),List(1,1,1),32,0),
+    (List(3,7),List(3),7,None,1,3,Map((0->3)),List(1,1,1),32,0),
+    (List(3,9),List(3),9,None,3,3,Map((0->3)),List(1,1,1),32,0),
+    (List(3,3),List(3),3,None,1,3,Map((0->3)),List(1,1,1),32,0)
   )
 
     // (List(3,4,7),None,1,12,Map((0->12)),32,0)
