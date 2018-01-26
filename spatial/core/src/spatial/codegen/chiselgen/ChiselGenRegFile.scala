@@ -53,7 +53,7 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
           val elem = if (width == 1) {if (getConstValue(init(i)) == true) "1.0" else "0.0"}
                      else {src"${getConstValue(init(i))}d"}
           
-          ((bankAddr :+ ofs) -> elem)
+          ((bankAddr :+ ofs).toList -> elem)
         }.toArray.mkString("Some(Map(", ",", "))")
       } else {"None"}
 
@@ -85,10 +85,11 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         emitGlobalModule(src"""$lhs.io.reset := ${lhs}_manual_reset | reset.toBool""")
       } else {emitGlobalModule(src"$lhs.io.reset := reset.toBool")}
 
+
     case RegFileReset(rf,en) => 
       val parent = parentOf(lhs).get
       val id = resettersOf(rf).map{_._1}.indexOf(lhs)
-      duplicatesOf(rf).indices.foreach{i => emit(src"${rf}_${i}_manual_reset_$id := $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(en, lhs), true)} ")}
+      duplicatesOf(rf).indices.foreach{i => emit(src"${rf}_manual_reset_$id := $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(en, lhs), true)} ")}
       
     // case op@RegFileLoad(rf,inds,en) =>
       // val dispatch = dispatchOf(lhs, rf).toList.head
@@ -118,16 +119,17 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
 
     case BankedRegFileLoad(rf, banks, ofs, ens) => //FIXME: Not correct for more than par=1
       val idquote = src"${lhs}_id"
+      val rawlhs = quote(lhs)
       emitGlobalWireMap(src"""$lhs""",src"""Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
       val bWidths = instanceOf(rf).nBanks.map{i => "32"}.mkString("List(",",",")")
       emit(s"""// Assemble RegR_Info vectors""")
       ens.zipWithIndex.foreach{case (en, i) => 
-        emit(src"""val ${lhs}_rVec_$i = Wire(new RegR_Info(32, $bWidths)) """)
-        banks(i).zipWithIndex.foreach{case (b, j) => emit(src"""${lhs}_rVec_$i.banks($j) := ${b}.r""")}
-        emit(src"""${lhs}_rVec_$i.ofs := ${ofs(i)}.r""")
-        emit(src"""${lhs}_rVec_$i.en := $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(ens.head, lhs), true)}""")
-        emit(src"""val ${idquote}_$i = ${rf}.connectRPort(${lhs}_rVec_$i, ${portsOf(lhs, rf).toList.head._2})""")
+        emit(src"""val ${rawlhs}_rVec_$i = Wire(new RegR_Info(32, $bWidths)) """)
+        banks(i).zipWithIndex.foreach{case (b, j) => emit(src"""${rawlhs}_rVec_$i.banks($j) := ${b}.r""")}
+        emit(src"""${rawlhs}_rVec_$i.ofs := ${ofs(i)}.r""")
+        emit(src"""${rawlhs}_rVec_$i.en := $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(ens.head, lhs), true)}""")
+        emit(src"""val ${idquote}_$i = ${rf}.connectRPort(${rawlhs}_rVec_$i, ${portsOf(lhs, rf).toList.head._2})""")
         emit(src"""${lhs}($i).r := ${rf}.io.data_out(${idquote}_$i)""")
       }
 
@@ -216,16 +218,17 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
       
     case op@BankedLUTLoad(lut,banks,ofs,ens) => 
       val idquote = src"${lhs}_id"
+      val rawlhs = quote(lhs)
       emitGlobalWireMap(src"""$lhs""",src"""Wire(${newWire(lhs.tp)})""")
       val parent = parentOf(lhs).get
       val bWidths = instanceOf(lut).nBanks.map{i => "32"}.mkString("List(",",",")")
       emit(s"""// Assemble RegR_Info vectors""")
       ens.zipWithIndex.foreach{case (en, i) => 
-        emit(src"""val ${lhs}_rVec_$i = Wire(new RegR_Info(32, $bWidths)) """)
-        banks(i).zipWithIndex.foreach{case (b, j) => emit(src"""${lhs}_rVec_$i.banks($j) := ${b}.r""")}
-        emit(src"""${lhs}_rVec_$i.ofs := ${ofs(i)}.r""")
-        emit(src"""${lhs}_rVec_$i.en := $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(ens.head, lhs), true)}""")
-        emit(src"""val ${idquote}_$i = ${lut}.connectRPort(${lhs}_rVec_$i)""")
+        emit(src"""val ${rawlhs}_rVec_$i = Wire(new RegR_Info(32, $bWidths)) """)
+        banks(i).zipWithIndex.foreach{case (b, j) => emit(src"""${rawlhs}_rVec_$i.banks($j) := ${b}.r""")}
+        emit(src"""${rawlhs}_rVec_$i.ofs := ${ofs(i)}.r""")
+        emit(src"""${rawlhs}_rVec_$i.en := $en & ${DL(swap(parent, DatapathEn), enableRetimeMatch(ens.head, lhs), true)}""")
+        emit(src"""val ${idquote}_$i = ${lut}.connectRPort(${rawlhs}_rVec_$i)""")
         emit(src"""${lhs}($i).r := ${lut}.io.data_out(${idquote}_$i)""")
       }
 
