@@ -74,9 +74,11 @@
 ./cppgen/fringeArria10/utils/set_perms
 ./cppgen/fringeArria10/utils/run.sh
 ./cppgen/fringeArria10/FringeContextArria10.h
-./cppgen/fringeArria10/Arria10Utils.cpp
 ./cppgen/fringeArria10/FringeContext.h
-./cppgen/fringeArria10/Arria10Utils.h
+./cppgen/fringeArria10/ZynqUtils.cpp
+./cppgen/fringeArria10/FringeContextZynq.h
+./cppgen/fringeArria10/ZynqAddressMap.h
+./cppgen/fringeArria10/ZynqUtils.h
 ./cppgen/testdata/slacsample1d.csv
 ./cppgen/testdata/1d.ssv
 ./cppgen/testdata/slacsample2d.csv

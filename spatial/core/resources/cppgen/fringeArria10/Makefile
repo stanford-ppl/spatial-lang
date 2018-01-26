@@ -1,6 +1,6 @@
 # Set compiler args
 CC=g++
-CFLAGS=-DZYNQ -std=c++11 -Wall -c -g -O0 -ftree-vectorize
+CFLAGS=-DARRIA10 -std=c++11 -Wall -c -g -O0 -ftree-vectorize
 LDFLAGS=
 LDLIBS=-L /usr/lib
 SOURCES=Top.cpp ZynqUtils.cpp
