@@ -58,7 +58,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 
 class ZynqInterface(p: TopParams) extends TopInterface {
   val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 6)
+  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 32)
 
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
@@ -180,7 +180,8 @@ class Top(
   val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
 
   val numChannels = target match {
-    case "zynq" | "zcu"     => 4
+    case "zynq"             => 4
+    case "zcu"              => 2
     case "aws" | "aws-sim"  => 1
     case _                  => 1
   }
