@@ -278,6 +278,17 @@ case class ListenStreams(listen: List[StreamInfo]) extends Metadata[ListenStream
   def update(x: Ctrl, listen: List[StreamInfo]): Unit = listensTo(x.node) = listen
 }
 
+/**
+  * List of fifos or streams popped in a given controller, for handling streampipe control flow
+  **/
+case class AlignedTransfer(is: Boolean) extends Metadata[AlignedTransfer] {
+  def mirror(f:Tx) = this
+}
+@data object isAligned {
+  def apply(x: Exp[_]): Boolean = metadata[AlignedTransfer](x).exists(_.is)
+  def update(x: Exp[_], is: Boolean) = metadata.add(x, AlignedTransfer(is))
+}
+
 
 /**
   * Map for tracking which control nodes are the tile transfer nodes for a given memory, since this

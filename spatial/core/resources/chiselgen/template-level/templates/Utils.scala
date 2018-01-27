@@ -17,7 +17,6 @@ object AWS_F1 extends DeviceTarget
 object ops {
 
 
-
   implicit class ArrayOps[T](val b:Array[types.FixedPoint]) {
     def raw = {
       chisel3.util.Cat(b.map{_.raw})
@@ -469,8 +468,12 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) </&> c      
     }
 
-    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+    def %-% (c: FixedPoint): FixedPoint = {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,None)
+    }
+
+    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,delay)
     }
 
     def %-% (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
@@ -578,6 +581,14 @@ object Utils {
   var SramThreshold = 4 // Threshold between turning Mem1D into register array vs real memory
   var mux_latency = 1
   var retime = false
+
+  def multiLoop(dims: Seq[Int]): Iterator[Seq[Int]] = {
+    val ndims = dims.length
+    val prods = List.tabulate(ndims) { i => dims.slice(i + 1, ndims).product }
+    val total = dims.product
+    (0 until total).iterator.map{x => Seq.tabulate(ndims){d => (x / prods(d)) % dims(d) } }
+  }
+  def multiLoopWithIndex(dims: Seq[Int]): Iterator[(Seq[Int],Int)] = multiLoop(dims).zipWithIndex
 
   val delay_per_numIter = List(
               fixsub_latency + fixdiv_latency + fixadd_latency,

@@ -5,6 +5,7 @@ import chisel3._
 import chisel3.util._
 import templates.SRFF
 import templates.Utils.log2Up
+import templates.Utils
 import scala.language.reflectiveCalls
 import axi4._
 
@@ -49,7 +50,7 @@ class MAGCore(
   val numRdataWordsDebug = 16
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 400
+  val numDebugs = 500
 
   val sgDepth = d
 
@@ -167,7 +168,7 @@ class MAGCore(
 
   val cmdDeqValidMux = Module(new MuxN(Bool(), numStreams))
   cmdDeqValidMux.io.sel := cmdArbiter.io.tag
-  
+
   val dramCmdMux = Module(new MuxN(Valid(io.dram.cmd.bits), numStreams))
   dramCmdMux.io.sel := cmdArbiter.io.tag
   dramCmdMux.io.ins.zipWithIndex.foreach { case (i, id) =>
@@ -189,8 +190,8 @@ class MAGCore(
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load size sent")
     } else {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
-      connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")      
-      connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "Last store size sent")      
+      connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")
+      connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "Last store size sent")
     }
 
   }
@@ -285,6 +286,20 @@ class MAGCore(
     m.io.deqVld := stream.rdata.ready
 
     connectDbgSig(debugCounter(m.io.enqVld).io.out, s"rdataFifo $i enq")
+    connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"number of bad elements")
+
+    val sDeq_latch = Module(new SRFF())
+    sDeq_latch.io.input.set := m.io.deqVld
+    sDeq_latch.io.input.reset := reset.toBool
+    sDeq_latch.io.input.asyn_reset := reset.toBool
+
+    val sEnq_latch = Module(new SRFF())
+    sEnq_latch.io.input.set := m.io.enqVld
+    sEnq_latch.io.input.reset := reset.toBool
+    sEnq_latch.io.input.asyn_reset := reset.toBool
+
+    connectDbgSig(debugFF(m.io.deq, ~sDeq_latch.io.output.data & Utils.risingEdge(m.io.deqVld)).io.out, s"m.io.deq")
+    connectDbgSig(debugFF(m.io.enq, ~sEnq_latch.io.output.data & Utils.risingEdge(m.io.enqVld)).io.out, s"m.io.enq")
 
     m
   }
@@ -483,19 +498,19 @@ class MAGCore(
   connectDbgSig(debugCounter((io.dram.rresp.valid & io.dram.rresp.ready)).io.out, "# Read Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "# RResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready).io.out, "Cycles RResp ready and idle (~valid)")
-  (0 until loadStreamInfo.size).map{i => 
+  (0 until loadStreamInfo.size).map{i =>
     val signal = s" # from load stream $i"
     connectDbgSig(debugCounter(io.dram.rresp.valid & io.dram.rresp.ready & (getStreamId(io.dram.rresp.bits.streamId) === i.U)).io.out, signal)
   }
   connectDbgSig(debugCounter((io.dram.wresp.valid & io.dram.wresp.ready)).io.out, "# Write Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.wresp.valid & ~io.dram.wresp.ready).io.out, "# WResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.wresp.valid & io.dram.wresp.ready).io.out, "Cycles WResp ready and idle (~valid)")
-  (0 until storeStreamInfo.size).map{i => 
+  (0 until storeStreamInfo.size).map{i =>
     val signal = s" # from store stream $i"
     connectDbgSig(debugCounter(io.dram.wresp.valid & io.dram.wresp.ready & (io.dram.wresp.bits.streamId === (i+loadStreamInfo.length).U)).io.out, signal)
   }
 
-  denseLoadBuffers.zipWithIndex foreach { case (b,i) => 
+  denseLoadBuffers.zipWithIndex foreach { case (b,i) =>
     connectDbgSig(debugCounter(b.io.full).io.out, "(load) fifo converter " + i + " # cycles full")
     connectDbgSig(debugCounter(b.io.almostFull).io.out, "(load) fifo converter " + i + " # cycles almostFull")
     connectDbgSig(debugCounter(b.io.empty).io.out, "(load) fifo converter " + i + " # cycles empty")
@@ -506,8 +521,8 @@ class MAGCore(
   }
   connectDbgSig(debugCounter(getStreamId(io.dram.rresp.bits.streamId) >= denseLoadBuffers.length.U).io.out, "(load) # cycles streamId >= last")
   connectDbgSig(debugFF(getStreamId(io.dram.rresp.bits.streamId), io.dram.rresp.valid).io.out, "(load) last streamId")
-  
-  denseStoreBuffers.zipWithIndex foreach { case (b,i) => 
+
+  denseStoreBuffers.zipWithIndex foreach { case (b,i) =>
     connectDbgSig(debugCounter(b.io.full).io.out, "(store) fifo converter " + i + " # cycles full")
     connectDbgSig(debugCounter(b.io.almostFull).io.out, "(store) fifo converter " + i + " # cycles almostFull")
     connectDbgSig(debugCounter(b.io.empty).io.out, "(store) fifo converter " + i + " # cycles empty")
@@ -521,8 +536,8 @@ class MAGCore(
 
   connectDbgSig(wdataCount.io.out, "num wdata transferred (wvalid & wready)")
 
-  // // Connect AXI loopback debuggers
-  // // TOP
+  // // // Connect AXI loopback debuggers
+  // // // TOP
   // connectDbgSig(debugCounter(io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARVALID ")
   // connectDbgSig(debugCounter(io.TOP_AXI.ARREADY).io.out, "# cycles TOP ARREADY")
   // connectDbgSig(debugCounter(io.TOP_AXI.ARREADY & io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARREADY & ARVALID ")
@@ -532,6 +547,8 @@ class MAGCore(
   // connectDbgSig(debugCounter(io.TOP_AXI.RREADY & io.TOP_AXI.RVALID).io.out, "# cycles TOP RREADY & RVALID ")
   // connectDbgSig(debugCounter(io.TOP_AXI.WVALID).io.out, "# cycles TOP WVALID ")
   // connectDbgSig(debugCounter(io.TOP_AXI.WREADY & io.TOP_AXI.WVALID).io.out, "# cycles TOP WREADY & WVALID ")
+  // connectDbgSig(debugCounter(~io.TOP_AXI.WREADY & io.TOP_AXI.WVALID).io.out, "# cycles TOP ~WREADY & WVALID (forced)" )
+  // connectDbgSig(debugCounter(~io.TOP_AXI.WREADY).io.out, "# cycles TOP ~WREADY" )
   // connectDbgSig(debugCounter(io.TOP_AXI.BVALID).io.out, "# cycles TOP BVALID ")
   // connectDbgSig(debugCounter(io.TOP_AXI.BREADY & io.TOP_AXI.BVALID).io.out, "# cycles TOP BREADY & BVALID ")
   // connectDbgSig(debugFF(io.TOP_AXI.ARADDR, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARADDR")
@@ -541,8 +558,9 @@ class MAGCore(
   // connectDbgSig(debugFF(io.TOP_AXI.ARBURST, io.TOP_AXI.ARVALID & io.TOP_AXI.ARREADY).io.out, "Last TOP ARBURST")
   // // connectDbgSig(debugCounter(io.TOP_AXI.ARLOCK).io.out, "# cycles TOP ARLOCK ")
   // connectDbgSig(debugFF(io.TOP_AXI.AWADDR, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWADDR")
+  // connectDbgSig(debugFF(io.TOP_AXI.AWLEN, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWLEN")
 
-  // // DWIDTH
+  // // // DWIDTH
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARREADY).io.out, "# cycles DWIDTH ARREADY ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARREADY & io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARREADY & ARVALID ")
@@ -552,6 +570,8 @@ class MAGCore(
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.RREADY & io.DWIDTH_AXI.RVALID).io.out, "# cycles DWIDTH RREADY & RVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.WVALID).io.out, "# cycles DWIDTH WVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.WREADY & io.DWIDTH_AXI.WVALID).io.out, "# cycles DWIDTH WREADY & WVALID ")
+  // connectDbgSig(debugCounter(~io.DWIDTH_AXI.WREADY & io.DWIDTH_AXI.WVALID).io.out, "# cycles TOP ~WREADY & WVALID (forced)" )
+  // connectDbgSig(debugCounter(~io.DWIDTH_AXI.WREADY).io.out, "# cycles TOP ~WREADY" )
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.BVALID).io.out, "# cycles DWIDTH BVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.BREADY & io.DWIDTH_AXI.BVALID).io.out, "# cycles DWIDTH BREADY & BVALID ")
   // connectDbgSig(debugFF(io.DWIDTH_AXI.ARADDR, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARADDR")
@@ -561,8 +581,9 @@ class MAGCore(
   // connectDbgSig(debugFF(io.DWIDTH_AXI.ARBURST, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARBURST")
   // // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARLOCK).io.out, "# cycles DWIDTH ARLOCK ")
   // connectDbgSig(debugFF(io.DWIDTH_AXI.AWADDR, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWADDR")
+  // connectDbgSig(debugFF(io.DWIDTH_AXI.AWLEN, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWLEN")
 
-  // // DWIDTH
+  // // PROTOCOL
   // connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARVALID).io.out, "# cycles PROTOCOL ARVALID ")
   // connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARREADY).io.out, "# cycles PROTOCOL ARREADY ")
   // connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARREADY & io.PROTOCOL_AXI.ARVALID).io.out, "# cycles PROTOCOL ARREADY & ARVALID ")

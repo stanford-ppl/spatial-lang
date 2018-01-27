@@ -18,6 +18,15 @@ elif [[ $1 = "zcu" ]]; then
 	echo $tid > ${REGRESSION_HOME}/data/tid
 	echo $hash > ${REGRESSION_HOME}/data/hash
 	echo $apphash > ${REGRESSION_HOME}/data/ahash
+elif [[ $1 = "arria10" ]]; then
+	export PIR_HOME=${REGRESSION_HOME}
+	export CLOCK_FREQ_MHZ=125
+	# Prep the spreadsheet
+	cd ${REGRESSION_HOME}
+	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/tid.py "$hash" "$apphash" "$timestamp" "Arria10"`
+	echo $tid > ${REGRESSION_HOME}/data/tid
+	echo $hash > ${REGRESSION_HOME}/data/hash
+	echo $apphash > ${REGRESSION_HOME}/data/ahash
 elif [[ $1 = "aws" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
@@ -48,6 +57,8 @@ else
 		bin/regression 3 nobranch Zynq Dense Sparse
 	elif [[ $1 = "zcu" ]]; then
 		bin/regression 3 nobranch ZCU Dense Sparse
+	elif [[ $1 = "arria10" ]]; then
+		bin/regression 3 nobranch Arria10 Dense Sparse
 	elif [[ $1 = "aws" ]]; then
 		bin/regression 4 nobranch AWS Dense Sparse
 	fi
