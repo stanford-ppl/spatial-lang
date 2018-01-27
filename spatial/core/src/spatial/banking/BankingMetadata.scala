@@ -385,3 +385,10 @@ case class TopController(mapping: Map[Exp[_], Ctrl]) extends Metadata[TopControl
 }
 
 
+case class VerboseBanking(flag: Boolean) extends Metadata[VerboseBanking] {
+  def mirror(f:Tx) = this
+}
+@data object bankVerbose {
+  def get(x: Exp[_]): Boolean = metadata[VerboseBanking](x).exists(_.flag)
+  def apply[T<:MetaAny[T]](x: T): Unit = metadata.add(x.s, VerboseBanking(true))
+}

@@ -28,8 +28,10 @@ object Polytope {
         dbg("Errors:")
         err.foreach{e => dbg(e) }
       }
-      dbg("Got lines: ")
-      lines.foreach{line => dbg(line) }
+      //dbg("Got lines: ")
+      //lines.foreach{line => dbg(line) }
+      dbg(lines.last)
+
       if (lines.contains{"empty"}) true
       else if (lines.contains("elements")) false
       else throw new Exception("Failed isEmpty check")

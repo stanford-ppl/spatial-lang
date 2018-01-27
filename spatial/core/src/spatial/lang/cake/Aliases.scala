@@ -190,5 +190,6 @@ trait SpatialExternalAliases extends SpatialCommonAliases with ArgonExternalAlia
 
   lazy val Math = spatial.lang.Math
   lazy val bound = spatial.metadata.Bound
+  lazy val bankVerbose = spatial.banking.bankVerbose
   lazy val targets = spatial.targets.Targets
 }

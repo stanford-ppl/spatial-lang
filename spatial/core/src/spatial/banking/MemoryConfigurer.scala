@@ -149,6 +149,8 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
 
 
   def configure(): Unit = {
+    val verbose = config.verbosity
+    if (!bankVerbose.get(mem)) config.verbosity = -1
     dbg("")
     dbg("")
     dbg("-----------------------------------")
@@ -160,6 +162,7 @@ class MemoryConfigurer(val mem: Exp[_], val strategy: BankingStrategy)(implicit 
     checkAccesses(readers, writers)
 
     val instances = bank(readers, writers)
+    config.verbosity = verbose
 
     finalize(instances)
   }

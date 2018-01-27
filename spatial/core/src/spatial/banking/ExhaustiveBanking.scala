@@ -126,13 +126,13 @@ class ExhaustiveBanking()(implicit val IR: State) extends BankingStrategy {
         if (grps.forall{grp => checkCyclic(N, alpha,grp,dC)}) {
           banking = Some(ModBanking(N, 1, alpha, dims))
         }
-        else {
+        /*else {
           val B = Bs.find{b =>
             dbg(s"        N=$N, B=$b, alpha=$alpha")
             grps.forall{grp => checkBlockCyclic(N, b, alpha, grp,dBC) }
           }
           banking = B.map{b => ModBanking(N, b, alpha, dims) }
-        }
+        }*/
       }
     }
 
