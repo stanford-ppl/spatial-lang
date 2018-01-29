@@ -37,7 +37,7 @@ class Fringe(
   val v = 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata
+  val d = 32 // FIFO depth: Controls FIFO sizes for address, size, and wdata
   val regWidth = 64 // Force 64-bit registers
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
