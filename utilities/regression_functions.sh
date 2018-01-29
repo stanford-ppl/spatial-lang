@@ -494,6 +494,9 @@ fi" > status.sh
 
 echo "language: c
 notifications:
+  slack:
+    rooms:
+      - plasticine-arch:kRp0KfrygHiq2wCMrcgMogBW#regression
   email:
     recipients: mattfel@stanford.edu
     on_failure: never # default: always

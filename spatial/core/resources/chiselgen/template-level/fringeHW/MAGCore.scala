@@ -48,7 +48,7 @@ class MAGCore(
 
   val numRdataDebug = 2
   val numRdataWordsDebug = 16
-  val numWdataDebug = 0
+  val numWdataDebug = 2
   val numWdataWordsDebug = 16
   val numDebugs = 500
 
@@ -446,6 +446,7 @@ class MAGCore(
   connectDbgSig(cycleCount.io.out, "Cycles")
 
   val rdataEnqCount = debugCounter(io.dram.rresp.valid & io.dram.rresp.ready)
+  val wdataCount = debugCounter(io.dram.wdata.valid & io.dram.wdata.ready & io.enable)
 
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
@@ -454,21 +455,14 @@ class MAGCore(
     }
   }
 
-  val wdataCount = debugCounter(io.enable & wdataValid & wdataReady)
+
   if (io.app.stores.size > 0) {
     // wdata enq values
-    val appWdata0EnqCtr = debugCounter(io.enable & io.app.stores(0).wdata.valid)
-    for (i <- 0 until numWdataDebug) {
-      for (j <- 0 until math.min(io.app.stores(0).wdata.bits.size, numWdataWordsDebug)) {
-        connectDbgSig(debugFF(io.app.stores(0).wdata.bits(j), io.enable & (appWdata0EnqCtr.io.out === i.U)).io.out, s"""wdata_from_accel${i}_$j""")
-      }
-    }
-
-    // wdata values
     for (i <- 0 until numWdataDebug) {
       for (j <- 0 until numWdataWordsDebug) {
-        connectDbgSig(debugFF(Cat(Vec(denseStoreBuffers.map { _.io.fifoSize(15,0) })(cmdArbiter.io.tag), io.dram.wdata.bits.wdata(j)(15, 0)), io.enable & wdataValid & wdataReady & (wdataCount.io.out === i.U)).io.out, s"""wdata_to_dram${i}_$j""")
+        connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""wdata_from_dram${i}_$j""")
       }
+      connectDbgSig(debugFF(wdataMux.io.out.bits.wdata, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""Actual values on wdata.bits""")
     }
   }
 
@@ -536,8 +530,8 @@ class MAGCore(
 
   connectDbgSig(wdataCount.io.out, "num wdata transferred (wvalid & wready)")
 
-  // // // Connect AXI loopback debuggers
-  // // // TOP
+  // // Connect AXI loopback debuggers
+  // // TOP
   // connectDbgSig(debugCounter(io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARVALID ")
   // connectDbgSig(debugCounter(io.TOP_AXI.ARREADY).io.out, "# cycles TOP ARREADY")
   // connectDbgSig(debugCounter(io.TOP_AXI.ARREADY & io.TOP_AXI.ARVALID).io.out, "# cycles TOP ARREADY & ARVALID ")
@@ -559,6 +553,9 @@ class MAGCore(
   // // connectDbgSig(debugCounter(io.TOP_AXI.ARLOCK).io.out, "# cycles TOP ARLOCK ")
   // connectDbgSig(debugFF(io.TOP_AXI.AWADDR, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWADDR")
   // connectDbgSig(debugFF(io.TOP_AXI.AWLEN, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWLEN")
+  // connectDbgSig(debugFF(io.TOP_AXI.WDATA, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY).io.out, "Last TOP WDATA")
+  // connectDbgSig(debugFF(io.TOP_AXI.WDATA, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY & wdataCount.io.out === 0.U).io.out, "First TOP WDATA")
+  // connectDbgSig(debugFF(io.TOP_AXI.WDATA, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY & wdataCount.io.out === 1.U).io.out, "Second TOP WDATA")
 
   // // // DWIDTH
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARVALID ")
@@ -570,8 +567,8 @@ class MAGCore(
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.RREADY & io.DWIDTH_AXI.RVALID).io.out, "# cycles DWIDTH RREADY & RVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.WVALID).io.out, "# cycles DWIDTH WVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.WREADY & io.DWIDTH_AXI.WVALID).io.out, "# cycles DWIDTH WREADY & WVALID ")
-  // connectDbgSig(debugCounter(~io.DWIDTH_AXI.WREADY & io.DWIDTH_AXI.WVALID).io.out, "# cycles TOP ~WREADY & WVALID (forced)" )
-  // connectDbgSig(debugCounter(~io.DWIDTH_AXI.WREADY).io.out, "# cycles TOP ~WREADY" )
+  // connectDbgSig(debugCounter(~io.DWIDTH_AXI.WREADY & io.DWIDTH_AXI.WVALID).io.out, "# cycles DWIDTH ~WREADY & WVALID (forced)" )
+  // connectDbgSig(debugCounter(~io.DWIDTH_AXI.WREADY).io.out, "# cycles DWIDTH ~WREADY" )
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.BVALID).io.out, "# cycles DWIDTH BVALID ")
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.BREADY & io.DWIDTH_AXI.BVALID).io.out, "# cycles DWIDTH BREADY & BVALID ")
   // connectDbgSig(debugFF(io.DWIDTH_AXI.ARADDR, io.DWIDTH_AXI.ARVALID & io.DWIDTH_AXI.ARREADY).io.out, "Last DWIDTH ARADDR")
@@ -582,6 +579,9 @@ class MAGCore(
   // // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARLOCK).io.out, "# cycles DWIDTH ARLOCK ")
   // connectDbgSig(debugFF(io.DWIDTH_AXI.AWADDR, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWADDR")
   // connectDbgSig(debugFF(io.DWIDTH_AXI.AWLEN, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWLEN")
+  // connectDbgSig(debugFF(io.DWIDTH_AXI.WDATA, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY).io.out, "Last DWIDTH WDATA")
+  // connectDbgSig(debugFF(io.DWIDTH_AXI.WDATA, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY & wdataCount.io.out === 0.U).io.out, "First DWIDTH WDATA")
+  // connectDbgSig(debugFF(io.DWIDTH_AXI.WDATA, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY & wdataCount.io.out === 1.U).io.out, "Second DWIDTH WDATA")
 
   // // PROTOCOL
   // connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARVALID).io.out, "# cycles PROTOCOL ARVALID ")

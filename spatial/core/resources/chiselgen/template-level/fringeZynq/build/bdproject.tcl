@@ -153,6 +153,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_wvalid] [get_bd_pins Top_0/io_M_AXI_0_WVALID]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WREADY] [get_bd_pins Top_0/io_TOP_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_wready] [get_bd_pins Top_0/io_M_AXI_0_WREADY]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WDATA] [get_bd_pins Top_0/io_TOP_AXI_WDATA]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_wdata] [get_bd_pins Top_0/io_M_AXI_0_WDATA]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_BVALID] [get_bd_pins Top_0/io_TOP_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_bvalid] [get_bd_pins Top_0/io_M_AXI_0_BVALID]
@@ -196,6 +198,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_DWIDTH_AXI_WDATA]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wdata] [get_bd_pins axi_dwidth_converter_0/m_axi_wdata]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
@@ -379,6 +383,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_wvalid] [get_bd_pins Top_0/io_M_AXI_0_WVALID]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WREADY] [get_bd_pins Top_0/io_TOP_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_wready] [get_bd_pins Top_0/io_M_AXI_0_WREADY]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WDATA] [get_bd_pins Top_0/io_TOP_AXI_WDATA]
+    connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_wdata] [get_bd_pins Top_0/io_M_AXI_0_WDATA]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_BVALID] [get_bd_pins Top_0/io_TOP_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_bvalid] [get_bd_pins Top_0/io_M_AXI_0_BVALID]
@@ -423,6 +429,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_DWIDTH_AXI_WDATA]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wdata] [get_bd_pins axi_dwidth_converter_0/m_axi_wdata]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
@@ -463,6 +471,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WVALID] [get_bd_pins axi_protocol_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wready] [get_bd_pins Top_0/io_PROTOCOL_AXI_WREADY]
     connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WREADY] [get_bd_pins axi_protocol_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_PROTOCOL_AXI_WDATA]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WDATA] [get_bd_pins axi_protocol_converter_0/m_axi_wdata]
 
     connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_PROTOCOL_AXI_BVALID]
     connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_BVALID] [get_bd_pins axi_protocol_converter_0/m_axi_bvalid]
