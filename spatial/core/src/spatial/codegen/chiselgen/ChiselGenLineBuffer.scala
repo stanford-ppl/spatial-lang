@@ -80,7 +80,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         val empty_stages_to_buffer = {bufferControlInfo(lhs, i).length - 1} max 1 // TODO: min 1 in case lca is sequential
         val row_rPar = mem match { case BankedMemory(dims, depth, isAccum) => dims.head.banks; case _ => 1 } // Could be wrong
         val accessors = bufferControlInfo(lhs, 0).length
-        val numWriters = writersOf(lhs).length
+        val numWriters = nonTransientWrites.length
         val width = bitWidth(lhs.tp.typeArguments.head)
         emitGlobalModule(src"""val ${lhs}_$i = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, ${empty_stages_to_buffer}, ${getConstValue(stride)},
           ${col_wPar}, ${col_rPar}, ${col_banks},
@@ -107,13 +107,11 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
         val ii = dispatch.head
         val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
+        val dStr = (0 until data.length).map{i => (0 until stride).map{j => src"${data(i)}.r"}}.flatten.mkString("List(",",",")")
         val enStr = (0 until stride).map{r => 
-        //   data.zipWithIndex.foreach { case (d, i) =>
-        //     emit(src"${lb}_$ii.io.data_in(${r} * ${data.length} + $i) := ${d}.raw")
-        //   }
           src"""${ens.map{en => src"$en"}.mkString("&")} & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", enableRetimeMatch(ens.head, lhs), true)} & ${row} === ${r}.U(${row}.getWidth.W)"""
         }.mkString("List(",",",")")
-        emit(src"${lb}_$ii.connectWPort(${data.map(quote).mkString("List(", ".r ,", ".r)")}, $enStr)")
+        emit(src"${lb}_$ii.connectWPort(${dStr}, $enStr)")
       } else {
         val dispatch = dispatchOf(lhs, lb).toList.distinct
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }

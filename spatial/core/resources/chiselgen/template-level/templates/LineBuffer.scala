@@ -160,7 +160,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       }
       if (transientPar != 0) {
         linebuffer(i).io.w(j).addr(0) := Mux(io.w_en.last, px_transient, MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing))
-        linebuffer(i).io.w(j).data := Mux(io.w_en.last, io.data_in(col_wPar*rstride + j), MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing))
+        linebuffer(i).io.w(j).data := Mux(io.w_en.last, io.data_in(col_wPar*rstride*numWriters + j), MuxLookup(i.U(wCRN_width.W), 0.U, wdata_muxing))
         linebuffer(i).io.w(j).en := Mux(io.w_en.last, true.B & (i.U(wCRN_width.W) === transient_row), true.B & MuxLookup(i.U(wCRN_width.W), false.B, wen_muxing))
       } else {
         linebuffer(i).io.w(j).addr(0) := MuxLookup(i.U(wCRN_width.W), 0.U, waddr_muxing)

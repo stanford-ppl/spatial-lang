@@ -88,8 +88,16 @@ else
 fi
 
 
-endtime=`cat \`pwd\`/end.log`
-starttime=`cat \`pwd\`/start.log`
+if [[ -f `pwd`/end.log ]]; then
+  endtime=`cat \`pwd\`/end.log`
+else
+  endtime=1
+fi
+if [[ -f `pwd`/start.log ]]; then
+  starttime=`cat \`pwd\`/start.log`
+else
+  starttime=0
+fi
 synthtime=$((endtime-starttime))
 
 echo "LUT: $lutraw (${lutpcnt}%) Regs: $regraw (${regpcnt}%) BRAM: $ramraw (${rampcnt}%) URAM: $uramraw (${urampcnt}%) DSP: $dspraw (${dsppcnt}%) LaL: $lalraw (${lalpcnt}%) LaM: $lamraw (${lampcnt}%) Synthtime: $synthtime Tmg_Met: $tmg $1"
