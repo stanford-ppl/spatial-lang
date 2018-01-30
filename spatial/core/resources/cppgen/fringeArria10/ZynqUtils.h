@@ -1,5 +1,5 @@
-#ifndef __ARRIA10_UTILS_H__
-#define __ARRIA10_UTILS_H__
+#ifndef __ZYNQ_UTILS_H__
+#define __ZYNQ_UTILS_H__
 
 #include <arpa/inet.h>
 #include <time.h>
@@ -8,7 +8,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-typedef unsigned int u32;
+typedef unsigned long u32;
+
 
 // Bit masks and positions - Command register
 #define MREAD(val, mask) (((val) & (mask)) >> __builtin_ctz(mask))
@@ -49,4 +50,4 @@ u32 Xil_In32(u32 Addr);
 void Xil_Out32(u32 OutAddress, u32 Value);
 double getTime();
 
-#endif 
+#endif  // ifndef __ZYNQ_UTILS_H__

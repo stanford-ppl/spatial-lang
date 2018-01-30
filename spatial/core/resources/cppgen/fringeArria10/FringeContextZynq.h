@@ -2,7 +2,7 @@
 #define __FRINGE_CONTEXT_ZYNQ_H__
 
 #include "FringeContextBase.h"
-#include "Arria10AddressMap.h"
+#include "ZynqAddressMap.h"
 #include "ZynqUtils.h"
 #include <cstring>
 #include <stdlib.h>
@@ -23,14 +23,14 @@
 #define USE_PHYS_ADDR
 
 /**
- * Arria10 Fringe Context
+ * Zynq Fringe Context
  */
 
 extern "C" {
   void __clear_cache(char* beg, char* end);
 }
 
-class FringeContextArria10 : public FringeContextBase<void> {
+class FringeContextZynq : public FringeContextBase<void> {
 
   const uint32_t burstSizeBytes = 64;
   int fd = 0;
@@ -99,7 +99,7 @@ public:
   uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
 
-  FringeContextArria10(std::string path = "") : FringeContextBase(path) {
+  FringeContextZynq(std::string path = "") : FringeContextBase(path) {
     bitfile = path;
 
     // open /dev/mem file
@@ -361,7 +361,7 @@ public:
     EPRINTF(" **************************\n");
   }
 
-  ~FringeContextArria10() {
+  ~FringeContextZynq() {
     // dumpDebugRegs();
   }
 };

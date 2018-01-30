@@ -3,7 +3,7 @@ CC=g++
 CFLAGS=-DARRIA10 -std=c++11 -Wall -c -g -O0 -ftree-vectorize
 LDFLAGS=
 LDLIBS=-L /usr/lib
-SOURCES=Top.cpp Arria10Utils.cpp
+SOURCES=Top.cpp ZynqUtils.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=Top
 

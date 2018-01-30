@@ -278,14 +278,14 @@ arria10-hw:
 	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
 	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}
 	# TODO: mannually create the link
-	cd ${ARRIA10_V_DIR} && if [[ -L ghrd_10as066n2 ]]; then rm ghrd_10as066n2; fi && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && if [[ -L pr_base_static.qdb ]]; then rm pr_base_static.qdb; fi && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && if [[ -d output_files ]]; then rm -rf output_files; fi && mkdir output_files && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
+	cd ${ARRIA10_V_DIR} && if [[ -L ghrd_10as066n2 ]]; then rm ghrd_10as066n2; fi && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && if [[ -L pr_base_static.qdb ]]; then rm pr_base_static.qdb; fi && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && if [[ -d output_files ]]; then rm -rf output_files; fi && mkdir output_files && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof && ln -s ${GHRD_DIR}/output_files/pr_base.static.msf ./output_files/pr_base.static.msf && ln -s ${GHRD_DIR}/output_files/pr_base.pr_region.pmsf ./output_files/pr_base.pr_region.pmsf
 	cd ${ARRIA10_V_DIR} && bash fit.sh
 
 arria10-sw:
 	cp scripts/arria10.mk cpp/Makefile
-	cp cpp/cpptypes.h cpp/datastructures
-	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
-	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
+	# cp cpp/cpptypes.h cpp/datastructures
+	# cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	# cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
 	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./ && cp ./cpp/Top ./

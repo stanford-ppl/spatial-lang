@@ -16,10 +16,8 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
 
   val size = io.in.cmd.bits.size
   // AR
-  val id = Cat(io.in.cmd.bits.streamId, io.in.cmd.bits.tag((p.idBits - tagWidth)-1, 0)) // Fill(p.idBits - tagWidth,  0.U))
-//  io.M_AXI.ARID     := 0.U
+  val id = io.in.cmd.bits.tag.asUInt()
   io.M_AXI.ARID     := id // Used to be shift registered
-  io.M_AXI.ARUSER   := io.in.cmd.bits.streamId // Used to be shift registered
   io.M_AXI.ARADDR   := io.in.cmd.bits.addr // Used to be shift registered
   io.M_AXI.ARLEN    := size - 1.U // Used to be shift registered
   io.M_AXI.ARSIZE   := 6.U  // 110, for 64-byte burst size
@@ -32,9 +30,7 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.in.cmd.ready   := Mux(io.in.cmd.bits.isWr, io.M_AXI.AWREADY, io.M_AXI.ARREADY) // Used to be shift registered
 
   // AW
-//  io.M_AXI.AWID     := 0.U
   io.M_AXI.AWID     := id // Used to be shift registered
-  io.M_AXI.AWUSER   := io.in.cmd.bits.streamId // Used to be shift registered
   io.M_AXI.AWADDR   := io.in.cmd.bits.addr // Used to be shift registered
   io.M_AXI.AWLEN    := size - 1.U // Used to be shift registered
   io.M_AXI.AWSIZE   := 6.U  // 110, for 64-byte burst size
@@ -53,15 +49,11 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.in.wdata.ready := io.M_AXI.WREADY // Used to be shift registered
 
   // R
-//  io.M_AXI.RID  // Not using this
   val rdataAsVec = Vec(List.tabulate(16) { i =>
       io.M_AXI.RDATA(512 - 1 - i*32, 512 - 1 - i*32 - 31)
   }.reverse)
   io.in.rresp.bits.rdata := rdataAsVec // Used to be shift registered
 
-//  io.M_AXI.RRESP
-//  io.M_AXI.RLAST
-////  io.M_AXI.RUSER
   io.M_AXI.RREADY := io.in.rresp.ready // Used to be shift registered
 
   // B
@@ -71,15 +63,6 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.in.rresp.valid := io.M_AXI.RVALID // Used to be shift registered
   io.in.wresp.valid := io.M_AXI.BVALID // Used to be shift registered
 
-  // Construct the response tag, with streamId in the MSB
-  io.in.rresp.bits.streamId := io.M_AXI.RID(io.M_AXI.RID.getWidth-1, p.idBits - tagWidth) // Used to be shift registered
-  io.in.wresp.bits.streamId := io.M_AXI.BID(io.M_AXI.RID.getWidth-1, p.idBits - tagWidth) // Used to be shift registered
-  // // [sic]
-  // io.in.rresp.bits.streamId := io.M_AXI.RID // Used to be shift registered
-  // io.in.wresp.bits.streamId := io.M_AXI.BID // Used to be shift registered
-
-//  io.in.rresp.bits.tag := Cat(io.M_AXI.RID(tagWidth-1, 0), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U)) // Used to be shift registered
-//  io.in.wresp.bits.tag := Cat(io.M_AXI.BID(tagWidth-1, 0), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U)) // Used to be shift registered
-  io.in.rresp.bits.tag := Cat(io.M_AXI.RID(p.idBits - 1, p.idBits - tagWidth), Fill(io.in.rresp.bits.tag.getWidth - tagWidth,  0.U)) // Used to be shift registered
-  io.in.wresp.bits.tag := Cat(io.M_AXI.BID(p.idBits - 1, p.idBits - tagWidth), Fill(io.in.wresp.bits.tag.getWidth - tagWidth,  0.U)) // Used to be shift registered
+  io.in.rresp.bits.tag := io.M_AXI.RID.asTypeOf(new DRAMCommandTag(32))
+  io.in.wresp.bits.tag := io.M_AXI.BID.asTypeOf(new DRAMCommandTag(32))
 }

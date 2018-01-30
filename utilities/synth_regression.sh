@@ -29,7 +29,7 @@ elif [[ $1 = "arria10" ]]; then
 	echo $apphash > ${REGRESSION_HOME}/data/ahash
 elif [[ $1 = "aws" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
-	export CLOCK_FREQ_MHZ=125
+	export CLOCK_FREQ_MHZ=250
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
 	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/tid.py "$hash" "$apphash" "$timestamp" "AWS"`

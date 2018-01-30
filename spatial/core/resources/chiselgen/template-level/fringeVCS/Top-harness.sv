@@ -1,11 +1,11 @@
 module test;
-  import "DPI" context function void sim_init();
-  import "DPI" context function int tick();
-  import "DPI" context function int sendDRAMRequest(longint addr, longint rawAddr, int size, int streamId, int tag, int isWr, int isSparse);
-  import "DPI" context function int sendWdata(int streamId, int dramCmdValid, int dramReadySeen, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
-  import "DPI" context function void popDRAMReadQ();
-  import "DPI" context function void popDRAMWriteQ();
-  import "DPI" context function void readOutputStream(int data, int tag, int last);
+  import "DPI" function void sim_init();
+  import "DPI" function int tick();
+  import "DPI" function int sendDRAMRequest(longint addr, longint rawAddr, int size, int tag_uid, int tag_streamId, int isWr);
+  import "DPI" function int sendWdata(int dramCmdValid, int dramReadySeen, int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15);
+  import "DPI" function void popDRAMReadQ();
+  import "DPI" function void popDRAMWriteQ();
+  import "DPI" function void readOutputStream(int data, int tag, int last);
 
   // Export functionality to C layer
   export "DPI" function start;
@@ -66,14 +66,12 @@ module test;
   wire [31:0] io_dram_0_cmd_bits_size;
   wire [63:0] io_dram_0_cmd_bits_rawAddr;
   wire  io_dram_0_cmd_bits_isWr;
-  wire  io_dram_0_cmd_bits_isSparse;
   wire  io_dram_0_cmd_bits_dramReadySeen;
   wire  io_dram_0_wdata_valid;
   wire  io_dram_0_wdata_bits_wlast;
   reg io_dram_0_wdata_ready;
-  wire [31:0] io_dram_0_cmd_bits_streamId;
-  wire [31:0] io_dram_0_cmd_bits_tag;
-  wire [31:0] io_dram_0_wdata_bits_streamId;
+  wire [25:0] io_dram_0_cmd_bits_tag_uid;
+  wire [5:0] io_dram_0_cmd_bits_tag_streamId;
   wire [31:0] io_dram_0_wdata_bits_wdata_0;
   wire [31:0] io_dram_0_wdata_bits_wdata_1;
   wire [31:0] io_dram_0_wdata_bits_wdata_2;
@@ -109,12 +107,12 @@ module test;
   reg  [31:0] io_dram_0_rresp_bits_rdata_13;
   reg  [31:0] io_dram_0_rresp_bits_rdata_14;
   reg  [31:0] io_dram_0_rresp_bits_rdata_15;
-  reg  [31:0] io_dram_0_rresp_bits_tag;
-  reg  [31:0] io_dram_0_rresp_bits_streamId;
+  reg  [25:0] io_dram_0_rresp_bits_tag_uid;
+  reg  [5:0] io_dram_0_rresp_bits_tag_streamId;
   wire        io_dram_0_wresp_ready;
   reg         io_dram_0_wresp_valid;
-  reg  [31:0] io_dram_0_wresp_bits_tag;
-  reg  [31:0] io_dram_0_wresp_bits_streamId;
+  reg  [25:0] io_dram_0_wresp_bits_tag_uid;
+  reg  [5:0] io_dram_0_wresp_bits_tag_streamId;
 
 //  wire        io_genericStreamIn_ready;
 //  reg         io_genericStreamIn_valid;
@@ -143,11 +141,9 @@ module test;
     .io_dram_0_cmd_bits_rawAddr(io_dram_0_cmd_bits_rawAddr),
     .io_dram_0_cmd_bits_size(io_dram_0_cmd_bits_size),
     .io_dram_0_cmd_bits_isWr(io_dram_0_cmd_bits_isWr),
-    .io_dram_0_cmd_bits_isSparse(io_dram_0_cmd_bits_isSparse),
     .io_dram_0_cmd_bits_dramReadySeen(io_dram_0_cmd_bits_dramReadySeen),
-    .io_dram_0_cmd_bits_tag(io_dram_0_cmd_bits_tag),
-    .io_dram_0_cmd_bits_streamId(io_dram_0_cmd_bits_streamId),
-    .io_dram_0_wdata_bits_streamId(io_dram_0_wdata_bits_streamId),
+    .io_dram_0_cmd_bits_tag_uid(io_dram_0_cmd_bits_tag_uid),
+    .io_dram_0_cmd_bits_tag_streamId(io_dram_0_cmd_bits_tag_streamId),
     .io_dram_0_wdata_bits_wlast(io_dram_0_wdata_bits_wlast),
     .io_dram_0_wdata_bits_wdata_0(io_dram_0_wdata_bits_wdata_0),
     .io_dram_0_wdata_bits_wdata_1(io_dram_0_wdata_bits_wdata_1),
@@ -186,12 +182,12 @@ module test;
     .io_dram_0_rresp_bits_rdata_13(io_dram_0_rresp_bits_rdata_13),
     .io_dram_0_rresp_bits_rdata_14(io_dram_0_rresp_bits_rdata_14),
     .io_dram_0_rresp_bits_rdata_15(io_dram_0_rresp_bits_rdata_15),
-    .io_dram_0_rresp_bits_tag(io_dram_0_rresp_bits_tag),
-    .io_dram_0_rresp_bits_streamId(io_dram_0_rresp_bits_streamId),
+    .io_dram_0_rresp_bits_tag_uid(io_dram_0_rresp_bits_tag_uid),
+    .io_dram_0_rresp_bits_tag_streamId(io_dram_0_rresp_bits_tag_streamId),
     .io_dram_0_wresp_ready(io_dram_0_wresp_ready),
     .io_dram_0_wresp_valid(io_dram_0_wresp_valid),
-    .io_dram_0_wresp_bits_tag(io_dram_0_wresp_bits_tag),
-    .io_dram_0_wresp_bits_streamId(io_dram_0_wresp_bits_streamId)
+    .io_dram_0_wresp_bits_tag_uid(io_dram_0_wresp_bits_tag_uid),
+    .io_dram_0_wresp_bits_tag_streamId(io_dram_0_wresp_bits_tag_streamId)
 //    .io_genericStreamIn_ready(io_genericStreamIn_ready),
 //    .io_genericStreamIn_valid(io_genericStreamIn_valid),
 //    .io_genericStreamIn_bits_data(io_genericStreamIn_bits_data),
@@ -248,8 +244,8 @@ module test;
   endfunction
 
   function void pokeDRAMReadResponse(
-    input int tag,
-    input int streamId,
+    input int tag_uid,
+    input int tag_streamId,
     input int rdata0,
     input int rdata1,
     input int rdata2,
@@ -268,8 +264,8 @@ module test;
     input int rdata15
   );
     io_dram_0_rresp_valid = 1;
-    io_dram_0_rresp_bits_tag = tag;
-    io_dram_0_rresp_bits_streamId = streamId;
+    io_dram_0_rresp_bits_tag_uid = tag_uid;
+    io_dram_0_rresp_bits_tag_streamId = tag_streamId;
     io_dram_0_rresp_bits_rdata_0 = rdata0;
     io_dram_0_rresp_bits_rdata_1 = rdata1;
     io_dram_0_rresp_bits_rdata_2 = rdata2;
@@ -289,12 +285,12 @@ module test;
   endfunction
 
   function void pokeDRAMWriteResponse(
-    input int tag,
-    input int streamId
+    input int tag_uid,
+    input int tag_streamId
   );
     io_dram_0_wresp_valid = 1;
-    io_dram_0_wresp_bits_tag = tag;
-    io_dram_0_wresp_bits_streamId = streamId;
+    io_dram_0_wresp_bits_tag_uid = tag_uid;
+    io_dram_0_wresp_bits_tag_streamId = tag_streamId;
   endfunction
 
 
@@ -352,16 +348,14 @@ module test;
         io_dram_0_cmd_bits_addr,
         io_dram_0_cmd_bits_rawAddr,
         io_dram_0_cmd_bits_size,
-        io_dram_0_cmd_bits_streamId,
-        io_dram_0_cmd_bits_tag,
-        io_dram_0_cmd_bits_isWr,
-        io_dram_0_cmd_bits_isSparse
+        io_dram_0_cmd_bits_tag_uid,
+        io_dram_0_cmd_bits_tag_streamId,
+        io_dram_0_cmd_bits_isWr
       );
     end
 
     if (io_dram_0_wdata_valid & io_dram_0_wdata_ready) begin
       sendWdata(
-        io_dram_0_wdata_bits_streamId,
         io_dram_0_cmd_valid,
         io_dram_0_cmd_bits_dramReadySeen,
         io_dram_0_wdata_bits_wdata_0,
