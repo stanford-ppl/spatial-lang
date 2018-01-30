@@ -9,7 +9,15 @@
 #include "FringeContextSim.h"
 typedef FringeContextSim FringeContext;
 
-#elif defined ARRIA10 
+#elif defined ZYNQ
+#include "FringeContextZynq.h"
+typedef FringeContextZynq FringeContext;
+
+#elif defined ZCU
+#include "FringeContextZynq.h"
+typedef FringeContextZynq FringeContext;
+
+#elif defined ARRIA10
 #include "FringeContextArria10.h"
 typedef FringeContextArria10 FringeContext;
 #endif

@@ -1,16 +1,5 @@
 <sld_project_info>
   <sld_infos>
-    <sld_info hpath="auto_fab_0" name="auto_fab_0">
-      <assignment_values>
-        <assignment_value text="QSYS_NAME alt_sld_fab_0 HAS_SOPCINFO 1 GENERATION_ID 0 ENTITY_NAME alt_sld_fab SLD_FAB 1 DESIGN_HASH b98263543a7c648cb7b1"/>
-      </assignment_values>
-    </sld_info>
-    <sld_info hpath="soc_inst" library="ghrd_10as066n2" name="soc_inst">
-      <assignment_values>
-        <assignment_value text="QSYS_NAME ghrd_10as066n2 HAS_SOPCINFO 1 GENERATION_ID 0"/>
-        <assignment_value text="QSYS_NAME ghrd_10as066n2 HAS_SOPCINFO 1 GENERATION_ID 0"/>
-      </assignment_values>
-    </sld_info>
     <sld_info hpath="soc_inst|sys_id" library="ghrd_10as066n2_sys_id" name="sys_id">
       <assignment_values>
         <assignment_value text="QSYS_NAME ghrd_10as066n2_sys_id HAS_SOPCINFO 1 GENERATION_ID 1509046992"/>
@@ -112,9 +101,15 @@
         <assignment_value text="QSYS_NAME ghrd_10as066n2_ILC HAS_SOPCINFO 1 GENERATION_ID 0"/>
       </assignment_values>
     </sld_info>
-    <sld_info hpath="soc_inst|default_0" library="pr_region_default" name="">
+    <sld_info hpath="auto_fab_0" name="auto_fab_0">
       <assignment_values>
-        <assignment_value text="QSYS_NAME pr_region_default HAS_SOPCINFO 1 GENERATION_ID 0"/>
+        <assignment_value text="QSYS_NAME alt_sld_fab_0 HAS_SOPCINFO 1 GENERATION_ID 0 ENTITY_NAME alt_sld_fab SLD_FAB 1 DESIGN_HASH b98263543a7c648cb7b1"/>
+      </assignment_values>
+    </sld_info>
+    <sld_info hpath="soc_inst" library="ghrd_10as066n2" name="soc_inst">
+      <assignment_values>
+        <assignment_value text="QSYS_NAME ghrd_10as066n2 HAS_SOPCINFO 1 GENERATION_ID 0"/>
+        <assignment_value text="QSYS_NAME ghrd_10as066n2 HAS_SOPCINFO 1 GENERATION_ID 0"/>
       </assignment_values>
     </sld_info>
     <sld_info hpath="soc_inst|default_0|sysid" library="pr_region_default_sysid_qsys_0" name="sysid">
@@ -140,6 +135,11 @@
     <sld_info hpath="soc_inst|default_0|top_0" library="pr_region_default_Top_0" name="top_0">
       <assignment_values>
         <assignment_value text="QSYS_NAME pr_region_default_Top_0 HAS_SOPCINFO 1 GENERATION_ID 0"/>
+      </assignment_values>
+    </sld_info>
+    <sld_info hpath="soc_inst|default_0" library="pr_region_default" name="">
+      <assignment_values>
+        <assignment_value text="QSYS_NAME pr_region_default HAS_SOPCINFO 1 GENERATION_ID 0"/>
       </assignment_values>
     </sld_info>
   </sld_infos>
