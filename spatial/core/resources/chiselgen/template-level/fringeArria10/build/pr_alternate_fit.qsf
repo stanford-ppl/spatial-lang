@@ -289,11 +289,11 @@ set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_instance_assignment -name PARTITION pr_region -to soc_inst|default_0 -entity ghrd_a10_top
 set_instance_assignment -name PARTITION_COLOUR 4278255487 -to soc_inst|default_0 -entity ghrd_a10_top
 set_instance_assignment -name PARTIAL_RECONFIGURATION_PARTITION ON -to soc_inst|default_0 -entity ghrd_a10_top
-set_instance_assignment -name PLACE_REGION "X10 Y115 X49 Y164" -to soc_inst|default_0
+set_instance_assignment -name PLACE_REGION "X1 Y1 X130 Y210" -to soc_inst|default_0
 set_instance_assignment -name RESERVE_PLACE_REGION ON -to soc_inst|default_0
 set_instance_assignment -name CORE_ONLY_PLACE_REGION ON -to soc_inst|default_0
 set_instance_assignment -name REGION_NAME pr_region -to soc_inst|default_0
-set_instance_assignment -name ROUTE_REGION "X9 Y114 X50 Y165" -to soc_inst|default_0
+set_instance_assignment -name ROUTE_REGION "X0 Y0 X131 Y211" -to soc_inst|default_0
 set_global_assignment -name VERILOG_FILE SRAMVerilogAWS.v
 set_global_assignment -name SYSTEMVERILOG_FILE RetimeShiftRegister.sv
 set_global_assignment -name IP_FILE ip/pr_region_default/pr_region_default_Top_0.ip

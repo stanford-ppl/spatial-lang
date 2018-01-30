@@ -25,9 +25,9 @@ int main(int argc, char ** argv)
   printf("virtualBase = 0x%x\n", (unsigned int)virtualBase);
 
   // read back 64 locations
-  int *memIntPtr = (int *)virtualBase;
+  int *memIntPtr = (int *)(virtualBase + 0x4340);
   int i;
-  int range = 128;
+  int range = 32;
   for (i = 0; i < range; i ++)
   {
     int *currPtr = memIntPtr + i;

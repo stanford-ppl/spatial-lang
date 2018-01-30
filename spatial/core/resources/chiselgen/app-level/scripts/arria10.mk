@@ -22,8 +22,8 @@ OBJECTS=$(SOURCES:.cpp=.o)
 
 DEFINES=$(OBJECTS:.o=.d)
 
-CXXFLAGS=-DARRIA10 -D__DELITE_CPP_STANDALONE__  -D__USE_STD_STRING__ -std=c++11
-LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm -static
+CXXFLAGS=-DARRIA10 -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__ -std=c++11 -O0 -g -marm -march=armv7-a -mcpu=cortex-a9
+LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm
 
 all: pre-build-checks Top
 
