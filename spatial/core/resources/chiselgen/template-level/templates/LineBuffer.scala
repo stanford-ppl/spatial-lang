@@ -27,15 +27,15 @@ import chisel3.util.MuxLookup
 // col_rPar == stride
 class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buffer: Int, val rstride: Int, 
   val col_wPar: Int, val col_rPar:Int, val col_banks: Int, 
-  val row_wPar: Int, val row_rPar:Int, val transientPar: Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
+  val numWriters: Int, val row_rPar:Int, val transientPar: Int, val numAccessors: Int, val bitWidth: Int = 32) extends Module {
 
   def this(tuple: (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)) = this(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6, tuple._7, tuple._8, tuple._9, tuple._10, tuple._11)
 
   val extra_rows_to_buffer = empty_stages_to_buffer * rstride
 
   val io = IO(new Bundle {
-    val data_in  = Vec(col_wPar*rstride+transientPar, Input(UInt(bitWidth.W)))
-    val w_en     = Vec(rstride+{if (transientPar != 0) 1 else 0}, Input(Bool()))
+    val data_in  = Vec(col_wPar*rstride*numWriters+transientPar, Input(UInt(bitWidth.W)))
+    val w_en     = Vec(rstride*numWriters+{if (transientPar != 0) 1 else 0}, Input(Bool()))
     // val r_en     = Input(UInt(1.W))
     // val w_done   = Input(UInt(1.W))
 
@@ -107,7 +107,7 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // Inner counter over row width -- keep track of write address in current row
   val WRITE_countRowPx = (0 until rstride).map{ i =>
     val cnt = Module(new SingleCounter(col_wPar, Some(0), Some(line_size), Some(1), Some(0)))
-    cnt.io.input.enable := io.w_en(i)
+    cnt.io.input.enable := (0 until numWriters).map{j => io.w_en(j*rstride + i)}.reduce{_||_}
     cnt.io.input.reset := io.reset | swap
     cnt.io.input.saturate := false.B
     cnt.io.input.start := 0.S
@@ -144,12 +144,16 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // Write data_in into line buffer
   for (i <- 0 until (num_lines + extra_rows_to_buffer)) {
     val wen_muxing = (Array.tabulate(rstride)){ ii =>
-      ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> io.w_en(ii))
+      val wen = (0 until numWriters).map{jj => io.w_en(jj*rstride + ii)}.reduce{_||_}
+      ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> wen)
     }
     for (j <- 0 until col_wPar) {
       // Figure out which input to draw 
       val wdata_muxing = (Array.tabulate(rstride)){ ii =>
-        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> io.data_in(ii * col_wPar + j))
+        val data_options = (0 until numWriters).map{jj => io.data_in(ii * col_wPar + j + (jj*col_wPar*rstride) )}
+        val selector = (0 until numWriters).map{jj => io.w_en(jj*rstride + ii)}
+        val data = chisel3.util.Mux1H(selector, data_options)
+        ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> data)
       }
       val waddr_muxing = (Array.tabulate(rstride)){ ii =>
         ((WRITE_countRowNum(ii).io.output.count + transient_row).%-%((num_lines+extra_rows_to_buffer).U, Some(0.0)) -> WRITE_countRowPx(ii).io.output.count(j).asUInt)
@@ -227,6 +231,21 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
       io.sDone(port) := done
       usedPorts = usedPorts :+ port
     }
+  }
+
+  var dPort = 0
+  var ePort = 0
+  def connectWPort(data: List[UInt], en: List[Bool]) {
+    data.foreach{ d => 
+      io.data_in(dPort) := d
+      dPort = dPort + 1
+    }
+    en.foreach{ e =>
+      io.w_en(ePort) := e
+      ePort = ePort + 1
+    }
+    
+
   }
 
   def lockUnusedCtrl() {
