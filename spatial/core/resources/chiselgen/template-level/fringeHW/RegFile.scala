@@ -58,7 +58,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
 
   val regs = List.tabulate(d) { i =>
     val id = i // ZCU hack used to be i * 2
-    val ff = Module(new FF(w))
+    val ff = Module(new FF(UInt(w.W)))
     if ((argOutRange contains i) & (argInRange contains i)) {
       ff.io.enable := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wen & (io.waddr === id.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
       ff.io.in := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)
@@ -100,7 +100,7 @@ class RegFilePure[T <: Data](val t: T, val d: Int) extends Module {
   })
 
   val regs = List.tabulate(d) { i =>
-    val ff = Module(new FFType(t))
+    val ff = Module(new FF(t))
     ff.io.in := io.wdata
     ff.io.enable := io.wen & (io.waddr === i.U)
     ff.io.init := (0.U).asTypeOf(t)

@@ -92,7 +92,7 @@ class MAGCore(
       case u: UInt => u
     }
 
-    val ff = Module(new FF(sig.getWidth))
+    val ff = Module(new FF(UInt(sig.getWidth.W)))
     ff.io.init := Cat("hBADF".U, dbgCount.U)
     ff.io.in := in
     ff.io.enable := en
@@ -135,8 +135,8 @@ class MAGCore(
   val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
   cmdAddr.bits := cmdHead.addr
 
-  val cmdRead = io.enable & ~cmdArbiter.io.empty & ~cmdHead.isWr
-  val cmdWrite = io.enable & ~cmdArbiter.io.empty & cmdHead.isWr
+  val cmdRead = io.enable & cmdArbiter.io.deqReady & ~cmdHead.isWr
+  val cmdWrite = io.enable & cmdArbiter.io.deqReady & cmdHead.isWr
 
   val rrespTag = io.dram.rresp.bits.tag
   val wrespTag = io.dram.wresp.bits.tag
@@ -420,7 +420,7 @@ class MAGCore(
   burstTagCounter.io.saturate := false.B
 
 
-  val dramReadyFF = Module(new FFType(UInt(1.W)))
+  val dramReadyFF = Module(new FF(Bool()))
   dramReadyFF.io.init := 0.U
   dramReadyFF.io.enable := burstCounter.io.done | (dramValid  & io.dram.cmd.bits.isWr)
   dramReadyFF.io.in := Mux(burstCounter.io.done, 0.U, dramReady | dramReadySeen)

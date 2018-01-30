@@ -159,7 +159,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"          
@@ -172,7 +172,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -185,7 +185,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -211,7 +211,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"          
@@ -224,7 +224,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -237,7 +237,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
