@@ -20,6 +20,11 @@ object FringeGlobals {
   def magPipelineDepth = _magPipelineDepth
   def magPipelineDepth_= (value: Int): Unit = _magPipelineDepth = value
 
+  // Enable debug signals
+  private var _enableDebugRegs: Boolean = true
+  def enableDebugRegs = _enableDebugRegs
+  def enableDebugRegs_= (value: Boolean): Unit = _enableDebugRegs = value
+
   private var _target: String = ""
   def target = _target
   def target_= (value: String): Unit = {
@@ -36,12 +41,13 @@ object FringeGlobals {
       case _ => 1
     }
 
+    enableDebugRegs = value match {
+      case "asic" => false
+      case _ => true
+    }
+
     _target = value
   }
-
-  private var _enableDebugRegs: Boolean = true
-  def enableDebugRegs = _enableDebugRegs
-  def enableDebugRegs_= (value: Boolean): Unit = _enableDebugRegs = value
 
   private var _channelAssignment: ChannelAssignment = ColoredRoundRobin
   def channelAssignment = _channelAssignment
