@@ -139,7 +139,7 @@ elif [[ $1 = "ZCU" ]]; then
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
-	    rm -rf /home/regression/${APP}*
+	    rm -rf /root/${APP}*
 	  else
 	    mkdir $APP
 	    tar -xvf ${APP}.tar.gz -C $APP
@@ -151,7 +151,7 @@ elif [[ $1 = "ZCU" ]]; then
 	    touch /home/sync/\$(whoami)
 	    ./Top $2 $3 $4 $5 $6 $7 $8
 	    rm /home/sync/\$(whoami)
-	    rm -rf /home/regression/${APP}*	  
+	    rm -rf /root/${APP}*	  
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
@@ -166,7 +166,7 @@ elif [[ $1 = "Arria10" ]]; then
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
-	    rm -rf /home/regression/${APP}*
+	    rm -rf /home/root/${APP}*
 	  else
 	    mkdir $APP
 	    untar ${APP}.tar.gz
@@ -174,7 +174,7 @@ elif [[ $1 = "Arria10" ]]; then
 	    touch /home/sync/\$(whoami)
 	    ./Top $2 $3 $4 $5 $6 $7 $8
 	    rm /home/sync/\$(whoami)
-	    rm -rf /home/regression/${APP}*	  
+	    rm -rf /home/root/${APP}*	  
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
