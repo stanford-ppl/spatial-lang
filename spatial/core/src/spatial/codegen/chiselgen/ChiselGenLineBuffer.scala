@@ -26,72 +26,72 @@ trait ChiselGenLineBuffer extends ChiselGenController {
     case op@LineBufferNew(rows, cols, stride) =>
       appPropertyStats += HasLineBuffer
       val mem = instanceOf(lhs)
-        val readers = readersOf(lhs)
-        val writers = writersOf(lhs)
-        val (transientWrites, nonTransientWrites) = writers.partition(write => isTransient(write.node))
+      val readers = readersOf(lhs)
+      val writers = writersOf(lhs)
+      val (transientWrites, nonTransientWrites) = writers.partition(write => isTransient(write.node))
 
-        if (readers.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs has no readers.")
-        if (nonTransientWrites.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs has no non-transient writers.")
+      if (readers.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs has no readers.")
+      if (nonTransientWrites.isEmpty) warn(lhs.ctx, s"LineBuffer $lhs has no non-transient writers.")
 
-        // // Currently assumes all readers have same par
-        // val col_rPar = readers.map(accessWidth).reduce{_+_}/*headOption.getOrElse(1)*/ / {rows match {case Exact(r) => r}}
-        // Currently assumes all writers have same par
-        val col_wPar = nonTransientWrites.map(accessWidth).headOption.getOrElse(1)
-        // Assumes there is either 0 of these (returns 0) or 1 of these
-        val transient_wPar = transientWrites.map(accessWidth).sum
+      // // Currently assumes all readers have same par
+      // val col_rPar = readers.map(accessWidth).reduce{_+_}/*headOption.getOrElse(1)*/ / {rows match {case Exact(r) => r}}
+      // Currently assumes all writers have same par
+      val col_wPar = nonTransientWrites.map(accessWidth).headOption.getOrElse(1)
+      // Assumes there is either 0 of these (returns 0) or 1 of these
+      val transient_wPar = transientWrites.map(accessWidth).sum
 
-        val col_rPars = readers.map(_.node).map{
-          case Def(_: LineBufferLoad[_]) => 1
-          case Def(op: BankedLineBufferLoad[_]) => op.bank.map(_.apply(1)).distinct.length
-          //case Def(LineBufferColSlice(_,_,_,len)) => len
-        }
-        if (col_rPars.distinct.length != 1) {
-          error(lhs.ctx, u"LineBuffer $lhs has differing port widths.")
-          error(u"LineBuffers with differing port widths not yet supported in Chisel.")
-          error(lhs.ctx)
-        }
-        val col_rPar = col_rPars.headOption.getOrElse(1)
-        /*
-        Console.println(s"working on $lhs ${writersOf(lhs)} on $i")
-        val col_wPar = writersOf(lhs) // Currently assumes all readers have same par
-          .filter{write => dispatchOf(write, lhs) contains i}
-          .filter{a => !isTransient(a.node.asInstanceOf[Exp[_]])}
-          .map { w => 
-            val par = w.node match {
-              case Def(_: LineBufferEnq[_]) => 1
-              case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
-              case Def(_: LineBufferRotateEnq[_]) => 1
-              case Def(op@ParLineBufferRotateEnq(lb,row,data,ens)) => ens.length
-            }
-            par
-          }.head
-        val transient_wPar = writersOf(lhs) // Currently assumes all readers have same par
-          .filter{write => dispatchOf(write, lhs) contains i}
-          .filter{a => isTransient(a.node.asInstanceOf[Exp[_]])}
-          .map { w => 
-            val par = w.node match {
-              case Def(_: LineBufferEnq[_]) => 1
-              case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
-              case Def(_: LineBufferRotateEnq[_]) => 1
-              case Def(op@ParLineBufferRotateEnq(lb,row,data,ens)) => ens.length
-            }
-            par
-          }.sum // Assumes there is either 0 of these (returns 0) or 1 of these
-        */
-        val bcInfo = bufferControlInfo(lhs)
-        val col_banks = mem.nBanks.last
-        val row_banks = mem.nBanks.head
-        // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
-        val empty_stages_to_buffer = {bufferControlInfo(lhs, i).length - 1} max 1 // TODO: min 1 in case lca is sequential
-        val row_rPar = mem match { case BankedMemory(dims, depth, isAccum) => dims.head.banks; case _ => 1 } // Could be wrong
-        val accessors = bufferControlInfo(lhs, 0).length
-        val numWriters = nonTransientWrites.length
-        val width = bitWidth(lhs.tp.typeArguments.head)
-        emitGlobalModule(src"""val $lhs = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, $empty_stages_to_buffer, ${getConstValue(stride)},
-          $col_wPar, $col_rPar, $col_banks,
-          $row_wPar, $row_rPar, $transient_wPar, $accessors, $width))  // Data type: ${op.mT}""")
-        emitGlobalModule(src"$lhs.io.reset := reset")
-        linebufs = linebufs :+ lhs
+      val col_rPars = readers.map(_.node).map{
+        case Def(_: LineBufferLoad[_]) => 1
+        case Def(op: BankedLineBufferLoad[_]) => op.bank.map(_.apply(1)).distinct.length
+        //case Def(LineBufferColSlice(_,_,_,len)) => len
+      }
+      if (col_rPars.distinct.length != 1) {
+        error(lhs.ctx, u"LineBuffer $lhs has differing port widths.")
+        error(u"LineBuffers with differing port widths not yet supported in Chisel.")
+        error(lhs.ctx)
+      }
+      val col_rPar = col_rPars.headOption.getOrElse(1)
+      /*
+      Console.println(s"working on $lhs ${writersOf(lhs)} on $i")
+      val col_wPar = writersOf(lhs) // Currently assumes all readers have same par
+        .filter{write => dispatchOf(write, lhs) contains i}
+        .filter{a => !isTransient(a.node.asInstanceOf[Exp[_]])}
+        .map { w => 
+          val par = w.node match {
+            case Def(_: LineBufferEnq[_]) => 1
+            case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
+            case Def(_: LineBufferRotateEnq[_]) => 1
+            case Def(op@ParLineBufferRotateEnq(lb,row,data,ens)) => ens.length
+          }
+          par
+        }.head
+      val transient_wPar = writersOf(lhs) // Currently assumes all readers have same par
+        .filter{write => dispatchOf(write, lhs) contains i}
+        .filter{a => isTransient(a.node.asInstanceOf[Exp[_]])}
+        .map { w => 
+          val par = w.node match {
+            case Def(_: LineBufferEnq[_]) => 1
+            case Def(a@ParLineBufferEnq(_,_,ens)) => ens.length
+            case Def(_: LineBufferRotateEnq[_]) => 1
+            case Def(op@ParLineBufferRotateEnq(lb,row,data,ens)) => ens.length
+          }
+          par
+        }.sum // Assumes there is either 0 of these (returns 0) or 1 of these
+      */
+      val bcInfo = bufferControlInfo(lhs)
+      val col_banks = mem.nBanks.last
+      val row_banks = mem.nBanks.head
+      // rows to buffer is 1 + number of blank stages between the write and the read (i.e.- 1 + buffer_info - 2 )
+      val empty_stages_to_buffer = {bufferControlInfo(lhs).length - 1} max 1 // TODO: min 1 in case lca is sequential
+      val row_rPar = rows // Could be wrong
+      val accessors = bufferControlInfo(lhs).length
+      val numWriters = nonTransientWrites.length
+      val width = bitWidth(lhs.tp.typeArguments.head)
+      emitGlobalModule(src"""val $lhs = Module(new templates.LineBuffer(${getConstValue(rows)}, ${getConstValue(cols)}, $empty_stages_to_buffer, ${getConstValue(stride)},
+        $col_wPar, $col_rPar, $col_banks,
+        $numWriters, $row_rPar, $transient_wPar, $accessors, $width))  // Data type: ${op.mT}""")
+      emitGlobalModule(src"$lhs.io.reset := reset")
+      linebufs = linebufs :+ lhs
 
     case _:LineBufferRowSlice[_]  => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
     case _:LineBufferColSlice[_]  => throw new Exception(s"Cannot generate unbanked LineBuffer slice.\n${str(lhs)}")
