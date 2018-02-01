@@ -77,10 +77,10 @@ switch $TARGET {
     set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_1]
     # set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_2]
     # set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_3]
-    set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_0]
-    set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_1]
-    # set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_2]
-    # set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_3]
+    set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_0]
+    set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_1]
+    # set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_2]
+    # set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {128}] [get_bd_cells axi_dwidth_converter_3]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_1/s_axi_aclk]
     # connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/pl_clk0] [get_bd_pins axi_dwidth_converter_2/s_axi_aclk]
@@ -153,6 +153,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_wvalid] [get_bd_pins Top_0/io_M_AXI_0_WVALID]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WREADY] [get_bd_pins Top_0/io_TOP_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_wready] [get_bd_pins Top_0/io_M_AXI_0_WREADY]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WDATA] [get_bd_pins Top_0/io_TOP_AXI_WDATA]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_wdata] [get_bd_pins Top_0/io_M_AXI_0_WDATA]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_BVALID] [get_bd_pins Top_0/io_TOP_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/s_axi_bvalid] [get_bd_pins Top_0/io_M_AXI_0_BVALID]
@@ -196,6 +198,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_DWIDTH_AXI_WDATA]
+    connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_wdata] [get_bd_pins axi_dwidth_converter_0/m_axi_wdata]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
     connect_bd_net [get_bd_pins zynq_ultra_ps_e_0/saxigp0_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
@@ -319,7 +323,7 @@ switch $TARGET {
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
       set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_0]
-      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_0]
+      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_0]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn]
       # AXI4 to AXI3 protocol converter
@@ -379,6 +383,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_wvalid] [get_bd_pins Top_0/io_M_AXI_0_WVALID]
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WREADY] [get_bd_pins Top_0/io_TOP_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_wready] [get_bd_pins Top_0/io_M_AXI_0_WREADY]
+    connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_WDATA] [get_bd_pins Top_0/io_TOP_AXI_WDATA]
+    connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_wdata] [get_bd_pins Top_0/io_M_AXI_0_WDATA]
 
     connect_bd_net [get_bd_pins Top_0/io_M_AXI_0_BVALID] [get_bd_pins Top_0/io_TOP_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_register_slice_0/s_axi_bvalid] [get_bd_pins Top_0/io_M_AXI_0_BVALID]
@@ -423,6 +429,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wready] [get_bd_pins axi_dwidth_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_DWIDTH_AXI_WDATA]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_wdata] [get_bd_pins axi_dwidth_converter_0/m_axi_wdata]
 
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/s_axi_bvalid] [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid]
@@ -463,6 +471,8 @@ switch $TARGET {
     connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WVALID] [get_bd_pins axi_protocol_converter_0/m_axi_wvalid]
     connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wready] [get_bd_pins Top_0/io_PROTOCOL_AXI_WREADY]
     connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WREADY] [get_bd_pins axi_protocol_converter_0/m_axi_wready]
+    connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_PROTOCOL_AXI_WDATA]
+    connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_WDATA] [get_bd_pins axi_protocol_converter_0/m_axi_wdata]
 
     connect_bd_net [get_bd_pins axi_protocol_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_PROTOCOL_AXI_BVALID]
     connect_bd_net [get_bd_pins processing_system7_0/S_AXI_HP0_BVALID] [get_bd_pins axi_protocol_converter_0/m_axi_bvalid]
@@ -533,7 +543,7 @@ switch $TARGET {
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_1
       set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_1]
-      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_1]
+      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_1]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_dwidth_converter_1/s_axi_aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_1/s_axi_aresetn]
 
@@ -582,7 +592,7 @@ switch $TARGET {
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_2
       set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_2]
-      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_2]
+      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_2]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_dwidth_converter_2/s_axi_aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_2/s_axi_aresetn]
 
@@ -629,7 +639,7 @@ switch $TARGET {
       # 512-to-64 data width converter
       create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_3
       set_property -dict [list CONFIG.SI_ID_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.READ_WRITE_MODE.VALUE_SRC USER CONFIG.PROTOCOL.VALUE_SRC USER CONFIG.ADDR_WIDTH.VALUE_SRC USER] [get_bd_cells axi_dwidth_converter_3]
-      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {6} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_3]
+      set_property -dict [list CONFIG.SI_DATA_WIDTH {512} CONFIG.SI_ID_WIDTH {32} CONFIG.MI_DATA_WIDTH {64}] [get_bd_cells axi_dwidth_converter_3]
       connect_bd_net [get_bd_pins processing_system7_0/FCLK_CLK0] [get_bd_pins axi_dwidth_converter_3/s_axi_aclk]
       connect_bd_net [get_bd_pins rst_ps7_0_${CLOCK_FREQ_MHZ}M/peripheral_aresetn] [get_bd_pins axi_dwidth_converter_3/s_axi_aresetn]
 

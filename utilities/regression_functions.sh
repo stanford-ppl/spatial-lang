@@ -497,6 +497,9 @@ fi" > status.sh
 
 echo "language: c
 notifications:
+  slack:
+    rooms:
+      - plasticine-arch:kRp0KfrygHiq2wCMrcgMogBW#regression
   email:
     recipients: mattfel@stanford.edu
     on_failure: never # default: always
@@ -544,10 +547,7 @@ launch_tests_sbt() {
     captype="Chisel"
     export CLOCK_FREQ_MHZ="NA"
     export timestamp=`git show -s --format=%ci`
-    # Update perf spreadsheet
-    # echo "python3 ${SPATIAL_HOME}/utilities/tid.py \"$spatial_hash\" \"$ah\" \"$timestamp\" \"$branch\"" > ${SPATIAL_HOME}/dbg
-    # python3 ${SPATIAL_HOME}/utilities/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch" > ${SPATIAL_HOME}/dbg2 2>&1 
-    tid=`python3 ${SPATIAL_HOME}/utilities/tid.py "$spatial_hash" "$ah" "$timestamp" "$branch"`
+    tid=`python3 ${SPATIAL_HOME}/utilities/gdocs.py "prepare_sheet" "$spatial_hash" "$ah" "$timestamp" "$branch"`
     echo $tid > ${SPATIAL_HOME}/tid
     echo ${spatial_hash} > ${SPATIAL_HOME}/hash
     echo $ah > ${SPATIAL_HOME}/ahash

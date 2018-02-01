@@ -74,3 +74,4 @@ regTests.sh
 ./regen_all.sh
 *.csv
 ./csv_bak
+./regen.sh

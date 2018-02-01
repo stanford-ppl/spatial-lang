@@ -269,6 +269,9 @@ zynq-clean:
 arria10: arria10-hw arria10-sw
 
 arria10-hw:
+	echo "$$(date +%s)" >> start.log
+	@echo "alterad license: $(ALTERAD_LICENSE_FILE)"
+	@echo "quartus version: $(USING_THIS_QUARTUS)"
 	sbt "runMain top.Instantiator --verilog --testArgs arria10"
 	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
 	sed -i 's/SRAMVerilogSim/SRAMVerilogAWS/g' ${ARRIA10_V_DIR}/Top.v
@@ -276,14 +279,15 @@ arria10-hw:
 	mv ${ARRIA10_V_DIR}/Top.v ${ARRIA10_V_DIR}/Top_DUT.v
 	cp -r chisel/template-level/fringeArria10/build/* ${ARRIA10_V_DIR}
 	# TODO: mannually create the link
-	cd ${ARRIA10_V_DIR} && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof
+	cd ${ARRIA10_V_DIR} && if [[ -L ghrd_10as066n2 ]]; then rm ghrd_10as066n2; fi && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && if [[ -L pr_base_static.qdb ]]; then rm pr_base_static.qdb; fi && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && if [[ -d output_files ]]; then rm -rf output_files; fi && mkdir output_files && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof && ln -s ${GHRD_DIR}/output_files/pr_base.static.msf ./output_files/pr_base.static.msf && ln -s ${GHRD_DIR}/output_files/pr_base.pr_region.pmsf ./output_files/pr_base.pr_region.pmsf
 	cd ${ARRIA10_V_DIR} && bash fit.sh
+	echo "$$(date +%s)" > end.log
 
 arria10-sw:
 	cp scripts/arria10.mk cpp/Makefile
-	cp cpp/cpptypes.h cpp/datastructures
-	cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
-	cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
+	# cp cpp/cpptypes.h cpp/datastructures
+	# cp cpp/Structs.h cpp/datastructures 2>/dev/null || :
+	# cp cpp/cppDeliteArrayStructs.h cpp/datastructures 2>/dev/null || :
 	sed -i 's/ifndef ZYNQ/ifndef ARRIA10/g' ./cpp/TopHost.cpp
 	make -C cpp -j8
 	cp ${ARRIA10_V_DIR}/output_files/pr_region_alt.rbf ./ && cp ./cpp/Top ./
@@ -305,7 +309,9 @@ zcu-hw:
 	echo "$$(date +%s)" >> start.log
 	# Some hacks that really need to be fixed in a way better than sed
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
+	sed -i "s/#define FRINGE_MEM_BASEADDR.*/#define FRINGE_MEM_BASEADDR  0x40000000/g" cpp/fringeZynq/ZynqAddressMap.h
 	sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
+	sed -i "s/#define MEM_SIZE.*/#define MEM_SIZE  0x40000000/g" cpp/fringeZynq/ZynqAddressMap.h
 	sed -i "s/EPRINTF(/fprintf(stderr,/g" cpp/fringeZynq/FringeContextZynq.h # Not sure why eprintf randomly crashes zcu
 
 	sbt "runMain top.Instantiator --verilog --testArgs zcu"

@@ -10,6 +10,8 @@ elif [[ $1 = "ZCU" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zcu"
 elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/aws"
+elif [[ $1 = "AWS" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
 fi
 
 tid=`cat ${REGRESSION_HOME}/data/tid`
@@ -88,12 +90,20 @@ else
 fi
 
 
-endtime=`cat \`pwd\`/end.log`
-starttime=`cat \`pwd\`/start.log`
+if [[ -f `pwd`/end.log ]]; then
+  endtime=`cat \`pwd\`/end.log`
+else
+  endtime=1
+fi
+if [[ -f `pwd`/start.log ]]; then
+  starttime=`cat \`pwd\`/start.log`
+else
+  starttime=0
+fi
 synthtime=$((endtime-starttime))
 
 echo "LUT: $lutraw (${lutpcnt}%) Regs: $regraw (${regpcnt}%) BRAM: $ramraw (${rampcnt}%) URAM: $uramraw (${urampcnt}%) DSP: $dspraw (${dsppcnt}%) LaL: $lalraw (${lalpcnt}%) LaM: $lamraw (${lampcnt}%) Synthtime: $synthtime Tmg_Met: $tmg $1"
-python3 scripts/scrape.py $tid $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$tmg" "$1" "$hash" "$ahash"
+python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_synth_results" $appname "$lutraw (${lutpcnt}%)" "$regraw (${regpcnt}%)" "$ramraw (${rampcnt}%)" "$uramraw (${urampcnt}%)" "$dspraw (${dsppcnt}%)" "$lalraw (${lalpcnt}%)" "$lamraw (${lampcnt}%)" "$synthtime" "$tmg" "$1" "$hash" "$ahash"
 
 
 # Run on board
@@ -123,7 +133,7 @@ if [[ $1 = "Zynq" ]]; then
     runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
-    python3 scripts/report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
+    python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
 elif [[ $1 = "ZCU" ]]; then
 	APP=$(basename $(pwd))
 	scp $(basename $(pwd)).tar.gz root@zcu102:
@@ -131,7 +141,7 @@ elif [[ $1 = "ZCU" ]]; then
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
-	    rm -rf /home/regression/${APP}*
+	    rm -rf /root/${APP}*
 	  else
 	    mkdir $APP
 	    tar -xvf ${APP}.tar.gz -C $APP
@@ -143,14 +153,14 @@ elif [[ $1 = "ZCU" ]]; then
 	    touch /home/sync/\$(whoami)
 	    ./Top $2 $3 $4 $5 $6 $7 $8
 	    rm /home/sync/\$(whoami)
-	    rm -rf /home/regression/${APP}*	  
+	    rm -rf /root/${APP}*	  
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
     runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
-    python3 scripts/report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	
+    python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	
 elif [[ $1 = "Arria10" ]]; then
 	APP=$(basename $(pwd))
 	scp $(basename $(pwd)).tar.gz root@arria10:   # TODO: Tian (fill in whatever you need to scp and execute the app on the board)
@@ -158,7 +168,7 @@ elif [[ $1 = "Arria10" ]]; then
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
-	    rm -rf /home/regression/${APP}*
+	    rm -rf /home/root/${APP}*
 	  else
 	    mkdir $APP
 	    untar ${APP}.tar.gz
@@ -166,14 +176,14 @@ elif [[ $1 = "Arria10" ]]; then
 	    touch /home/sync/\$(whoami)
 	    ./Top $2 $3 $4 $5 $6 $7 $8
 	    rm /home/sync/\$(whoami)
-	    rm -rf /home/regression/${APP}*	  
+	    rm -rf /home/root/${APP}*	  
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
     runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
-    python3 scripts/report.py $tid $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	
+    python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	
 fi
 
 # Fake out regression

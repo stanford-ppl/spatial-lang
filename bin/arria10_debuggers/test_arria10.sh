@@ -8,6 +8,6 @@
 
 # DESIGN=read_sdram_hps
 # DESIGN=clean
-DESIGN=read_c0000000
+DESIGN=read_sdram_hps
 arm-linux-gnueabi-gcc -Wall -o ${DESIGN} ${DESIGN}.c
 scp ${DESIGN} root@arria10:~/

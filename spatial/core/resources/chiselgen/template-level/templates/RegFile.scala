@@ -52,7 +52,7 @@ class ShiftRegFile(val dims: List[Int], val banks: List[Int], val bankDepth: Int
   val numMems = banks.product * bankDepth
   assert(numMems == dims.product)
 
-  Console.println(s"dims are $dims, banks $banks $bankDepth, num mmems $numMems, wparstride $wPar * $stride, readers $numReaders")
+  // Console.println(s"dims are $dims, banks $banks $bankDepth, num mmems $numMems, wparstride $wPar * $stride, readers $numReaders")
 
   // Console.println(" " + dims.reduce{_*_} + " " + wPar + " " + dims.length)
   val io = IO(new Bundle { 

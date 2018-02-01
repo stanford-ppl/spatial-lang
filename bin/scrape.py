@@ -28,6 +28,7 @@ def parse_args(docstring):
     parser.add_argument('directory',
                         help="directory to run synthesis in")
     parser.add_argument('--nomake', dest='synth', action='store_false', default=True)
+    parser.add_argument('--board', dest='board_name', action='store', default='zynq')
     args = parser.parse_args()
 
     # Expand file path to absolute path
