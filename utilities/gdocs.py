@@ -98,7 +98,7 @@ def getDoc(title):
 		except:
 			print("WARN: Couldn't get sheet")
 			exit()
-	if (title == "Zynq"):
+	elif (title == "Zynq"):
 		try: 
 			sh = gc.open_by_key("1jZxVO8VFODR8_nEGBHfcmfeIJ3vo__LCPdjt4osb3aE")
 		except:
@@ -139,7 +139,7 @@ def getWord(title):
 		return "CLB"  # TODO: Tian
 	elif (title == "AWS"):
 		return "CLB"
-	else 
+	else:
 		return "N/A"
 
 def getTID(sh, hash, apphash):
