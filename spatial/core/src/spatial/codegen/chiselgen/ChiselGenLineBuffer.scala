@@ -107,7 +107,7 @@ trait ChiselGenLineBuffer extends ChiselGenController {
         if (dispatch.length > 1) { throw new Exception(src"This is an example where lb dispatch > 1. Please use as test case! (node $lhs on lb $lb)") }
         val ii = dispatch.head
         val parent = writersOf(lb).find{_.node == lhs}.get.ctrlNode
-        val dStr = (0 until data.length).map{i => (0 until stride).map{j => src"${data(i)}.r"}}.flatten.mkString("List(",",",")")
+        val dStr = (0 until stride).map{j => (0 until data.length).map{i => src"${data(i)}.r"}}.flatten.mkString("List(",",",")")
         val enStr = (0 until stride).map{r => 
           src"""${ens.map{en => src"$en"}.mkString("&")} & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", enableRetimeMatch(ens.head, lhs), true)} & ${row} === ${r}.U(${row}.getWidth.W)"""
         }.mkString("List(",",",")")
