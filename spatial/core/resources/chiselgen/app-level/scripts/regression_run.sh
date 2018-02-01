@@ -23,11 +23,21 @@ else
 	runtime=$runtime_string
 fi
 
-tid=`cat ../../../../tid`
+# Hacky go back until $SPATIAL_HOME
 hash=`cat ../../../../hash`
 ahash=`cat ../../../../ahash`
 appname=`basename \`pwd\``
 properties=`cat chisel/IOModule.scala | grep "App Characteristics" | sed "s/^.*App Characteristics: //g" | sed "s/ //g"`
 
-python3 scripts/regression_report.py $1 $tid $appname $pass $runtime $hash $ahash "$properties"
+if [[ $1 = "Zynq" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
+elif [[ $1 = "ZCU" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/zcu"
+elif [[ $1 = "AWS" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/aws"
+elif [[ $1 = "AWS" ]]; then
+	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
+fi
+
+python3 ../../../../utilities/gdocs.py "report_regression_results" $1 $appname $pass $runtime $hash $ahash "$properties"
 
