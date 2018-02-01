@@ -4,7 +4,7 @@ import argon.core._
 import spatial.aliases._
 import spatial.nodes._
 
-trait ScalaGenSwitch extends ScalaGenBits {
+trait ScalaGenSwitch extends ScalaGenBits with ScalaGenMemories with ScalaGenSRAM with ScalaGenController {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case op@Switch(_,selects,cases) =>
@@ -21,6 +21,7 @@ trait ScalaGenSwitch extends ScalaGenBits {
           close("}")
         }
         if (isBits) emit(src"else { ${invalid(op.mT)} }") else emit(src"()")
+        emitControlDone(lhs)
       close("}")
       emit(src"/** END SWITCH $lhs **/")
 
