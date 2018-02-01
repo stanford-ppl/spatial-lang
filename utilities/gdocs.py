@@ -188,7 +188,7 @@ def report_regression_results(branch, appname, passed, cycles, hash, apphash, cs
 	tid = getTID(sh, hash, apphash)
 
 	# Page 0 - Timestamps
-	stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 	worksheet = sh.worksheet_by_title('Timestamps') # Select worksheet by index
 	col = getCol(worksheet, appname)
 	write(worksheet, tid,col, stamp)
