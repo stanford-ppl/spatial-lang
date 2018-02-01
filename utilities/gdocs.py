@@ -14,13 +14,13 @@ def write(wksh, row, col, txt):
 	try:
 		wksh.update_cell((row,col),txt)
 	except:
-		print("WARN: pygsheets failed... -_-")
+		print("WARN: pygsheets failed write %s @ %d,%d... -_-" % (txt, row, col))
 
 def readAllVals(wksh):
 	try:
 		return wksh.get_all_values()
 	except:
-		print("WARN: pygsheets failed... -_-")
+		print("WARN: pygsheets failed readAllVals... -_-")
 		exit()
 
 def getCol(wksh, appname):
@@ -33,7 +33,7 @@ def getCol(wksh, appname):
 			write(wksh,1,col,appname)	
 		return col
 	except:
-		print("WARN: pygsheets failed... -_-")	
+		print("WARN: pygsheets failed getCol... -_-")	
 		exit()
 
 def getRuntimeCol(wksh, appname):
@@ -46,7 +46,7 @@ def getRuntimeCol(wksh, appname):
 			write(wksh,1,col,appname)
 		return col
 	except:
-		print("WARN: pygsheets failed... -_-")	
+		print("WARN: pygsheets failed getRuntimeCol... -_-")	
 		exit()
 
 def getDoc(title):
@@ -240,7 +240,7 @@ def report_synth_results(appname, lut, reg, ram, uram, dsp, lal, lam, synth_time
 	word = getWord(backend)
 
 	# Page 0 - Timestamps
-	stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 	worksheet = sh.worksheet_by_title('Timestamps') # Select worksheet by index
 	col = getCol(worksheet, appname)
@@ -297,7 +297,7 @@ def report_synth_results(appname, lut, reg, ram, uram, dsp, lal, lam, synth_time
 	write(worksheet,22,3,stamp)
 	write(worksheet,22,4,os.uname()[1])
 
-def prepare_sheet(hash, timestamp, apphash, backend):
+def prepare_sheet(hash, apphash, timestamp, backend):
 	sh = getDoc(backend)
 	perf = isPerf(backend)
 
@@ -393,16 +393,16 @@ def prepare_sheet(hash, timestamp, apphash, backend):
 
 
 if (sys.argv[1] == "report_regression_results"):
-	print("report_regression_results(%s, %s, %s, %s, %s, %s, %s)" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]))
+	print("report_regression_results('%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]))
 	report_regression_results(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8])
 elif (sys.argv[1] == "report_board_runtime"):
-	print("report_board_runtime(%s, %s, %s, %s, %s, %s, %s, %s, %s)" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10]))
+	print("report_board_runtime('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10]))
 	report_board_runtime(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10])
 elif (sys.argv[1] == "report_synth_results"):
-	print("report_synth_results(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12], sys.argv[13], sys.argv[14]))
+	print("report_synth_results('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12], sys.argv[13], sys.argv[14]))
 	report_synth_results(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12], sys.argv[13], sys.argv[14])
 elif (sys.argv[1] == "prepare_sheet"):
-	print("prepare_sheet(%s, %s, %s, %s)" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]))
+	print("prepare_sheet('%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]))
 	prepare_sheet(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
 else:
 	print("ERROR: Not a valid spreadsheet interaction! %s" % sys.argv[1])
