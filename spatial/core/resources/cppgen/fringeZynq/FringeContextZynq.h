@@ -193,7 +193,7 @@ public:
 //#endif
 
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, size);
+    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
 
     // Flush CPU cache
 //    char *start = (char*)dst;
@@ -224,7 +224,7 @@ public:
 
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, size);
+    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
   }
 
   void dumpRegs() {
