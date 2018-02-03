@@ -25,12 +25,14 @@ trait CppGenController extends CppCodegen {
       emit(s"c1->setNumArgIOs(${argIOs.length});")
       emit(s"c1->setNumArgOuts(${argOuts.length});")
       emit(s"c1->setNumArgOutInstrs(2*${if (spatialConfig.enableInstrumentation) instrumentCounters.length else 0});")
+      emit(s"""c1->flushCache(1024);""")
       emit(s"time_t tstart = time(0);")
       val memlist = if (setMems.nonEmpty) {s""", ${setMems.mkString(",")}"""} else ""
       emit(s"c1->run();")
       emit(s"time_t tend = time(0);")
       emit(s"double elapsed = difftime(tend, tstart);")
       emit(s"""std::cout << "Kernel done, test run time = " << elapsed << " ms" << std::endl;""")
+      emit(s"""c1->flushCache(1024);""")
       controllerStack.pop()
 
       if (earlyExits.length > 0) {
