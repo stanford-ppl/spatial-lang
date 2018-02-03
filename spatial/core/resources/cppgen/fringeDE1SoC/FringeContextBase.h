@@ -51,6 +51,7 @@ public:
   virtual void setNumArgIOs(uint32_t number) = 0;
   virtual void setNumArgOutInstrs(uint32_t number) = 0;
   virtual void setNumArgOuts(uint32_t number) = 0;
+  virtual void flushCache(uint32_t mb) = 0;
 
   ~FringeContextBase() {
 //    delete dut;
