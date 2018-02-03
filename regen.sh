@@ -1,3 +1,4 @@
 rm -rf gen/$1
 bin/spatial $1 --synth --retime
 cd gen/$1 && make arria10 | tee make.log
+cd gen/$1
