@@ -149,6 +149,9 @@ public:
     }
   }
 
+  void flushCache(uint32_t kb) {
+  }
+
   uint64_t getCycles() {
     int id = sendCmd(GET_CYCLES);
     simCmd *resp = recvResp();
