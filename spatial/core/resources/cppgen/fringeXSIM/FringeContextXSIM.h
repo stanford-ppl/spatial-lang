@@ -171,9 +171,9 @@ public:
     sendCmd(START);
   }
 
-  void flushCache(uint32_t mb) {
+  void flushCache(uint32_t kb) {
     // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
-    int cacheSizeWords = mb * (1 << 10) / sizeof(int); // 512kB on Zynq, 1MB on ZCU
+    int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on Zynq, 1MB on ZCU
     int arraySize = cacheSizeWords * 10;
     int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
     EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);

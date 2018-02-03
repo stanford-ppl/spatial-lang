@@ -149,7 +149,7 @@ public:
     }
   }
 
-  void flushCache(uint32_t mb) {
+  void flushCache(uint32_t kb) {
   }
 
   uint64_t getCycles() {
