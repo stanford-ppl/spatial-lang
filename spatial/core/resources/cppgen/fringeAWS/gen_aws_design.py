@@ -79,15 +79,11 @@ for line in src:
       line_with_replacements = line
       line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_input_argnum}}}', str(argnum))
       # Replace address of lower 32 bits
-      hex_addr = str(hex(argnum*64))[2:]
-      while len(hex_addr) != 4:
-        hex_addr = '0' + hex_addr
-      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_input_argaddr_4h}}}', hex_addr)
+      hex_addr = str(hex(argnum*64 + 65536))[2:]
+      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_input_argaddr_5h}}}', hex_addr[:-1])
       # Replace address of higher 32 bits
-      hex_addr_plus_0x20 = str(hex(argnum*64 + 32))[2:]
-      while len(hex_addr_plus_0x20) != 4:
-        hex_addr_plus_0x20 = '0' + hex_addr_plus_0x20
-      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_input_argaddr_4h_plus_0x20}}}', hex_addr_plus_0x20)
+      hex_addr_plus_0x20 = str(hex(argnum*64 + 32 + 65536))[2:]
+      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_input_argaddr_5h_plus_0x20}}}', hex_addr_plus_0x20[:-1])
       new_lines += line_with_replacements
     dst.write(new_lines)
   elif '{{{SPATIAL_INSERT_output_argnum}}}' in line:
@@ -96,15 +92,11 @@ for line in src:
       line_with_replacements = line
       line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_output_argnum}}}', str(argnum))
       # Replace address of lower 32 bits
-      hex_addr = str(hex(argnum*64))[2:]
-      while len(hex_addr) != 4:
-        hex_addr = '0' + hex_addr
-      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_output_argaddr_4h}}}', hex_addr)
+      hex_addr = str(hex(argnum*64 + 65536*8))[2:]
+      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_output_argaddr_5h}}}', hex_addr[:-1])
       # Replace address of higher 32 bits
-      hex_addr_plus_0x20 = str(hex(argnum*64 + 32))[2:]
-      while len(hex_addr_plus_0x20) != 4:
-        hex_addr_plus_0x20 = '0' + hex_addr_plus_0x20
-      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_output_argaddr_4h_plus_0x20}}}', hex_addr_plus_0x20)
+      hex_addr_plus_0x20 = str(hex(argnum*64 + 32 + 65536*8))[2:]
+      line_with_replacements = line_with_replacements.replace('{{{SPATIAL_INSERT_output_argaddr_5h_plus_0x20}}}', hex_addr_plus_0x20[:-1])
       new_lines += line_with_replacements
     dst.write(new_lines)
   else:
