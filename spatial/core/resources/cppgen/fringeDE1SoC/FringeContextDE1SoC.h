@@ -66,6 +66,7 @@ public:
   uint32_t numArgIOs = 0;
   uint32_t numArgIOsId = 0;
   uint32_t numArgIns = 0;
+  uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
 
   FringeContextDE1SoC(std::string path = "") : FringeContextBase(path) {
@@ -124,6 +125,14 @@ public:
   
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
+  }
+
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
@@ -243,6 +252,22 @@ public:
     std::memcpy(buf, pixelLineStart, FRAME_X_LEN * 2);
   }
 
+  void flushCache(uint32_t mb) {
+    // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
+    int cacheSizeWords = mb * (1 << 10) / sizeof(int); // 512kB on Zynq, 1MB on ZCU
+    int arraySize = cacheSizeWords * 10;
+    int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
+    EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
+    for (int i = 0; i<arraySize; i++) {
+      if (i == 0) {
+        dummyBuf[i] = 10;
+      } else {
+        dummyBuf[i] = dummyBuf[i-1] * 2;
+      }
+    }
+    EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
+  }
+
   virtual void run() {
      // Current assumption is that the design sets arguments individually
     uint32_t status = 0;
@@ -269,7 +294,6 @@ public:
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    numArgOuts++;
     if (isIO) {
       return readReg(2+arg);
     } else {

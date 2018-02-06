@@ -19,11 +19,13 @@ class FringeDE1SoC(
   val numArgIOs: Int,
   val numChannels: Int,
   val numArgInstrs: Int,
+  val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int],
   val loadStreamInfo: List[StreamParInfo],
   val storeStreamInfo: List[StreamParInfo],
   val streamInsInfo: List[StreamParInfo],
   val streamOutsInfo: List[StreamParInfo],
-  val blockingDRAMIssue: Boolean = false
+  val blockingDRAMIssue: Boolean = false,
+  val axiParams: AXI4BundleParameters
 ) extends Module {
   // Some constants (mostly MAG-related) that will later become module parameters
   val axiLiteParams = new AXI4BundleParameters(16, w, 1)
@@ -40,13 +42,14 @@ class FringeDE1SoC(
     val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
   })
   // Common Fringe
-  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo))
+  val fringeCommon = Module(new Fringe(w, numArgIns, numArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, loadStreamInfo, storeStreamInfo, streamInsInfo, streamOutsInfo, blockingDRAMIssue, axiParams))
 
   // Connect to Avalon Slave
   // Avalon is using reset and write_n
   fringeCommon.reset := reset
   fringeCommon.io.raddr := io.S_AVALON.address
-  fringeCommon.io.wen   := ~io.S_AVALON.write_n & io.S_AVALON.chipselect
+  // TODO: This signal might be reconsidered since Arria10 takes a different control signal
+  fringeCommon.io.wen   := ~io.S_AVALON.write & io.S_AVALON.chipselect
 
   fringeCommon.io.waddr := io.S_AVALON.address
   fringeCommon.io.wdata := io.S_AVALON.writedata

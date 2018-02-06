@@ -96,6 +96,7 @@ class FringeContextZynq : public FringeContextBase<void> {
 public:
   uint32_t numArgIns = 0;
   uint32_t numArgOuts = 0;
+  uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
 
   FringeContextZynq(std::string path = "") : FringeContextBase(path) {
@@ -192,26 +193,14 @@ public:
 //#endif
 
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, size);
+    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
 
     // Flush CPU cache
 //    char *start = (char*)dst;
 //    char *end = start + size;
 //    __clear_cache(start, end);
 
-    // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
-    int cacheSizeWords = 512 * (1 << 10) / sizeof(int);
-    int arraySize = cacheSizeWords * 10;
-    int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
-    EPRINTF("[memcpy] dummyBuf = %p, arraySize = %d\n", dummyBuf, arraySize);
-    for (int i = 0; i<arraySize; i++) {
-      if (i == 0) {
-        dummyBuf[i] = 10;
-      } else {
-        dummyBuf[i] = dummyBuf[i-1] * 2;
-      }
-    }
-    EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
+
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
@@ -223,7 +212,23 @@ public:
 
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, size);
+    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+  }
+
+  void flushCache(uint32_t kb) {
+    // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
+    int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on Zynq, 1MB on ZCU
+    int arraySize = cacheSizeWords * 10;
+    int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
+    EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
+    for (int i = 0; i<arraySize; i++) {
+      if (i == 0) {
+        dummyBuf[i] = 10;
+      } else {
+        dummyBuf[i] = dummyBuf[i-1] * 2;
+      }
+    }
+    EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
   }
 
   void dumpRegs() {
@@ -298,12 +303,19 @@ public:
   virtual void setNumArgIOs(uint32_t number) {
   }
 
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
+  }
+
   virtual void setArg(uint32_t arg, uint64_t data, bool isIO) {
     writeReg(arg+2, data);
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    numArgOuts++;
     return readReg(numArgIns+2+arg);
 
   }
@@ -321,9 +333,9 @@ public:
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = numArgOuts == 0 ? 1 : numArgOuts;
-    int debugRegStart = 2 + argIns + argOuts;
-    int totalRegs = argIns + argOuts + 2 + NUM_DEBUG_SIGNALS;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
 
     for (int i=0; i<totalRegs; i++) {
       uint32_t value = readReg(i);
@@ -332,7 +344,7 @@ public:
         EPRINTF("\tR%d: %08x (%08u)\n", i, value, value);
       } else {
         if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
-        EPRINTF("\tR%d (%s): %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
+        EPRINTF("\tR%d %s: %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
       }
     }
   }
@@ -341,12 +353,12 @@ public:
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = numArgOuts == 0 ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
     EPRINTF("argInOffset: %d\n", argInOffset);
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint32_t value = readReg(argInOffset + argOutOffset + 2 + i);
+      uint32_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
       EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");

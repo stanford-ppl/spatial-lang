@@ -58,9 +58,12 @@ trait ScalaGenController extends ScalaGenControl with ScalaGenStream with ScalaG
       emit(src"/** BEGIN HARDWARE BLOCK $lhs **/")
       globalMems = true
       if (!willRunForever(lhs)) {
+        open(src"def accel(): Unit = {")
         open(src"val $lhs = {")
           emitBlock(func)
         close("}")
+        close("}")
+        emit("accel()")
       }
       else {
         if (streamIns.nonEmpty) {

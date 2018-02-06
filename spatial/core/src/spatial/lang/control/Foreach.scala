@@ -6,7 +6,7 @@ import forge._
 import spatial.metadata._
 import spatial.nodes._
 
-protected class ForeachClass(style: ControlStyle, ii: Option[Long] = None) {
+protected class ForeachClass(style: ControlStyle, ii: Option[Double] = None) {
   /** 1 dimensional parallel foreach **/
   @api def apply(domain1D: Counter)(func: Index => MUnit): MUnit = {
     Foreach.alloc(List(domain1D), {x: List[Index] => func(x.head) }, style, ii); ()
@@ -29,7 +29,7 @@ protected class ForeachClass(style: ControlStyle, ii: Option[Long] = None) {
 }
 
 object Foreach extends ForeachClass(InnerPipe) {
-  @internal def alloc(domain: Seq[Counter], func: List[Index] => MUnit, style: ControlStyle, ii: Option[Long]): Controller = {
+  @internal def alloc(domain: Seq[Counter], func: List[Index] => MUnit, style: ControlStyle, ii: Option[Double]): Controller = {
     val iters = List.tabulate(domain.length){_ => fresh[Index] }
     val cchain = CounterChain(domain: _*)
 

@@ -2,6 +2,7 @@
 #define __FRINGE_CONTEXT_AWS_H__
 
 #include "FringeContextBase.h"
+#include "commonDefs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +38,7 @@
 
 #define SCALAR_CMD_BASE_ADDR   UINT64_C_AWS(0x1000000)
 #define SCALAR_IN_BASE_ADDR    UINT64_C_AWS(0x1010000)
-#define SCALAR_OUT_BASE_ADDR   UINT64_C_AWS(0x1020000)
+#define SCALAR_OUT_BASE_ADDR   UINT64_C_AWS(0x1080000)
 
 #define SCALAR_ARG_INCREMENT   UINT64_C_AWS(0x40)
 
@@ -59,7 +60,9 @@ private:
 #endif // F1
 
   int numArgIns = 0;
+  int numArgOuts = 0;
   int numArgIOs = 0;
+  int numArgOutInstrs = 0;
 
   // Helper to peek in sim or F1
   void aws_peek(uint64_t addr, uint32_t *value) {
@@ -387,6 +390,30 @@ public:
   
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
+  }
+
+  virtual void setNumArgOuts(uint32_t number) {
+    numArgOuts = number;
+  }
+
+  void flushCache(uint32_t kb) {
+    // // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
+    // int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on Zynq, 1MB on ZCU
+    // int arraySize = cacheSizeWords * 10;
+    // int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
+    // EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
+    // for (int i = 0; i<arraySize; i++) {
+    //   if (i == 0) {
+    //     dummyBuf[i] = 10;
+    //   } else {
+    //     dummyBuf[i] = dummyBuf[i-1] * 2;
+    //   }
+    // }
+    // EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
+  }
+
+  virtual void setNumArgOutInstrs(uint32_t number) {
+    numArgOutInstrs = number;
   }
 
   // Unimplemented

@@ -25,9 +25,10 @@ object FringeGlobals {
   def target_= (value: String): Unit = {
     bigIP = value match {
       case "zynq" | "zcu" => new fringeZynq.bigIP.BigIPZynq()
-      case "aws" => new fringeAWS.bigIP.BigIPAWS()
-      case "de1soc" => new fringeDE1SoC.bigIP.BigIPDE1SoC()
-      case _ => new fringe.bigIP.BigIPSim()
+      case "aws"          => new fringeAWS.bigIP.BigIPAWS()
+      case "de1soc"       => new fringeDE1SoC.bigIP.BigIPDE1SoC()
+      case "asic"         => new fringeASIC.bigIP.BigIPASIC()
+      case _              => new fringe.bigIP.BigIPSim()
     }
 
     magPipelineDepth = value match {
@@ -38,14 +39,20 @@ object FringeGlobals {
     _target = value
   }
 
+  private var _enableDebugRegs: Boolean = true
+  def enableDebugRegs = _enableDebugRegs
+  def enableDebugRegs_= (value: Boolean): Unit = _enableDebugRegs = value
+
+  private var _channelAssignment: ChannelAssignment = ColoredRoundRobin
+  def channelAssignment = _channelAssignment
+  def channelAssignment_= (value: ChannelAssignment): Unit = _channelAssignment = value
+
   // tclScript
   private var _tclScript: PrintWriter = {
     val pw = new PrintWriter(new File("bigIP.tcl"))
     pw.flush
     pw
   }
-
-  var channelAssignment: ChannelAssignment = ColoredRoundRobin
 
   def tclScript = _tclScript
   def tclScript_= (value: PrintWriter): Unit = _tclScript = value

@@ -10,6 +10,7 @@ module SRAMVerilogSim
     input raddrEn,
     input waddrEn,
     input wen,
+    input flow,
     input [DWIDTH-1:0] wdata,
     output reg [DWIDTH-1:0] rdata
 );
@@ -23,7 +24,7 @@ module SRAMVerilogSim
     end
 
     always @(posedge clk) begin
-        rdata <= mem[raddr];
+        if (flow) rdata <= mem[raddr];
     end
 
 endmodule

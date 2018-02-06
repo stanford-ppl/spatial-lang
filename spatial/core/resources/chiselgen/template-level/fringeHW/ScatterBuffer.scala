@@ -70,8 +70,6 @@ class ScatterBuffer(
   fCmd.io.enq(0) := io.fifo.enq(0).cmd
   fCount.io.enq(0) := 1.U
 
-  val rrespTag = io.rresp.bits.tag.asTypeOf(new DRAMCmdTag(w))
-
   val enqVld = io.fifo.enqVld & ~io.hit
   fData.io.enqVld := enqVld
   fCmd.io.enqVld := enqVld
@@ -83,7 +81,7 @@ class ScatterBuffer(
         addr.bits := bank(0).rdata.addr
         val valid = bank(0).valid
         val issueHit = valid & (addr.burstTag === cmdAddr.burstTag)
-        val respHit = valid & (addr.burstTag === rrespTag.addr) & io.rresp.valid
+        val respHit = valid & (addr.burstTag === io.rresp.bits.tag.uid) & io.rresp.valid
         (issueHit, respHit)
       }.unzip
     case None => throw new Exception
@@ -93,7 +91,7 @@ class ScatterBuffer(
   fData.io.banks match {
     case Some(b) =>
       b.zipWithIndex.foreach { case (bank, i) => 
-        val count = fCount.io.banks match { case Some(b) => b(i)(0) }
+        val count = fCount.io.banks.get.apply(i).apply(0)
         val wen = issueHits(i) & io.fifo.enqVld
         count.wen := wen
         count.wdata := count.rdata + 1.U

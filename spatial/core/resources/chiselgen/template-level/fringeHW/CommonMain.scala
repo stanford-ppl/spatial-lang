@@ -24,15 +24,17 @@ trait CommonMain {
   def tester: DUTType => ArgsTester[DUTType]
 
   def supportedTarget(t: String) = t match {
-    case "aws" => true
-    case "aws-sim" => true
-    case "zynq" => true
-    case "zcu" => true
+    case "aws"       => true
+    case "aws-sim"   => true
+    case "zynq"      => true
+    case "zcu"       => true
     case "verilator" => true
-    case "vcs" => true
-    case "xsim" => true
-    case "de1soc" => true
-    case _ => false
+    case "vcs"       => true
+    case "xsim"      => true
+    case "de1soc"    => true
+    case "arria10"   => true
+    case "asic"      => true
+    case _           => false
   }
 
   def target = if (args.size > 0) args(0) else "verilator"

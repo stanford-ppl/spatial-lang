@@ -66,7 +66,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs, DatapathEn)}""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${swap(lhs, Retime)}.S //${iiOf(lhs)}.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
+        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${DL(swap(lhs, IIDone), 1, true)}""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
@@ -148,22 +148,23 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${swap(lhs, DatapathEn)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${swap(lhs, Retime)}.S""")
-        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${swap(lhs, IIDone)}.D(1)""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${DL(swap(lhs, IIDone), 1, true)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
       }
       val dlay = bodyLatency.sum(lhs)
       accumsWithIIDlay += accum.asInstanceOf[Exp[_]]
       if (levelOf(lhs) == InnerControl) {
-        if (spatialConfig.enableRetiming) {
-          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
-        } else {
-          emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")        
-        }
+        emitGlobalWire(src"val ${accum}_II_dlay = 0 // Hack to fix Arbitrary Lambda")
         emitGlobalWireMap(s"${quote(accum)}_wren", "Wire(Bool())")
-        emit(s"${swap(quote(accum), Wren)} := (${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${swap(lhs, Inhibitor)}).D(0,rr)")
+        emit(s"${swap(quote(accum), Wren)} := ${swap(lhs, IIDone)} & ${swap(lhs, DatapathEn)} & ~${swap(lhs, Done)} & ~${swap(lhs, Inhibitor)}")
         emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
         val rstr = wireMap(src"${accum}_resetter")
+        // Need to delay reset by controller retime if not specialized reduction
+        // if (isSpecializedReduce(accum)) {
         emit(src"$rstr := ${swap(lhs, RstEn)}")
+        // } else {
+        //   emit(src"$rstr := ${DL(swap(lhs, RstEn), swap(lhs, Retime), true)} // Delay was added on 12/5/2017, not sure why it wasn't there before")
+        // }
       } else {
         if (spatialConfig.enableRetiming) {
           emitGlobalWire(src"val ${accum}_II_dlay = /*${iiOf(lhs)} +*/ 1 // un-hack to fix Arbitrary Lambda")
@@ -174,7 +175,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"// Used to be this, but not sure why for outer reduce: val ${accum}_resetter = Utils.delay(${swap(parentOf(lhs).get, Done)}, 2)")
         emitGlobalWireMap(src"${accum}_resetter", "Wire(Bool())")
         val rstr = wireMap(src"${accum}_resetter")
-        emit(src"$rstr := ${swap(lhs, RstEn)}.D(0)")
+        emit(src"$rstr := ${swap(lhs, RstEn)}")
       }
       // Create SRFF to block destructive reads after the cchain hits the max, important for retiming
       emit(src"//val ${accum}_initval = 0.U // TODO: Get real reset value.. Why is rV a tuple?")
@@ -191,7 +192,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
           case Def(_:RegNew[_]) => 
             // if (childrenOf(lhs).length == 1) {
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
-            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, SM)}.io.output.done //(${swap(childrenOf(lhs).last, Done)}).D(0, rr) // TODO: Skeptical these codegen rules are correct ???")
+            emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, SM)}.io.output.done //(${swap(childrenOf(lhs).last, Done)}) // TODO: Skeptical these codegen rules are correct ???")
           case Def(_:SRAMNew[_,_]) =>
             emitGlobalWireMap(src"${childrenOf(lhs).last}_done", "Wire(Bool())") // Risky
             emit(src"${swap(accum, Wren)} := ${swap(childrenOf(lhs).last, Done)} // TODO: SRAM accum is managed by SRAM write node anyway, this signal is unused")

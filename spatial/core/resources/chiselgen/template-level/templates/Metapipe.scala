@@ -7,7 +7,7 @@ import Utils._
 
 import scala.collection.mutable.HashMap
 
-class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val numIterWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false) extends Module {
+class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, val stateWidth: Int = 32, val numIterWidth: Int = 32, val retime: Int = 0, val staticNiter: Boolean = false, isReduce: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val input = new Bundle {
       val enable = Input(Bool())
@@ -42,7 +42,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val doneState = drainState+n-1
 
   val deadState = Module(new SRFF()) // This is a hack because with new retime optimizations, mask signal may come one cycle after next state is entered
-  deadState.io.input.asyn_reset := reset
+  deadState.io.input.asyn_reset := Utils.getRetimed(reset, 1)
 
   val niterComputeDelay = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
   val rstMax = if (staticNiter) 1 else niterComputeDelay
@@ -50,8 +50,8 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val rstCtr = Module(new SingleCounter(1, Some(0), None, Some(1), Some(0), width = rstw))
   val firstIterComplete = Module(new SRFF())
   firstIterComplete.io.input.set := rstCtr.io.output.done
-  firstIterComplete.io.input.reset := reset
-  firstIterComplete.io.input.asyn_reset := reset
+  firstIterComplete.io.input.reset := Utils.getRetimed(reset, 1)
+  firstIterComplete.io.input.asyn_reset := Utils.getRetimed(reset, 1)
 
   val stateFF = Module(new FF(numIterWidth))
   stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
