@@ -2,7 +2,7 @@ CC=g++
 LINK=g++
 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
 
-FRINGE_SRC=./fringeZynq
+FRINGE_SRC=./fringeZCU
 HOST_SRC=./
 STATIC_SRC=./datastructures/static
 
@@ -16,6 +16,8 @@ INCLUDES +=													\
 			-I${STATIC_SRC} 							\
 			-I${STATIC_SRC}/standalone  	\
 			-I${FRINGE_SRC} 					  	\
+			-I${XILINX_SDX}/target/aarch64-none/include					\
+			-I${XILINX_SDX}/target/aarch64-none/lib					\
 
 
 OBJECTS=$(SOURCES:.cpp=.o)
