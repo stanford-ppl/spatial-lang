@@ -2,6 +2,7 @@
 #define __FRINGE_CONTEXT_AWS_H__
 
 #include "FringeContextBase.h"
+#include "commonDefs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +38,7 @@
 
 #define SCALAR_CMD_BASE_ADDR   UINT64_C_AWS(0x1000000)
 #define SCALAR_IN_BASE_ADDR    UINT64_C_AWS(0x1010000)
-#define SCALAR_OUT_BASE_ADDR   UINT64_C_AWS(0x1020000)
+#define SCALAR_OUT_BASE_ADDR   UINT64_C_AWS(0x1080000)
 
 #define SCALAR_ARG_INCREMENT   UINT64_C_AWS(0x40)
 
@@ -59,6 +60,7 @@ private:
 #endif // F1
 
   int numArgIns = 0;
+  int numArgOuts = 0;
   int numArgIOs = 0;
   int numArgOutInstrs = 0;
 

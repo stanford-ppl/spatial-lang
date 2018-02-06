@@ -469,12 +469,12 @@ always_ff @(negedge sync_rst_n or posedge clk)
       SCALAR_tst_slv_rdata <= 0;
    else
    begin
-      case (SCALAR_cfg_addr_q)
-         32'h102{{{SPATIAL_INSERT_output_argaddr_4h}}}:      SCALAR_tst_slv_rdata <= SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}}[31:0];
-         32'h102{{{SPATIAL_INSERT_output_argaddr_4h_plus_0x20}}}:      SCALAR_tst_slv_rdata <= SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}}[63:32];
-         32'h1000020:      SCALAR_tst_slv_rdata <= SCALAR_done;
-         // 32'h1000040:      SCALAR_tst_slv_rdata <= all_ddr_is_ready[0];
-         32'h1000040:      SCALAR_tst_slv_rdata <= performance_counter_1;
+      case (SCALAR_cfg_addr_q[19:4])
+         16'h{{{SPATIAL_INSERT_output_argaddr_5h}}}:      SCALAR_tst_slv_rdata <= SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}}[31:0];
+         16'h{{{SPATIAL_INSERT_output_argaddr_5h_plus_0x20}}}:      SCALAR_tst_slv_rdata <= SCALAR_argOut__{{{SPATIAL_INSERT_output_argnum}}}[63:32];
+         16'h0002:      SCALAR_tst_slv_rdata <= SCALAR_done;
+         // 16'h0004:      SCALAR_tst_slv_rdata <= all_ddr_is_ready[0];
+         16'h0004:      SCALAR_tst_slv_rdata <= performance_counter_1;
          default:    SCALAR_tst_slv_rdata <= 32'hbadface9;
       endcase
    end
@@ -497,12 +497,12 @@ begin
       SCALAR_en[31:0]        <= 32'h0000_0000;
       SCALAR_reset[31:0]     <= 32'h0000_0000;
    end
-   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q == 32'h101{{{SPATIAL_INSERT_input_argaddr_4h}}})) begin  SCALAR_argIn__{{{SPATIAL_INSERT_input_argnum}}}[31:0] <= SCALAR_cfg_wdata_q; end
-   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q == 32'h101{{{SPATIAL_INSERT_input_argaddr_4h_plus_0x20}}})) begin  SCALAR_argIn__{{{SPATIAL_INSERT_input_argnum}}}[63:32] <= SCALAR_cfg_wdata_q; end
-   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q == 32'h1000000)) begin  // Cfg Write to offset 0x60 (cmd bit, i.e. enable)
+   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q[19:4] == 16'h{{{SPATIAL_INSERT_input_argaddr_5h}}})) begin  SCALAR_argIn__{{{SPATIAL_INSERT_input_argnum}}}[31:0] <= SCALAR_cfg_wdata_q; end
+   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q[19:4] == 16'h{{{SPATIAL_INSERT_input_argaddr_5h_plus_0x20}}})) begin  SCALAR_argIn__{{{SPATIAL_INSERT_input_argnum}}}[63:32] <= SCALAR_cfg_wdata_q; end
+   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q[19:4] == 16'h0000)) begin  // Cfg Write to offset 0x60 (cmd bit, i.e. enable)
       SCALAR_en[31:0] <= SCALAR_cfg_wdata_q;
    end
-   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q == 32'h1000060)) begin  // Cfg Write to offset 0x60 (cmd bit, i.e. reset)
+   else if (SCALAR_cfg_wr_stretch & (SCALAR_cfg_addr_q[19:4] == 16'h0006)) begin  // Cfg Write to offset 0x60 (cmd bit, i.e. reset)
       SCALAR_reset[31:0] <= SCALAR_cfg_wdata_q;
    end
 end
