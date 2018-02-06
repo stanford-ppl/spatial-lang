@@ -89,15 +89,15 @@ trait PIRGenController extends PIRCodegen with PIRGenFringe with PIRGenCounter w
     if (isControlNode(lhs)) {
       rhs match {
         case UnrolledForeach(en, cchain, func, iters, valids) => 
-          emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
+          emit(lhs, s"LoopController(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
           controlStack.push(lhs)
           emitIters(cchain, iters, valids, isInnerControl(lhs))
         case UnrolledReduce(en, cchain, accum, func, iters, valids) => 
-          emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
+          emit(lhs, s"LoopController(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=$cchain)", rhs)
           controlStack.push(lhs)
           emitIters(cchain, iters, valids, isInnerControl(lhs))
         case _ =>
-          emit(lhs, s"Controller(style=${styleOf(lhs)}, level=${levelOf(lhs)}, cchain=CounterChain.unit)", rhs)
+          emit(lhs, s"UnitController(style=${styleOf(lhs)}, level=${levelOf(lhs)})", rhs)
           controlStack.push(lhs)
       }
       rhs.blocks.foreach(emitBlock)
@@ -133,9 +133,13 @@ trait PIRGenCounter extends PIRCodegen {
 }
 
 trait PIRGenOp extends PIRCodegen {
+  def isInnerReduce(lhs:Sym[_], rhs:Op[_]) = {
+    val inputs = rhs.expInputs
+    reduceType(lhs).isDefined && inputs.contains(isReduceStarter)
+  }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     nodeToOp(rhs) match {
-      case Some(op) if reduceType(lhs).isDefined => 
+      case Some(op) if isInnerReduce(lhs, rhs) => 
         val inputs = rhs.expInputs
         val (accumAccess::_, input::_) = inputs.partition { in => isReduceStarter(in) }
         var accumInput = s"$input"
