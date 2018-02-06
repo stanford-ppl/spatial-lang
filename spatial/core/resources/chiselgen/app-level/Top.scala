@@ -16,6 +16,7 @@ abstract class TopInterface extends Bundle {
   var waddr = Input(UInt(1.W))
   var wdata = Input(Bits(1.W))
   var rdata = Output(Bits(1.W))
+  val is_enabled = Output(Bool())
 
 }
 
@@ -396,6 +397,7 @@ class Top(
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       accel.reset := ~reset.toBool
+      io.is_enabled := ~accel.io.enable
 
     case "aws" | "aws-sim" =>
       val topIO = io.asInstanceOf[AWSInterface]

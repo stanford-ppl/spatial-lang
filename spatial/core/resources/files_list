@@ -4577,6 +4577,16 @@
 ./scalagen/FixedPointRange.scala
 ./scalagen/FixedPoint.scala
 ./scalagen/build.sbt
+./cppgen/fringeZCU/FringeContextZCU.h
+./cppgen/fringeZCU/Makefile
+./cppgen/fringeZCU/utils/run.sh
+./cppgen/fringeZCU/utils/setClocks.sh
+./cppgen/fringeZCU/utils/set_perms
+./cppgen/fringeZCU/FringeContext.h
+./cppgen/fringeZCU/ZCUUtils.h
+./cppgen/fringeZCU/ZCUAddressMap.h
+./cppgen/fringeZCU/FringeContextBase.h
+./cppgen/fringeZCU/ZCUUtils.cpp
 ./cppgen/testdata/2d.ssv
 ./cppgen/testdata/1d.csv
 ./cppgen/testdata/1d.ssv

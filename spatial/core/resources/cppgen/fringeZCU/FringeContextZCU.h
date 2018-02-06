@@ -1,9 +1,9 @@
-#ifndef __FRINGE_CONTEXT_ZYNQ_H__
-#define __FRINGE_CONTEXT_ZYNQ_H__
+#ifndef __FRINGE_CONTEXT_ZCU_H__
+#define __FRINGE_CONTEXT_ZCU_H__
 
 #include "FringeContextBase.h"
-#include "ZynqAddressMap.h"
-#include "ZynqUtils.h"
+#include "ZCUAddressMap.h"
+#include "ZCUUtils.h"
 #include <cstring>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include "generated_debugRegs.h"
+// #include <xil_cache.h>
 // Some key code snippets have been borrowed from the following source:
 // https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
 
@@ -23,24 +24,25 @@
 #define USE_PHYS_ADDR
 
 /**
- * Zynq Fringe Context
+ * ZCU Fringe Context
  */
 
 extern "C" {
   void __clear_cache(char* beg, char* end);
+  void Xil_DCacheFlush(void);
 }
 
-class FringeContextZynq : public FringeContextBase<void> {
+class FringeContextZCU : public FringeContextBase<void> {
 
   const uint32_t burstSizeBytes = 64;
   int fd = 0;
-  u32 fringeScalarBase = 0;
-  u32 fringeMemBase    = 0;
-  u32 fpgaMallocPtr    = 0;
-  u32 fpgaFreeMemSize  = MEM_SIZE;
+  u64 fringeScalarBase = 0;
+  u64 fringeMemBase    = 0;
+  u64 fpgaMallocPtr    = 0;
+  u64 fpgaFreeMemSize  = MEM_SIZE;
 
-  const u32 commandReg = 0;
-  const u32 statusReg = 1;
+  const u64 commandReg = 0;
+  const u64 statusReg = 1;
 
   std::map<uint64_t, void*> physToVirtMap;
 
@@ -99,7 +101,7 @@ public:
   uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
 
-  FringeContextZynq(std::string path = "") : FringeContextBase(path) {
+  FringeContextZCU(std::string path = "") : FringeContextBase(path) {
     bitfile = path;
 
     // open /dev/mem file
@@ -113,11 +115,11 @@ public:
     // Initialize pointers to fringeScalarBase
     void *ptr;
     ptr = mmap(NULL, MAP_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_SCALAR_BASEADDR);
-    fringeScalarBase = (u32) ptr;
+    fringeScalarBase = (u64) ptr;
 
     // Initialize pointer to fringeMemBase
     ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
-    fringeMemBase = (u32) ptr;
+    fringeMemBase = (u64) ptr;
     fpgaMallocPtr = fringeMemBase;
   }
 
@@ -162,8 +164,8 @@ public:
 
     uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
 
-    for (int i = 0; i < paddedSize / sizeof(u32); i++) {
-      u32 *addr = (u32*) (virtAddr + i * sizeof(u32));
+    for (int i = 0; i < paddedSize / sizeof(u64); i++) {
+      u64 *addr = (u64*) (virtAddr + i * sizeof(u64));
       *addr = 4081516 + i;
     }
     fpgaMallocPtr += paddedSize;
@@ -217,7 +219,7 @@ public:
 
   void flushCache(uint32_t kb) {
     // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
-    int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on Zynq, 1MB on ZCU
+    int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on ZCU, 1MB on ZCU
     int arraySize = cacheSizeWords * 10;
     int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
     EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
@@ -322,11 +324,11 @@ public:
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
     sleep(0.2); // Prevents zcu crash for some unknown reason
-    Xil_Out32(fringeScalarBase+reg*sizeof(u32), data);
+    Xil_Out32(fringeScalarBase+reg*sizeof(u64), data);
   }
 
   virtual uint64_t readReg(uint32_t reg) {
-    uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u32));
+    uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u64));
 //    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
     return value;
   }
@@ -364,7 +366,7 @@ public:
     EPRINTF(" **************************\n");
   }
 
-  ~FringeContextZynq() {
+  ~FringeContextZCU() {
     dumpDebugRegs();
   }
 };

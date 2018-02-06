@@ -23,7 +23,8 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.M_AXI.ARSIZE   := 6.U  // 110, for 64-byte burst size
   io.M_AXI.ARBURST  := 1.U  // INCR mode
   io.M_AXI.ARLOCK   := 0.U
-  io.M_AXI.ARCACHE  := 4.U //3.U  // Xilinx recommended value
+  if (FringeGlobals.target == "zcu") io.M_AXI.ARCACHE  := 15.U  
+  else io.M_AXI.ARCACHE  := 3.U  
   io.M_AXI.ARPROT   := 0.U  // Xilinx recommended value
   io.M_AXI.ARQOS    := 0.U
   io.M_AXI.ARVALID  := io.in.cmd.valid & ~io.in.cmd.bits.isWr // Used to be shift registered
@@ -36,7 +37,8 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.M_AXI.AWSIZE   := 6.U  // 110, for 64-byte burst size
   io.M_AXI.AWBURST  := 1.U  // INCR mode
   io.M_AXI.AWLOCK   := 0.U
-  io.M_AXI.AWCACHE  := 4.U //3.U  // Xilinx recommended value
+  if (FringeGlobals.target == "zcu") io.M_AXI.AWCACHE  := 15.U
+  else io.M_AXI.AWCACHE  := 3.U  // Xilinx recommended value
   io.M_AXI.AWPROT   := 0.U  // Xilinx recommended value
   io.M_AXI.AWQOS    := 0.U
   io.M_AXI.AWVALID  := io.in.cmd.valid & io.in.cmd.bits.isWr // Used to be shift registered
