@@ -175,7 +175,7 @@ class Top(
   val totalArgOutLoobacks = math.max(1, argOutLoopbacksMap.toList.length)
   val totalRegs = totalArgIns + totalArgOuts + 2  // (command, status registers)
 
-  val addrWidth = if (target == "zcu") 40 else 32
+  val addrWidth = if (target == "zcu") 64 else 32
   val v = 16
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
   val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())

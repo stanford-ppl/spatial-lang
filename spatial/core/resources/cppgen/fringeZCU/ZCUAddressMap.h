@@ -12,7 +12,7 @@
 #define MEM_SIZE                0x20000000
 #define MAP_LEN                 0x10000
 
-typedef unsigned long u32;
+// typedef unsigned long u32;
 
 
 // Bit masks and positions - Command register

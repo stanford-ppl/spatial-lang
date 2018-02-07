@@ -11,7 +11,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include "generated_debugRegs.h"
-// #include <xil_cache.h>
+#include <xil_cache.h>
+#include <xil_io.h>
+
 // Some key code snippets have been borrowed from the following source:
 // https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
 
@@ -29,7 +31,8 @@
 
 extern "C" {
   void __clear_cache(char* beg, char* end);
-  void Xil_DCacheFlush(void);
+  void Xil_DCacheFlushRange(INTPTR adr, INTPTR len);
+
 }
 
 class FringeContextZCU : public FringeContextBase<void> {
@@ -196,6 +199,8 @@ public:
 
     void* dst = (void*) getFPGAVirt(devmem);
     std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
+    EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
+    Xil_DCacheFlushRange(devmem, size);
 
     // Flush CPU cache
 //    char *start = (char*)dst;
@@ -215,22 +220,24 @@ public:
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
     std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
+    Xil_DCacheFlushRange(devmem, size);
   }
 
   void flushCache(uint32_t kb) {
-    // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
-    int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on ZCU, 1MB on ZCU
-    int arraySize = cacheSizeWords * 10;
-    int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
-    EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
-    for (int i = 0; i<arraySize; i++) {
-      if (i == 0) {
-        dummyBuf[i] = 10;
-      } else {
-        dummyBuf[i] = dummyBuf[i-1] * 2;
-      }
-    }
-    EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
+    // // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
+    // int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on ZCU, 1MB on ZCU
+    // int arraySize = cacheSizeWords * 10;
+    // int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
+    // EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
+    // for (int i = 0; i<arraySize; i++) {
+    //   if (i == 0) {
+    //     dummyBuf[i] = 10;
+    //   } else {
+    //     dummyBuf[i] = dummyBuf[i-1] * 2;
+    //   }
+    // }
+    // EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
   }
 
   void dumpRegs() {
