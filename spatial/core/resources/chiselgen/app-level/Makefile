@@ -4,7 +4,8 @@ AWS_V_SIM_DIR=verilog-aws-sim
 ZYNQ_V_DIR=verilog-zynq
 ZCU_V_DIR=verilog-zcu
 ARRIA10_V_DIR=verilog-arria10
-GHRD_DIR=/opt/intelFPGA_pro/17.1/ghrd_pr/a10_soc_devkit_ghrd
+GHRD_DIR=/opt/intelFPGA_pro/17.1/ghrd_pr_small/a10_soc_devkit_ghrd
+USING_THIS_QUARTUS=17.1
 
 APPNAME=$(shell basename $(shell pwd))
 BIGIP_SCRIPT=bigIP.tcl
@@ -269,8 +270,9 @@ zynq-clean:
 arria10: arria10-hw arria10-sw
 
 arria10-hw:
+	date
 	echo "$$(date +%s)" >> start.log
-	@echo "alterad license: $(ALTERAD_LICENSE_FILE)"
+	@echo "altera license: $(ALTERAD_LICENSE_FILE)"
 	@echo "quartus version: $(USING_THIS_QUARTUS)"
 	sbt "runMain top.Instantiator --verilog --testArgs arria10"
 	sed -i 's/SRFF/SRFF_sp/g' ${ARRIA10_V_DIR}/Top.v
@@ -282,6 +284,7 @@ arria10-hw:
 	cd ${ARRIA10_V_DIR} && if [[ -L ghrd_10as066n2 ]]; then rm ghrd_10as066n2; fi && ln -s ${GHRD_DIR}/ghrd_10as066n2 ghrd_10as066n2 && if [[ -L pr_base_static.qdb ]]; then rm pr_base_static.qdb; fi && ln -s ${GHRD_DIR}/pr_base_static.qdb pr_base_static.qdb && if [[ -d output_files ]]; then rm -rf output_files; fi && mkdir output_files && ln -s ${GHRD_DIR}/output_files/pr_base.sof ./output_files/pr_base.sof && ln -s ${GHRD_DIR}/output_files/pr_base.static.msf ./output_files/pr_base.static.msf && ln -s ${GHRD_DIR}/output_files/pr_base.pr_region.pmsf ./output_files/pr_base.pr_region.pmsf
 	cd ${ARRIA10_V_DIR} && bash fit.sh
 	echo "$$(date +%s)" > end.log
+	date
 
 arria10-sw:
 	cp scripts/arria10.mk cpp/Makefile

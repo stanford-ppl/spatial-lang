@@ -336,11 +336,10 @@ set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_avlmm_pr_fr
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_mm_bridge_0.ip
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_reset_in.ip
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_clock_in.ip
-set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_sysid_qsys_0.ip
-set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_Top_DUT_0.ip
 set_global_assignment -name QSYS_FILE pr_region_alternate.qsys
 set_global_assignment -name IP_FILE ip/pr_region_default/pr_region_default_Top_0.ip
 set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_axi_bridge_0.ip
 set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_pr_region_controller_0.ip
 set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_avlmm_pr_freeze_bridge_1.ip
 set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_mm_bridge_0.ip
+set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_Top_DUT_0.ip

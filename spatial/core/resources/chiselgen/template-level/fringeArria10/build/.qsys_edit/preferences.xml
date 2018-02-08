@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <preferences>
  <debug showDebugMenu="0" />
- <window width="2265" height="938" x="144" y="4" />
+ <window width="1745" height="931" x="0" y="0" />
  <library expandedCategories="Library,Project" />
  <systemtable filter="All Interfaces">
   <columns>
-   <irq preferredWidth="63" />
-   <connections preferredWidth="431" />
-   <description preferredWidth="333" />
+   <connections preferredWidth="63" />
   </columns>
  </systemtable>
  <generation path="" />

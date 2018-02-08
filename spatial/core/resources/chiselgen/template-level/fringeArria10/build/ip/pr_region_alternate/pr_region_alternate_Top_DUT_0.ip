@@ -502,7 +502,7 @@
         <spirit:parameter>
           <spirit:name>addressSpan</spirit:name>
           <spirit:displayName>Address span</spirit:displayName>
-          <spirit:value spirit:format="string" spirit:id="addressSpan">512</spirit:value>
+          <spirit:value spirit:format="string" spirit:id="addressSpan">1024</spirit:value>
         </spirit:parameter>
         <spirit:parameter>
           <spirit:name>addressUnits</spirit:name>
@@ -788,7 +788,7 @@
           <spirit:direction>in</spirit:direction>
           <spirit:vector>
             <spirit:left>0</spirit:left>
-            <spirit:right>6</spirit:right>
+            <spirit:right>7</spirit:right>
           </spirit:vector>
           <spirit:wireTypeDefs>
             <spirit:wireTypeDef>
@@ -1950,7 +1950,7 @@
                     <name>io_S_AVALON_address</name>
                     <role>address</role>
                     <direction>Input</direction>
-                    <width>7</width>
+                    <width>8</width>
                     <lowerBound>0</lowerBound>
                     <vhdlType>STD_LOGIC_VECTOR</vhdlType>
                 </port>
@@ -2027,7 +2027,7 @@
                     </entry>
                     <entry>
                         <key>addressSpan</key>
-                        <value>512</value>
+                        <value>1024</value>
                     </entry>
                     <entry>
                         <key>addressUnits</key>
@@ -2229,11 +2229,11 @@
                 <consumedSystemInfos>
                     <entry>
                         <key>ADDRESS_MAP</key>
-                        <value>&lt;address-map&gt;&lt;slave name='io_S_AVALON' start='0x0' end='0x200' datawidth='32' /&gt;&lt;/address-map&gt;</value>
+                        <value>&lt;address-map&gt;&lt;slave name='io_S_AVALON' start='0x0' end='0x400' datawidth='32' /&gt;&lt;/address-map&gt;</value>
                     </entry>
                     <entry>
                         <key>ADDRESS_WIDTH</key>
-                        <value>9</value>
+                        <value>10</value>
                     </entry>
                     <entry>
                         <key>MAX_SLAVE_DATA_WIDTH</key>

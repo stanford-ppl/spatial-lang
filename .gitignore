@@ -62,6 +62,7 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 # Altera specifics
 spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*
 spatial/core/resources/chiselgen/template-level/fringeDE1SoC/Top_bak
+spatial/core/resources/chiselgen/template-level/fringeArria10/build_bak
 history.txt
 regTests.sh
 ./VideoSysSim
