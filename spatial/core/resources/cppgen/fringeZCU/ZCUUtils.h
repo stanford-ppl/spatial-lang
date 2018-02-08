@@ -7,10 +7,10 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
-// #include <xil_cache.h>
+#include <xil_cache.h>
 
-typedef unsigned long u32;
-typedef uint64_t u64;
+// typedef unsigned long u32;
+// typedef uint64_t u64;
 
 
 // Bit masks and positions - Command register

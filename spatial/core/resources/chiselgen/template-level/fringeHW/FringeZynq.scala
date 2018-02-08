@@ -80,9 +80,20 @@ class FringeZynq(
   fringeCommon.io.CLOCKCONVERT_AXI <> io.CLOCKCONVERT_AXI
 
   // AXI-lite bridge
-  if (FringeGlobals.target == "zynq" || FringeGlobals.target == "zcu") {
-    val datawidth = if (FringeGlobals.target == "zcu") 32 else 32
+  if (FringeGlobals.target == "zynq") {
+    val datawidth = 32
     val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, datawidth))
+    axiLiteBridge.io.S_AXI <> io.S_AXI
+
+    fringeCommon.reset := ~reset.toBool
+    fringeCommon.io.raddr := axiLiteBridge.io.raddr
+    fringeCommon.io.wen   := axiLiteBridge.io.wen
+    fringeCommon.io.waddr := axiLiteBridge.io.waddr
+    fringeCommon.io.wdata := axiLiteBridge.io.wdata
+    axiLiteBridge.io.rdata := fringeCommon.io.rdata
+  } else if (FringeGlobals.target == "zcu") {
+    val datawidth = 32
+    val axiLiteBridge = Module(new AXI4LiteToRFBridgeZCU(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
     fringeCommon.reset := ~reset.toBool
