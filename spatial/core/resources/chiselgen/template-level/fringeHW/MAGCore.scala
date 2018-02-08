@@ -440,22 +440,22 @@ class MAGCore(
   val wdataCount = debugCounter(io.dram.wdata.valid & io.dram.wdata.ready & io.enable)
 
   // rdata enq values
-//  for (i <- 0 until numRdataDebug) {
-//    for (j <- 0 until numRdataWordsDebug) {
-//      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === i.U)).io.out, s"""rdata_from_dram${i}_$j""")
-//    }
-//  }
+  for (i <- 0 until numRdataDebug) {
+    for (j <- 0 until numRdataWordsDebug) {
+      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === i.U)).io.out, s"""rdata_from_dram${i}_$j""")
+    }
+  }
 
 
-//   if (io.app.stores.size > 0) {
-//     // wdata enq values
-//     for (i <- 0 until numWdataDebug) {
-//       for (j <- 0 until numWdataWordsDebug) {
-//         connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""wdata_from_dram${i}_$j""")
-//       }
-//       connectDbgSig(debugFF(wdataMux.io.out.bits.wdata, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""Actual values on wdata.bits""")
-//     }
-//   }
+   if (io.app.stores.size > 0) {
+     // wdata enq values
+     for (i <- 0 until numWdataDebug) {
+       for (j <- 0 until numWdataWordsDebug) {
+         connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""wdata_from_dram${i}_$j""")
+       }
+       connectDbgSig(debugFF(wdataMux.io.out.bits.wdata, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""Actual values on wdata.bits""")
+     }
+   }
 
   connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid).io.out, "# DRAM Commands Issued")
   connectDbgSig(debugCounter(io.enable & ~cmdArbiter.io.empty & ~(dramReady & io.dram.cmd.valid)).io.out, "Total cycles w/ 1+ cmds queued up")
