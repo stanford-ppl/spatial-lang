@@ -135,11 +135,13 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
 
       // Connect IO interface signals to their streams
       val (dataMSB, dataLSB) = tupCoordinates(dataStream.tp.typeArguments.head, "_1")
+      val (strbMSB, strbLSB) = tupCoordinates(dataStream.tp.typeArguments.head, "_2")
       val (addrMSB, addrLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "offset")
       val (sizeMSB, sizeLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "size")
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
       val bug241_backoff = (math.random*7).toInt
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := wdata($dataMSB,$dataLSB) }""")
+      emit(src"""io.memStreams.stores($id).wstrb.bits := ${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))""")
       emit(src"""io.memStreams.stores($id).wdata.valid := ${swap(dataStream, Valid)}""")
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DL(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${DL(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")

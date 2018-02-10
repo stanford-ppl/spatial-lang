@@ -127,7 +127,7 @@ class FIFOWidthConvert(val win: Int, val vin: Int, val wout: Int, val vout: Int,
 
     fifo.io.enq := io.enq
     fifo.io.enqVld := io.enqVld
-    fifoStrb.io.enq := io.enqStrb
+    fifoStrb.io.enq(0) := io.enqStrb
     fifoStrb.io.enqVld := io.enqVld
 
     io.deq := fifo.io.deq
