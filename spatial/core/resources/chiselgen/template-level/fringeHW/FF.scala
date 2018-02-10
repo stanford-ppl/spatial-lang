@@ -3,7 +3,7 @@ package fringe
 import chisel3._
 import templates._
 
-class FFType[T<:Data](val t: T) extends Module {
+class FF[T<:Data](val t: T) extends Module {
   val io = IO(new Bundle {
     val in   = Input(t.cloneType)
     val init = Input(t.cloneType)
@@ -28,14 +28,3 @@ class FFType[T<:Data](val t: T) extends Module {
   }
 }
 
-class FF(val w: Int) extends Module {
-  val io = IO(new Bundle {
-    val in   = Input(UInt(w.W))
-    val init = Input(UInt(w.W))
-    val out  = Output(UInt(w.W))
-    val enable = Input(Bool())
-  })
-
-  val ff = Module(new FFType(UInt(w.W)))
-  io <> ff.io
-}

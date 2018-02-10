@@ -40,7 +40,7 @@ bool debug = false;
 AddrRemapper *remapper = NULL;
 
 extern uint64_t numCycles;
-uint32_t wordSizeBytes = 4;
+uint32_t wordSizeBytes = 1;
 uint32_t burstSizeBytes = 64;
 uint32_t burstSizeWords = burstSizeBytes / wordSizeBytes;
 
@@ -102,7 +102,7 @@ public:
   DRAMTag tag;
   uint64_t channelID;
   bool isWr;
-  uint32_t *wdata = NULL;
+  uint8_t *wdata = NULL;
   uint32_t delay;
   uint32_t elapsed;
   uint64_t issued;
@@ -179,18 +179,18 @@ struct AddrTag {
     tag = t;
   }
 
-	bool operator==(const AddrTag &o) const {
-			return addr == o.addr && tag.tag == o.tag.tag;
-	}
+  bool operator==(const AddrTag &o) const {
+      return addr == o.addr && tag.tag == o.tag.tag;
+  }
 
-	bool operator<(const AddrTag &o) const {
-			return addr < o.addr || (addr == o.addr && tag.tag < o.tag.tag);
-	}
+  bool operator<(const AddrTag &o) const {
+      return addr < o.addr || (addr == o.addr && tag.tag < o.tag.tag);
+  }
 };
 
 
 // WDATA Queue
-std::deque<uint32_t*> wdataQ[MAX_NUM_Q];
+std::deque<uint8_t*> wdataQ[MAX_NUM_Q];
 
 // Current set of requests that will be getting their wdata in order
 std::deque<DRAMRequest*> wrequestQ;
@@ -261,8 +261,8 @@ void popDRAMQ() {
     DRAMRequest *front = req;
     // Do write data handling, then pop all requests belonging to finished cmd from FIFO
     while ((dramRequestQ[popWhenReady].size() > 0) && (front->cmd == cmd)) {
-      uint32_t *front_wdata = front->wdata;
-      uint32_t *front_waddr = (uint32_t*) front->addr;
+      uint8_t *front_wdata = front->wdata;
+      uint8_t *front_waddr = (uint8_t*) front->addr;
       for (int i=0; i<burstSizeWords; i++) {
         front_waddr[i] = front_wdata[i];
       }
@@ -311,12 +311,12 @@ bool checkQAndRespond(int id) {
 //    }
 
     if (req->completed) {
-      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+      uint8_t rdata[64] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
       bool pokeResponse = false;
 
       if (req->isWr) { // Write request: Update 1 burst-length bytes at *addr
-        uint32_t *wdata = req->wdata;
-        uint32_t *waddr = (uint32_t*) req->addr;
+        uint8_t *wdata = req->wdata;
+        uint8_t *waddr = (uint8_t*) req->addr;
         for (int i=0; i<burstSizeWords; i++) {
           waddr[i] = wdata[i];
         }
@@ -324,7 +324,7 @@ bool checkQAndRespond(int id) {
           pokeResponse = true;
         }
       } else { // Read request: Read burst-length bytes at *addr
-        uint32_t *raddr = (uint32_t*) req->addr;
+        uint8_t *raddr = (uint8_t*) req->addr;
         for (int i=0; i<burstSizeWords; i++) {
           rdata[i] = raddr[i];
         }
@@ -373,7 +373,56 @@ bool checkQAndRespond(int id) {
             rdata[12],
             rdata[13],
             rdata[14],
-            rdata[15]
+            rdata[15],
+            rdata[16],
+            rdata[17],
+            rdata[18],
+            rdata[19],
+            rdata[20],
+            rdata[21],
+            rdata[22],
+            rdata[23],
+            rdata[24],
+            rdata[25],
+            rdata[26],
+            rdata[27],
+            rdata[28],
+            rdata[29],
+            rdata[30],
+            rdata[31],
+            rdata[32],
+            rdata[33],
+            rdata[34],
+            rdata[35],
+            rdata[36],
+            rdata[37],
+            rdata[38],
+            rdata[39],
+            rdata[40],
+            rdata[41],
+            rdata[42],
+            rdata[43],
+            rdata[44],
+            rdata[45],
+            rdata[46],
+            rdata[47],
+            rdata[48],
+            rdata[49],
+            rdata[50],
+            rdata[51],
+            rdata[52],
+            rdata[53],
+            rdata[54],
+            rdata[55],
+            rdata[56],
+            rdata[57],
+            rdata[58],
+            rdata[59],
+            rdata[60],
+            rdata[61],
+            rdata[62],
+            rdata[63]
+
           );
         }
         pokedResponse = true;
@@ -449,83 +498,167 @@ public:
 };
 
 extern "C" {
-  int sendWdata(
-      int dramCmdValid,
-      int dramReadySeen,
-      int wdata0,
-      int wdata1,
-      int wdata2,
-      int wdata3,
-      int wdata4,
-      int wdata5,
-      int wdata6,
-      int wdata7,
-      int wdata8,
-      int wdata9,
-      int wdata10,
-      int wdata11,
-      int wdata12,
-      int wdata13,
-      int wdata14,
-      int wdata15
-    ) {
-//    int wdataReady = 1;  // 1 == ready, 0 == not ready (stall upstream)
+  int sendWdataStrb(
+    int dramCmdValid,
+    int dramReadySeen,
+    int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15, int wdata16, int wdata17, int wdata18, int wdata19, int wdata20, int wdata21, int wdata22, int wdata23, int wdata24, int wdata25, int wdata26, int wdata27, int wdata28, int wdata29, int wdata30, int wdata31, int wdata32, int wdata33, int wdata34, int wdata35, int wdata36, int wdata37, int wdata38, int wdata39, int wdata40, int wdata41, int wdata42, int wdata43, int wdata44, int wdata45, int wdata46, int wdata47, int wdata48, int wdata49, int wdata50, int wdata51, int wdata52, int wdata53, int wdata54, int wdata55, int wdata56, int wdata57, int wdata58, int wdata59, int wdata60, int wdata61, int wdata62, int wdata63, int strb0,
+    int strb1, int strb2, int strb3, int strb4, int strb5, int strb6, int strb7, int strb8, int strb9, int strb10, int strb11, int strb12, int strb13, int strb14, int strb15, int strb16, int strb17, int strb18, int strb19, int strb20, int strb21, int strb22, int strb23, int strb24, int strb25, int strb26, int strb27, int strb28, int strb29, int strb30, int strb31, int strb32, int strb33, int strb34, int strb35, int strb36, int strb37, int strb38, int strb39, int strb40, int strb41, int strb42, int strb43, int strb44, int strb45, int strb46, int strb47, int strb48, int strb49, int strb50, int strb51, int strb52, int strb53, int strb54, int strb55, int strb56, int strb57, int strb58, int strb59, int strb60, int strb61, int strb62, int strb63
+  ) {
 
     // view addr as uint64_t without doing sign extension
-    uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
-    uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
-    uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
-    uint32_t cmdWdata3 = (*(uint32_t*)&wdata3);
-    uint32_t cmdWdata4 = (*(uint32_t*)&wdata4);
-    uint32_t cmdWdata5 = (*(uint32_t*)&wdata5);
-    uint32_t cmdWdata6 = (*(uint32_t*)&wdata6);
-    uint32_t cmdWdata7 = (*(uint32_t*)&wdata7);
-    uint32_t cmdWdata8 = (*(uint32_t*)&wdata8);
-    uint32_t cmdWdata9 = (*(uint32_t*)&wdata9);
-    uint32_t cmdWdata10 = (*(uint32_t*)&wdata10);
-    uint32_t cmdWdata11 = (*(uint32_t*)&wdata11);
-    uint32_t cmdWdata12 = (*(uint32_t*)&wdata12);
-    uint32_t cmdWdata13 = (*(uint32_t*)&wdata13);
-    uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
-    uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
+    uint8_t cmdWdata0 = (*(uint8_t*)&wdata0);
+    uint8_t cmdWdata1 = (*(uint8_t*)&wdata1);
+    uint8_t cmdWdata2 = (*(uint8_t*)&wdata2);
+    uint8_t cmdWdata3 = (*(uint8_t*)&wdata3);
+    uint8_t cmdWdata4 = (*(uint8_t*)&wdata4);
+    uint8_t cmdWdata5 = (*(uint8_t*)&wdata5);
+    uint8_t cmdWdata6 = (*(uint8_t*)&wdata6);
+    uint8_t cmdWdata7 = (*(uint8_t*)&wdata7);
+    uint8_t cmdWdata8 = (*(uint8_t*)&wdata8);
+    uint8_t cmdWdata9 = (*(uint8_t*)&wdata9);
+    uint8_t cmdWdata10 = (*(uint8_t*)&wdata10);
+    uint8_t cmdWdata11 = (*(uint8_t*)&wdata11);
+    uint8_t cmdWdata12 = (*(uint8_t*)&wdata12);
+    uint8_t cmdWdata13 = (*(uint8_t*)&wdata13);
+    uint8_t cmdWdata14 = (*(uint8_t*)&wdata14);
+    uint8_t cmdWdata15 = (*(uint8_t*)&wdata15);
+    uint8_t cmdWdata16 = (*(uint8_t*)&wdata16);
+    uint8_t cmdWdata17 = (*(uint8_t*)&wdata17);
+    uint8_t cmdWdata18 = (*(uint8_t*)&wdata18);
+    uint8_t cmdWdata19 = (*(uint8_t*)&wdata19);
+    uint8_t cmdWdata20 = (*(uint8_t*)&wdata20);
+    uint8_t cmdWdata21 = (*(uint8_t*)&wdata21);
+    uint8_t cmdWdata22 = (*(uint8_t*)&wdata22);
+    uint8_t cmdWdata23 = (*(uint8_t*)&wdata23);
+    uint8_t cmdWdata24 = (*(uint8_t*)&wdata24);
+    uint8_t cmdWdata25 = (*(uint8_t*)&wdata25);
+    uint8_t cmdWdata26 = (*(uint8_t*)&wdata26);
+    uint8_t cmdWdata27 = (*(uint8_t*)&wdata27);
+    uint8_t cmdWdata28 = (*(uint8_t*)&wdata28);
+    uint8_t cmdWdata29 = (*(uint8_t*)&wdata29);
+    uint8_t cmdWdata30 = (*(uint8_t*)&wdata30);
+    uint8_t cmdWdata31 = (*(uint8_t*)&wdata31);
+    uint8_t cmdWdata32 = (*(uint8_t*)&wdata32);
+    uint8_t cmdWdata33 = (*(uint8_t*)&wdata33);
+    uint8_t cmdWdata34 = (*(uint8_t*)&wdata34);
+    uint8_t cmdWdata35 = (*(uint8_t*)&wdata35);
+    uint8_t cmdWdata36 = (*(uint8_t*)&wdata36);
+    uint8_t cmdWdata37 = (*(uint8_t*)&wdata37);
+    uint8_t cmdWdata38 = (*(uint8_t*)&wdata38);
+    uint8_t cmdWdata39 = (*(uint8_t*)&wdata39);
+    uint8_t cmdWdata40 = (*(uint8_t*)&wdata40);
+    uint8_t cmdWdata41 = (*(uint8_t*)&wdata41);
+    uint8_t cmdWdata42 = (*(uint8_t*)&wdata42);
+    uint8_t cmdWdata43 = (*(uint8_t*)&wdata43);
+    uint8_t cmdWdata44 = (*(uint8_t*)&wdata44);
+    uint8_t cmdWdata45 = (*(uint8_t*)&wdata45);
+    uint8_t cmdWdata46 = (*(uint8_t*)&wdata46);
+    uint8_t cmdWdata47 = (*(uint8_t*)&wdata47);
+    uint8_t cmdWdata48 = (*(uint8_t*)&wdata48);
+    uint8_t cmdWdata49 = (*(uint8_t*)&wdata49);
+    uint8_t cmdWdata50 = (*(uint8_t*)&wdata50);
+    uint8_t cmdWdata51 = (*(uint8_t*)&wdata51);
+    uint8_t cmdWdata52 = (*(uint8_t*)&wdata52);
+    uint8_t cmdWdata53 = (*(uint8_t*)&wdata53);
+    uint8_t cmdWdata54 = (*(uint8_t*)&wdata54);
+    uint8_t cmdWdata55 = (*(uint8_t*)&wdata55);
+    uint8_t cmdWdata56 = (*(uint8_t*)&wdata56);
+    uint8_t cmdWdata57 = (*(uint8_t*)&wdata57);
+    uint8_t cmdWdata58 = (*(uint8_t*)&wdata58);
+    uint8_t cmdWdata59 = (*(uint8_t*)&wdata59);
+    uint8_t cmdWdata60 = (*(uint8_t*)&wdata60);
+    uint8_t cmdWdata61 = (*(uint8_t*)&wdata61);
+    uint8_t cmdWdata62 = (*(uint8_t*)&wdata62);
+    uint8_t cmdWdata63 = (*(uint8_t*)&wdata63);
 
-    uint32_t *wdata = (uint32_t*) malloc(burstSizeBytes);
-    wdata[0] = cmdWdata0;
-    wdata[1] = cmdWdata1;
-    wdata[2] = cmdWdata2;
-    wdata[3] = cmdWdata3;
-    wdata[4] = cmdWdata4;
-    wdata[5] = cmdWdata5;
-    wdata[6] = cmdWdata6;
-    wdata[7] = cmdWdata7;
-    wdata[8] = cmdWdata8;
-    wdata[9] = cmdWdata9;
-    wdata[10] = cmdWdata10;
-    wdata[11] = cmdWdata11;
-    wdata[12] = cmdWdata12;
-    wdata[13] = cmdWdata13;
-    wdata[14] = cmdWdata14;
-    wdata[15] = cmdWdata15;
+    int write_all = (strb0 == 1 && strb1 == 1 && strb2 == 1 && strb3 == 1 && strb4 == 1 && strb5 == 1 && strb6 == 1 && strb7 == 1 && strb8 == 1 && strb9 == 1 && strb10 == 1 && strb11 == 1 && strb12 == 1 && strb13 == 1 && strb14 == 1 && strb15 == 1 && strb16 == 1 && strb17 == 1 && strb18 == 1 && strb19 == 1 && strb20 == 1 && strb21 == 1 && strb22 == 1 && strb23 == 1 && strb24 == 1 && strb25 == 1 && strb26 == 1 && strb27 == 1 && strb28 == 1 && strb29 == 1 && strb30 == 1 && strb31 == 1 && strb32 == 1 && strb33 == 1 && strb34 == 1 && strb35 == 1 && strb36 == 1 && strb37 == 1 && strb38 == 1 && strb39 == 1 && strb40 == 1 && strb41 == 1 && strb42 == 1 && strb43 == 1 && strb44 == 1 && strb45 == 1 && strb46 == 1 && strb47 == 1 && strb48 == 1 && strb49 == 1 && strb50 == 1 && strb51 == 1 && strb52 == 1 && strb53 == 1 && strb54 == 1 && strb55 == 1 && strb56 == 1 && strb57 == 1 && strb58 == 1 && strb59 == 1 && strb60 == 1 && strb61 == 1 && strb62 == 1 && strb63 == 1);
 
-    if (debug) {
-      EPRINTF("[sendWdata dramCmdValid: %d, dramReadySeen: %d] %u %u %u %u\n", dramCmdValid, dramReadySeen, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
-      EPRINTF("                                                %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
-      EPRINTF("                                                %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
-      EPRINTF("                                                %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
+    if (write_all) {
+      uint8_t *wdata = (uint8_t*) malloc(burstSizeBytes);
+      wdata[0] = cmdWdata0;
+      wdata[1] = cmdWdata1;
+      wdata[2] = cmdWdata2;
+      wdata[3] = cmdWdata3;
+      wdata[4] = cmdWdata4;
+      wdata[5] = cmdWdata5;
+      wdata[6] = cmdWdata6;
+      wdata[7] = cmdWdata7;
+      wdata[8] = cmdWdata8;
+      wdata[9] = cmdWdata9;
+      wdata[10] = cmdWdata10;
+      wdata[11] = cmdWdata11;
+      wdata[12] = cmdWdata12;
+      wdata[13] = cmdWdata13;
+      wdata[14] = cmdWdata14;
+      wdata[15] = cmdWdata15;
+      wdata[16] = cmdWdata16;
+      wdata[17] = cmdWdata17;
+      wdata[18] = cmdWdata18;
+      wdata[19] = cmdWdata19;
+      wdata[20] = cmdWdata20;
+      wdata[21] = cmdWdata21;
+      wdata[22] = cmdWdata22;
+      wdata[23] = cmdWdata23;
+      wdata[24] = cmdWdata24;
+      wdata[25] = cmdWdata25;
+      wdata[26] = cmdWdata26;
+      wdata[27] = cmdWdata27;
+      wdata[28] = cmdWdata28;
+      wdata[29] = cmdWdata29;
+      wdata[30] = cmdWdata30;
+      wdata[31] = cmdWdata31;
+      wdata[32] = cmdWdata32;
+      wdata[33] = cmdWdata33;
+      wdata[34] = cmdWdata34;
+      wdata[35] = cmdWdata35;
+      wdata[36] = cmdWdata36;
+      wdata[37] = cmdWdata37;
+      wdata[38] = cmdWdata38;
+      wdata[39] = cmdWdata39;
+      wdata[40] = cmdWdata40;
+      wdata[41] = cmdWdata41;
+      wdata[42] = cmdWdata42;
+      wdata[43] = cmdWdata43;
+      wdata[44] = cmdWdata44;
+      wdata[45] = cmdWdata45;
+      wdata[46] = cmdWdata46;
+      wdata[47] = cmdWdata47;
+      wdata[48] = cmdWdata48;
+      wdata[49] = cmdWdata49;
+      wdata[50] = cmdWdata50;
+      wdata[51] = cmdWdata51;
+      wdata[52] = cmdWdata52;
+      wdata[53] = cmdWdata53;
+      wdata[54] = cmdWdata54;
+      wdata[55] = cmdWdata55;
+      wdata[56] = cmdWdata56;
+      wdata[57] = cmdWdata57;
+      wdata[58] = cmdWdata58;
+      wdata[59] = cmdWdata59;
+      wdata[60] = cmdWdata60;
+      wdata[61] = cmdWdata61;
+      wdata[62] = cmdWdata62;
+      wdata[63] = cmdWdata63;
+
+
+      if (debug) {
+        EPRINTF("[sendWdataStrb dramCmdValid: %d, dramReadySeen: %d] %u %u %u %u\n", dramCmdValid, dramReadySeen, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
+        EPRINTF("                                                %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
+        EPRINTF("                                                %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
+        EPRINTF("                                                %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
+      }
+
+      ASSERT(wrequestQ.size() > 0, "Wdata sent when no write requests were seen before!\n");
+
+      DRAMRequest *req = wrequestQ.front();
+      wrequestQ.pop_front();
+      req->wdata = wdata;
+      req->schedule();
     }
 
-    ASSERT(wrequestQ.size() > 0, "Wdata sent when no write requests were seen before!\n");
 
-    DRAMRequest *req = wrequestQ.front();
-    wrequestQ.pop_front();
-    req->wdata = wdata;
-    req->schedule();
-
-//    if (wdataReady == 1) {
-//      wdataQ[streamId].push_back(wdata);
-//    }
-//    return wdataReady;
   }
+
 
   int sendDRAMRequest(
       long long addr,
