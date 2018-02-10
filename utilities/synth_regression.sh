@@ -1,5 +1,11 @@
 #!/bin/bash
 
+jobs=`ps aux | grep "synth_launcher.sh $1" | wc -l`
+if [[ $jobs -gt 3 ]]; then
+	echo "Too many synth_launcher $1 jobs running!  quitting..." > /tmp/last_synth
+	exit 1
+fi
+
 if [[ $1 = "zynq" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
