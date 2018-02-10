@@ -36,8 +36,8 @@ class MuxNPipe[T<:Data](val t: T, val numInputs: Int, val stages: Int) extends M
       case 0 => {
         val m = Module(new MuxN(t, input.length))
         m.io.ins := input
-        val c = log2Ceil(input.length)
-        m.io.sel := io.sel(c - 1, 0)
+        val c = if (input.length <= 2) 0 else log2Ceil(input.length)
+        m.io.sel := io.sel({c max 1} - 1, 0)
         (m.io.out, io.sel(io.sel.getWidth - 1, c))
       }
       case _ => {

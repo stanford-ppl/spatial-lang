@@ -642,10 +642,22 @@ extern "C" {
 
 
       if (debug) {
-        EPRINTF("[sendWdataStrb dramCmdValid: %d, dramReadySeen: %d] %u %u %u %u\n", dramCmdValid, dramReadySeen, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
-        EPRINTF("                                                %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
-        EPRINTF("                                                %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
-        EPRINTF("                                                %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
+        EPRINTF("[sendWdataStrb (all channels on) dramCmdValid: %d, dramReadySeen: %d] %u %u %u %u\n", dramCmdValid, dramReadySeen, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata16, cmdWdata17, cmdWdata18, cmdWdata19);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata20, cmdWdata21, cmdWdata22, cmdWdata23);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata24, cmdWdata25, cmdWdata26, cmdWdata27);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata28, cmdWdata29, cmdWdata30, cmdWdata31);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata32, cmdWdata33, cmdWdata34, cmdWdata35);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata36, cmdWdata37, cmdWdata38, cmdWdata39);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata40, cmdWdata41, cmdWdata42, cmdWdata43);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata44, cmdWdata45, cmdWdata46, cmdWdata47);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata48, cmdWdata49, cmdWdata50, cmdWdata51);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata52, cmdWdata53, cmdWdata54, cmdWdata55);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata56, cmdWdata57, cmdWdata58, cmdWdata59);
+        EPRINTF("                                                    %u %u %u %u\n", cmdWdata60, cmdWdata61, cmdWdata62, cmdWdata63);
       }
 
       ASSERT(wrequestQ.size() > 0, "Wdata sent when no write requests were seen before!\n");
@@ -654,6 +666,105 @@ extern "C" {
       wrequestQ.pop_front();
       req->wdata = wdata;
       req->schedule();
+    } else {
+      // Start with burst data
+      uint8_t *wdata = (uint8_t*) malloc(burstSizeBytes);
+      DRAMRequest *req = wrequestQ.front();
+      uint8_t *raddr = (uint8_t*) req->addr;
+      for (int i=0; i<burstSizeWords; i++) {
+        wdata[i] = raddr[i];
+      }
+
+      if (debug) {
+        EPRINTF("[sendWdataStrb (Strobed) dramCmdValid: %d, dramReadySeen: %d] %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", dramCmdValid, dramReadySeen, cmdWdata0, strb0, wdata[0], cmdWdata1, strb1, wdata[1], cmdWdata2, strb2, wdata[2], cmdWdata3, strb3, wdata[3]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata4, strb4, wdata[4], cmdWdata5, strb5, wdata[5], cmdWdata6, strb6, wdata[6], cmdWdata7, strb7, wdata[7]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata8, strb8, wdata[8], cmdWdata9, strb9, wdata[9], cmdWdata10, strb10, wdata[10], cmdWdata11, strb11, wdata[11]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata12, strb12, wdata[12], cmdWdata13, strb13, wdata[13], cmdWdata14, strb14, wdata[14], cmdWdata15, strb15, wdata[15]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata16, strb16, wdata[16], cmdWdata17, strb17, wdata[17], cmdWdata18, strb18, wdata[18], cmdWdata19, strb19, wdata[19]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata20, strb20, wdata[20], cmdWdata21, strb21, wdata[21], cmdWdata22, strb22, wdata[22], cmdWdata23, strb23, wdata[23]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata24, strb24, wdata[24], cmdWdata25, strb25, wdata[25], cmdWdata26, strb26, wdata[26], cmdWdata27, strb27, wdata[27]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata28, strb28, wdata[28], cmdWdata29, strb29, wdata[29], cmdWdata30, strb30, wdata[30], cmdWdata31, strb31, wdata[31]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata32, strb32, wdata[32], cmdWdata33, strb33, wdata[33], cmdWdata34, strb34, wdata[34], cmdWdata35, strb35, wdata[35]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata36, strb36, wdata[36], cmdWdata37, strb37, wdata[37], cmdWdata38, strb38, wdata[38], cmdWdata39, strb39, wdata[39]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata40, strb40, wdata[40], cmdWdata41, strb41, wdata[41], cmdWdata42, strb42, wdata[42], cmdWdata43, strb43, wdata[43]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata44, strb44, wdata[44], cmdWdata45, strb45, wdata[45], cmdWdata46, strb46, wdata[46], cmdWdata47, strb47, wdata[47]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata48, strb48, wdata[48], cmdWdata49, strb49, wdata[49], cmdWdata50, strb50, wdata[50], cmdWdata51, strb51, wdata[51]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata52, strb52, wdata[52], cmdWdata53, strb53, wdata[53], cmdWdata54, strb54, wdata[54], cmdWdata55, strb55, wdata[55]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata56, strb56, wdata[56], cmdWdata57, strb57, wdata[57], cmdWdata58, strb58, wdata[58], cmdWdata59, strb59, wdata[59]);
+        EPRINTF("                                                              %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n",                              cmdWdata60, strb60, wdata[60], cmdWdata61, strb61, wdata[61], cmdWdata62, strb62, wdata[62], cmdWdata63, strb63, wdata[63]);
+      }
+
+      // Fill in accel wdata
+      if (strb0 == 1) wdata[0] = cmdWdata0;
+      if (strb1 == 1) wdata[1] = cmdWdata1;
+      if (strb2 == 1) wdata[2] = cmdWdata2;
+      if (strb3 == 1) wdata[3] = cmdWdata3;
+      if (strb4 == 1) wdata[4] = cmdWdata4;
+      if (strb5 == 1) wdata[5] = cmdWdata5;
+      if (strb6 == 1) wdata[6] = cmdWdata6;
+      if (strb7 == 1) wdata[7] = cmdWdata7;
+      if (strb8 == 1) wdata[8] = cmdWdata8;
+      if (strb9 == 1) wdata[9] = cmdWdata9;
+      if (strb10 == 1) wdata[10] = cmdWdata10;
+      if (strb11 == 1) wdata[11] = cmdWdata11;
+      if (strb12 == 1) wdata[12] = cmdWdata12;
+      if (strb13 == 1) wdata[13] = cmdWdata13;
+      if (strb14 == 1) wdata[14] = cmdWdata14;
+      if (strb15 == 1) wdata[15] = cmdWdata15;
+      if (strb16 == 1) wdata[16] = cmdWdata16;
+      if (strb17 == 1) wdata[17] = cmdWdata17;
+      if (strb18 == 1) wdata[18] = cmdWdata18;
+      if (strb19 == 1) wdata[19] = cmdWdata19;
+      if (strb20 == 1) wdata[20] = cmdWdata20;
+      if (strb21 == 1) wdata[21] = cmdWdata21;
+      if (strb22 == 1) wdata[22] = cmdWdata22;
+      if (strb23 == 1) wdata[23] = cmdWdata23;
+      if (strb24 == 1) wdata[24] = cmdWdata24;
+      if (strb25 == 1) wdata[25] = cmdWdata25;
+      if (strb26 == 1) wdata[26] = cmdWdata26;
+      if (strb27 == 1) wdata[27] = cmdWdata27;
+      if (strb28 == 1) wdata[28] = cmdWdata28;
+      if (strb29 == 1) wdata[29] = cmdWdata29;
+      if (strb30 == 1) wdata[30] = cmdWdata30;
+      if (strb31 == 1) wdata[31] = cmdWdata31;
+      if (strb32 == 1) wdata[32] = cmdWdata32;
+      if (strb33 == 1) wdata[33] = cmdWdata33;
+      if (strb34 == 1) wdata[34] = cmdWdata34;
+      if (strb35 == 1) wdata[35] = cmdWdata35;
+      if (strb36 == 1) wdata[36] = cmdWdata36;
+      if (strb37 == 1) wdata[37] = cmdWdata37;
+      if (strb38 == 1) wdata[38] = cmdWdata38;
+      if (strb39 == 1) wdata[39] = cmdWdata39;
+      if (strb40 == 1) wdata[40] = cmdWdata40;
+      if (strb41 == 1) wdata[41] = cmdWdata41;
+      if (strb42 == 1) wdata[42] = cmdWdata42;
+      if (strb43 == 1) wdata[43] = cmdWdata43;
+      if (strb44 == 1) wdata[44] = cmdWdata44;
+      if (strb45 == 1) wdata[45] = cmdWdata45;
+      if (strb46 == 1) wdata[46] = cmdWdata46;
+      if (strb47 == 1) wdata[47] = cmdWdata47;
+      if (strb48 == 1) wdata[48] = cmdWdata48;
+      if (strb49 == 1) wdata[49] = cmdWdata49;
+      if (strb50 == 1) wdata[50] = cmdWdata50;
+      if (strb51 == 1) wdata[51] = cmdWdata51;
+      if (strb52 == 1) wdata[52] = cmdWdata52;
+      if (strb53 == 1) wdata[53] = cmdWdata53;
+      if (strb54 == 1) wdata[54] = cmdWdata54;
+      if (strb55 == 1) wdata[55] = cmdWdata55;
+      if (strb56 == 1) wdata[56] = cmdWdata56;
+      if (strb57 == 1) wdata[57] = cmdWdata57;
+      if (strb58 == 1) wdata[58] = cmdWdata58;
+      if (strb59 == 1) wdata[59] = cmdWdata59;
+      if (strb60 == 1) wdata[60] = cmdWdata60;
+      if (strb61 == 1) wdata[61] = cmdWdata61;
+      if (strb62 == 1) wdata[62] = cmdWdata62;
+      if (strb63 == 1) wdata[63] = cmdWdata63;
+
+      // Send request
+      wrequestQ.pop_front();
+      req->wdata = wdata;
+      req->schedule();
+
     }
 
 

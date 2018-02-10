@@ -58,7 +58,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
 
   val regs = List.tabulate(d) { i =>
     val id = if (FringeGlobals.target == "zcu") i*2 else i // ZCU hack used to be i * 2
-    val ff = Module(new FF(w))
+    val ff = Module(new FF(UInt(w.W)))
     if ((argOutRange contains i) & (argInRange contains i)) {
       ff.io.enable := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wen & (io.waddr === id.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
       ff.io.in := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)

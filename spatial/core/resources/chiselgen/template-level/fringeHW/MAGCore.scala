@@ -146,8 +146,8 @@ class MAGCore(
   cmdAddr.bits := cmdHead.addr  
   // cmdAddr.bits := chisel3.util.Cat(0x7f.U(32.W), cmdHead.addr(31,0))
 
-  val cmdRead = io.enable & cmdArbiter.io.deqReady & ~cmdHead.isWr
-  val cmdWrite = io.enable & cmdArbiter.io.deqReady & cmdHead.isWr
+  val cmdRead = io.enable & ~cmdArbiter.io.empty & ~cmdHead.isWr // TODO: Matt V look at this (Used to use cmdArbiter.io.ready)
+  val cmdWrite = io.enable & ~cmdArbiter.io.empty & cmdHead.isWr // TODO: Matt V look at this (Used to use cmdArbiter.io.ready)
 
   val rrespTag = io.dram.rresp.bits.tag
   val wrespTag = io.dram.wresp.bits.tag
@@ -400,7 +400,7 @@ class MAGCore(
 
     m.io.enqVld := stream.wdata.valid
     m.io.enq := stream.wdata.bits
-    m.io.enqStrb := 0xFFFFFFFF.S.asUInt //stream.wstrb.bits  // FIXME
+    m.io.enqStrb := stream.wstrb.bits
     m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U)
 
     wdataMux.io.ins(i).valid := cmdWrite & ~m.io.empty
@@ -445,7 +445,7 @@ class MAGCore(
   cmdArbiter.io.deqVld := cmdDeqValidMux.io.out
 
   io.dram.wdata.bits.wdata := wdataMux.io.out.bits.wdata
-  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb
+  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse
   io.dram.wdata.valid := wdataMux.io.out.valid
 
   io.dram.cmd.bits := dramCmdMux.io.out.bits
