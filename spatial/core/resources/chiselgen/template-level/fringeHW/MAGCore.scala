@@ -37,11 +37,11 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 2
+  val numRdataDebug = 3
   val numRdataWordsDebug = 16
-  val numWdataDebug = 2
+  val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 500
+  val numDebugs = 400
 
   val sgDepth = d
 
@@ -570,8 +570,11 @@ class MAGCore(
   connectDbgSig(debugFF(io.TOP_AXI.AWADDR, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWADDR")
   connectDbgSig(debugFF(io.TOP_AXI.AWLEN, io.TOP_AXI.AWVALID & io.TOP_AXI.AWREADY).io.out, "Last TOP AWLEN")
   connectDbgSig(debugFF(io.TOP_AXI.WDATA, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY).io.out, "Last TOP WDATA")
+  connectDbgSig(debugFF(io.TOP_AXI.WSTRB, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY).io.out, "Last TOP WSTRB")
   connectDbgSig(debugFF(io.TOP_AXI.WDATA, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY & wdataCount.io.out === 0.U).io.out, "First TOP WDATA")
+  connectDbgSig(debugFF(io.TOP_AXI.WSTRB, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY & wdataCount.io.out === 0.U).io.out, "First TOP WSTRB")
   connectDbgSig(debugFF(io.TOP_AXI.WDATA, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY & wdataCount.io.out === 1.U).io.out, "Second TOP WDATA")
+  connectDbgSig(debugFF(io.TOP_AXI.WSTRB, io.TOP_AXI.WVALID & io.TOP_AXI.WREADY & wdataCount.io.out === 1.U).io.out, "Second TOP WSTRB")
 
   // // DWIDTH
   connectDbgSig(debugCounter(io.DWIDTH_AXI.ARVALID).io.out, "# cycles DWIDTH ARVALID ")
@@ -595,9 +598,13 @@ class MAGCore(
   // connectDbgSig(debugCounter(io.DWIDTH_AXI.ARLOCK).io.out, "# cycles DWIDTH ARLOCK ")
   connectDbgSig(debugFF(io.DWIDTH_AXI.AWADDR, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWADDR")
   connectDbgSig(debugFF(io.DWIDTH_AXI.AWLEN, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWLEN")
+  connectDbgSig(debugFF(io.DWIDTH_AXI.AWLEN, io.DWIDTH_AXI.AWVALID & io.DWIDTH_AXI.AWREADY).io.out, "Last DWIDTH AWLEN")
   connectDbgSig(debugFF(io.DWIDTH_AXI.WDATA, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY).io.out, "Last DWIDTH WDATA")
+  connectDbgSig(debugFF(io.DWIDTH_AXI.WSTRB, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY).io.out, "Last DWIDTH WSTRB")
   connectDbgSig(debugFF(io.DWIDTH_AXI.WDATA, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY & wdataCount.io.out === 0.U).io.out, "First DWIDTH WDATA")
+  connectDbgSig(debugFF(io.DWIDTH_AXI.WSTRB, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY & wdataCount.io.out === 0.U).io.out, "First DWIDTH WSTRB")
   connectDbgSig(debugFF(io.DWIDTH_AXI.WDATA, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY & wdataCount.io.out === 1.U).io.out, "Second DWIDTH WDATA")
+  connectDbgSig(debugFF(io.DWIDTH_AXI.WSTRB, io.DWIDTH_AXI.WVALID & io.DWIDTH_AXI.WREADY & wdataCount.io.out === 1.U).io.out, "Second DWIDTH WSTRB")
 
   // // PROTOCOL
   // connectDbgSig(debugCounter(io.PROTOCOL_AXI.ARVALID).io.out, "# cycles PROTOCOL ARVALID ")
