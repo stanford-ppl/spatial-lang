@@ -50,6 +50,7 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidt
 
 class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidth = 16, memChannel = 0) {
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
+  val wstrb = Flipped(Decoupled(UInt(p.v.W)))
   val wresp = Decoupled(Bool())
 
   override def cloneType(): this.type = {
@@ -95,6 +96,7 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
 
 class DRAMWdata(w: Int, v: Int) extends Bundle {
   val wdata = Vec(v, UInt(w.W))
+  val wstrb = Vec(v, Bool())
   val wlast = Bool()
 
   override def cloneType(): this.type = {
