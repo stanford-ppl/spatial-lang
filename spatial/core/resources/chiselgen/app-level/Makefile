@@ -376,7 +376,7 @@ vcs-sw:
 	ln -sf cpp/Top .
 
 vcs-hw:
-	if [[ ${REGRESSION_ENV} -eq 1 ]]; then sed -i "s/vcdon = .*;/vcdon = 0;/g" chisel/template-level/fringeVCS/Top-harness.sv; fi 
+	if [[ ! -z "${REGRESSION_ENV}" ]]; then sed -i "s/vcdon = .*;/vcdon = 0;/g" chisel/template-level/fringeVCS/Top-harness.sv; fi 
 	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
 	sbt "runMain top.Instantiator --verilog --testArgs vcs"
 	cp -r chisel/template-level/fringeVCS/* verilog-vcs
