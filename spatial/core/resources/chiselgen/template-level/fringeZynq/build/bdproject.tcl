@@ -187,7 +187,7 @@ switch $TARGET {
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_WVALID]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wready] [get_bd_pins Top_0/io_DWIDTH_AXI_WREADY]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wdata] [get_bd_pins Top_0/io_DWIDTH_AXI_WDATA]
-    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wstrd] [get_bd_pins Top_0/io_DWIDTH_AXI_WSTRB]
+    connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_wstrb] [get_bd_pins Top_0/io_DWIDTH_AXI_WSTRB]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bvalid] [get_bd_pins Top_0/io_DWIDTH_AXI_BVALID]
     connect_bd_net [get_bd_pins axi_dwidth_converter_0/m_axi_bready] [get_bd_pins Top_0/io_DWIDTH_AXI_BREADY]
 

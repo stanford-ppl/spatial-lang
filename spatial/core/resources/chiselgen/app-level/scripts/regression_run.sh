@@ -14,7 +14,6 @@ else
 	pass="?"
 fi
 
-sed -i 's/vcdon = .*;/vcdon = 0;/g' chisel/template-level/fringeVCS/Top-harness.sv
 timeout_wc=`cat log | grep "TIMEOUT" | wc -l`
 runtime_string=`cat log | grep "Design ran for" | sed "s/Design ran for //g" | sed "s/ cycles.*//g"`
 
