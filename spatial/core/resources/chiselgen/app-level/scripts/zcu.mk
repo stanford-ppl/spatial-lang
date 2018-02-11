@@ -2,7 +2,7 @@ CC=g++
 LINK=g++
 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
 
-FRINGE_SRC=./fringeZynq
+FRINGE_SRC=./fringeZCU
 HOST_SRC=./
 STATIC_SRC=./datastructures/static
 
@@ -16,6 +16,7 @@ INCLUDES +=													\
 			-I${STATIC_SRC} 							\
 			-I${STATIC_SRC}/standalone  	\
 			-I${FRINGE_SRC} 					  	\
+			-I${HOST_SRC}/fringeZCU/xil_libs					\
 
 
 OBJECTS=$(SOURCES:.cpp=.o)
@@ -24,7 +25,7 @@ DEFINES=$(OBJECTS:.o=.d)
 
 CXXFLAGS=-DZCU -D__DELITE_CPP_STANDALONE__ -D__USE_STD_STRING__  -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -O0 -g -march=armv8-a -mcpu=cortex-a53
 #CXXFLAGS=-DZCU -D__DELITE_CPP_STANDALONE__  -std=c++11
-LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm
+LDFLAGS=-Wl,--hash-style=both -lstdc++ -pthread -lpthread -lm -L${HOST_SRC}/fringeZCU/xil_libs -lxil
 
 all: pre-build-checks Top
 
@@ -37,7 +38,7 @@ endif
 
 
 Top: $(OBJECTS)
-	$(CROSS_COMPILE)$(LINK) $(LDFLAGS) $^ $(LOADLIBES) $(LDLIBS) -o $@ $(LIBS) $(SC_LIBS) 2>&1 | c++filt
+	$(CROSS_COMPILE)$(LINK) $^ $(LOADLIBES) $(LDLIBS) -o $@ $(LIBS) $(SC_LIBS) $(LDFLAGS) 2>&1 | c++filt
 
 %.o: %.cpp
 	  $(CROSS_COMPILE)$(CC) $(INCLUDES) $(CXXFLAGS) $(CPPFLAGS) $(OPT_FAST) -c -o $@  $<

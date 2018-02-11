@@ -12,7 +12,7 @@ import templates.Utils.log2Up
  * @param numArgOuts: Number of 'argOut' registers that can be written to in parallel
  */
 class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: Int = 0, val numArgIOs: Int = 0, val argOutLoopbacksMap: scala.collection.immutable.Map[Int,Int]) extends Module {
-  val addrWidth = if (FringeGlobals.target == "zynq" || FringeGlobals.target == "zcu") 32 else log2Up(d)
+  val addrWidth = if (FringeGlobals.target == "zynq") 32 else if (FringeGlobals.target == "zcu") 40 else log2Up(d)
   val pureArgIns = numArgIns-numArgIOs
   val pureArgOuts = numArgOuts-numArgIOs
   val argInRange = List(0, 1) ++ (2 until numArgIns).toList
@@ -57,8 +57,8 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   Predef.assert(numArgOuts <= d, s"numArgOuts ($numArgOuts) must be less than number of registers ($d)!")
 
   val regs = List.tabulate(d) { i =>
-    val id = if (FringeGlobals.target == "zcu") i*2 else i // Dumb hack for zcu that needs to be fixed.  Altering verilog bridge caused unexpected crashes but identical change in chisel makes things work
-    val ff = Module(new FF(w))
+    val id = if (FringeGlobals.target == "zcu") i*2 else i // ZCU hack used to be i * 2
+    val ff = Module(new FF(UInt(w.W)))
     if ((argOutRange contains i) & (argInRange contains i)) {
       ff.io.enable := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wen & (io.waddr === id.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
       ff.io.in := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)
@@ -79,7 +79,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   val regOuts = Vec(regs.map{_.io.out})
   rport.io.ins := regOuts
   if (FringeGlobals.target == "zcu") {
-    rport.io.sel := io.raddr / 2.U(addrWidth.W) // Dumb hack for zcu that needs to be fixed.  Altering verilog bridge caused unexpected crashes but identical change in chisel makes things work
+    rport.io.sel := io.raddr / 2.U(addrWidth.W) // ZCU hack used to be radder / 2
   } else {
     rport.io.sel := io.raddr
   }
@@ -100,7 +100,7 @@ class RegFilePure[T <: Data](val t: T, val d: Int) extends Module {
   })
 
   val regs = List.tabulate(d) { i =>
-    val ff = Module(new FFType(t))
+    val ff = Module(new FF(t))
     ff.io.in := io.wdata
     ff.io.enable := io.wen & (io.waddr === i.U)
     ff.io.init := (0.U).asTypeOf(t)

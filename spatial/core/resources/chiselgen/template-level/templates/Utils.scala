@@ -69,7 +69,7 @@ object ops {
     // Stream version
     def DS(delay: Int, retime_released: Bool, flow: Bool): Bool = {
 //      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
-      Mux(retime_released, Utils.getRetimedStream(b, delay, flow), false.B)
+      Mux(retime_released, Utils.getRetimed(b, delay, flow), false.B)
     }
     def DS(delay: Double, retime_released: Bool, flow: Bool): Bool = {
       b.DS(delay.toInt, retime_released, flow)
@@ -837,53 +837,27 @@ object Utils {
   }
 
   def getFF[T<: chisel3.core.Data](sig: T, en: UInt) = {
-    val in = sig match {
-      case v: Vec[_] => v.asInstanceOf[Vec[UInt]].reverse.reduce { chisel3.util.Cat(_,_) }
-      case u: UInt => u
-    }
-
-    val ff = Module(new fringe.FF(sig.getWidth))
-    ff.io.init := 0.U
-    ff.io.in := in
+    val ff = Module(new fringe.FF(sig))
+    ff.io.init := 0.U(sig.getWidth.W).asTypeOf(sig)
+    ff.io.in := sig
     ff.io.enable := en
     ff.io.out
   }
 
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int): T = {
+  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int, en: Bool = true.B): T = {
     if (delay == 0) {
       sig
     }
     else {
       if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
-        chisel3.util.ShiftRegister(sig, delay)
+        chisel3.util.ShiftRegister(sig, delay, en)
       } else {
         val sr = Module(new RetimeWrapper(sig.getWidth, delay))
         sr.io.in := sig.asUInt
-        sr.io.flow := true.B
+        sr.io.flow := en
         sig.cloneType.fromBits(sr.io.out)
       }
     }
-  }
-
-  // Special retime that allows the retime chain to halt if the flow signal in this controller is low
-  def getRetimedStream[T<:chisel3.core.Data](sig: T, delay: Int, flow: Bool): T = {
-    if (delay == 0) {
-      sig
-    }
-    else {
-      if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
-        chisel3.util.ShiftRegister(sig, delay)
-      } else {
-        val sr = Module(new RetimeWrapper(sig.getWidth, delay))
-        sr.io.in := sig.asUInt
-        sr.io.flow := flow
-        sig.cloneType.fromBits(sr.io.out)
-      }
-    }
-  }
-
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Double): T = {
-    getRetimed(sig, delay.toInt)
   }
 
   class PrintStackTraceException extends Exception

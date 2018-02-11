@@ -1,13 +1,13 @@
 #include <string.h>
 #include <ctype.h>
-#include "Arria10Utils.h"
+#include "ZCUUtils.h"
 
 u32 Xil_In32(u32 Addr)
 {
 	return *(volatile u32 *) Addr;
 }
 
-void Xil_Out32(u32* OutAddress, u32 Value)
+void Xil_Out32(u32 OutAddress, u32 Value)
 {
 	*(volatile u32 *) OutAddress = Value;
 }
@@ -35,6 +35,7 @@ void htonlBuf(uint32_t *buf, u32 numWords)
     buf[i] = htonl(buf[i]);
   }
 }
+
 
 void ntohlBuf(uint32_t *buf, u32 numWords)
 {

@@ -1,11 +1,17 @@
 #!/bin/bash
 
+jobs=`ps aux | grep "synth_launcher.sh $1" | wc -l`
+if [[ $jobs -gt 3 ]]; then
+	echo "Too many synth_launcher $1 jobs running!  quitting..." > /tmp/last_synth
+	exit 1
+fi
+
 if [[ $1 = "zynq" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
-	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/tid.py "$hash" "$apphash" "$timestamp" "Zynq"`
+	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "Zynq"`
 	echo $tid > ${REGRESSION_HOME}/data/tid
 	echo $hash > ${REGRESSION_HOME}/data/hash
 	echo $apphash > ${REGRESSION_HOME}/data/ahash
@@ -14,7 +20,7 @@ elif [[ $1 = "zcu" ]]; then
 	export CLOCK_FREQ_MHZ=125
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
-	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/tid.py "$hash" "$apphash" "$timestamp" "ZCU"`
+	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "ZCU"`
 	echo $tid > ${REGRESSION_HOME}/data/tid
 	echo $hash > ${REGRESSION_HOME}/data/hash
 	echo $apphash > ${REGRESSION_HOME}/data/ahash
@@ -23,16 +29,16 @@ elif [[ $1 = "arria10" ]]; then
 	export CLOCK_FREQ_MHZ=125
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
-	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/tid.py "$hash" "$apphash" "$timestamp" "Arria10"`
+	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "Arria10"`
 	echo $tid > ${REGRESSION_HOME}/data/tid
 	echo $hash > ${REGRESSION_HOME}/data/hash
 	echo $apphash > ${REGRESSION_HOME}/data/ahash
 elif [[ $1 = "aws" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
-	export CLOCK_FREQ_MHZ=125
+	export CLOCK_FREQ_MHZ=250
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
-	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/tid.py "$hash" "$apphash" "$timestamp" "AWS"`
+	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "AWS"`
 	echo $tid > ${REGRESSION_HOME}/data/tid
 	echo $hash > ${REGRESSION_HOME}/data/hash
 	echo $apphash > ${REGRESSION_HOME}/data/ahash
@@ -65,12 +71,12 @@ else
 	cd ${REGRESSION_HOME}/spatial/spatial-lang
 
 	if [[ $1 = "zynq" ]]; then
-		bin/regression 3 nobranch Zynq Dense Sparse
+		bin/regression 2 nobranch Zynq Dense Sparse
 	elif [[ $1 = "zcu" ]]; then
-		bin/regression 3 nobranch ZCU Dense Sparse
+		bin/regression 2 nobranch ZCU Dense Sparse
 	elif [[ $1 = "arria10" ]]; then
-		bin/regression 3 nobranch Arria10 Dense Sparse
+		bin/regression 2 nobranch Arria10 Dense Sparse
 	elif [[ $1 = "aws" ]]; then
-		bin/regression 4 nobranch AWS Dense Sparse
+		bin/regression 2 nobranch AWS Dense Sparse
 	fi
 fi

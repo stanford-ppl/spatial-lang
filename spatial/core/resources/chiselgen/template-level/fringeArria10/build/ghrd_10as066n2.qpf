@@ -18,16 +18,16 @@
 #
 # Quartus Prime
 # Version 17.1.0 Build 240 10/25/2017 SJ Pro Edition
-# Date created = 13:00:06  January 19, 2018
+# Date created = 16:41:33  January 26, 2018
 #
 # -------------------------------------------------------------------------- #
 
 QUARTUS_VERSION = "17.1"
-DATE = "13:00:06  January 19, 2018"
+DATE = "16:41:33  January 26, 2018"
 
 # Revisions
 
-PROJECT_REVISION = "pr_alternate_synth"
-PROJECT_REVISION = "pr_alternate_fit"
 PROJECT_REVISION = "pr_base"
+PROJECT_REVISION = "pr_alternate_fit"
+PROJECT_REVISION = "pr_alternate_synth"
 PROJECT_REVISION = "ghrd_10as066n2"

@@ -12,7 +12,6 @@ import templates.Utils.log2Up
  */
 case class MAGOpcode() extends Bundle {
   val scatterGather = Bool()
-//  val isWr = Bool()
 
   override def cloneType(): this.type = {
     new MAGOpcode().asInstanceOf[this.type]
@@ -51,6 +50,7 @@ class LoadStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidt
 
 class StoreStream(p: StreamParInfo) extends MemoryStream(addrWidth = 64, sizeWidth = 16, memChannel = 0) {
   val wdata = Flipped(Decoupled(Vec(p.v, UInt(p.w.W))))
+  val wstrb = Flipped(Decoupled(UInt(p.v.W)))
   val wresp = Decoupled(Bool())
 
   override def cloneType(): this.type = {
@@ -69,14 +69,23 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 
 }
 
+class DRAMCommandTag(w: Int) extends Bundle {
+  // Order is important here; streamId should be at [5:0] so all FPGA targets will see the
+  // value on their AXI bus. uid may be truncated on targets with narrower bus.
+  val uid = UInt((w - 6).W)
+  val streamId = UInt(6.W)
+
+  override def cloneType(): this.type = {
+    new DRAMCommandTag(w).asInstanceOf[this.type]
+  }
+}
+
 class DRAMCommand(w: Int, v: Int) extends Bundle {
   val addr = UInt(64.W)
   val size = UInt(32.W)
   val rawAddr = UInt(64.W)
   val isWr = Bool() // 1
-  val isSparse = Bool()
-  val tag = UInt(w.W)
-  val streamId = UInt(w.W)
+  val tag = new DRAMCommandTag(w)
   val dramReadySeen = Bool()
 
   override def cloneType(): this.type = {
@@ -87,8 +96,8 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
 
 class DRAMWdata(w: Int, v: Int) extends Bundle {
   val wdata = Vec(v, UInt(w.W))
+  val wstrb = Vec(v, Bool())
   val wlast = Bool()
-  val streamId = UInt(w.W)
 
   override def cloneType(): this.type = {
     new DRAMWdata(w, v).asInstanceOf[this.type]
@@ -98,8 +107,7 @@ class DRAMWdata(w: Int, v: Int) extends Bundle {
 
 class DRAMReadResponse(w: Int, v: Int) extends Bundle {
   val rdata = Vec(v, UInt(w.W)) // v
-  val tag = UInt(w.W)
-  val streamId = UInt(w.W)
+  val tag = new DRAMCommandTag(w)
 
   override def cloneType(): this.type = {
     new DRAMReadResponse(w, v).asInstanceOf[this.type]
@@ -107,8 +115,7 @@ class DRAMReadResponse(w: Int, v: Int) extends Bundle {
 }
 
 class DRAMWriteResponse(w: Int, v: Int) extends Bundle {
-  val tag = UInt(w.W)
-  val streamId = UInt(w.W)
+  val tag = new DRAMCommandTag(w)
 
   override def cloneType(): this.type = {
     new DRAMWriteResponse(w, v).asInstanceOf[this.type]

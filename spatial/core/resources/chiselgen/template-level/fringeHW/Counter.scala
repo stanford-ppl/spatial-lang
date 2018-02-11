@@ -20,7 +20,7 @@ class Counter(val w: Int) extends Module {
     val done   = Output(Bool())
   })
 
-  val reg = Module(new FF(w))
+  val reg = Module(new FF(UInt(w.W)))
   val init = 0.U(w.W)
   reg.io.init := init
   reg.io.enable := io.reset | io.enable
@@ -52,27 +52,27 @@ class CounterReg(val w: Int) extends Module {
   })
 
   // Register the inputs
-  val maxReg = Module(new FF(w))
+  val maxReg = Module(new FF(UInt(w.W)))
   maxReg.io.enable := true.B
   maxReg.io.in := io.max
   val max = maxReg.io.out
 
-  val strideReg = Module(new FF(w))
+  val strideReg = Module(new FF(UInt(w.W)))
   strideReg.io.enable := true.B
   strideReg.io.in := io.stride
   val stride = strideReg.io.out
 
-  val rstReg = Module(new FF(1))
+  val rstReg = Module(new FF(Bool()))
   rstReg.io.enable := true.B
   rstReg.io.in := io.reset
   val rst = rstReg.io.out
 
-  val enableReg = Module(new FF(1))
+  val enableReg = Module(new FF(Bool()))
   enableReg.io.enable := true.B
   enableReg.io.in := io.enable
   val enable = enableReg.io.out
 
-  val saturateReg = Module(new FF(1))
+  val saturateReg = Module(new FF(Bool()))
   saturateReg.io.enable := true.B
   saturateReg.io.in := io.saturate
   val saturate = saturateReg.io.out
@@ -87,11 +87,11 @@ class CounterReg(val w: Int) extends Module {
   counter.io.saturate := saturate
 
   // Register outputs
-  val outReg = Module(new FF(w))
+  val outReg = Module(new FF(UInt(w.W)))
   outReg.io.enable := true.B
   outReg.io.in := counter.io.out
   io.out := outReg.io.out
-  val doneReg = Module(new FF(1))
+  val doneReg = Module(new FF(Bool()))
   doneReg.io.enable := true.B
   doneReg.io.in := counter.io.done
   io.done := doneReg.io.out
