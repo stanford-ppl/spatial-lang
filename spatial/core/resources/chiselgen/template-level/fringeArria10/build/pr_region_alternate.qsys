@@ -174,7 +174,7 @@
                         <name>io_M_AXI_0_AWID</name>
                         <role>awid</role>
                         <direction>Output</direction>
-                        <width>6</width>
+                        <width>18</width>
                         <lowerBound>0</lowerBound>
                         <vhdlType>STD_LOGIC_VECTOR</vhdlType>
                     </port>
@@ -270,7 +270,7 @@
                         <name>io_M_AXI_0_ARID</name>
                         <role>arid</role>
                         <direction>Output</direction>
-                        <width>6</width>
+                        <width>18</width>
                         <lowerBound>0</lowerBound>
                         <vhdlType>STD_LOGIC_VECTOR</vhdlType>
                     </port>
@@ -406,7 +406,7 @@
                         <name>io_M_AXI_0_RID</name>
                         <role>rid</role>
                         <direction>Input</direction>
-                        <width>6</width>
+                        <width>18</width>
                         <lowerBound>0</lowerBound>
                         <vhdlType>STD_LOGIC_VECTOR</vhdlType>
                     </port>
@@ -462,7 +462,7 @@
                         <name>io_M_AXI_0_BID</name>
                         <role>bid</role>
                         <direction>Input</direction>
-                        <width>6</width>
+                        <width>18</width>
                         <lowerBound>0</lowerBound>
                         <vhdlType>STD_LOGIC_VECTOR</vhdlType>
                     </port>
