@@ -18,7 +18,7 @@ class BurstAddr(addrWidth: Int, w: Int, burstSizeBytes: Int) extends Bundle {
   def burstTag = bits(bits.getWidth - 1, log2Up(burstSizeBytes))
   def burstOffset = bits(log2Up(burstSizeBytes) - 1, 0)
   def burstAddr = Cat(burstTag, 0.U(log2Up(burstSizeBytes).W))
-  def wordOffset = bits(log2Up(burstSizeBytes) - 1, log2Up(w/8))
+  def wordOffset = bits(log2Up(burstSizeBytes) - 1, if (w == 8) 0 else log2Up(w/8))
 
   override def cloneType(): this.type = {
     new BurstAddr(addrWidth, w, burstSizeBytes).asInstanceOf[this.type]
@@ -356,7 +356,7 @@ class MAGCore(
 
     wdataMux.io.ins(i).valid := issueWrite
     wdataMux.io.ins(i).bits.wdata := m.io.fifo.deq(0).data
-    // TODO: Connect wstrb if necessary?
+    wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
 
     val wrespFIFO = Module(new FIFOCore(UInt(w.W), d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.bits.tag.uid
