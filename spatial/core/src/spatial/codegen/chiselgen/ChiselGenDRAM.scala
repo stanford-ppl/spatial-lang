@@ -116,6 +116,18 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       appPropertyStats += HasTileStore
 
+      // Find stages that pushes to cmdstream and dataStream
+      var cmdStage: Option[Exp[_]] = None
+      var dataStage: Option[Exp[_]] = None
+      childrenOf(parentOf(lhs).get).map{c => 
+        pushesTo(c).distinct.map{ pt => pt.memory match {
+          case fifo @ Def(StreamOutNew(bus)) => 
+            if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(c)
+            if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(c)
+          case _ => 
+        }}
+      }
+
       if (isAligned(cmdStream)) appPropertyStats += HasAlignedStore
       else appPropertyStats += HasUnalignedStore
 
@@ -140,14 +152,18 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val (sizeMSB, sizeLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "size")
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
       val bug241_backoff = (math.random*7).toInt
-      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := ${DL(src"wdata($dataMSB,$dataLSB)", src"${bug241_backoff}")} }""")
-      emit(src"""io.memStreams.stores($id).wstrb.bits := ${DL(src"${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))", src"${bug241_backoff}")} """)
-      emit(src"""io.memStreams.stores($id).wdata.valid := ${DL(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} """)
-      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DL(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
-      emit(src"io.memStreams.stores($id).cmd.bits.size := ${DL(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")
-      emit(src"io.memStreams.stores($id).cmd.valid :=  ${DL(swap(cmdStream, Valid), bug241_backoff, true)}")
-      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DL(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
+      controllerStack.push(dataStage.get) // Push so that DLI does the right thing
+      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := ${DLI(src"wdata($dataMSB,$dataLSB)", src"${bug241_backoff}")} }""")
+      emit(src"""io.memStreams.stores($id).wstrb.bits := ${DLI(src"${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))", src"${bug241_backoff}")} """)
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${DLI(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} """)
+      controllerStack.pop()
+      controllerStack.push(cmdStage.get) // Push so that DLI does the right thing
+      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DLI(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.stores($id).cmd.bits.size := ${DLI(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${DLI(swap(cmdStream, Valid), bug241_backoff, true)}")
+      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DLI(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
+      controllerStack.pop()
       emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
