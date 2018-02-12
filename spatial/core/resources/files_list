@@ -978,11 +978,6 @@
 ./chiselgen/template-level/fringeArria10/build/qdb/_compiler/pr_alternate_fit/_flat/17.1.0/legacy/1/pr_alternate_fit.db_info
 ./chiselgen/template-level/fringeArria10/build/qdb/_compiler/pr_base/_flat/17.1.0/legacy/1/pr_base.db_info
 ./chiselgen/template-level/fringeArria10/build/RetimeShiftRegister.sv
-./chiselgen/template-level/fringeArria10/build/pr_region_alternate/pr_region_alternate.cmp
-./chiselgen/template-level/fringeArria10/build/pr_region_alternate/pr_region_alternate.bsf
-./chiselgen/template-level/fringeArria10/build/pr_region_alternate/pr_region_alternate_inst.vhd
-./chiselgen/template-level/fringeArria10/build/pr_region_alternate/pr_region_alternate_bb.v
-./chiselgen/template-level/fringeArria10/build/pr_region_alternate/pr_region_alternate_inst.v
 ./chiselgen/template-level/fringeArria10/build/Top_DUT_hw.tcl~
 ./chiselgen/template-level/fringeArria10/build/pr_base.qws
 ./chiselgen/template-level/fringeArria10/build/pr_alternate_synth_description.txt
