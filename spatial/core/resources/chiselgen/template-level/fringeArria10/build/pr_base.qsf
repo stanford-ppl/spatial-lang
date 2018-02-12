@@ -289,11 +289,11 @@ set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_instance_assignment -name PARTITION pr_region -to soc_inst|default_0 -entity ghrd_a10_top
 set_instance_assignment -name PARTITION_COLOUR 4278255487 -to soc_inst|default_0 -entity ghrd_a10_top
 set_instance_assignment -name PARTIAL_RECONFIGURATION_PARTITION ON -to soc_inst|default_0 -entity ghrd_a10_top
-set_instance_assignment -name PLACE_REGION "X1 Y1 X130 Y210" -to soc_inst|default_0
+set_instance_assignment -name PLACE_REGION "X1 Y1 X100 Y100" -to soc_inst|default_0
 set_instance_assignment -name RESERVE_PLACE_REGION ON -to soc_inst|default_0
 set_instance_assignment -name CORE_ONLY_PLACE_REGION ON -to soc_inst|default_0
 set_instance_assignment -name REGION_NAME pr_region -to soc_inst|default_0
-set_instance_assignment -name ROUTE_REGION "X0 Y0 X131 Y211" -to soc_inst|default_0
+set_instance_assignment -name ROUTE_REGION "X0 Y0 X101 Y101" -to soc_inst|default_0
 set_global_assignment -name QIP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_pr_region_controller_0/ghrd_10as066n2_pr_region_controller_0.qip
 set_global_assignment -name IP_FILE ip/pr_region_default/pr_region_default_sysid_qsys_0.ip
 set_global_assignment -name IP_FILE ip/pr_region_default/pr_region_default_reset_in.ip
@@ -343,3 +343,5 @@ set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_pr_region_c
 set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_avlmm_pr_freeze_bridge_1.ip
 set_global_assignment -name IP_FILE ip/ghrd_10as066n2/ghrd_10as066n2_mm_bridge_0.ip
 set_global_assignment -name IP_FILE ip/pr_region_alternate/pr_region_alternate_Top_DUT_0.ip
+set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
+set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
