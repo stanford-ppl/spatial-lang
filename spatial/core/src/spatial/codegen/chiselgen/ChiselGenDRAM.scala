@@ -119,13 +119,24 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       // Find stages that pushes to cmdstream and dataStream
       var cmdStage: Option[Exp[_]] = None
       var dataStage: Option[Exp[_]] = None
-      childrenOf(parentOf(lhs).get).map{c => 
-        pushesTo(c).distinct.map{ pt => pt.memory match {
-          case fifo @ Def(StreamOutNew(bus)) => 
-            if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(c)
-            if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(c)
-          case _ => 
-        }}
+      childrenOf(parentOf(lhs).get).map{c =>
+        if (childrenOf(c).length > 0) {
+          childrenOf(c).map{ cc => 
+            pushesTo(cc).distinct.map{ pt => pt.memory match {
+              case fifo @ Def(StreamOutNew(bus)) => 
+                if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(cc)
+                if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(cc)
+              case _ => 
+            }}                      
+          }
+        } else {
+          pushesTo(c).distinct.map{ pt => pt.memory match {
+            case fifo @ Def(StreamOutNew(bus)) => 
+              if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(c)
+              if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(c)
+            case _ => 
+          }}          
+        }
       }
 
       if (isAligned(cmdStream)) appPropertyStats += HasAlignedStore
