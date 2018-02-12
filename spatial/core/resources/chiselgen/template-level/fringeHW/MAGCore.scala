@@ -37,7 +37,7 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 3
+  val numRdataDebug = 0
   val numRdataWordsDebug = 16
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
@@ -75,8 +75,8 @@ class MAGCore(
 
   })
 
-  val external_w = if (FringeGlobals.target == "vcs") 8 else 32
-  val external_v = if (FringeGlobals.target == "vcs") 64 else 16
+  val external_w = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 8 else 32
+  val external_v = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 64 else 16
   // debug registers
   def debugCounter(en: Bool) = {
     val c = Module(new Counter(w))
@@ -445,7 +445,7 @@ class MAGCore(
   cmdArbiter.io.deqVld := cmdDeqValidMux.io.out
 
   io.dram.wdata.bits.wdata := wdataMux.io.out.bits.wdata
-  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse
+  io.dram.wdata.bits.wstrb.foreach(_ := 1.U)  //wdataMux.io.out.bits.wstrb.reverse
   io.dram.wdata.valid := wdataMux.io.out.valid
 
   io.dram.cmd.bits := dramCmdMux.io.out.bits
