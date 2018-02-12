@@ -103,7 +103,8 @@ object DRAMTransfersInternal {
       val dataStream = StreamOut[MTuple2[T,Bit]](BurstFullDataBus[T]())
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
-      // Command generator
+      // Command generator 
+      // PIR different because FPGA VCS crashes if data gets sent before command
       // if (spatialConfig.enablePIR) { // On plasticine the sequential around data and address generation is inefficient
         Pipe {
           val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address

@@ -312,9 +312,9 @@ zcu-hw:
 	echo "$$(date +%s)" >> start.log
 	# Some hacks that really need to be fixed in a way better than sed
 	sed -i "s/val bug239_hack = .*/val bug239_hack = true/g" chisel/template-level/fringeHW/Fringe.scala
-	sed -i "s/#define FRINGE_MEM_BASEADDR.*/#define FRINGE_MEM_BASEADDR  0x40000000/g" cpp/fringeZynq/ZynqAddressMap.h
-	sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
-	sed -i "s/#define MEM_SIZE.*/#define MEM_SIZE  0x40000000/g" cpp/fringeZynq/ZynqAddressMap.h
+	# sed -i "s/#define FRINGE_MEM_BASEADDR.*/#define FRINGE_MEM_BASEADDR  0x40000000/g" cpp/fringeZynq/ZynqAddressMap.h
+	# sed -i "s/#define FRINGE_SCALAR_BASEADDR.*/#define FRINGE_SCALAR_BASEADDR  0x400000000/g" cpp/fringeZynq/ZynqAddressMap.h
+	# sed -i "s/#define MEM_SIZE.*/#define MEM_SIZE  0x40000000/g" cpp/fringeZynq/ZynqAddressMap.h
 	sed -i "s/EPRINTF(/fprintf(stderr,/g" cpp/fringeZynq/FringeContextZynq.h # Not sure why eprintf randomly crashes zcu
 
 	sbt "runMain top.Instantiator --verilog --testArgs zcu"
@@ -379,6 +379,7 @@ vcs-sw:
 	ln -sf cpp/Top .
 
 vcs-hw:
+	if [[ ! -z "${REGRESSION_ENV}" ]]; then sed -i "s/vcdon = .*;/vcdon = 0;/g" chisel/template-level/fringeVCS/Top-harness.sv; fi 
 	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
 	sbt "runMain top.Instantiator --verilog --testArgs vcs"
 	cp -r chisel/template-level/fringeVCS/* verilog-vcs
