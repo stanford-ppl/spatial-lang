@@ -178,7 +178,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DLI(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
       controllerStack.pop()
-      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
+      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"0", true)} // Baffled why this signal delayed by symDelay(writersOf(cmdStream).head.node) up until 02/13/2018 ?!")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
