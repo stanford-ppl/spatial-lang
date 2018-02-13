@@ -177,7 +177,7 @@ class Top(
 
   val addrWidth = if (target == "zcu") 40 else 32
   val dataWidth = if (target == "zcu") 64 else w
-  val v = if (target == "vcs") 64 else 16
+  val v = if (target == "vcs" || target == "asic") 64 else 16
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
   val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
 

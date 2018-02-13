@@ -96,7 +96,7 @@ class DRAMCommand(w: Int, v: Int) extends Bundle {
 
 class DRAMWdata(w: Int, v: Int) extends Bundle {
   val wdata = Vec(v, UInt(w.W))
-  val wstrb = Vec(v, Bool())
+  val wstrb = Vec(w*v/8, Bool())
   val wlast = Bool()
 
   override def cloneType(): this.type = {

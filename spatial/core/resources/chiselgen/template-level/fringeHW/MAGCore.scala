@@ -37,11 +37,11 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 3
+  val numRdataDebug = 2
   val numRdataWordsDebug = 16
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 400
+  val numDebugs = 416
 
   val sgDepth = d
 
@@ -75,8 +75,8 @@ class MAGCore(
 
   })
 
-  val external_w = if (FringeGlobals.target == "vcs") 8 else 32
-  val external_v = if (FringeGlobals.target == "vcs") 64 else 16
+  val external_w = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 8 else 32
+  val external_v = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 64 else 16
   // debug registers
   def debugCounter(en: Bool) = {
     val c = Module(new Counter(w))
@@ -185,11 +185,11 @@ class MAGCore(
     size.bits := cmdHead.size
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
-    if (id < loadStreamInfo.length) {
+    if (id < loadStreamInfo.length && id == 0) {
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.tag.streamId, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load streamId (tag) sent")
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.addr, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load addr sent")
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load size sent")
-    } else {
+    } else if (id == loadStreamInfo.length) {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
       connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")
       // connectDbgSig(debugFF(chisel3.util.Cat(0x7f.U(32.W), cmdAddr.bits(31,0)), cmdWrite ).io.out, "Last store addr sent")
@@ -288,8 +288,12 @@ class MAGCore(
     stream.rdata.valid := ~m.io.empty
     m.io.deqVld := stream.rdata.ready
 
- //   connectDbgSig(debugCounter(m.io.enqVld).io.out, s"rdataFifo $i enq")
- //   connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"number of bad elements")
+    connectDbgSig(debugCounter(m.io.enqVld).io.out, s"rdataFifo $i # enqs")
+    connectDbgSig(debugCounter(~m.io.empty).io.out, s"rdataFifo $i # cycles ~empty (= data valid)")
+    connectDbgSig(debugCounter(stream.rdata.ready).io.out, s"load stream $i # cycles ready")
+    connectDbgSig(debugCounter(~m.io.empty && stream.rdata.ready).io.out, s"load stream $i # handshakes")
+
+    connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"number of bad elements (IF =!= 0, LOOK HERE FOR BUGS)")
 
     val sDeq_latch = Module(new SRFF())
     sDeq_latch.io.input.set := m.io.deqVld
@@ -301,11 +305,11 @@ class MAGCore(
     sEnq_latch.io.input.reset := reset.toBool
     sEnq_latch.io.input.asyn_reset := reset.toBool
 
- //   connectDbgSig(debugFF(m.io.deq, ~sDeq_latch.io.output.data & Utils.risingEdge(m.io.deqVld)).io.out, s"m.io.deq")
- //   connectDbgSig(debugFF(m.io.enq, ~sEnq_latch.io.output.data & Utils.risingEdge(m.io.enqVld)).io.out, s"m.io.enq")
-
+    connectDbgSig(debugFF(m.io.deq, ~sDeq_latch.io.output.data & Utils.risingEdge(m.io.deqVld)).io.out, s"m.io.deq")
+    connectDbgSig(debugFF(m.io.enq, ~sEnq_latch.io.output.data & Utils.risingEdge(m.io.enqVld)).io.out, s"m.io.enq")
     m
   }
+
 
   val scatterBuffers = sparseStores.map { case (s, i) =>
     val j = storeStreamId(i)
@@ -444,7 +448,7 @@ class MAGCore(
   cmdArbiter.io.deqVld := cmdDeqValidMux.io.out
 
   io.dram.wdata.bits.wdata := wdataMux.io.out.bits.wdata
-  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse
+  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse // .foreach(_ := 1.U)
   io.dram.wdata.valid := wdataMux.io.out.valid
 
   io.dram.cmd.bits := dramCmdMux.io.out.bits
@@ -466,7 +470,7 @@ class MAGCore(
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
-      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === i.U)).io.out, s"""rdata_from_dram${i}_$j""")
+      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === (i+21).U)).io.out, s"""rdata_from_dram${(i+21)}_$j""")
     }
   }
 
@@ -478,7 +482,7 @@ class MAGCore(
        }
        connectDbgSig(debugFF(wdataMux.io.out.bits.wdata, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""Actual values on wdata.bits""")
      }
-   }
+  }
 
   connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid).io.out, "# DRAM Commands Issued")
   connectDbgSig(debugCounter(io.enable & ~cmdArbiter.io.empty & ~(dramReady & io.dram.cmd.valid)).io.out, "Total cycles w/ 1+ cmds queued up")

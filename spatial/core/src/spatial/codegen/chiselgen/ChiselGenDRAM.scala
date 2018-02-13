@@ -14,8 +14,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
   var loadParMapping = List[String]()
   var storeParMapping = List[String]()
   var dramsList = List[Exp[_]]()
-  // var loadParMapping = HashMap[Int, (Int,Int)]() 
-  // var storeParMapping = HashMap[Int, (Int,Int)]() 
+  // var loadParMapping = HashMap[Int, (Int,Int)]()
+  // var storeParMapping = HashMap[Int, (Int,Int)]()
 
   override protected def name(s: Dyn[_]): String = s match {
     case Def(_: DRAMNew[_,_]) => s"${s}_dram"
@@ -59,7 +59,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
+      // loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
+      loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
       loadsList = loadsList :+ dram
 
       // TODO: Investigate this _enq business
@@ -96,7 +97,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       assert(par == 1, s"Unsupported par '$par' for sparse loads! Must be 1 currently")
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
+      // loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
+      loadParMapping = loadParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
       loadsList = loadsList :+ dram
       val turnstiling_stage = getLastChild(parentOf(lhs).get)
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
@@ -119,13 +121,24 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       // Find stages that pushes to cmdstream and dataStream
       var cmdStage: Option[Exp[_]] = None
       var dataStage: Option[Exp[_]] = None
-      childrenOf(parentOf(lhs).get).map{c => 
-        pushesTo(c).distinct.map{ pt => pt.memory match {
-          case fifo @ Def(StreamOutNew(bus)) => 
-            if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(c)
-            if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(c)
-          case _ => 
-        }}
+      childrenOf(parentOf(lhs).get).map{c =>
+        if (childrenOf(c).length > 0) {
+          childrenOf(c).map{ cc =>
+            pushesTo(cc).distinct.map{ pt => pt.memory match {
+              case fifo @ Def(StreamOutNew(bus)) =>
+                if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(cc)
+                if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(cc)
+              case _ =>
+            }}
+          }
+        } else {
+          pushesTo(c).distinct.map{ pt => pt.memory match {
+            case fifo @ Def(StreamOutNew(bus)) =>
+              if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(c)
+              if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(c)
+            case _ =>
+          }}
+        }
       }
 
       if (isAligned(cmdStream)) appPropertyStats += HasAlignedStore
@@ -139,7 +152,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
+      // storeParMapping = storeParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
+      storeParMapping = storeParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
       storesList = storesList :+ dram
 
       // Connect streams to their IO interface signals
@@ -164,7 +178,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DLI(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
       controllerStack.pop()
-      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
+      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"0", true)} // Baffled why this signal delayed by symDelay(writersOf(cmdStream).head.node) up until 02/13/2018 ?!")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
@@ -180,7 +194,8 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       Predef.assert(par == 1, s"Unsupported par '$par', only par=1 currently supported")
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
+      // storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
+      storeParMapping = storeParMapping :+ s"""StreamParInfo(${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
       storesList = storesList :+ dram
 
       val (addrMSB, addrLSB) = tupCoordinates(cmdStream.tp.typeArguments.head, "_2")
@@ -221,7 +236,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"""val io_loadStreamInfo = List($loadParMapping) """)
       emit(src"""val io_storeStreamInfo = List($storeParMapping) """)
       emit(src"val io_numArgIns_mem = ${loadsList.distinct.length} /*from loads*/ + ${storesList.distinct.length} /*from stores*/ - ${intersect.length} /*from bidirectional ${intersect}*/ + ${num_unusedDrams} /* from unused DRAMs */")
- 
+
     }
 
     super.emitFileFooter()

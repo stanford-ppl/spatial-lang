@@ -74,6 +74,7 @@ class SpatialConfig extends argon.core.Config {
 
   var enableSyncMem: Boolean = _
   var enableInstrumentation: Boolean = _
+  var enableTightControl: Boolean = _
   var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
 
