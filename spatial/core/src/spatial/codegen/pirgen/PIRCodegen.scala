@@ -258,7 +258,12 @@ trait PIRGenMem extends PIRCodegen {
             val sizes = constDimsOf(lhs)
             dbgs(s"sizes=$sizes")
             dbgs(s"inits=$inits")
-            emit(quote(dlhs, instId), s"RegFile(sizes=${quote(sizes)}, inits=$inits)", s"$lhs = $rhs")
+            val size = constDimsOf(lhs).product / inst.totalBanks //TODO: should this be number of outer banks?
+            val numOuterBanks = numOuterBanksOf((lhs, instId))
+            (0 until numOuterBanks).map { bankId =>
+              val innerBanks = getInnerBank(lhs, inst, instId)
+              emit(quote(dlhs, instId, bankId), s"RegFile(sizes=${quote(sizes)}, inits=$inits)", s"$lhs = $rhs banking:${innerBanks}")
+            }
           }
         }
       case RegNew(init) =>
