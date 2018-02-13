@@ -2,7 +2,7 @@
 
 # $1 = branch
 # $2+ = args
-bash run.sh $2 $3 $4 $5 $6 $7 $8 $9 $10 | tee log
+bash run.sh $2 $3 $4 $5 $6 $7 $8 $9 | tee log
 
 pass_line=`cat log | grep "PASS"`
 
@@ -39,5 +39,5 @@ elif [[ $1 = "Arria10" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
 fi
 
-python3 ../../../../utilities/gdocs.py "report_regression_results" $1 $appname $pass $runtime $hash $ahash "$properties" "$2 $3 $4 $5 $6 $7 $8 $9 $10"
+python3 ../../../../utilities/gdocs.py "report_regression_results" $1 $appname $pass $runtime $hash $ahash "$properties" "$2 $3 $4 $5 $6 $7 $8 $9"
 
