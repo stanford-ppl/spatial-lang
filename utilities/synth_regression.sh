@@ -71,9 +71,9 @@ else
 	cd ${REGRESSION_HOME}/spatial/spatial-lang
 
 	if [[ $1 = "zynq" ]]; then
-		bin/regression 2 nobranch Zynq Dense Sparse
+		bin/regression 2 nobranch Zynq Dense Sparse Unit
 	elif [[ $1 = "zcu" ]]; then
-		bin/regression 2 nobranch ZCU Dense Sparse
+		bin/regression 2 nobranch ZCU Dense Sparse Unit
 	elif [[ $1 = "arria10" ]]; then
 		bin/regression 2 nobranch Arria10 Dense Sparse
 	elif [[ $1 = "aws" ]]; then
