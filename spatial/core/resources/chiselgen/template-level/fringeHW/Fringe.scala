@@ -28,16 +28,16 @@ class Fringe(
 ) extends Module {
 //  val numRegs = numArgIns + numArgOuts + 2 - numArgIOs // (command, status registers)
 //  val addrWidth = log2Up(numRegs)
-  val addrWidth = 32
+  val addrWidth = if (FringeGlobals.target == "zcu") 64 else 32
 
   val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
   val statusReg = 1   //       Changing these values alone has no effect on the logic below.
 
   // Some constants (mostly MAG-related) that will later become module parameters
-  val v = 16 // Number of words in the same stream
+  val v = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 64 else 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata
+  val d = 64 // FIFO depth: Controls FIFO sizes for address, size, and wdata
   val regWidth = 64 // Force 64-bit registers
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)

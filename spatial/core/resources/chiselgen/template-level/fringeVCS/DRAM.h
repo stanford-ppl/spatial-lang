@@ -40,13 +40,14 @@ bool debug = false;
 AddrRemapper *remapper = NULL;
 
 extern uint64_t numCycles;
-uint32_t wordSizeBytes = 4;
+uint32_t wordSizeBytes = 1;
 uint32_t burstSizeBytes = 64;
 uint32_t burstSizeWords = burstSizeBytes / wordSizeBytes;
 
 uint64_t globalID = 0;
 
 class DRAMRequest;
+class WData;
 
 typedef union DRAMTag {
   struct {
@@ -87,6 +88,26 @@ public:
 // DRAM Request Queue
 std::deque<DRAMRequest*> dramRequestQ[MAX_NUM_Q];
 
+class WData {
+public:
+  uint8_t *wdata = NULL;
+  uint8_t *wstrb = NULL;
+
+  WData() {
+    wdata = NULL;
+    wstrb = NULL;
+  }
+
+  void print() {
+  }
+
+  ~WData() {
+    if (wdata != NULL) free(wdata);
+    if (wstrb != NULL) free(wstrb);
+  }
+
+};
+
 /**
  * DRAM Request corresponding to 1-burst that is enqueued into DRAMSim2
  * The 'size' field reflects the size of the entire command of which
@@ -102,7 +123,7 @@ public:
   DRAMTag tag;
   uint64_t channelID;
   bool isWr;
-  uint32_t *wdata = NULL;
+  uint8_t *wdata = NULL;
   uint32_t delay;
   uint32_t elapsed;
   uint64_t issued;
@@ -179,18 +200,18 @@ struct AddrTag {
     tag = t;
   }
 
-	bool operator==(const AddrTag &o) const {
-			return addr == o.addr && tag.tag == o.tag.tag;
-	}
+  bool operator==(const AddrTag &o) const {
+      return addr == o.addr && tag.tag == o.tag.tag;
+  }
 
-	bool operator<(const AddrTag &o) const {
-			return addr < o.addr || (addr == o.addr && tag.tag < o.tag.tag);
-	}
+  bool operator<(const AddrTag &o) const {
+      return addr < o.addr || (addr == o.addr && tag.tag < o.tag.tag);
+  }
 };
 
 
-// WDATA Queue
-std::deque<uint32_t*> wdataQ[MAX_NUM_Q];
+// WDATA Queue - Should really only hold data
+std::deque<WData*> wdataQ; 
 
 // Current set of requests that will be getting their wdata in order
 std::deque<DRAMRequest*> wrequestQ;
@@ -261,8 +282,8 @@ void popDRAMQ() {
     DRAMRequest *front = req;
     // Do write data handling, then pop all requests belonging to finished cmd from FIFO
     while ((dramRequestQ[popWhenReady].size() > 0) && (front->cmd == cmd)) {
-      uint32_t *front_wdata = front->wdata;
-      uint32_t *front_waddr = (uint32_t*) front->addr;
+      uint8_t *front_wdata = front->wdata;
+      uint8_t *front_waddr = (uint8_t*) front->addr;
       for (int i=0; i<burstSizeWords; i++) {
         front_waddr[i] = front_wdata[i];
       }
@@ -311,12 +332,12 @@ bool checkQAndRespond(int id) {
 //    }
 
     if (req->completed) {
-      uint32_t rdata[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+      uint8_t rdata[64] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
       bool pokeResponse = false;
 
       if (req->isWr) { // Write request: Update 1 burst-length bytes at *addr
-        uint32_t *wdata = req->wdata;
-        uint32_t *waddr = (uint32_t*) req->addr;
+        uint8_t *wdata = req->wdata;
+        uint8_t *waddr = (uint8_t*) req->addr;
         for (int i=0; i<burstSizeWords; i++) {
           waddr[i] = wdata[i];
         }
@@ -324,7 +345,7 @@ bool checkQAndRespond(int id) {
           pokeResponse = true;
         }
       } else { // Read request: Read burst-length bytes at *addr
-        uint32_t *raddr = (uint32_t*) req->addr;
+        uint8_t *raddr = (uint8_t*) req->addr;
         for (int i=0; i<burstSizeWords; i++) {
           rdata[i] = raddr[i];
         }
@@ -373,7 +394,56 @@ bool checkQAndRespond(int id) {
             rdata[12],
             rdata[13],
             rdata[14],
-            rdata[15]
+            rdata[15],
+            rdata[16],
+            rdata[17],
+            rdata[18],
+            rdata[19],
+            rdata[20],
+            rdata[21],
+            rdata[22],
+            rdata[23],
+            rdata[24],
+            rdata[25],
+            rdata[26],
+            rdata[27],
+            rdata[28],
+            rdata[29],
+            rdata[30],
+            rdata[31],
+            rdata[32],
+            rdata[33],
+            rdata[34],
+            rdata[35],
+            rdata[36],
+            rdata[37],
+            rdata[38],
+            rdata[39],
+            rdata[40],
+            rdata[41],
+            rdata[42],
+            rdata[43],
+            rdata[44],
+            rdata[45],
+            rdata[46],
+            rdata[47],
+            rdata[48],
+            rdata[49],
+            rdata[50],
+            rdata[51],
+            rdata[52],
+            rdata[53],
+            rdata[54],
+            rdata[55],
+            rdata[56],
+            rdata[57],
+            rdata[58],
+            rdata[59],
+            rdata[60],
+            rdata[61],
+            rdata[62],
+            rdata[63]
+
           );
         }
         pokedResponse = true;
@@ -449,83 +519,314 @@ public:
 };
 
 extern "C" {
-  int sendWdata(
-      int dramCmdValid,
-      int dramReadySeen,
-      int wdata0,
-      int wdata1,
-      int wdata2,
-      int wdata3,
-      int wdata4,
-      int wdata5,
-      int wdata6,
-      int wdata7,
-      int wdata8,
-      int wdata9,
-      int wdata10,
-      int wdata11,
-      int wdata12,
-      int wdata13,
-      int wdata14,
-      int wdata15
-    ) {
-//    int wdataReady = 1;  // 1 == ready, 0 == not ready (stall upstream)
+  void serviceWRequest() {
 
-    // view addr as uint64_t without doing sign extension
-    uint32_t cmdWdata0 = (*(uint32_t*)&wdata0);
-    uint32_t cmdWdata1 = (*(uint32_t*)&wdata1);
-    uint32_t cmdWdata2 = (*(uint32_t*)&wdata2);
-    uint32_t cmdWdata3 = (*(uint32_t*)&wdata3);
-    uint32_t cmdWdata4 = (*(uint32_t*)&wdata4);
-    uint32_t cmdWdata5 = (*(uint32_t*)&wdata5);
-    uint32_t cmdWdata6 = (*(uint32_t*)&wdata6);
-    uint32_t cmdWdata7 = (*(uint32_t*)&wdata7);
-    uint32_t cmdWdata8 = (*(uint32_t*)&wdata8);
-    uint32_t cmdWdata9 = (*(uint32_t*)&wdata9);
-    uint32_t cmdWdata10 = (*(uint32_t*)&wdata10);
-    uint32_t cmdWdata11 = (*(uint32_t*)&wdata11);
-    uint32_t cmdWdata12 = (*(uint32_t*)&wdata12);
-    uint32_t cmdWdata13 = (*(uint32_t*)&wdata13);
-    uint32_t cmdWdata14 = (*(uint32_t*)&wdata14);
-    uint32_t cmdWdata15 = (*(uint32_t*)&wdata15);
+    if (wrequestQ.size() > 0 & wdataQ.size() > 0 && wrequestQ.front()->isWr) {
+      DRAMRequest *req = wrequestQ.front();
+      WData *data = wdataQ.front();
+      wrequestQ.pop_front();
+      wdataQ.pop_front();
+      int write_all = (data->wstrb[0] == 1 && data->wstrb[1] == 1 && data->wstrb[2] == 1 && data->wstrb[3] == 1 && data->wstrb[4] == 1 && data->wstrb[5] == 1 && data->wstrb[6] == 1 && data->wstrb[7] == 1 && data->wstrb[8] == 1 && data->wstrb[9] == 1 && data->wstrb[10] == 1 && data->wstrb[11] == 1 && data->wstrb[12] == 1 && data->wstrb[13] == 1 && data->wstrb[14] == 1 && data->wstrb[15] == 1 && data->wstrb[16] == 1 && data->wstrb[17] == 1 && data->wstrb[18] == 1 && data->wstrb[19] == 1 && data->wstrb[20] == 1 && data->wstrb[21] == 1 && data->wstrb[22] == 1 && data->wstrb[23] == 1 && data->wstrb[24] == 1 && data->wstrb[25] == 1 && data->wstrb[26] == 1 && data->wstrb[27] == 1 && data->wstrb[28] == 1 && data->wstrb[29] == 1 && data->wstrb[30] == 1 && data->wstrb[31] == 1 && data->wstrb[32] == 1 && data->wstrb[33] == 1 && data->wstrb[34] == 1 && data->wstrb[35] == 1 && data->wstrb[36] == 1 && data->wstrb[37] == 1 && data->wstrb[38] == 1 && data->wstrb[39] == 1 && data->wstrb[40] == 1 && data->wstrb[41] == 1 && data->wstrb[42] == 1 && data->wstrb[43] == 1 && data->wstrb[44] == 1 && data->wstrb[45] == 1 && data->wstrb[46] == 1 && data->wstrb[47] == 1 && data->wstrb[48] == 1 && data->wstrb[49] == 1 && data->wstrb[50] == 1 && data->wstrb[51] == 1 && data->wstrb[52] == 1 && data->wstrb[53] == 1 && data->wstrb[54] == 1 && data->wstrb[55] == 1 && data->wstrb[56] == 1 && data->wstrb[57] == 1 && data->wstrb[58] == 1 && data->wstrb[59] == 1 && data->wstrb[60] == 1 && data->wstrb[61] == 1 && data->wstrb[62] == 1 && data->wstrb[63] == 1);
+      if (debug) {
+        EPRINTF("[Service W Request (wrequestQ: %d elements, wdataQ: %d elements remaining)]\n", wrequestQ.size(), wdataQ.size());
+        req->print();
+      }
 
-    uint32_t *wdata = (uint32_t*) malloc(burstSizeBytes);
-    wdata[0] = cmdWdata0;
-    wdata[1] = cmdWdata1;
-    wdata[2] = cmdWdata2;
-    wdata[3] = cmdWdata3;
-    wdata[4] = cmdWdata4;
-    wdata[5] = cmdWdata5;
-    wdata[6] = cmdWdata6;
-    wdata[7] = cmdWdata7;
-    wdata[8] = cmdWdata8;
-    wdata[9] = cmdWdata9;
-    wdata[10] = cmdWdata10;
-    wdata[11] = cmdWdata11;
-    wdata[12] = cmdWdata12;
-    wdata[13] = cmdWdata13;
-    wdata[14] = cmdWdata14;
-    wdata[15] = cmdWdata15;
+      if (write_all) {
+        if (debug) {
+          EPRINTF("[Servicing W Command (all channels on)]                   %u %u %u %u\n", data->wdata[0], data->wdata[1], data->wdata[2], data->wdata[3]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[4], data->wdata[5], data->wdata[6], data->wdata[7]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[8], data->wdata[9], data->wdata[10], data->wdata[11]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[12], data->wdata[13], data->wdata[14], data->wdata[15]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[16], data->wdata[17], data->wdata[18], data->wdata[19]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[20], data->wdata[21], data->wdata[22], data->wdata[23]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[24], data->wdata[25], data->wdata[26], data->wdata[27]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[28], data->wdata[29], data->wdata[30], data->wdata[31]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[32], data->wdata[33], data->wdata[34], data->wdata[35]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[36], data->wdata[37], data->wdata[38], data->wdata[39]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[40], data->wdata[41], data->wdata[42], data->wdata[43]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[44], data->wdata[45], data->wdata[46], data->wdata[47]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[48], data->wdata[49], data->wdata[50], data->wdata[51]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[52], data->wdata[53], data->wdata[54], data->wdata[55]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[56], data->wdata[57], data->wdata[58], data->wdata[59]);
+          EPRINTF("                                                    %u %u %u %u\n", data->wdata[60], data->wdata[61], data->wdata[62], data->wdata[63]);
+        }
+        req->wdata = data->wdata;
+        req->schedule();
+      } else {
+        // Start with burst data
+        uint8_t *wdata = (uint8_t*) malloc(burstSizeBytes);
+        uint8_t *raddr = (uint8_t*) req->addr;
+        for (int i=0; i<burstSizeWords; i++) {
+          wdata[i] = raddr[i];
+        }
 
-    if (debug) {
-      EPRINTF("[sendWdata dramCmdValid: %d, dramReadySeen: %d] %u %u %u %u\n", dramCmdValid, dramReadySeen, cmdWdata0, cmdWdata1, cmdWdata2, cmdWdata3);
-      EPRINTF("                                                %u %u %u %u\n", cmdWdata4, cmdWdata5, cmdWdata6, cmdWdata7);
-      EPRINTF("                                                %u %u %u %u\n", cmdWdata8, cmdWdata9, cmdWdata10, cmdWdata11);
-      EPRINTF("                                                %u %u %u %u\n", cmdWdata12, cmdWdata13, cmdWdata14, cmdWdata15);
+        if (debug) {
+          EPRINTF("[Servicing W Command (Strobed) ]   %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[0], data->wstrb[0], wdata[0], data->wdata[1], data->wstrb[1], wdata[1], data->wdata[2], data->wstrb[2], wdata[2], data->wdata[3], data->wstrb[3], wdata[3]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[4], data->wstrb[4], wdata[4], data->wdata[5], data->wstrb[5], wdata[5], data->wdata[6], data->wstrb[6], wdata[6], data->wdata[7], data->wstrb[7], wdata[7]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[8], data->wstrb[8], wdata[8], data->wdata[9], data->wstrb[9], wdata[9], data->wdata[10], data->wstrb[10], wdata[10], data->wdata[11], data->wstrb[11], wdata[11]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[12], data->wstrb[12], wdata[12], data->wdata[13], data->wstrb[13], wdata[13], data->wdata[14], data->wstrb[14], wdata[14], data->wdata[15], data->wstrb[15], wdata[15]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[16], data->wstrb[16], wdata[16], data->wdata[17], data->wstrb[17], wdata[17], data->wdata[18], data->wstrb[18], wdata[18], data->wdata[19], data->wstrb[19], wdata[19]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[20], data->wstrb[20], wdata[20], data->wdata[21], data->wstrb[21], wdata[21], data->wdata[22], data->wstrb[22], wdata[22], data->wdata[23], data->wstrb[23], wdata[23]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[24], data->wstrb[24], wdata[24], data->wdata[25], data->wstrb[25], wdata[25], data->wdata[26], data->wstrb[26], wdata[26], data->wdata[27], data->wstrb[27], wdata[27]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[28], data->wstrb[28], wdata[28], data->wdata[29], data->wstrb[29], wdata[29], data->wdata[30], data->wstrb[30], wdata[30], data->wdata[31], data->wstrb[31], wdata[31]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[32], data->wstrb[32], wdata[32], data->wdata[33], data->wstrb[33], wdata[33], data->wdata[34], data->wstrb[34], wdata[34], data->wdata[35], data->wstrb[35], wdata[35]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[36], data->wstrb[36], wdata[36], data->wdata[37], data->wstrb[37], wdata[37], data->wdata[38], data->wstrb[38], wdata[38], data->wdata[39], data->wstrb[39], wdata[39]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[40], data->wstrb[40], wdata[40], data->wdata[41], data->wstrb[41], wdata[41], data->wdata[42], data->wstrb[42], wdata[42], data->wdata[43], data->wstrb[43], wdata[43]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[44], data->wstrb[44], wdata[44], data->wdata[45], data->wstrb[45], wdata[45], data->wdata[46], data->wstrb[46], wdata[46], data->wdata[47], data->wstrb[47], wdata[47]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[48], data->wstrb[48], wdata[48], data->wdata[49], data->wstrb[49], wdata[49], data->wdata[50], data->wstrb[50], wdata[50], data->wdata[51], data->wstrb[51], wdata[51]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[52], data->wstrb[52], wdata[52], data->wdata[53], data->wstrb[53], wdata[53], data->wdata[54], data->wstrb[54], wdata[54], data->wdata[55], data->wstrb[55], wdata[55]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[56], data->wstrb[56], wdata[56], data->wdata[57], data->wstrb[57], wdata[57], data->wdata[58], data->wstrb[58], wdata[58], data->wdata[59], data->wstrb[59], wdata[59]);
+          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[60], data->wstrb[60], wdata[60], data->wdata[61], data->wstrb[61], wdata[61], data->wdata[62], data->wstrb[62], wdata[62], data->wdata[63], data->wstrb[63], wdata[63]);
+        }
+
+        // Fill in accel wdata
+        if (data->wstrb[0]) wdata[0] = data->wdata[0];
+        if (data->wstrb[1]) wdata[1] = data->wdata[1];
+        if (data->wstrb[2]) wdata[2] = data->wdata[2];
+        if (data->wstrb[3]) wdata[3] = data->wdata[3];
+        if (data->wstrb[4]) wdata[4] = data->wdata[4];
+        if (data->wstrb[5]) wdata[5] = data->wdata[5];
+        if (data->wstrb[6]) wdata[6] = data->wdata[6];
+        if (data->wstrb[7]) wdata[7] = data->wdata[7];
+        if (data->wstrb[8]) wdata[8] = data->wdata[8];
+        if (data->wstrb[9]) wdata[9] = data->wdata[9];
+        if (data->wstrb[10]) wdata[10] = data->wdata[10];
+        if (data->wstrb[11]) wdata[11] = data->wdata[11];
+        if (data->wstrb[12]) wdata[12] = data->wdata[12];
+        if (data->wstrb[13]) wdata[13] = data->wdata[13];
+        if (data->wstrb[14]) wdata[14] = data->wdata[14];
+        if (data->wstrb[15]) wdata[15] = data->wdata[15];
+        if (data->wstrb[16]) wdata[16] = data->wdata[16];
+        if (data->wstrb[17]) wdata[17] = data->wdata[17];
+        if (data->wstrb[18]) wdata[18] = data->wdata[18];
+        if (data->wstrb[19]) wdata[19] = data->wdata[19];
+        if (data->wstrb[20]) wdata[20] = data->wdata[20];
+        if (data->wstrb[21]) wdata[21] = data->wdata[21];
+        if (data->wstrb[22]) wdata[22] = data->wdata[22];
+        if (data->wstrb[23]) wdata[23] = data->wdata[23];
+        if (data->wstrb[24]) wdata[24] = data->wdata[24];
+        if (data->wstrb[25]) wdata[25] = data->wdata[25];
+        if (data->wstrb[26]) wdata[26] = data->wdata[26];
+        if (data->wstrb[27]) wdata[27] = data->wdata[27];
+        if (data->wstrb[28]) wdata[28] = data->wdata[28];
+        if (data->wstrb[29]) wdata[29] = data->wdata[29];
+        if (data->wstrb[30]) wdata[30] = data->wdata[30];
+        if (data->wstrb[31]) wdata[31] = data->wdata[31];
+        if (data->wstrb[32]) wdata[32] = data->wdata[32];
+        if (data->wstrb[33]) wdata[33] = data->wdata[33];
+        if (data->wstrb[34]) wdata[34] = data->wdata[34];
+        if (data->wstrb[35]) wdata[35] = data->wdata[35];
+        if (data->wstrb[36]) wdata[36] = data->wdata[36];
+        if (data->wstrb[37]) wdata[37] = data->wdata[37];
+        if (data->wstrb[38]) wdata[38] = data->wdata[38];
+        if (data->wstrb[39]) wdata[39] = data->wdata[39];
+        if (data->wstrb[40]) wdata[40] = data->wdata[40];
+        if (data->wstrb[41]) wdata[41] = data->wdata[41];
+        if (data->wstrb[42]) wdata[42] = data->wdata[42];
+        if (data->wstrb[43]) wdata[43] = data->wdata[43];
+        if (data->wstrb[44]) wdata[44] = data->wdata[44];
+        if (data->wstrb[45]) wdata[45] = data->wdata[45];
+        if (data->wstrb[46]) wdata[46] = data->wdata[46];
+        if (data->wstrb[47]) wdata[47] = data->wdata[47];
+        if (data->wstrb[48]) wdata[48] = data->wdata[48];
+        if (data->wstrb[49]) wdata[49] = data->wdata[49];
+        if (data->wstrb[50]) wdata[50] = data->wdata[50];
+        if (data->wstrb[51]) wdata[51] = data->wdata[51];
+        if (data->wstrb[52]) wdata[52] = data->wdata[52];
+        if (data->wstrb[53]) wdata[53] = data->wdata[53];
+        if (data->wstrb[54]) wdata[54] = data->wdata[54];
+        if (data->wstrb[55]) wdata[55] = data->wdata[55];
+        if (data->wstrb[56]) wdata[56] = data->wdata[56];
+        if (data->wstrb[57]) wdata[57] = data->wdata[57];
+        if (data->wstrb[58]) wdata[58] = data->wdata[58];
+        if (data->wstrb[59]) wdata[59] = data->wdata[59];
+        if (data->wstrb[60]) wdata[60] = data->wdata[60];
+        if (data->wstrb[61]) wdata[61] = data->wdata[61];
+        if (data->wstrb[62]) wdata[62] = data->wdata[62];
+        if (data->wstrb[63]) wdata[63] = data->wdata[63];
+
+
+        req->wdata = wdata;
+        req->schedule();
+      }
+    } else if (wdataQ.size() > 0 & wrequestQ.size() == 0) {
+      if (debug) {
+        EPRINTF("[WARN] WRequestQ empty or head is ~isWr but WDataQ is not empty!");
+      }      
     }
 
-    ASSERT(wrequestQ.size() > 0, "Wdata sent when no write requests were seen before!\n");
-
-    DRAMRequest *req = wrequestQ.front();
-    wrequestQ.pop_front();
-    req->wdata = wdata;
-    req->schedule();
-
-//    if (wdataReady == 1) {
-//      wdataQ[streamId].push_back(wdata);
-//    }
-//    return wdataReady;
   }
+
+  int sendWdataStrb(
+    int dramCmdValid,
+    int dramReadySeen,
+    int wdata0, int wdata1, int wdata2, int wdata3, int wdata4, int wdata5, int wdata6, int wdata7, int wdata8, int wdata9, int wdata10, int wdata11, int wdata12, int wdata13, int wdata14, int wdata15, int wdata16, int wdata17, int wdata18, int wdata19, int wdata20, int wdata21, int wdata22, int wdata23, int wdata24, int wdata25, int wdata26, int wdata27, int wdata28, int wdata29, int wdata30, int wdata31, int wdata32, int wdata33, int wdata34, int wdata35, int wdata36, int wdata37, int wdata38, int wdata39, int wdata40, int wdata41, int wdata42, int wdata43, int wdata44, int wdata45, int wdata46, int wdata47, int wdata48, int wdata49, int wdata50, int wdata51, int wdata52, int wdata53, int wdata54, int wdata55, int wdata56, int wdata57, int wdata58, int wdata59, int wdata60, int wdata61, int wdata62, int wdata63, int strb0,
+    int strb1, int strb2, int strb3, int strb4, int strb5, int strb6, int strb7, int strb8, int strb9, int strb10, int strb11, int strb12, int strb13, int strb14, int strb15, int strb16, int strb17, int strb18, int strb19, int strb20, int strb21, int strb22, int strb23, int strb24, int strb25, int strb26, int strb27, int strb28, int strb29, int strb30, int strb31, int strb32, int strb33, int strb34, int strb35, int strb36, int strb37, int strb38, int strb39, int strb40, int strb41, int strb42, int strb43, int strb44, int strb45, int strb46, int strb47, int strb48, int strb49, int strb50, int strb51, int strb52, int strb53, int strb54, int strb55, int strb56, int strb57, int strb58, int strb59, int strb60, int strb61, int strb62, int strb63
+  ) {
+
+
+    WData *data = new WData;
+    uint8_t *wdata = (uint8_t*) malloc(burstSizeBytes);
+    uint8_t *wstrb = (uint8_t*) malloc(burstSizeBytes);
+
+    // view addr as uint64_t without doing sign extension
+    wdata[0] = (*(uint8_t*)&wdata0);
+    wdata[1] = (*(uint8_t*)&wdata1);
+    wdata[2] = (*(uint8_t*)&wdata2);
+    wdata[3] = (*(uint8_t*)&wdata3);
+    wdata[4] = (*(uint8_t*)&wdata4);
+    wdata[5] = (*(uint8_t*)&wdata5);
+    wdata[6] = (*(uint8_t*)&wdata6);
+    wdata[7] = (*(uint8_t*)&wdata7);
+    wdata[8] = (*(uint8_t*)&wdata8);
+    wdata[9] = (*(uint8_t*)&wdata9);
+    wdata[10] = (*(uint8_t*)&wdata10);
+    wdata[11] = (*(uint8_t*)&wdata11);
+    wdata[12] = (*(uint8_t*)&wdata12);
+    wdata[13] = (*(uint8_t*)&wdata13);
+    wdata[14] = (*(uint8_t*)&wdata14);
+    wdata[15] = (*(uint8_t*)&wdata15);
+    wdata[16] = (*(uint8_t*)&wdata16);
+    wdata[17] = (*(uint8_t*)&wdata17);
+    wdata[18] = (*(uint8_t*)&wdata18);
+    wdata[19] = (*(uint8_t*)&wdata19);
+    wdata[20] = (*(uint8_t*)&wdata20);
+    wdata[21] = (*(uint8_t*)&wdata21);
+    wdata[22] = (*(uint8_t*)&wdata22);
+    wdata[23] = (*(uint8_t*)&wdata23);
+    wdata[24] = (*(uint8_t*)&wdata24);
+    wdata[25] = (*(uint8_t*)&wdata25);
+    wdata[26] = (*(uint8_t*)&wdata26);
+    wdata[27] = (*(uint8_t*)&wdata27);
+    wdata[28] = (*(uint8_t*)&wdata28);
+    wdata[29] = (*(uint8_t*)&wdata29);
+    wdata[30] = (*(uint8_t*)&wdata30);
+    wdata[31] = (*(uint8_t*)&wdata31);
+    wdata[32] = (*(uint8_t*)&wdata32);
+    wdata[33] = (*(uint8_t*)&wdata33);
+    wdata[34] = (*(uint8_t*)&wdata34);
+    wdata[35] = (*(uint8_t*)&wdata35);
+    wdata[36] = (*(uint8_t*)&wdata36);
+    wdata[37] = (*(uint8_t*)&wdata37);
+    wdata[38] = (*(uint8_t*)&wdata38);
+    wdata[39] = (*(uint8_t*)&wdata39);
+    wdata[40] = (*(uint8_t*)&wdata40);
+    wdata[41] = (*(uint8_t*)&wdata41);
+    wdata[42] = (*(uint8_t*)&wdata42);
+    wdata[43] = (*(uint8_t*)&wdata43);
+    wdata[44] = (*(uint8_t*)&wdata44);
+    wdata[45] = (*(uint8_t*)&wdata45);
+    wdata[46] = (*(uint8_t*)&wdata46);
+    wdata[47] = (*(uint8_t*)&wdata47);
+    wdata[48] = (*(uint8_t*)&wdata48);
+    wdata[49] = (*(uint8_t*)&wdata49);
+    wdata[50] = (*(uint8_t*)&wdata50);
+    wdata[51] = (*(uint8_t*)&wdata51);
+    wdata[52] = (*(uint8_t*)&wdata52);
+    wdata[53] = (*(uint8_t*)&wdata53);
+    wdata[54] = (*(uint8_t*)&wdata54);
+    wdata[55] = (*(uint8_t*)&wdata55);
+    wdata[56] = (*(uint8_t*)&wdata56);
+    wdata[57] = (*(uint8_t*)&wdata57);
+    wdata[58] = (*(uint8_t*)&wdata58);
+    wdata[59] = (*(uint8_t*)&wdata59);
+    wdata[60] = (*(uint8_t*)&wdata60);
+    wdata[61] = (*(uint8_t*)&wdata61);
+    wdata[62] = (*(uint8_t*)&wdata62);
+    wdata[63] = (*(uint8_t*)&wdata63);
+
+    wstrb[0] =  strb0;
+    wstrb[1] =  strb1;
+    wstrb[2] =  strb2;
+    wstrb[3] =  strb3;
+    wstrb[4] =  strb4;
+    wstrb[5] =  strb5;
+    wstrb[6] =  strb6;
+    wstrb[7] =  strb7;
+    wstrb[8] =  strb8;
+    wstrb[9] =  strb9;
+    wstrb[10] = strb10;
+    wstrb[11] = strb11;
+    wstrb[12] = strb12;
+    wstrb[13] = strb13;
+    wstrb[14] = strb14;
+    wstrb[15] = strb15;
+    wstrb[16] = strb16;
+    wstrb[17] = strb17;
+    wstrb[18] = strb18;
+    wstrb[19] = strb19;
+    wstrb[20] = strb20;
+    wstrb[21] = strb21;
+    wstrb[22] = strb22;
+    wstrb[23] = strb23;
+    wstrb[24] = strb24;
+    wstrb[25] = strb25;
+    wstrb[26] = strb26;
+    wstrb[27] = strb27;
+    wstrb[28] = strb28;
+    wstrb[29] = strb29;
+    wstrb[30] = strb30;
+    wstrb[31] = strb31;
+    wstrb[32] = strb32;
+    wstrb[33] = strb33;
+    wstrb[34] = strb34;
+    wstrb[35] = strb35;
+    wstrb[36] = strb36;
+    wstrb[37] = strb37;
+    wstrb[38] = strb38;
+    wstrb[39] = strb39;
+    wstrb[40] = strb40;
+    wstrb[41] = strb41;
+    wstrb[42] = strb42;
+    wstrb[43] = strb43;
+    wstrb[44] = strb44;
+    wstrb[45] = strb45;
+    wstrb[46] = strb46;
+    wstrb[47] = strb47;
+    wstrb[48] = strb48;
+    wstrb[49] = strb49;
+    wstrb[50] = strb50;
+    wstrb[51] = strb51;
+    wstrb[52] = strb52;
+    wstrb[53] = strb53;
+    wstrb[54] = strb54;
+    wstrb[55] = strb55;
+    wstrb[56] = strb56;
+    wstrb[57] = strb57;
+    wstrb[58] = strb58;
+    wstrb[59] = strb59;
+    wstrb[60] = strb60;
+    wstrb[61] = strb61;
+    wstrb[62] = strb62;
+    wstrb[63] = strb63;
+
+    data->wdata = wdata;
+    data->wstrb = wstrb;
+
+    if (debug) {
+      EPRINTF("[sendWdataStrb]   (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb0, wdata[0], strb1, wdata[1], strb2, wdata[2], strb3, wdata[3]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb4, wdata[4], strb5, wdata[5], strb6, wdata[6], strb7, wdata[7]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb8, wdata[8], strb9, wdata[9], strb10, wdata[10], strb11, wdata[11]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb12, wdata[12], strb13, wdata[13], strb14, wdata[14], strb15, wdata[15]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb16, wdata[16], strb17, wdata[17], strb18, wdata[18], strb19, wdata[19]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb20, wdata[20], strb21, wdata[21], strb22, wdata[22], strb23, wdata[23]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb24, wdata[24], strb25, wdata[25], strb26, wdata[26], strb27, wdata[27]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb28, wdata[28], strb29, wdata[29], strb30, wdata[30], strb31, wdata[31]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb32, wdata[32], strb33, wdata[33], strb34, wdata[34], strb35, wdata[35]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb36, wdata[36], strb37, wdata[37], strb38, wdata[38], strb39, wdata[39]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb40, wdata[40], strb41, wdata[41], strb42, wdata[42], strb43, wdata[43]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb44, wdata[44], strb45, wdata[45], strb46, wdata[46], strb47, wdata[47]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb48, wdata[48], strb49, wdata[49], strb50, wdata[50], strb51, wdata[51]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb52, wdata[52], strb53, wdata[53], strb54, wdata[54], strb55, wdata[55]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb56, wdata[56], strb57, wdata[57], strb58, wdata[58], strb59, wdata[59]);
+      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb60, wdata[60], strb61, wdata[61], strb62, wdata[62], strb63, wdata[63]);
+    }
+
+    wdataQ.push_back(data);
+
+  }
+
 
   int sendDRAMRequest(
       long long addr,

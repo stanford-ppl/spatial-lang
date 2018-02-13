@@ -186,33 +186,15 @@ public:
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
     EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
-//#ifdef USE_PHYS_ADDR
-//    void *dst = physToVirt(devmem);
-//#else
-//    void *dst = (void*) devmem;
-//#endif
-
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
-
-    // Flush CPU cache
-//    char *start = (char*)dst;
-//    char *end = start + size;
-//    __clear_cache(start, end);
-
+    std::memcpy(dst, hostmem, size); // Using alignedSize(bsb, size) causes corrupted memory in Viterbi???
 
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-//#ifdef USE_PHYS_ADDR
-//    void *src = physToVirt(devmem);
-//#else
-//    void *src = (void*) devmem;
-//#endif
-
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    std::memcpy(hostmem, src, size); // Using alignedSize(bsb, size) causes corrupted memory in Viterbi???
   }
 
   void flushCache(uint32_t kb) {

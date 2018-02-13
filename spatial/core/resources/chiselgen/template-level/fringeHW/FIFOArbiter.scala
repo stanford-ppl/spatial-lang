@@ -2,11 +2,11 @@ package fringe
 
 import chisel3._
 import chisel3.util._
-import templates.Utils.log2Up
+import templates._
 import scala.language.reflectiveCalls
 
 class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: Int) extends Module {
-  val tagWidth = log2Up(numStreams)
+  val tagWidth = log2Ceil(numStreams)
 
   val io = IO(new Bundle {
     val fifo = Vec(numStreams, Flipped(new FIFOBaseIO(t, d, v)))
@@ -15,6 +15,9 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
     val full = Output(Vec(numStreams, Bool()))
     val deq = Output(Vec(v, t.cloneType))
     val deqVld = Input(Bool())
+    // ready/valid interface is used here to retime the critical path through the deque mux
+    // this logic is a bit brittle but hides all the retime details from outside modules
+    val deqReady = Output(Bool())
     val forceTag = Input(Valid(UInt(tagWidth.W)))
     val empty = Output(Bool())
     val tag = Output(UInt(tagWidth.W))
@@ -22,12 +25,15 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
     val fifoSize = Output(UInt(32.W))
   })
 
-  val tagFF = Module(new FF(tagWidth))
+  // max(0) to account for the unlikely single stream case
+  val delay = 0 // (tagWidth - 1).max(0) // TODO: Matt V look at this
+  val tagFF = Module(new FF(UInt(tagWidth.W)))
   tagFF.io.init := 0.U
   val tag = Mux(io.forceTag.valid, io.forceTag.bits, tagFF.io.out)
 
   // FIFOs
   if (numStreams > 0) {
+    val deq = if (delay > 0) io.deqVld | ~io.deqReady else io.deqVld // TODO: Matt V look at this
     io.fifo.zipWithIndex.foreach { case (f, i) =>
       val fifoConfig = Wire(new FIFOOpcode(d, v))
       fifoConfig.chainRead := io.config.chainRead
@@ -36,7 +42,7 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
       f.config := fifoConfig
       f.enq := io.enq(i)
       f.enqVld := io.enqVld(i)
-      f.deqVld := io.deqVld & (tag === i.U)
+      f.deqVld := deq & (tag === i.U)
       io.full(i) := f.full
     }
 
@@ -55,20 +61,24 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
     val activeFifo = PriorityEncoder(fifoValids)
     tagFF.io.in := activeFifo
 
-    val outMux = Module(new MuxVec(t, numStreams, v))
+    val empties = Array.tabulate(numStreams) { i => (i.U -> io.fifo(i).empty) }
+    val empty = MuxLookup(tag, false.B, empties)
+    io.empty := empty
+
+    // val outMux = Module(new MuxNPipe(Vec(v, t), numStreams, delay))
+    val outMux = Module(new MuxN(Vec(v, t), numStreams)) // TODO: Matt V look at this
     outMux.io.ins := Vec(io.fifo.map {e => e.deq})
     outMux.io.sel := tag
+    // outMux.io.en := deq // TODO: Matt V look at this
+    io.deqReady := Utils.getRetimed(~empty & deq, delay, deq)
 
     val sizeMux = Module(new MuxN(UInt(32.W), numStreams))
     sizeMux.io.ins := Vec(io.fifo.map {e => e.fifoSize})
     sizeMux.io.sel := tag
 
-    io.tag := tag
+    io.tag := Utils.getRetimed(tag, delay, deq)
     io.deq := outMux.io.out
-    io.fifoSize := sizeMux.io.out
-    val empties = Array.tabulate(numStreams) { i => (i.U -> io.fifo(i).empty) }
-    io.empty := MuxLookup(tag, false.B, empties)
-    // io.empty := fifos.map {e => e.io.empty}.reduce{_&_}  // emptyMux.io.out
+    io.fifoSize := Utils.getRetimed(sizeMux.io.out, delay, deq)
   } else { // Arbiter does nothing if there are no memstreams
     io.tag := 0.U(tagWidth.W)
     io.deq := Vec(List.tabulate(v) { i => 0.U(t.getWidth) })

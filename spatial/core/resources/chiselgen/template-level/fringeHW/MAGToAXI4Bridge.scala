@@ -45,7 +45,7 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
 
   // W
   io.M_AXI.WDATA    := io.in.wdata.bits.wdata.reverse.reduce{ Cat(_,_) } // Used to be shift registered
-  io.M_AXI.WSTRB    := Fill(64, 1.U)
+  io.M_AXI.WSTRB    := io.in.wdata.bits.wstrb.reverse.reduce[UInt]{ Cat(_,_) }
   io.M_AXI.WLAST    := io.in.wdata.bits.wlast // Used to be shift registered
   io.M_AXI.WVALID   := io.in.wdata.valid // Used to be shift registered
   io.in.wdata.ready := io.M_AXI.WREADY // Used to be shift registered

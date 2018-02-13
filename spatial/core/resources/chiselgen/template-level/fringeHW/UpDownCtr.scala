@@ -24,8 +24,7 @@ class UpDownCtr(val w: Int) extends Module {
     val nextDec  = Output(UInt(w.W))
   })
 
-//  val reg = Module(new FF(w))
-  val reg = Module(new FF(w))
+  val reg = Module(new FF(UInt(w.W)))
   val configInit = Mux(io.initAtConfig, io.initval, 0.U(w.W))
   reg.io.init := configInit
 

@@ -147,7 +147,7 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
     // FringeGlobals.bigIP.multiply(addr, (banks.drop(i).reduce{_.*-*(_,None)}/-/banks(i)).U, 0)
    addr.*-*((dims.drop(i).reduce{_*_}/dims(i)).U, None)
   }.reduce{_+_}, 0 max Utils.sramstore_latency - 1)
-  m.io.r.addr := Utils.getRetimedStream(io.r.addr.zipWithIndex.map{ case (addr, i) =>
+  m.io.r.addr := Utils.getRetimed(io.r.addr.zipWithIndex.map{ case (addr, i) =>
     // FringeGlobals.bigIP.multiply(addr, (dims.drop(i).reduce{_.*-*(_,None)}/dims(i)).U, 0)
    addr.*-*((dims.drop(i).reduce{_*_}/dims(i)).U, None)
   }.reduce{_+_}, 0 max {Utils.sramload_latency - 1}, io.flow) // Latency set to 2, give 1 cycle for bank to resolve
@@ -155,9 +155,9 @@ class MemND(val dims: List[Int], bitWidth: Int = 32, syncMem: Boolean = false) e
   // Connect the other ports
   m.io.w.data := Utils.getRetimed(io.w.data, 0 max Utils.sramstore_latency - 1)
   m.io.w.en := Utils.getRetimed(io.w.en & io.wMask, 0 max Utils.sramstore_latency - 1)
-  m.io.r.en := Utils.getRetimedStream(io.r.en & io.rMask, 0 max {Utils.sramload_latency - 1}, io.flow) // Latency set to 2, give 1 cycle for bank to resolve
+  m.io.r.en := Utils.getRetimed(io.r.en & io.rMask, 0 max {Utils.sramload_latency - 1}, io.flow) // Latency set to 2, give 1 cycle for bank to resolve
   m.io.flow := io.flow
-  io.output.data := Utils.getRetimedStream(m.io.output.data, if (syncMem) 0 else {if (Utils.retime) 1 else 0}, io.flow)
+  io.output.data := Utils.getRetimed(m.io.output.data, if (syncMem) 0 else {if (Utils.retime) 1 else 0}, io.flow)
   if (scala.util.Properties.envOrElse("RUNNING_REGRESSION", "0") == "1") {
     // Check if read/write is in bounds
     val rInBound = io.r.addr.zip(dims).map { case (addr, bound) => addr < bound.U }.reduce{_&_}

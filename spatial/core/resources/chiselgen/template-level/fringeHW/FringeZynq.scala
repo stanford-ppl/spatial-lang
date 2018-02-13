@@ -92,7 +92,7 @@ class FringeZynq(
     fringeCommon.io.wdata := axiLiteBridge.io.wdata
     axiLiteBridge.io.rdata := fringeCommon.io.rdata
   } else if (FringeGlobals.target == "zcu") {
-    val datawidth = 32
+    val datawidth = 64
     val axiLiteBridge = Module(new AXI4LiteToRFBridgeZCU(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
@@ -102,6 +102,7 @@ class FringeZynq(
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
     fringeCommon.io.wdata := axiLiteBridge.io.wdata
     axiLiteBridge.io.rdata := fringeCommon.io.rdata
+  
   }
 
   fringeCommon.io.aws_top_enable := io.externalEnable
