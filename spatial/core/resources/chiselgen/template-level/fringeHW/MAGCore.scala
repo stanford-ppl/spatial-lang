@@ -37,9 +37,9 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 0
+  val numRdataDebug = 1
   val numRdataWordsDebug = 16
-  val numWdataDebug = 0
+  val numWdataDebug = 1
   val numWdataWordsDebug = 16
   val numDebugs = 400
 
@@ -475,8 +475,9 @@ class MAGCore(
   if (io.app.stores.size > 0) {
     // wdata enq values
     for (i <- 0 until numWdataDebug) {
+      connectDbgSig(debugFF(io.dram.wdata.bits.wstrb, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === (i).U)).io.out, s"""wstrb_from_dram${(i)}""")
       for (j <- 0 until numWdataWordsDebug) {
-        connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === (i+2).U)).io.out, s"""wdata_from_dram${(i+2)}_$j""")
+        connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === (i).U)).io.out, s"""wdata_from_dram${(i)}_$j""")
       }
       // connectDbgSig(debugFF(wdataMux.io.out.bits.wdata, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""Actual values on wdata.bits""")
     }

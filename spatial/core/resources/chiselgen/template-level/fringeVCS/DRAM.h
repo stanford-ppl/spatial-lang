@@ -558,7 +558,6 @@ extern "C" {
         uint8_t *wdata = (uint8_t*) malloc(burstSizeBytes);
         uint8_t *raddr = (uint8_t*) req->addr;
         for (int i=0; i<burstSizeWords; i++) {
-          EPRINTF("Getting element %d = %u\n", i, raddr[i]);
           wdata[i] = raddr[i];
         }
 
