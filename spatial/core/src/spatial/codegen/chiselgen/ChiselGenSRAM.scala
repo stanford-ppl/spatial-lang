@@ -837,6 +837,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(32))}.toInt")
       emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(32))}.toInt")
       emit(s"Utils.fixeql_latency = ${latencyOption("FixEql", None)}.toInt")
+      emit(s"Utils.tight_control   = ${spatialConfig.enableTightControl}")
       emit(s"Utils.mux_latency    = ${latencyOption("Mux", None)}.toInt")
       emit(s"Utils.sramload_latency    = ${latencyOption("SRAMLoad", None)}.toInt")
       emit(s"Utils.sramstore_latency    = ${latencyOption("SRAMStore", None)}.toInt")
