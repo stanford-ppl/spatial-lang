@@ -37,9 +37,9 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 1
+  val numRdataDebug = 2
   val numRdataWordsDebug = 16
-  val numWdataDebug = 1
+  val numWdataDebug = 0
   val numWdataWordsDebug = 16
   val numDebugs = 416
 
