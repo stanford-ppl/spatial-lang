@@ -14,7 +14,7 @@ trait PIRFileGen extends FileGen {
 
   override protected def emitFileHeader() {
     emit("import pir._")
-    emit("import pir.newnode._")
+    emit("import pir.node._")
     emit("import arch._")
     emit("import pirc.enums._")
     emit("")

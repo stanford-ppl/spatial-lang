@@ -245,9 +245,13 @@ package object pirgen {
     case FixNeq(_,_)                     => Some(PIRFixNeq)
     case FixLsh(_,_)                     => Some(PIRFixSla)
     case FixRsh(_,_)                     => Some(PIRFixSra)
+    case FixURsh(_,_)                    => Some(PIRFixUsra)
     case e: Min[_] if isFixPtType(e.mR)  => Some(PIRFixMin)
     case e: Max[_] if isFixPtType(e.mR)  => Some(PIRFixMax)
     case FixNeg(_)                       => Some(PIRFixNeg)
+    case FixRandom(_)                    => Some(PIRFixRandom)
+    case FixUnif()                       => Some(PIRFixUnif) //TODO random number between 0 and 1
+    case FixConvert(_)                   => Some(PIRFixConvert)
 
     // Float ops currently assumed to be single op
     case FltAdd(_,_)                     => Some(PIRFltAdd)
@@ -267,8 +271,12 @@ package object pirgen {
     case e: Min[_] if isFltPtType(e.mR)  => Some(PIRFltMin)
     case e: Max[_] if isFltPtType(e.mR)  => Some(PIRFltMax)
 
+    case Not(_)                          => Some(PIRBitNot)
     case And(_,_)                        => Some(PIRBitAnd)
+    case FixAnd(_,_)                     => Some(PIRBitAnd)
     case Or(_,_)                         => Some(PIRBitOr)
+    case FixOr(_,_)                      => Some(PIRBitOr)
+    case FixXor(_,_)                     => Some(PIRBitXor)
     case _                               => None
   }
   def typeToStyle(tpe: ControlStyle):CUStyle = tpe match {

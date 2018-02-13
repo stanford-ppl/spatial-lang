@@ -23,16 +23,12 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   override protected def visit(lhs: Sym[_], rhs: Op[_]) = {
-    lhs match {
-      case lhs if isRemoteMem(lhs) =>
-        dbgblk(s"${qdef(lhs)}") {
-          dbglogs(lhs)
-          markInnerDim(lhs)
-          setOuterDims(lhs)
-          setNumOuterBanks(lhs)
-          setStaticBank(lhs)
-        }
-      case _ =>
+    dbgblk(s"${qdef(lhs)}") {
+      dbglogs(lhs)
+      markInnerDim(lhs)
+      setOuterDims(lhs)
+      setNumOuterBanks(lhs)
+      setStaticBank(lhs)
     }
     super.visit(lhs, rhs)
   }
@@ -89,7 +85,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
           case Def(ParLocalReader((mem, None, _)::_)) => Nil
           case Def(ParLocalWriter((mem, _, None, _)::_)) => Nil
         }
-        if (inds.isEmpty) { //FIFO
+        if (inds.isEmpty) {
           instIds.foreach { instId => 
             innerDimOf((mem, instId)) = (0, mutable.Set())
             dbgs(s"innerDim(mem=$mem, instId=$instId) = (0, Set()) (FIFO)")
@@ -123,7 +119,9 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   def setOuterDims(mem:Expr) = dbgblk(s"setOuterDims") {
     val numDim = mem match {
       case Def(SRAMNew(dims)) => dims.size
-      case Def(FIFONew(size)) => 1
+      case Def(RegFileNew(dims, inits)) => dims.size
+      case Def(LUTNew(dims, elems)) => dims.size
+      case Def(mem) => 1
     }
     duplicatesOf(mem).zipWithIndex.foreach { case (inst, instId) =>
       outerDimsOf((mem, instId)) = (0 until numDim).toSeq.filterNot { dim => 
@@ -148,73 +146,76 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
   def setStaticBank(mem:Expr):Unit = {
     (readersOf(mem) ++ writersOf(mem)).map(_.node).foreach { access =>
-      if (isFIFO(mem)) {
-        val instIds = getDispatches(mem, access)
-        staticBanksOf((access, 0)) = Seq(0)
-      }
-      else setStaticBank(mem, access)
+      setStaticBank(mem, access)
     }
   }
 
   def setStaticBank(mem:Expr, access:Expr):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
     val instIds = getDispatches(mem, access)
-    val insts = duplicatesOf(mem).zipWithIndex.filter { case (inst, instId) =>
-      instIds.contains(instId)
-    }
+    val duplicates = duplicatesOf(mem)
+    val insts = instIds.map { instId => (duplicates(instId), instId) }
     val addr = access match {
-      case ParLocalReader(List((_, Some(addr), _))) => addr
-      case ParLocalWriter(List((_, _, Some(addr), _))) => addr
+      case ParLocalReader(List((_, addr, _))) => addr
+      case ParLocalWriter(List((_, _, addr, _))) => addr
     }
     insts.foreach { case (inst, instId) =>
-      inst match {
-        case m@BankedMemory(dims, depth, isAccum) =>
-          val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
-          dbgs(s"addr=$addr inds=$inds")
-          val outerInds = outerDimsOf((mem, instId)).map { dim => (inds(dim), dims(dim), dim) }
-          // A list of (bankIndex, # banks) for each outer dimension
-          val bankInds = outerInds.map { case (inds, memory, dim) =>
-            val vind::_ = inds
-            val Banking(stride, banks, _) = memory
-            dbgs(s"ctrlOf($vind)=${ctrlOf(vind)}")
-            val bankInds = ctrlOf(vind) match {
-              case Some((ctrl, _)) => 
-                val parIdxs = itersOf(ctrl).get.map { iters => 
-                  (iters.indexOf(vind), iters.size)
-                }.filter { _._1 >= 0 }
-                dbgs(s"itersOf($ctrl)=${itersOf(ctrl)}")
-                assert(parIdxs.size == 1 , s"$ctrl doesn't belong to $ctrl but ctrlOf($vind) = $ctrl!")
-                val (iterIdx, iterPar) = parIdxs.head
-                if (iterPar==1) {
-                  (0 until banks).map { b => (b, banks)}.toList
-                } else {
-                  List((iterIdx, banks))
-                }
-              case None => 
-                (0 until banks).map { b => (b, banks)}.toList
-            }
-            dbgs(s"dim=$dim banks=${bankInds}")
-            bankInds
-          }
-          dbgs(s"bankInds=$bankInds")
-
-          // Compute the combination of flatten bankIndex
-          def indComb(inds:List[List[(Int, Int)]], prevDims:List[(Int, Int)]):List[Int] = { 
-            if (inds.isEmpty) {
-              val (inds, banks) = prevDims.unzip
-              List(flattenND(inds, banks)); 
-            } else {
-              val headDim::restDims = inds 
-              headDim.flatMap { bank => indComb(restDims, prevDims :+ bank) }
-            }
-          }
-
-          val banks = indComb(bankInds.toList, Nil)
-          dbgs(s"access=$access uses banks=$banks for inst=$inst")
-          staticBanksOf((access, instId)) = banks
-        case DiagonalMemory(strides, banks, depth, isAccum) =>
-          //TODO
-          throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
+      addr match {
+        case None =>
+          staticBanksOf((access, instId)) = (0 until numOuterBanksOf((mem, instId))).toList
+        case Some(addr) => setStaticBank(mem, inst, instId, access, addr)
       }
+    }
+  }
+
+  def setStaticBank(mem:Expr, inst:Memory, instId:Int, access:Expr, addr:Seq[Seq[Expr]]):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
+    inst match {
+      case m@BankedMemory(dims, depth, isAccum) =>
+        val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }
+        dbgs(s"addr=$addr inds=$inds")
+        val outerInds = outerDimsOf((mem, instId)).map { dim => (inds(dim), dims(dim), dim) }
+        // A list of (bankIndex, # banks) for each outer dimension
+        val bankInds = outerInds.map { case (inds, memory, dim) =>
+          val vind::_ = inds
+          val Banking(stride, banks, _) = memory
+          dbgs(s"ctrlOf($vind)=${ctrlOf(vind)}")
+          val bankInds = ctrlOf(vind) match {
+            case Some((ctrl, _)) => 
+              val parIdxs = itersOf(ctrl).get.map { iters => 
+                (iters.indexOf(vind), iters.size)
+              }.filter { _._1 >= 0 }
+              dbgs(s"itersOf($ctrl)=${itersOf(ctrl)}")
+              assert(parIdxs.size == 1 , s"$ctrl doesn't belong to $ctrl but ctrlOf($vind) = $ctrl!")
+              val (iterIdx, iterPar) = parIdxs.head
+              if (iterPar==1) {
+                (0 until banks).map { b => (b, banks)}.toList
+              } else {
+                List((iterIdx, banks))
+              }
+            case None => 
+              (0 until banks).map { b => (b, banks)}.toList
+          }
+          dbgs(s"dim=$dim banks=${bankInds}")
+          bankInds
+        }
+        dbgs(s"bankInds=$bankInds")
+
+        // Compute the combination of flatten bankIndex
+        def indComb(inds:List[List[(Int, Int)]], prevDims:List[(Int, Int)]):List[Int] = { 
+          if (inds.isEmpty) {
+            val (inds, banks) = prevDims.unzip
+            List(flattenND(inds, banks)); 
+          } else {
+            val headDim::restDims = inds 
+            headDim.flatMap { bank => indComb(restDims, prevDims :+ bank) }
+          }
+        }
+
+        val banks = indComb(bankInds.toList, Nil)
+        dbgs(s"access=$access uses banks=$banks for inst=$inst")
+        staticBanksOf((access, instId)) = banks
+      case DiagonalMemory(strides, banks, depth, isAccum) =>
+        //TODO
+        throw new Exception(s"Plasticine doesn't support diagonal banking at the moment!")
     }
   }
 }

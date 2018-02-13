@@ -90,7 +90,7 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
     case n:CChainInstance =>  s"${n.name} (${n.counters.map(quote).mkString(",")})"
     case n: UnitCChain => s"${n} [unit]"
     case DefStage(exp, isReduce) => s"DefStage(${qdef(exp)}, isReduce=$isReduce)"
-    case x:Iterable[_] => x.map(quote).toString
+    case x:Iterable[_] => x.map(quote).toList.toString
     case n => n.toString
   }
 
