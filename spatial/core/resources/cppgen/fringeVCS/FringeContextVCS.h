@@ -311,6 +311,7 @@ public:
 
     // Connect with simulator
     connect();
+    EPRINTF("FPGA PID is %d\n", sim_pid);
 
     // Configure settings from environment
     debugRegs = envToBool("DEBUG_REGS");

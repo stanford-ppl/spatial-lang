@@ -111,7 +111,6 @@ class FIFOWidthConvert(val win: Int, val vin: Int, val wout: Int, val vout: Int,
     io.deqStrb := bytify(fifoStrb.io.deq(0), wout*vout/8, win)
     fifo.io.deqVld := io.deqVld
   } else {
-
     val fifo = Module(new FIFOCore(UInt(win.W), d, vin))
     val fifoStrb = Module(new FIFOCore(UInt(vin.W), d, 1))
     val fifoConfig = Wire(new FIFOOpcode(d, vin))

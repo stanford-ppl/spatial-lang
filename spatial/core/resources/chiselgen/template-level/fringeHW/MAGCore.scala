@@ -18,7 +18,7 @@ class BurstAddr(addrWidth: Int, w: Int, burstSizeBytes: Int) extends Bundle {
   def burstTag = bits(bits.getWidth - 1, log2Up(burstSizeBytes))
   def burstOffset = bits(log2Up(burstSizeBytes) - 1, 0)
   def burstAddr = Cat(burstTag, 0.U(log2Up(burstSizeBytes).W))
-  def wordOffset = bits(log2Up(burstSizeBytes) - 1, log2Up(w/8))
+  def wordOffset = bits(log2Up(burstSizeBytes) - 1, if (w == 8) 0 else log2Up(w/8))
 
   override def cloneType(): this.type = {
     new BurstAddr(addrWidth, w, burstSizeBytes).asInstanceOf[this.type]
@@ -37,9 +37,9 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 3
+  val numRdataDebug = 1
   val numRdataWordsDebug = 16
-  val numWdataDebug = 0
+  val numWdataDebug = 1
   val numWdataWordsDebug = 16
   val numDebugs = 400
 
@@ -75,8 +75,8 @@ class MAGCore(
 
   })
 
-  val external_w = if (FringeGlobals.target == "vcs") 8 else 32
-  val external_v = if (FringeGlobals.target == "vcs") 64 else 16
+  val external_w = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 8 else 32
+  val external_v = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 64 else 16
   // debug registers
   def debugCounter(en: Bool) = {
     val c = Module(new Counter(w))
@@ -356,7 +356,7 @@ class MAGCore(
 
     wdataMux.io.ins(i).valid := issueWrite
     wdataMux.io.ins(i).bits.wdata := m.io.fifo.deq(0).data
-    // TODO: Connect wstrb if necessary?
+    wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
 
     val wrespFIFO = Module(new FIFOCore(UInt(w.W), d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.bits.tag.uid
@@ -445,7 +445,7 @@ class MAGCore(
   cmdArbiter.io.deqVld := cmdDeqValidMux.io.out
 
   io.dram.wdata.bits.wdata := wdataMux.io.out.bits.wdata
-  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse
+  io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse // .foreach(_ := 1.U)
   io.dram.wdata.valid := wdataMux.io.out.valid
 
   io.dram.cmd.bits := dramCmdMux.io.out.bits
@@ -475,8 +475,9 @@ class MAGCore(
   if (io.app.stores.size > 0) {
     // wdata enq values
     for (i <- 0 until numWdataDebug) {
+      connectDbgSig(debugFF(io.dram.wdata.bits.wstrb, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === (i).U)).io.out, s"""wstrb_from_dram${(i)}""")
       for (j <- 0 until numWdataWordsDebug) {
-        connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === (i+2).U)).io.out, s"""wdata_from_dram${(i+2)}_$j""")
+        connectDbgSig(debugFF(io.dram.wdata.bits.wdata(j), io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === (i).U)).io.out, s"""wdata_from_dram${(i)}_$j""")
       }
       // connectDbgSig(debugFF(wdataMux.io.out.bits.wdata, io.dram.wdata.ready & io.dram.wdata.valid & (wdataCount.io.out === i.U)).io.out, s"""Actual values on wdata.bits""")
     }
