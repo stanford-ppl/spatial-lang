@@ -194,7 +194,7 @@ class AXI4Probe(params: AXI4BundleParameters) extends AXI4BundleBase(params)
 
   // w
   val WDATA = Input(UInt((params.dataBits).W))
-  val WSTRB = Input(UInt((params.dataBits/8).W))
+  val WSTRB = Input(UInt(64.W))
   val WLAST = Input(Bool())
   val WVALID  = Input(Bool())
   val WREADY  = Input(Bool())

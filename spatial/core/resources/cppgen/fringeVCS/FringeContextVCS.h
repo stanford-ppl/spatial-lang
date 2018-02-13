@@ -311,6 +311,7 @@ public:
 
     // Connect with simulator
     connect();
+    EPRINTF("FPGA PID is %d\n", sim_pid);
 
     // Configure settings from environment
     debugRegs = envToBool("DEBUG_REGS");
@@ -349,7 +350,8 @@ public:
         EPRINTF("=========================================\n");
       }
      sleep(1);
-     dumpDebugRegs();
+     dumpAllRegs();
+     // dumpDebugRegs();
       writeReg(commandReg, 0);
       while (status != 0) {
         step();
@@ -397,6 +399,23 @@ public:
     return readReg(2+arg);
   }
 
+  void dumpAllRegs() {
+    int argIns = numArgIns == 0 ? 1 : numArgIns;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
+    for (int i=0; i<totalRegs; i++) {
+      uint32_t value = readReg(i);
+      if (i < debugRegStart) {
+        if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
+        EPRINTF("\tR%d: %08x (%08d)\n", i, value, value);
+      } else {
+        if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
+        EPRINTF("\tR%d %s: %08x (%08d)\n", i, signalLabels[i - debugRegStart], value, value);
+      }
+    }
+  }
+
   void dumpDebugRegs() {
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
@@ -411,7 +430,7 @@ public:
 
   ~FringeContextVCS() {
     if (debugRegs) {
-      dumpDebugRegs();
+      dumpAllRegs();
     }
     finish();
   }

@@ -59,7 +59,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
+      loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
       loadsList = loadsList :+ dram
 
       // TODO: Investigate this _enq business
@@ -96,7 +96,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       assert(par == 1, s"Unsupported par '$par' for sparse loads! Must be 1 currently")
 
       val id = loadsList.length
-      loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
+      loadParMapping = loadParMapping :+ s"""StreamParInfo(if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
       loadsList = loadsList :+ dram
       val turnstiling_stage = getLastChild(parentOf(lhs).get)
       emitGlobalWire(src"""val ${turnstiling_stage}_enq = io.memStreams.loads(${id}).rdata.valid""")
@@ -116,6 +116,29 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
     case FringeDenseStore(dram,cmdStream,dataStream,ackStream) =>
       appPropertyStats += HasTileStore
 
+      // Find stages that pushes to cmdstream and dataStream
+      var cmdStage: Option[Exp[_]] = None
+      var dataStage: Option[Exp[_]] = None
+      childrenOf(parentOf(lhs).get).map{c =>
+        if (childrenOf(c).length > 0) {
+          childrenOf(c).map{ cc => 
+            pushesTo(cc).distinct.map{ pt => pt.memory match {
+              case fifo @ Def(StreamOutNew(bus)) => 
+                if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(cc)
+                if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(cc)
+              case _ => 
+            }}                      
+          }
+        } else {
+          pushesTo(c).distinct.map{ pt => pt.memory match {
+            case fifo @ Def(StreamOutNew(bus)) => 
+              if (s"$bus".contains("BurstFullDataBus")) dataStage = Some(c)
+              if (s"$bus".contains("BurstCmdBus")) cmdStage = Some(c)
+            case _ => 
+          }}          
+        }
+      }
+
       if (isAligned(cmdStream)) appPropertyStats += HasAlignedStore
       else appPropertyStats += HasUnalignedStore
 
@@ -127,7 +150,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       }
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
+      storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, false)"""
       storesList = storesList :+ dram
 
       // Connect streams to their IO interface signals
@@ -140,14 +163,18 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val (sizeMSB, sizeLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "size")
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
       val bug241_backoff = (math.random*7).toInt
-      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := wdata($dataMSB,$dataLSB) }""")
-      emit(src"""io.memStreams.stores($id).wstrb.bits := ${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))""")
-      emit(src"""io.memStreams.stores($id).wdata.valid := ${swap(dataStream, Valid)}""")
-      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DL(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
-      emit(src"io.memStreams.stores($id).cmd.bits.size := ${DL(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")
-      emit(src"io.memStreams.stores($id).cmd.valid :=  ${DL(swap(cmdStream, Valid), bug241_backoff, true)}")
-      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DL(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
+      controllerStack.push(dataStage.get) // Push so that DLI does the right thing
+      emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := ${DLI(src"wdata($dataMSB,$dataLSB)", src"${bug241_backoff}")} }""")
+      emit(src"""io.memStreams.stores($id).wstrb.bits := ${DLI(src"${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))", src"${bug241_backoff}")} """)
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${DLI(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} """)
+      controllerStack.pop()
+      controllerStack.push(cmdStage.get) // Push so that DLI does the right thing
+      emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DLI(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.stores($id).cmd.bits.size := ${DLI(src"${cmdStream}($sizeMSB,$sizeLSB)", src"${bug241_backoff}")}")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${DLI(swap(cmdStream, Valid), bug241_backoff, true)}")
+      emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DLI(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
+      controllerStack.pop()
       emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
@@ -164,7 +191,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       Predef.assert(par == 1, s"Unsupported par '$par', only par=1 currently supported")
 
       val id = storesList.length
-      storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 64 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
+      storeParMapping = storeParMapping :+ s"""StreamParInfo({if (FringeGlobals.target == "zcu") 32 else ${bitWidth(dram.tp.typeArguments.head)}}, ${par}, ${transferChannel(parentOf(lhs).get)}, true)"""
       storesList = storesList :+ dram
 
       val (addrMSB, addrLSB) = tupCoordinates(cmdStream.tp.typeArguments.head, "_2")
