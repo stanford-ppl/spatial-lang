@@ -41,7 +41,7 @@ class MAGCore(
   val numRdataWordsDebug = 16
   val numWdataDebug = 1
   val numWdataWordsDebug = 16
-  val numDebugs = 400
+  val numDebugs = 416
 
   val sgDepth = d
 
@@ -185,11 +185,11 @@ class MAGCore(
     size.bits := cmdHead.size
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
-    if (id < loadStreamInfo.length) {
+    if (id < loadStreamInfo.length && id == 0) {
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.tag.streamId, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load streamId (tag) sent")
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.addr, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load addr sent")
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load size sent")
-    } else {
+    } else if (id == loadStreamInfo.length) {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
       connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")
       // connectDbgSig(debugFF(chisel3.util.Cat(0x7f.U(32.W), cmdAddr.bits(31,0)), cmdWrite ).io.out, "Last store addr sent")
@@ -289,8 +289,12 @@ class MAGCore(
     stream.rdata.valid := ~m.io.empty
     m.io.deqVld := stream.rdata.ready
 
-    connectDbgSig(debugCounter(m.io.enqVld).io.out, s"rdataFifo $i enq")
-    connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"number of bad elements")
+    connectDbgSig(debugCounter(m.io.enqVld).io.out, s"rdataFifo $i # enqs")
+    connectDbgSig(debugCounter(~m.io.empty).io.out, s"rdataFifo $i # cycles ~empty (= data valid)")
+    connectDbgSig(debugCounter(stream.rdata.ready).io.out, s"load stream $i # cycles ready")
+    connectDbgSig(debugCounter(~m.io.empty && stream.rdata.ready).io.out, s"load stream $i # handshakes")
+
+    connectDbgSig(debugCounter(m.io.empty & m.io.deqVld).io.out, s"number of bad elements (IF =!= 0, LOOK HERE FOR BUGS)")
 
     val sDeq_latch = Module(new SRFF())
     sDeq_latch.io.input.set := m.io.deqVld
@@ -302,11 +306,13 @@ class MAGCore(
     sEnq_latch.io.input.reset := reset.toBool
     sEnq_latch.io.input.asyn_reset := reset.toBool
 
+
     connectDbgSig(debugFF(m.io.deq, ~sDeq_latch.io.output.data & Utils.risingEdge(m.io.deqVld)).io.out, s"m.io.deq")
     connectDbgSig(debugFF(m.io.enq, ~sEnq_latch.io.output.data & Utils.risingEdge(m.io.enqVld)).io.out, s"m.io.enq")
 
     m
   }
+
 
   val scatterBuffers = sparseStores.map { case (s, i) =>
     val j = storeStreamId(i)
@@ -467,7 +473,7 @@ class MAGCore(
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
     for (j <- 0 until numRdataWordsDebug) {
-      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === i.U)).io.out, s"""rdata_from_dram${i}_$j""")
+      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === (i+21).U)).io.out, s"""rdata_from_dram${(i+21)}_$j""")
     }
   }
 
