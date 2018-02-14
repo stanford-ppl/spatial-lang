@@ -697,7 +697,8 @@ trait ChiselGenController extends ChiselGenCounter{
 
         val streamAddition = getStreamEnablers(c)
 
-        emit(src"""${swap(c, BaseEn)} := ${DL(src"${swap(sym, SM)}.io.output.stageEnable(${idx})", 0, true)} & ${DL(src"~${swap(c, Done)}", 1, true)} // Both used to be delayed by 1 on Nov 26, 2017 but not sure why""")  
+        val base_delay = if (spatialConfig.enableTightControl) 0 else 1
+        emit(src"""${swap(c, BaseEn)} := ${DL(src"${swap(sym, SM)}.io.output.stageEnable(${idx})", base_delay, true)} & ${DL(src"~${swap(c, Done)}", 1, true)}""")  
         emit(src"""${swap(c, En)} := ${swap(c, BaseEn)} ${streamAddition}""")  
 
         // If this is a stream controller, need to set up counter copy for children
