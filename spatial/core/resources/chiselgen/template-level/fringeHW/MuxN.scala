@@ -33,13 +33,13 @@ class MuxNPipe[T<:Data](val t: T, val numInputs: Int, val stages: Int) extends M
     }
 
     stages match {
-      case 1 => {
+      case 0 => {
         val m = Module(new MuxN(t, input.length))
         m.io.ins := input
         val c = log2Ceil(input.length)
         m.io.sel := io.sel(c - 1, 0)
-        val s = if (io.sel.getWidth > 1) io.sel(io.sel.getWidth - 1, c) else 0.U
-        (Utils.getFF(m.io.out, io.en), Utils.getFF(s, io.en))
+        val s = if (io.sel.getWidth > c) io.sel(io.sel.getWidth - 1, c) else 0.U
+        (m.io.out, s)
       }
       case _ => {
         val inL = slice(input, 0, (input.length / 2) - 1)
@@ -47,11 +47,13 @@ class MuxNPipe[T<:Data](val t: T, val numInputs: Int, val stages: Int) extends M
         val (muxL, selL) = splitMux(inL, stages - 1)
         val (muxH, selH) = splitMux(inH, stages - 1)
 
+        val selFF = Utils.getFF(selL, io.en)
+
         val m = Module(new MuxN(t, 2));
-        m.io.ins := Vec(muxL, muxH)
-        m.io.sel := selL(0)
-        val s = if (selL.getWidth > 1) selL(selL.getWidth - 1, 1) else 0.U
-        (Utils.getFF(m.io.out, io.en), Utils.getFF(s, io.en))
+        m.io.ins := Vec(Utils.getFF(muxL, io.en), Utils.getFF(muxH, io.en))
+        m.io.sel := selFF(0)
+        val s = if (selFF.getWidth > 1) selFF(selFF.getWidth - 1, 1) else 0.U
+        (m.io.out, s)
       }
     }
   }

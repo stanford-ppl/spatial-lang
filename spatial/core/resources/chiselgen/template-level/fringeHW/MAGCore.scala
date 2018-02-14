@@ -43,11 +43,11 @@ class MAGCore(
   val numWdataWordsDebug = 16
   val numDebugs = 416
 
-  val sgDepth = d
+  val scatterGatherD = d
 
   val numStreams = loadStreamInfo.size + storeStreamInfo.size
   val streamTagWidth = log2Up(numStreams)
-  assert(streamTagWidth <= (new DRAMCommandTag(w)).streamId.getWidth)
+  assert(streamTagWidth <= (new DRAMCommandTag).streamId.getWidth)
 
   val sparseLoads = loadStreamInfo.zipWithIndex.filter { case (s, i) => s.isSparse }
   val denseLoads = loadStreamInfo.zipWithIndex.filterNot { case (s, i) => s.isSparse }
@@ -142,12 +142,12 @@ class MAGCore(
   cmdArbiter.io.full.zip(cmds) foreach { case (full, cmd) => cmd.ready := ~full }
 
   val cmdHead = cmdArbiter.io.deq(0)
-  val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
-  cmdAddr.bits := cmdHead.addr  
-  // cmdAddr.bits := chisel3.util.Cat(0x7f.U(32.W), cmdHead.addr(31,0))
 
-  val cmdRead = io.enable & ~cmdArbiter.io.empty & ~cmdHead.isWr // TODO: Matt V look at this (Used to use cmdArbiter.io.ready)
-  val cmdWrite = io.enable & ~cmdArbiter.io.empty & cmdHead.isWr // TODO: Matt V look at this (Used to use cmdArbiter.io.ready)
+  val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
+  cmdAddr.bits := cmdHead.addr
+
+  val cmdRead = io.enable & cmdArbiter.io.deqReady & ~cmdHead.isWr
+  val cmdWrite = io.enable & cmdArbiter.io.deqReady & cmdHead.isWr
 
   val rrespTag = io.dram.rresp.bits.tag
   val wrespTag = io.dram.wresp.bits.tag
@@ -176,9 +176,7 @@ class MAGCore(
   dramCmdMux.io.ins.zipWithIndex.foreach { case (i, id) =>
     i.bits.addr := cmdAddr.burstAddr
     i.bits.rawAddr := cmdAddr.bits
-    // i.bits.addr := chisel3.util.Cat(0x7F.U(32.W), cmdAddr.burstAddr(31,0))
-    // i.bits.rawAddr := chisel3.util.Cat(0x7F.U(32.W), cmdAddr.bits(31,0))
-    val tag = Wire(new DRAMCommandTag(w))
+    val tag = Wire(new DRAMCommandTag)
     tag.streamId := cmdArbiter.io.tag
     i.bits.tag := tag
     val size = Wire(new BurstAddr(cmdHead.size.getWidth, w, burstSizeBytes))
@@ -191,8 +189,6 @@ class MAGCore(
       connectDbgSig(debugFF(dramCmdMux.io.out.bits.size, dramCmdMux.io.out.valid & ~dramCmdMux.io.out.bits.isWr ).io.out, "Last load size sent")
     } else if (id == loadStreamInfo.length) {
       connectDbgSig(debugFF(cmdArbiter.io.tag, cmdWrite ).io.out, "Last store streamId (tag) sent")
-      connectDbgSig(debugFF(cmdAddr.bits, cmdWrite ).io.out, "Last store addr sent")
-      // connectDbgSig(debugFF(chisel3.util.Cat(0x7f.U(32.W), cmdAddr.bits(31,0)), cmdWrite ).io.out, "Last store addr sent")
       connectDbgSig(debugFF(cmdHead.size, cmdWrite ).io.out, "Last store size sent")
     }
 
@@ -248,9 +244,7 @@ class MAGCore(
   }
 
   val gatherBuffers = sparseLoads.map { case (s, i) =>
-    val w = s.w
-    val v = s.v
-    val m = Module(new GatherBuffer(w, sgDepth, v, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
+    val m = Module(new GatherBuffer(s.w, scatterGatherD, s.v, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
     m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === i.U)
     m.io.rresp.bits := io.dram.rresp.bits
     m.io.cmd.valid := cmdRead & cmdArbiter.io.tag === i.U & dramReady
@@ -271,8 +265,8 @@ class MAGCore(
     m
   }
 
-  // TODO: THIS CURRENTLY ASSUMES THE MEMORY CONTROLLER HANDS BACK DATA IN THE ORDER IT WAS REQUESTED
-  // IT SHOULD PROBABLY BE SWITCHED TO THE STYLE USED BY THE GATHER BUFFERS
+  // TODO: this currently assumes the memory controller hands back data in the order it was requested,
+  // but according to the AXI spec the ARID field should be constant to enforce ordering?
   val denseLoadBuffers = denseLoads.map { case (s, i) =>
     val m = Module(new FIFOWidthConvert(external_w, io.dram.rresp.bits.rdata.size, s.w, s.v, d))
     m.io.enq := io.dram.rresp.bits.rdata
@@ -317,7 +311,7 @@ class MAGCore(
   val scatterBuffers = sparseStores.map { case (s, i) =>
     val j = storeStreamId(i)
 
-    val m = Module(new ScatterBuffer(w, sgDepth, v, burstSizeBytes, addrWidth, sizeWidth, io.dram.rresp.bits))
+    val m = Module(new ScatterBuffer(s.w, scatterGatherD, s.v, burstSizeBytes, addrWidth, sizeWidth, io.dram.rresp.bits))
     val wdata = Module(new FIFOCore(UInt(s.w.W), d, s.v))
     val stream = io.app.stores(i)
 
@@ -337,13 +331,13 @@ class MAGCore(
     cmdDeqValidMux.io.ins(j) := deqCmd
 
     val dramCmd = dramCmdMux.io.ins(j)
-    val addr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
+    val addr = Wire(new BurstAddr(addrWidth, s.w, burstSizeBytes))
     addr.bits := Mux(issueRead, cmdHead.addr, m.io.fifo.deq(0).cmd.addr)
     dramCmd.bits.addr := addr.burstAddr
     dramCmd.bits.rawAddr := addr.bits
     dramCmd.bits.tag.uid := Mux(issueRead, addr.burstTag, m.io.fifo.deq(0).count)
     dramCmd.bits.isWr := issueWrite
-    val size = Wire(new BurstAddr(cmdHead.size.getWidth, w, burstSizeBytes))
+    val size = Wire(new BurstAddr(cmdHead.size.getWidth, s.w, burstSizeBytes))
     size.bits := Mux(issueRead, cmdHead.size, m.io.fifo.deq(0).cmd.size)
     dramCmd.bits.size := size.burstTag + (size.burstOffset != 0.U)
     dramCmd.valid := issueRead | (issueWrite & wdataValid & ~dramReadySeen)
@@ -361,21 +355,22 @@ class MAGCore(
     m.io.fifo.deqVld := burstCounter.io.done
 
     wdataMux.io.ins(i).valid := issueWrite
-    wdataMux.io.ins(i).bits.wdata := m.io.fifo.deq(0).data
+    wdataMux.io.ins(i).bits.wdata := Utils.vecWidthConvert(m.io.fifo.deq(0).data, w)
     wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
 
-    val wrespFIFO = Module(new FIFOCore(UInt(w.W), d, 1))
+    val wrespFIFO = Module(new FIFOCore(UInt(32.W), d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.bits.tag.uid
     wrespFIFO.io.enqVld := io.dram.wresp.valid & (wrespTag.streamId === j.U)
     wrespReadyMux.io.ins(i) := ~wrespFIFO.io.full
 
-    val count = Module(new UpDownCtr(w))
-    count.io.max := ~(0.U(w.W))
+    val count = Module(new UpDownCtr(32))
+    count.io.max := ~(0.U(32.W))
     // send a response after at least 16 sparse writes have completed
-    val sendResp = count.io.out >= v.U
+    // why does spatial always expect 16 regardless of parallelization factor?
+    val sendResp = count.io.out >= 16.U
     val deqRespCount = ~wrespFIFO.io.empty & ~sendResp
     count.io.strideInc := wrespFIFO.io.deq(0)
-    count.io.strideDec := v.U(w.W)
+    count.io.strideDec := 16.U(32.W)
     count.io.inc := deqRespCount
     count.io.dec := sendResp & stream.wresp.ready
 

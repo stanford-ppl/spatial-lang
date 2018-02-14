@@ -2,7 +2,7 @@
 package templates
 
 import chisel3._
-import chisel3.util.{log2Ceil, isPow2}
+import chisel3.util._
 import chisel3.internal.sourceinfo._
 import types._
 import fringe._
@@ -874,6 +874,12 @@ object Utils {
         sig.cloneType.fromBits(sr.io.out)
       }
     }
+  }
+
+  def vecWidthConvert[T<:chisel3.core.Data](vec: Vec[T], newW: Int) = {
+    assert(vec.getWidth % newW == 0)
+    val newV = vec.getWidth / newW
+    vec.asTypeOf(Vec(newV, Bits(newW.W)))
   }
 
   class PrintStackTraceException extends Exception
