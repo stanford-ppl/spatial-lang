@@ -26,7 +26,7 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
   })
 
   // max(0) to account for the unlikely single stream case
-  val delay = (tagWidth - 1).max(0)
+  val delay = tagWidth.max(1)
   val tagFF = Module(new FF(UInt(tagWidth.W)))
   tagFF.io.init := 0.U
   val tag = Mux(io.forceTag.valid, io.forceTag.bits, tagFF.io.out)
