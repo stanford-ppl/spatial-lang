@@ -169,9 +169,10 @@ trait PIRGenCounter extends PIRCodegen {
 }
 
 trait PIRGenOp extends PIRCodegen {
-  def isInnerReduce(lhs:Sym[_], rhs:Op[_]) = {
+  def isInnerReduce(lhs:Sym[_], rhs:Op[_]) = dbgblk(s"isInnerReduce($lhs)"){
     val inputs = rhs.expInputs
-    reduceType(lhs).isDefined && inputs.contains(isReduceStarter)
+    dbgs(s"reduceType=${reduceType(lhs)} inputs=${inputs}")
+    reduceType(lhs).isDefined && inputs.exists(in => isReduceStarter(in))
   }
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     nodeToOp(rhs) match {
