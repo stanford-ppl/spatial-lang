@@ -39,7 +39,7 @@ class MAGCore(
 
   val numRdataDebug = 2
   val numRdataWordsDebug = 16
-  val numWdataDebug = 0
+  val numWdataDebug = 1
   val numWdataWordsDebug = 16
   val numDebugs = 416
 
@@ -411,6 +411,11 @@ class MAGCore(
     wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := m.io.deqStrb(i)}
     stream.wdata.ready := ~m.io.full
 
+    // connectDbgSig(debugCounter(m.io.enqVld).io.out, s"wdataFifo $i # enqs")
+    // connectDbgSig(debugCounter(~m.io.full).io.out, s"wdataFifo $i # cycles ~full (= ready)")
+    // connectDbgSig(debugCounter(stream.wdata.valid).io.out, s"store stream $i # cycles valid")
+    // connectDbgSig(debugCounter(~m.io.full && stream.wdata.valid).io.out, s"store stream $i # handshakes")
+
     val wrespFIFO = Module(new FIFOCounter(d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.valid
     wrespFIFO.io.enqVld := io.dram.wresp.valid & (wrespTag.streamId === j.U)
@@ -419,7 +424,9 @@ class MAGCore(
     stream.wresp.valid := ~wrespFIFO.io.empty
     wrespFIFO.io.deqVld := stream.wresp.ready
 
-//    connectDbgSig(debugCounter(wrespFIFO.io.enqVld).io.out, s"wrespFifo $i enq")
+    connectDbgSig(debugCounter(wrespFIFO.io.enqVld).io.out, s"wrespFifo $i enq")
+    connectDbgSig(debugCounter(~wrespFIFO.io.empty).io.out, s"wrespFifo $i ~empty (stream.wresp.valid)")
+    connectDbgSig(debugCounter(stream.wresp.ready).io.out, s"wrespFifo $i deq (stream.wresp.ready)")
 
     m
   }
@@ -535,6 +542,10 @@ class MAGCore(
   connectDbgSig(debugFF(rrespTag.streamId, io.dram.rresp.valid).io.out, "(load) last streamId")
 
   denseStoreBuffers.zipWithIndex foreach { case (b,i) =>
+    connectDbgSig(debugCounter(b.io.enqVld).io.out, "(store) fifo converter " + i + " # enq")
+    connectDbgSig(debugCounter(~b.io.full).io.out, "(store) fifo converter " + i + " # cycles ~full (= ready)")
+    connectDbgSig(debugCounter(~b.io.full && b.io.enqVld).io.out, s"(store) fifo converter $i # enq while not full")
+    connectDbgSig(debugCounter(b.io.full && b.io.enqVld).io.out, s"(store) fifo converter $i # enq while full")
     connectDbgSig(debugCounter(b.io.full).io.out, "(store) fifo converter " + i + " # cycles full")
     connectDbgSig(debugCounter(b.io.full & b.io.enqVld).io.out, "(store) fifo converter " + i + " # cycles full + enqVld (dropping elements!)")
     connectDbgSig(debugCounter(b.io.almostFull).io.out, "(store) fifo converter " + i + " # cycles almostFull")
