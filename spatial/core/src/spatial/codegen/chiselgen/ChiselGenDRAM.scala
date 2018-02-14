@@ -169,7 +169,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       controllerStack.push(dataStage.get) // Push so that DLI does the right thing
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := ${DLI(src"wdata($dataMSB,$dataLSB)", src"${bug241_backoff}")} }""")
       emit(src"""io.memStreams.stores($id).wstrb.bits := ${DLI(src"${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))", src"${bug241_backoff}")} """)
-      emit(src"""io.memStreams.stores($id).wdata.valid := ${DLI(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} """)
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${DLI(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} & ${swap(dataStream, Ready)} /* To avoid data getting spammed to fringeDenseStore fifos */ """)
       controllerStack.pop()
       controllerStack.push(cmdStage.get) // Push so that DLI does the right thing
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DLI(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")

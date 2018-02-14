@@ -646,6 +646,21 @@ object Utils {
     }
   }
 
+  def streamCatchDone(in_done: Bool, ready: Bool, retime: Int, rr: Bool, reset: Bool): Bool = {
+    import ops._
+    if (retime.toInt > 0) {
+      val done_catch = Module(new SRFF())
+      done_catch.io.input.asyn_reset := reset
+      done_catch.io.input.set := Utils.risingEdge(in_done.toBool)
+      val out = done_catch.io.output.data.DS(retime.toInt - 1, rr, ready) // 1 cycle built into SRFF
+      val out_overlap = done_catch.io.output.data
+      done_catch.io.input.reset := out
+      out & out_overlap      
+    } else {
+      in_done.DS(retime.toInt, rr, ready)
+    }
+  }
+
   // def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
   //   data match {
   //     case d: UInt => chisel3.util.ShiftRegister(data, size)
