@@ -1,5 +1,11 @@
 #!/bin/bash
 
+jobs=`ps aux | grep "synth_launcher.sh $1" | wc -l`
+if [[ $jobs -gt 3 ]]; then
+	echo "Too many synth_launcher $1 jobs running!  quitting..." > /tmp/last_synth
+	exit 1
+fi
+
 if [[ $1 = "zynq" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
@@ -65,12 +71,12 @@ else
 	cd ${REGRESSION_HOME}/spatial/spatial-lang
 
 	if [[ $1 = "zynq" ]]; then
-		bin/regression 2 nobranch Zynq Dense Sparse
+		bin/regression 4 nobranch Zynq Dense Sparse Unit
 	elif [[ $1 = "zcu" ]]; then
-		bin/regression 2 nobranch ZCU Dense Sparse
+		bin/regression 4 nobranch ZCU Dense Sparse Unit
 	elif [[ $1 = "arria10" ]]; then
 		bin/regression 2 nobranch Arria10 Dense Sparse
 	elif [[ $1 = "aws" ]]; then
-		bin/regression 2 nobranch AWS Dense Sparse
+		bin/regression 3 nobranch AWS Dense Sparse
 	fi
 fi

@@ -7,6 +7,7 @@ export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/..)
 if [[ ${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
   export JAVA_HOME=${JAVA_HOME}/..
 fi
+export REGRESSION_ENV=1
 this_machine=`hostname`
 if [[ ${this_machine} = "tflop1" ]]; then
   export thredz="3"

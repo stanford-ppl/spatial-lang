@@ -92,6 +92,14 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.enableInstrumentation = true
   }.text("Turns on counters for each loop to assist in balancing pipelines")
 
+  parser.opt[Unit]("tightCtrl").action { (_,_) => // Must necessarily turn on retiming
+    spatialConfig.enableTightControl = true
+  }.text("Turns on tighter timing between controllers at the expense of potentially failing timing")
+
+  parser.opt[Unit]("tightControl").action { (_,_) => // Must necessarily turn on retiming
+    spatialConfig.enableTightControl = true
+  }.text("Turns on tighter timing between controllers at the expense of potentially failing timing")
+
   parser.opt[Unit]("cheapFifo").action { (_,_) => // Must necessarily turn on retiming
     spatialConfig.useCheapFifos = true
   }.text("Turns on cheap fifos where accesses must be multiples of each other and not have lane-enables")

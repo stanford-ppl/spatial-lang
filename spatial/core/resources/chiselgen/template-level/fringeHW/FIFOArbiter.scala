@@ -33,7 +33,7 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
 
   // FIFOs
   if (numStreams > 0) {
-    val deq = io.deqVld | ~io.deqReady
+    val deq = if (delay > 0) io.deqVld | ~io.deqReady else io.deqVld // TODO: Matt V look at this
     io.fifo.zipWithIndex.foreach { case (f, i) =>
       val fifoConfig = Wire(new FIFOOpcode(d, v))
       fifoConfig.chainRead := io.config.chainRead
@@ -65,10 +65,11 @@ class FIFOArbiter[T<:Data] (val t: T, val d: Int, val v: Int, val numStreams: In
     val empty = MuxLookup(tag, false.B, empties)
     io.empty := empty
 
-    val outMux = Module(new MuxNPipe(Vec(v, t), numStreams, delay))
+    // val outMux = Module(new MuxNPipe(Vec(v, t), numStreams, delay))
+    val outMux = Module(new MuxN(Vec(v, t), numStreams)) // TODO: Matt V look at this
     outMux.io.ins := Vec(io.fifo.map {e => e.deq})
     outMux.io.sel := tag
-    outMux.io.en := deq
+    // outMux.io.en := deq // TODO: Matt V look at this
     io.deqReady := Utils.getRetimed(~empty & deq, delay, deq)
 
     val sizeMux = Module(new MuxN(UInt(32.W), numStreams))
