@@ -15,6 +15,7 @@ import spatial.codegen.chiselgen.ChiselGenSpatial
 import spatial.codegen.cppgen.CppGenSpatial
 import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
+import spatial.codegen.spatialgen.SpatialGenSpatial
 import spatial.interpreter.Interpreter
 import spatial.lang.cake.SpatialExternal
 import spatial.targets.{DefaultTarget, FPGATarget, Targets}
@@ -113,7 +114,9 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val treegen = new TreeGenSpatial { var IR = state }
     lazy val dotgen = new DotGenSpatial { var IR = state }
     lazy val interpreter = new Interpreter { var IR = state }
+    lazy val spatialgen = new SpatialGenSpatial { var IR = state }
 
+    passes += spatialgen
     passes += printer
     passes += friendlyTransformer
     passes += printer
