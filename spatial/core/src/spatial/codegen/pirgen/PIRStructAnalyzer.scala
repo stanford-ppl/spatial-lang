@@ -74,6 +74,7 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       Left(exp)
     } else {
       val seq = fields.map {
+        case field:String if fields.size== 1 => (field, exp) 
         case field:String => (field, fresh[Int32]) 
         case (field:String, dexp:Expr) => (field, dexp)
       }

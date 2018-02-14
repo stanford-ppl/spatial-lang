@@ -326,13 +326,13 @@ trait PIRGenMem extends PIRCodegen {
         val instId = instIds.head
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
           val mem = quote(dmem, instId)
-          emit(dlhs, s"LoadMem($mem, None)", rhs)
+          emit(dlhs, s"ReadMem($mem)", rhs)
         }
       case ParLocalWriter((mem, Some(value::_), None, _)::_) =>
         val instIds = getDispatches(lhs, mem)
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           val mems = instIds.map { instId => quote(dmem, instId) }
-          emit(dlhs, s"StoreMem($mems, None, $dvalue)", rhs)
+          emit(dlhs, s"WriteMems($mems, $dvalue)", rhs)
         }
 
       case FIFOPeek(mem) => 

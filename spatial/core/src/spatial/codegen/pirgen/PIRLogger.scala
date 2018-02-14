@@ -96,7 +96,6 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
 
   def qdef(lhs:Any):String = {
     val rhs = lhs match {
-      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
       case Def(e:UnrolledForeach) => 
         s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
       case Def(e:UnrolledReduce[_,_]) => 
