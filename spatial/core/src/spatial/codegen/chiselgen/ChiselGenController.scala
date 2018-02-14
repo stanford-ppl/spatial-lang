@@ -560,6 +560,14 @@ trait ChiselGenController extends ChiselGenCounter{
     if (isFSM) {
       emitGlobalWireMap(src"${sym}_inhibitor", "Wire(Bool())") // hacky but oh well
       emit(src"""${swap(sym, Done)} := ${DL(src"${swap(sym, SM)}.io.output.done & ${DL(src"~${swap(sym, Inhibitor)}", 2, true)}", swap(sym, Retime), true)}""")      
+    } else if (isStreamChild(sym)) {
+      val streamOuts = if (pushesTo(sym).distinct.length > 0) {
+          pushesTo(sym).distinct.map{ pt => pt.memory match {
+            case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+            case _ => "true.B"
+          }}.filter(_ != "").mkString(" & ")
+        } else { "true.B" }
+      emit(src"""${swap(sym, Done)} := Utils.streamCatchDone(${swap(sym, SM)}.io.output.done, $streamOuts, ${swap(sym, Retime)}, rr, reset.toBool) // Directly connecting *_done.D* creates a hazard on stream pipes if ~*_ready turns off for that exact cycle, since the retime reg will reject it""")
     } else {
       emit(src"""${swap(sym, Done)} := Utils.risingEdge(${DL(src"${swap(sym, SM)}.io.output.done", swap(sym, Retime), true)}) // Rising edge necessary in case stall happens at same time as done comes through""")
     }
