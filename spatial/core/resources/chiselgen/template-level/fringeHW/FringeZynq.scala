@@ -37,7 +37,7 @@ class FringeZynq(
   val v = 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
+  // val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
 
   val io = IO(new Bundle {
     // Host scalar interface

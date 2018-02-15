@@ -579,6 +579,7 @@ object Utils {
   var fixeql_latency = 1
   var sramload_latency = 0
   var sramstore_latency = 0
+  var tight_control = false
   var SramThreshold = 4 // Threshold between turning Mem1D into register array vs real memory
   var mux_latency = 1
   var retime = false
@@ -642,6 +643,21 @@ object Utils {
           }
           (regs(length-1)).asInstanceOf[T]
       }
+    }
+  }
+
+  def streamCatchDone(in_done: Bool, ready: Bool, retime: Int, rr: Bool, reset: Bool): Bool = {
+    import ops._
+    if (retime.toInt > 0) {
+      val done_catch = Module(new SRFF())
+      done_catch.io.input.asyn_reset := reset
+      done_catch.io.input.set := Utils.risingEdge(in_done.toBool)
+      val out = done_catch.io.output.data.DS(retime.toInt - 1, rr, ready) // 1 cycle built into SRFF
+      val out_overlap = done_catch.io.output.data
+      done_catch.io.input.reset := out
+      out & out_overlap      
+    } else {
+      in_done.DS(retime.toInt, rr, ready)
     }
   }
 

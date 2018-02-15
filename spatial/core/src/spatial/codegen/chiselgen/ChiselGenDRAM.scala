@@ -169,7 +169,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       controllerStack.push(dataStage.get) // Push so that DLI does the right thing
       emit(src"""io.memStreams.stores($id).wdata.bits.zip(${dataStream}).foreach{case (wport, wdata) => wport := ${DLI(src"wdata($dataMSB,$dataLSB)", src"${bug241_backoff}")} }""")
       emit(src"""io.memStreams.stores($id).wstrb.bits := ${DLI(src"${dataStream}.map{ _.apply($strbMSB,$strbLSB) }.reduce(Cat(_,_))", src"${bug241_backoff}")} """)
-      emit(src"""io.memStreams.stores($id).wdata.valid := ${DLI(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} """)
+      emit(src"""io.memStreams.stores($id).wdata.valid := ${DLI(src"${swap(dataStream, Valid)}", src"${bug241_backoff}")} & ${swap(dataStream, Ready)} /* To avoid data getting spammed to fringeDenseStore fifos */ """)
       controllerStack.pop()
       controllerStack.push(cmdStage.get) // Push so that DLI does the right thing
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${DLI(src"${cmdStream}($addrMSB,$addrLSB)", src"${bug241_backoff}")}")
@@ -178,7 +178,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ${DLI(src"~${cmdStream}($isLdMSB,$isLdLSB)", src"${bug241_backoff}")}")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
       controllerStack.pop()
-      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"${symDelay(writersOf(cmdStream).head.node)}.toInt", true)}")
+      emit(src"${swap(cmdStream, Ready)} := ${DL(src"io.memStreams.stores($id).cmd.ready", src"0", true)} // Baffled why this signal delayed by symDelay(writersOf(cmdStream).head.node) up until 02/13/2018 ?!")
       emit(src"""${swap(ackStream, NowValid)} := io.memStreams.stores($id).wresp.valid""")
       emit(src"""${swap(ackStream, Valid)} := ${DL(swap(ackStream, NowValid), src"${symDelay(readersOf(ackStream).head.node)}.toInt", true)}""")
       emit(src"""io.memStreams.stores($id).wresp.ready := ${swap(ackStream, Ready)}""")
