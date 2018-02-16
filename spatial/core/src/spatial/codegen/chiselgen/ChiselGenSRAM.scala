@@ -145,16 +145,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
     result
   }
 
+  def getStreamInfoReady(sym: Exp[_]): List[String] = {
+    pushesTo(sym).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+        case fifo @ Def(FIFONew(_)) if s"${fifo.tp}".contains("IssuedCmd") => src"~${fifo}.io.full"
+        case _ => ""
+    }}.filter(_ != "")
+  }
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS)
   def DL[T](name: String, latency: T, isBit: Boolean = false): String = {
-    val streamOuts = if (!controllerStack.isEmpty) {
-      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
-        case fifo @ Def(FIFONew(_)) => src"~${fifo}.io.full"
-        case _ => ""
-      }}.filter(_ != "").mkString(" & ")
-    } else { "" }
-
+    val streamOuts = if (!controllerStack.isEmpty) {getStreamInfoReady(controllerStack.head).mkString(" && ")} else { "" }
     latency match {
       case lat: Int => 
         if (!controllerStack.isEmpty) {
@@ -200,13 +200,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS), specifically for signals like inhibitor resets that must acknowledeg a done signal that can strobe while stalled
   def DLI[T](name: String, latency: T, isBit: Boolean = false): String = {
-    val streamOuts = if (!controllerStack.isEmpty) {
-      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
-        case fifo @ Def(FIFONew(_)) => src"~${fifo}.io.full"
-        case _ => ""
-      }}.filter(_ != "").mkString(" & ")
-    } else { "" }
+    val streamOuts = if (!controllerStack.isEmpty) {getStreamInfoReady(controllerStack.head).mkString(" && ")} else { "" }
 
     latency match {
       case lat: Int => 
