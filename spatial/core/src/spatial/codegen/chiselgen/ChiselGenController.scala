@@ -364,13 +364,13 @@ trait ChiselGenController extends ChiselGenCounter{
       val holders = pushesTo(c).distinct.map { pt => pt.memory match {
         case fifo @ Def(FIFONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FIFOEnq(_,_,en)) => src"(${DL(src"~$fifo.io.full", lat + 1, true)} | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFIFOEnq(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", lat + 1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FIFOEnq(_,_,en)) => src"(${DL(src"~$fifo.io.full", /*lat + 1*/1, true)} | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFIFOEnq(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", /*lat + 1*/1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(FILONew(size)) => // In case of unaligned load, a full fifo should not necessarily halt the stream
           pt.access match {
-            case Def(FILOPush(_,_,en)) => src"(${DL(src"~$fifo.io.full", lat + 1, true)} | ~${remappedEns(pt.access,List(en))})"
-            case Def(ParFILOPush(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", lat + 1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
+            case Def(FILOPush(_,_,en)) => src"(${DL(src"~$fifo.io.full", /*lat + 1*/1, true)} | ~${remappedEns(pt.access,List(en))})"
+            case Def(ParFILOPush(_,_,ens)) => src"""(${DL(src"~$fifo.io.full", /*lat + 1*/1, true)} | ~(${remappedEns(pt.access, ens.toList)}))"""
           }
         case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo,Ready)}"
         case fifo @ Def(BufferedOutNew(_, bus)) => src"" //src"~${fifo}_waitrequest"        
@@ -561,12 +561,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emitGlobalWireMap(src"${sym}_inhibitor", "Wire(Bool())") // hacky but oh well
       emit(src"""${swap(sym, Done)} := ${DL(src"${swap(sym, SM)}.io.output.done & ${DL(src"~${swap(sym, Inhibitor)}", 2, true)}", swap(sym, Retime), true)}""")      
     } else if (isStreamChild(sym)) {
-      val streamOuts = if (pushesTo(sym).distinct.length > 0) {
-          pushesTo(sym).distinct.map{ pt => pt.memory match {
-            case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
-            case _ => "true.B"
-          }}.filter(_ != "").mkString(" & ")
-        } else { "true.B" }
+      val streamOuts = if (getStreamInfoReady(sym).mkString(" && ").replace(" ","") != "") getStreamInfoReady(sym).mkString(" && ") else { "true.B" }
       emit(src"""${swap(sym, Done)} := Utils.streamCatchDone(${swap(sym, SM)}.io.output.done, $streamOuts, ${swap(sym, Retime)}, rr, reset.toBool) // Directly connecting *_done.D* creates a hazard on stream pipes if ~*_ready turns off for that exact cycle, since the retime reg will reject it""")
     } else {
       emit(src"""${swap(sym, Done)} := Utils.risingEdge(${DL(src"${swap(sym, SM)}.io.output.done", swap(sym, Retime), true)}) // Rising edge necessary in case stall happens at same time as done comes through""")
@@ -586,7 +581,7 @@ trait ChiselGenController extends ChiselGenCounter{
     } else if ((isStreamChild(sym) & hasStreamIns)) { // _done used to be commented out but I'm not sure why
       emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, En)} & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} ${getNowValidLogic(sym)} """)  
     } else {
-      emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, SM)}.io.output.ctr_inc & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)}""")
+      emit(src"""${swap(sym, DatapathEn)} := ${swap(sym, SM)}.io.output.ctr_inc & ~${swap(sym, Done)} & ~${swap(sym, CtrTrivial)} ${getReadyLogic(sym)}""")
     }
     
     /* Counter Signals for controller (used for determining done) */

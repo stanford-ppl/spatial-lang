@@ -2,11 +2,12 @@ package fringe
 
 import chisel3._
 import chisel3.util._
+import templates._
 
 class GatherBuffer(
-  val w: Int,
+  val streamW: Int,
   val d: Int,
-  val v: Int,
+  val streamV: Int,
   val burstSize: Int,
   val addrWidth: Int,
   val loadCmd: Command,
@@ -15,14 +16,14 @@ class GatherBuffer(
 
   class MetaData extends Bundle {
     val valid = Bool()
-    val addr = new BurstAddr(addrWidth, w, burstSize)
+    val addr = new BurstAddr(addrWidth, streamW, burstSize)
 
     override def cloneType(): this.type = {
       new MetaData().asInstanceOf[this.type]
     }
   }
   class GatherData extends Bundle {
-    val data = UInt(w.W)
+    val data = UInt(streamW.W)
     val meta = new MetaData
 
     override def cloneType(): this.type = {
@@ -31,7 +32,7 @@ class GatherBuffer(
   }
 
   class GatherBufferIO extends Bundle {
-    val fifo = new FIFOBaseIO(UInt(w.W), d, v)
+    val fifo = new FIFOBaseIO(UInt(streamW.W), d, streamV)
     val rresp = Input(Valid(readResp))
     val cmd = Input(Valid(loadCmd))
     val hit = Output(Bool())
@@ -40,8 +41,8 @@ class GatherBuffer(
   
   val io = IO(new GatherBufferIO)
   
-  val f = Module(new FIFOCore(new GatherData, d, v, true))
-  val config = Wire(new FIFOOpcode(d, v))
+  val f = Module(new FIFOCore(new GatherData, d, streamV, true))
+  val config = Wire(new FIFOOpcode(d, streamV))
   config.chainRead := true.B
   config.chainWrite := true.B
   f.io.config := config
@@ -51,7 +52,7 @@ class GatherBuffer(
     case None => throw new Exception
   }
 
-  val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSize))
+  val cmdAddr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
   cmdAddr.bits := io.cmd.bits.addr
 
   io.hit := b.map { _.map { i =>
@@ -65,7 +66,8 @@ class GatherBuffer(
   f.io.enqVld := io.cmd.valid
   
   val crossbars = List.tabulate(f.bankSize) { i => 
-    val switch = SwitchParams(readResp.rdata.length, v)
+    val rrespVec = Utils.vecWidthConvert(io.rresp.bits.rdata, streamW)
+    val switch = SwitchParams(rrespVec.length, streamV)
     val config = Wire(CrossbarConfig(switch))
 
     val valid = b(i).map { _.valid }
@@ -81,8 +83,8 @@ class GatherBuffer(
     }
     wen.zip(respHits).map { case (w, h) => w := h }
 
-    val core = Module(new CrossbarCore(UInt(w.W), switch))
-    core.io.ins := io.rresp.bits.rdata
+    val core = Module(new CrossbarCore(UInt(streamW.W), switch))
+    core.io.ins := rrespVec
     wdata.zip(core.io.outs).foreach { case (w, o) => w.data := o }
     wdata.zip(rdata).map { case (w, r) =>
       val m = Wire(new MetaData)
