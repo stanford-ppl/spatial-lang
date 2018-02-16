@@ -3,10 +3,12 @@ package fringe
 import chisel3._
 import chisel3.util._
 
+import templates._
+
 class ScatterBuffer(
-  val w: Int,
+  val streamW: Int,
   val d: Int,
-  val v: Int,
+  val streamV: Int,
   val burstSize: Int,
   val addrWidth: Int,
   val sizeWidth: Int,
@@ -21,7 +23,7 @@ class ScatterBuffer(
   }
 
   class ScatterData extends Bundle {
-    val data = UInt(w.W)
+    val data = UInt(streamW.W)
     val meta = new MetaData
 
     override def cloneType(): this.type = {
@@ -29,7 +31,8 @@ class ScatterBuffer(
     }
   }
 
-  val countSize = 16
+  val countWidth = 16
+  val v = readResp.rdata.getWidth / streamW
 
   val fData = Module(new FIFOCore(new ScatterData, d, v, true))
   fData.io.config.chainRead := false.B
@@ -37,14 +40,14 @@ class ScatterBuffer(
   val fCmd = Module(new FIFOCore(new Command(addrWidth, sizeWidth, 0), fData.bankSize, 1, true))
   fCmd.io.config.chainRead := false.B
   fCmd.io.config.chainWrite := false.B
-  val fCount = Module(new FIFOCore(UInt(countSize.W), fData.bankSize, 1, true))
+  val fCount = Module(new FIFOCore(UInt(countWidth.W), fData.bankSize, 1, true))
   fCount.io.config.chainRead := false.B
   fCount.io.config.chainWrite := false.B
 
   class ScatterBufferIO extends Bundle {
     class WData extends Bundle {
-      val data = Vec(v, UInt(w.W))
-      val count = UInt(countSize.W)
+      val data = Vec(v, UInt(streamW.W))
+      val count = UInt(countWidth.W)
       val cmd = new Command(addrWidth, sizeWidth, 0)
 
       override def cloneType(): this.type = {
@@ -60,7 +63,7 @@ class ScatterBuffer(
   
   val io = IO(new ScatterBufferIO)
   
-  val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSize))
+  val cmdAddr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
   cmdAddr.bits := io.fifo.enq(0).cmd.addr
 
   fData.io.enq.zipWithIndex.foreach { case (e, i) =>
@@ -77,7 +80,7 @@ class ScatterBuffer(
   val (issueHits, respHits) = fCmd.io.banks match {
     case Some(b) =>
       b.zipWithIndex.map { case (bank, i) => 
-        val addr = Wire(new BurstAddr(addrWidth, w, burstSize))
+        val addr = Wire(new BurstAddr(addrWidth, streamW, burstSize))
         addr.bits := bank(0).rdata.addr
         val valid = bank(0).valid
         val issueHit = valid & (addr.burstTag === cmdAddr.burstTag)
@@ -99,7 +102,8 @@ class ScatterBuffer(
           val writeWord = UIntToOH(cmdAddr.wordOffset)(j) & wen
           val writeResp = respHits(i) & ~d.rdata.meta.valid
           d.wen := writeWord | writeResp
-          d.wdata.data := Mux(writeWord, io.fifo.enq(0).data(j), io.rresp.bits.rdata(j))
+          val rdata = Utils.vecWidthConvert(io.rresp.bits.rdata, streamW)
+          d.wdata.data := Mux(writeWord, io.fifo.enq(0).data(j), rdata(j))
           d.wdata.meta.valid := true.B
         }
       }
