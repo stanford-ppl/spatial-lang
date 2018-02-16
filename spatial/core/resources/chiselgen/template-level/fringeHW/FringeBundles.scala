@@ -72,7 +72,8 @@ class AppStreams(loadPar: List[StreamParInfo], storePar: List[StreamParInfo]) ex
 class DRAMCommandTag(w: Int) extends Bundle {
   // Order is important here; streamId should be at [5:0] so all FPGA targets will see the
   // value on their AXI bus. uid may be truncated on targets with narrower bus.
-  val uid = UInt((w - 6).W)
+  val uw = if (FringeGlobals.target == "vcs") 32 else w // When vcs moved to 8 bit words, 2 bits is not enough uid bits to uniquely identify commands
+  val uid = UInt((uw - 6).W)
   val streamId = UInt(6.W)
 
   override def cloneType(): this.type = {

@@ -564,6 +564,7 @@ trait ChiselGenController extends ChiselGenCounter{
       val streamOuts = if (pushesTo(sym).distinct.length > 0) {
           pushesTo(sym).distinct.map{ pt => pt.memory match {
             case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+            case fifo @ Def(FIFONew(_)) => src"~${fifo}.io.full"
             case _ => "true.B"
           }}.filter(_ != "").mkString(" & ")
         } else { "true.B" }

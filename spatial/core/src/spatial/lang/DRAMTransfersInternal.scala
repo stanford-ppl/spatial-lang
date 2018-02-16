@@ -263,7 +263,7 @@ object DRAMTransfersInternal {
     def unalignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
       isAligned(cmdStream.s) = false
-      val issueQueue = FIFO[IssuedCmd](16)  // TODO: Size of issued queue?
+      val issueQueue = FIFO[IssuedCmd](3)  // TODO: Size of issued queue?
       val dataStream = StreamIn[T](BurstDataBus[T]())
 
       // Command
