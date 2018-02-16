@@ -96,9 +96,6 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val lutTransform  = MemoryTransformer(IR = state)
     lazy val sramTransform = new AffineAccessTransformer { var IR = state }
 
-    lazy val pirRetimer = new PIRHackyRetimer { var IR = state }
-    lazy val pirTiming  = new PIRHackyLatencyAnalyzer { var IR = state }
-
     lazy val argMapper  = new ArgMappingAnalyzer {
       var IR = state
       def memStreams = uctrlAnalyzer.memStreams
@@ -201,8 +198,6 @@ trait SpatialCompiler extends ArgonCompiler {
 
     // --- Design Elaboration
 
-    if (spatialConfig.enablePIRSim) passes += pirRetimer
-
     passes += printer
     passes += unroller          // Unrolling
     passes += printer
@@ -233,7 +228,6 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
-    if (spatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
     passes += printer
 
     // --- Sanity Checks
