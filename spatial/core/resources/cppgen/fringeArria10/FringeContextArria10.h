@@ -290,7 +290,7 @@ public:
       if (num % 10000000 == 0) {
         double endTime = getTime();
         EPRINTF("Elapsed time: %lf ms, status = %08x\n", endTime - startTime, status);
-        // dumpAllRegs();
+        dumpAllRegs();
         if (endTime - startTime > timeout * 1000) {
           timed_out = 1;
           fprintf(stderr, "TIMEOUT, %lf seconds elapsed..\n", (endTime - startTime) / 1000 );
@@ -378,7 +378,7 @@ public:
   }
 
   ~FringeContextArria10() {
-    dumpDebugRegs();
+    dumpAllRegs();
   }
 };
 

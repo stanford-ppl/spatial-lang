@@ -236,7 +236,7 @@ public:
       // Pulse deq signal
       writeReg(0+2, 1);
       struct timespec delay;
-     
+
       delay.tv_sec = 0;
       delay.tv_nsec = 10000000000L;  /* Half a second in nano's */
       nanosleep(&delay, NULL);
@@ -315,7 +315,7 @@ public:
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
     struct timespec delay;
-     
+
     delay.tv_sec = 0;
     delay.tv_nsec = 100000000L;  /* Half a second in nano's */
     nanosleep(&delay, NULL); // Prevents zcu crash for some unknown reason
