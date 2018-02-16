@@ -11,7 +11,7 @@ import spatial.metadata._
 import scala.collection.mutable
 import scala.language.postfixOps
 
-trait PIRCodegen extends Codegen with FileDependencies with PIRLogger with PIRStruct {
+trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PIRLogger with PIRStruct {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
@@ -333,7 +333,7 @@ trait PIRGenMem extends PIRCodegen {
         val instIds = getDispatches(lhs, mem)
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           val mems = instIds.map { instId => quote(dmem, instId) }
-          emit(dlhs, s"WriteMems($mems, $dvalue)", rhs)
+          mems.foreach { mem => emit(s"${dlhs}_$mem", s"WriteMem($mem, $dvalue)", rhs) }
         }
 
       case FIFOPeek(mem) => 
@@ -363,18 +363,7 @@ trait PIRGenMem extends PIRCodegen {
       case _ => super.emitNode(lhs, rhs)
     }
   }
-  def getDispatches(access:Expr, mem:Expr) = {
-    val instIds = if (isStreamOut(mem) || isArgOut(mem) || isGetDRAMAddress(mem) || isArgIn(mem) || isStreamIn(mem)) {
-      List(0)
-    } else {
-      dispatchOf(access, mem).toList
-    }
-    if (isReader(access)) {
-      assert(instIds.size==1, 
-        s"number of dispatch = ${instIds.size} for reader $access but expected to be 1")
-    }
-    instIds
-  }
+
 }
 
 trait PIRGenDummy extends PIRCodegen {

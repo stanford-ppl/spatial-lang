@@ -46,50 +46,8 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
     tablevel -=1
     res
   }
-  def dbgcu(cu:ComputeUnit):Unit = dbgblk(s"Generated CU: $cu") {
-    dbgblk(s"cchains: ") {
-      cu.cchains.foreach{cchain => dbgs(s"${quote(cchain)}") }
-    }
-    dbgblk(s"mems: ") {
-      for (mem <- cu.mems) {
-        dbgl(s"""$mem [${mem.tpe}] (exp: ${mem.mem})""") {
-          dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
-          dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
-          dbgs(s"""readPort    = ${mem.readPort.map(_.toString).mkString(",")}""")
-          //dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
-          //dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
-          producerOf.get(mem).foreach { _.foreach { case (writer, producer) =>
-            dbgs(s"writer=$writer, producer=$producer")
-          } }
-          consumerOf.get(mem).foreach { _.foreach { case (reader, consumer) =>
-            dbgs(s"reader=$reader, consumer=$consumer")
-          } }
-        }
-      }
-    }
-    dbgl("Generated PseudoStage: ") {
-      cu.pseudoStages.foreach { stage => dbgs(quote(stage)) }
-    }
-    dbgl("Generated compute stages: ") {
-      cu.computeStages.foreach(stage => dbgs(quote(stage)))
-    }
-    dbgl(s"CU global inputs:") {
-      collectInput[GlobalBus](cu).foreach{in => dbgs(s"$in") }
-    }
-    dbgs(s"regs:${cu.regs}")
-    dbgl(s"regTable:") {
-      cu.regTable.foreach { case (exp, comp) => 
-        dbgs(s"$exp -> $comp [${comp.getClass.getSimpleName}]")
-      }
-    }
-  }
-
   def quote(n:Any):String = n match {
     case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
-    case n:CUCounter => s"ctr(start=${n.start}, end=${n.end}, stride=${n.stride}, par=${n.par})"
-    case n:CChainInstance =>  s"${n.name} (${n.counters.map(quote).mkString(",")})"
-    case n: UnitCChain => s"${n} [unit]"
-    case DefStage(exp, isReduce) => s"DefStage(${qdef(exp)}, isReduce=$isReduce)"
     case x:Iterable[_] => x.map(quote).toList.toString
     case n => n.toString
   }
@@ -110,6 +68,32 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
       case _ => ""
     }
     s"$lhs = $rhs$name"
+  }
+
+  private def log[T](msg:String, logger:Option[PIRLogger] = None)(f: => T):T = {
+    logger.fold(f) { _.dbgblk(msg) { f } }
+  }
+
+  val times = scala.collection.mutable.Stack[Long]()
+  def tic = {
+    times.push(System.nanoTime())
+  }
+  def toc(unit:String):Double = {
+    val startTime = times.pop()
+    val endTime = System.nanoTime()
+    val timeUnit = unit match {
+      case "ns" => 1
+      case "us" => 1000
+      case "ms" => 1000000
+      case "s" => 1000000000
+      case _ => throw new Exception(s"Unknown time unit!")
+    }
+    (endTime - startTime) * 1.0 / timeUnit
+  }
+
+  def toc(info:String, unit:String):Unit = {
+    val time = toc(unit)
+    println(s"$info elapsed time: ${f"$time%1.3f"}$unit")
   }
 
 

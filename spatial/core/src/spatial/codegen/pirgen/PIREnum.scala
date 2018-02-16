@@ -22,25 +22,6 @@ case object NoBanks extends SRAMBanking { override def toString = "NoBanking()" 
 case object Duplicated extends SRAMBanking { override def toString = "Duplicated()" }
 //case object Fanout extends SRAMBanking { override def toString = "Fanout()" }
 
-
-// --- Compute types
-sealed abstract class CUStyle
-case object TopCU extends CUStyle
-case object PipeCU extends CUStyle
-case object SequentialCU extends CUStyle
-case object MetaPipeCU extends CUStyle
-case object StreamCU extends CUStyle
-case object MemoryCU extends CUStyle
-case class FringeCU(dram:OffChip, mode:OffchipMemoryMode) extends CUStyle
-
-// --- Local memory modes
-sealed abstract class LocalMemoryType
-case object SRAMType extends LocalMemoryType
-case object ControlFIFOType extends LocalMemoryType
-case object ScalarFIFOType extends LocalMemoryType
-case object VectorFIFOType extends LocalMemoryType
-case object ScalarBufferType extends LocalMemoryType
-
 sealed abstract class LocalMemoryMode
 case object SRAMMode extends LocalMemoryMode { override def toString = "SramMode" }
 case object FIFOMode extends LocalMemoryMode { override def toString = "FifoMode" }
