@@ -37,11 +37,11 @@ class MAGCore(
   val isDebugChannel: Boolean = false
 ) extends Module {
 
-  val numRdataDebug = 2
+  val numRdataDebug = 6
   val numRdataWordsDebug = 16
-  val numWdataDebug = 1
+  val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 416
+  val numDebugs = 500
 
   val scatterGatherD = d
 
@@ -474,8 +474,10 @@ class MAGCore(
 
   // rdata enq values
   for (i <- 0 until numRdataDebug) {
+    connectDbgSig(debugFF(io.dram.cmd.bits.addr, io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === (i+42).U) ).io.out, s"raddr_from_dram${(i+42)}")  
+    connectDbgSig(debugFF(io.dram.cmd.bits.size, io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === (i+42).U) ).io.out, s"raddr_from_dram${(i+42)}")  
     for (j <- 0 until numRdataWordsDebug) {
-      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === (i+21).U)).io.out, s"""rdata_from_dram${(i+21)}_$j""")
+      connectDbgSig(debugFF(io.dram.rresp.bits.rdata(j), io.dram.rresp.ready & io.dram.rresp.valid & (rdataEnqCount.io.out === (i+42).U)).io.out, s"""rdata_from_dram${(i+42)}_$j""")
     }
   }
 

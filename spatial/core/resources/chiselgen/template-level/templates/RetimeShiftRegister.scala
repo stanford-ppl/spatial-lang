@@ -20,6 +20,27 @@ class RetimeWrapper(val width: Int, val delay: Int) extends Module {
     sr.io.in := io.in
     io.out := sr.io.out
 }
+
+class RetimeWrapperWithReset(val width: Int, val delay: Int) extends Module {
+  val io = IO(new Bundle {
+    val flow = Input(Bool())
+    val rst = Input(Bool())
+    val in = Input(UInt(width.W))
+    val out = Output(UInt(width.W))
+  })
+
+    if (delay > 0) {
+      val sr = Module(new RetimeShiftRegister(width, delay))
+      sr.io.clock := clock
+      sr.io.reset := reset.toBool | io.rst
+      sr.io.flow := io.flow
+      sr.io.in := io.in
+      io.out := sr.io.out      
+    } else {
+      io.out := io.in
+    }
+}
+
 class RetimeShiftRegister(val width: Int, val delay: Int) extends BlackBox(
   Map(
     "WIDTH" -> IntParam(width),
