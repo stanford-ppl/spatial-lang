@@ -2,7 +2,7 @@
 package templates
 
 import chisel3._
-import chisel3.util.{log2Ceil, isPow2}
+import chisel3.util._
 import chisel3.internal.sourceinfo._
 import types._
 import fringe._
@@ -650,14 +650,18 @@ object Utils {
     import ops._
     if (retime.toInt > 0) {
       val done_catch = Module(new SRFF())
+      val sr = Module(new RetimeWrapperWithReset(1, retime - 1))
+      sr.io.in := done_catch.io.output.data
+      sr.io.flow := ready
       done_catch.io.input.asyn_reset := reset
       done_catch.io.input.set := Utils.risingEdge(in_done.toBool)
-      val out = done_catch.io.output.data.DS(retime.toInt - 1, rr, ready) // 1 cycle built into SRFF
+      val out = sr.io.out
       val out_overlap = done_catch.io.output.data
       done_catch.io.input.reset := out
-      out & out_overlap      
+      sr.io.rst := out(0) & out_overlap
+      out(0) & out_overlap      
     } else {
-      in_done.DS(retime.toInt, rr, ready)
+      in_done & ready
     }
   }
 
@@ -874,6 +878,12 @@ object Utils {
         sig.cloneType.fromBits(sr.io.out)
       }
     }
+  }
+
+  def vecWidthConvert[T<:chisel3.core.Data](vec: Vec[T], newW: Int) = {
+    assert(vec.getWidth % newW == 0)
+    val newV = vec.getWidth / newW
+    vec.asTypeOf(Vec(newV, Bits(newW.W)))
   }
 
   class PrintStackTraceException extends Exception
