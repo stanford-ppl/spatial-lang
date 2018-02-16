@@ -657,9 +657,9 @@ object Utils {
       done_catch.io.input.set := Utils.risingEdge(in_done.toBool)
       val out = sr.io.out
       val out_overlap = done_catch.io.output.data
-      done_catch.io.input.reset := out
-      sr.io.rst := out(0) & out_overlap
-      out(0) & out_overlap      
+      done_catch.io.input.reset := out & out_overlap & ready
+      sr.io.rst := out(0) & out_overlap & ready
+      out(0) & out_overlap & ready    
     } else {
       in_done & ready
     }
