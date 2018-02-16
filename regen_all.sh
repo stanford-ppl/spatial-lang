@@ -1,4 +1,4 @@
-declare -a arr=("Gibbs_Ising2D" "GDA" "Kmeans" "JPEG_Decompress" "OuterProduct" "MD_KNN" "MatMult_inner" "Sobel" "FFT_Transpose" "TRSM" "PageRank_Bulk")
+declare -a arr=("BasicLoadTest" "Gibbs_Ising2D" "GDA" "Kmeans" "JPEG_Decompress" "OuterProduct" "MD_KNN" "MatMult_inner" "Sobel" "FFT_Transpose" "TRSM" "PageRank_Bulk")
 # CMD=./bin/arria10_debuggers/regen_cpp.sh
 CMD=regen.sh
 for i in "${arr[@]}"
