@@ -72,3 +72,4 @@ regTests.sh
 *.csv
 ./csv_bak
 ./regen.sh
+./regen_no_retiming.sh
