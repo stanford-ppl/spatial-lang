@@ -1,4 +1,4 @@
-declare -a arr=("BasicDRAMReads" "DRAM0Stores" "DRAM2Stores" "DRAMLoadFirstEle" "DRAMLoads" "DRAMRWTest" "DRAMWriteTest" "InOutArg" "OneBurstOneLoad" "OneBurstOneLoadRegFile" "OneBurstOneStore" "OneBurstOneStoreArgs" "OneBurstTwoStore" "SRAMRWTest" "TwoBurst" "OneBurstTwoLoad")
+declare -a arr=("Gibbs_Ising2D" "GDA" "Kmeans" "JPEG_Decompress" "OuterProduct" "MD_KNN" "MatMult_inner" "Sobel" "FFT_Transpose" "TRSM" "PageRank_Bulk")
 # CMD=./bin/arria10_debuggers/regen_cpp.sh
 CMD=regen.sh
 for i in "${arr[@]}"
