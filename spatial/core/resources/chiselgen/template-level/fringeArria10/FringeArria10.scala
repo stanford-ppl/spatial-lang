@@ -106,6 +106,8 @@ class FringeArria10 (
   io.M_AXI.zipWithIndex.foreach { case (maxi, i) =>
     val axiBridge = Module(new MAGToAXI4Bridge(axiParams, fringeCommon.mags(i).streamTagWidth))
     axiBridge.io.in <> fringeCommon.io.dram(i)
+    fringeCommon.io.awready_probe := axiBridge.io.awready_probe
+    fringeCommon.io.awvalid_probe := axiBridge.io.awvalid_probe
     maxi <> axiBridge.io.M_AXI
   }
 }

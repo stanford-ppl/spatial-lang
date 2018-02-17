@@ -10,6 +10,8 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   val io = IO(new Bundle {
     val in = Flipped(new DRAMStream(32, 16))  // hardcoding stuff here
     val M_AXI = new AXI4Inlined(p)
+    val awvalid_probe = Output(Bool())
+    val awready_probe = Output(Bool())
   })
 
   val numPipelinedLevels = FringeGlobals.magPipelineDepth
@@ -28,6 +30,10 @@ class MAGToAXI4Bridge(val p: AXI4BundleParameters, val tagWidth: Int) extends Mo
   io.M_AXI.ARQOS    := 0.U
   io.M_AXI.ARVALID  := io.in.cmd.valid & ~io.in.cmd.bits.isWr // Used to be shift registered
   io.in.cmd.ready   := Mux(io.in.cmd.bits.isWr, io.M_AXI.AWREADY, io.M_AXI.ARREADY) // Used to be shift registered
+
+  // probes
+  io.awready_probe  := io.M_AXI.AWREADY
+  io.awvalid_probe  := io.M_AXI.AWVALID
 
   // AW
   io.M_AXI.AWID     := id // Used to be shift registered

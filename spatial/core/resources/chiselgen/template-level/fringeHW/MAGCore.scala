@@ -73,6 +73,10 @@ class MAGCore(
     val PROTOCOL_AXI = new AXI4Probe(axiLiteParams)
     val CLOCKCONVERT_AXI = new AXI4Probe(axiLiteParams)
 
+    // probes
+    val awready_probe = Input(Bool())
+    val awvalid_probe = Input(Bool())
+
   })
 
   // debug registers
@@ -476,6 +480,12 @@ class MAGCore(
     val storeCounterHandshake = debugCounter(io.enable & store.cmd.valid & store.cmd.ready)
     connectDbgSig(storeCounterHandshake.io.out, s" # from Accel store stream $i")
     val signal = s" # from Fringe store stream ${i}"
+    connectDbgSig(debugCounter(dramReady & io.enable).io.out, "# Write: DRAM Ready")
+    connectDbgSig(debugCounter(io.dram.cmd.valid & cmdHead.isWr).io.out, " Write: DRAM cmd valid && isWr")
+    connectDbgSig(debugCounter(io.awvalid_probe).io.out, " Write: AWVALID from the bridge")
+    connectDbgSig(debugCounter(io.awready_probe).io.out, " Write: AWREADY from the bridge")
+    connectDbgSig(debugCounter(io.awready_probe & io.awvalid_probe).io.out, " Write, AWREADY && AWVALID")
+    connectDbgSig(debugCounter(io.awready_probe & io.awvalid_probe & cmdHead.isWr).io.out, " Write, AWREADY && AWVALID && cmdHead.isWr")
     connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === (i+loadStreamInfo.length).U)).io.out, signal)
     connectDbgSig(storeCounter.io.out, s" # attempted from Accel store stream (cycles valid) $i")
   }

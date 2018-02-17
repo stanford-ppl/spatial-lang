@@ -77,6 +77,10 @@ class Fringe(
     // Debug
     val aws_top_enable = Input(Bool()) // For AWS, enable comes in as input to top module
 
+    // probes
+    val awready_probe = Input(Bool())
+    val awvalid_probe = Input(Bool())
+
     // val dbg = new DebugSignals
   })
 
@@ -90,14 +94,14 @@ class Fringe(
       case AdvancedColored => List.tabulate(numChannels) { i => (i until numStreams by numChannels).toList } // TODO: Implement this!
     }
   }
-      
+
   def getAppStreamIDs(assignment: List[Int]) = {
     val (loads, absStores) = if (assignment.indexWhere { _ >= loadStreamInfo.size } == -1) (assignment, List[Int]()) // No stores for this channel
                           else assignment.splitAt(assignment.indexWhere { _ >= loadStreamInfo.size })
     val stores = absStores.map { _ - loadStreamInfo.size } // Compute indices into stores array
     (loads, stores)
   }
-      
+
   println(s"[Fringe] loadStreamInfo: $loadStreamInfo, storeStreamInfo: $storeStreamInfo")
   val numStreams = loadStreamInfo.size + storeStreamInfo.size
   val assignment = getChannelAssignment(numStreams, numChannels)
@@ -114,6 +118,8 @@ class Fringe(
     val mag = Module(new MAGCore(w, d, v, linfo, sinfo, numOutstandingBursts, burstSizeBytes, axiParams, debugChannelID == i))
     mag.io.app.loads.zip(loadStreams) foreach { case (l, ls) => l <> ls }
     mag.io.app.stores.zip(storeStreams) foreach { case (s, ss) => s <> ss }
+    mag.io.awvalid_probe := io.awvalid_probe
+    mag.io.awready_probe := io.awready_probe
     mag
   }
 
@@ -135,7 +141,7 @@ class Fringe(
   } else {
     io.rdata := chisel3.util.ShiftRegister(regs.io.rdata, 1)
   }
-  
+
 
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
