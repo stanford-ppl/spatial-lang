@@ -399,7 +399,8 @@ class MAGCore(
     m.io.enqVld := stream.wdata.valid
     m.io.enq := stream.wdata.bits
     m.io.enqStrb := stream.wstrb.bits
-    m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U)
+    // m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U)
+    m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready
 
     wdataMux.io.ins(i).valid := cmdWrite & ~m.io.empty
     wdataMux.io.ins(i).bits.wdata := m.io.deq
@@ -501,17 +502,30 @@ class MAGCore(
     connectDbgSig(loadCounter.io.out, s" # attempted from Accel load stream (cycles valid) $i")
   }
   connectDbgSig(debugCounter(io.enable & dramReady & io.dram.cmd.valid & cmdHead.isWr).io.out, "# Write Commands Sent")
+  connectDbgSig(debugCounter(dramReady).io.out, "# Write: DRAM Ready")
+  connectDbgSig(debugCounter(io.dram.cmd.valid & cmdHead.isWr).io.out, " Write: DRAM cmd valid && isWr")
   // Count number of store commands issued from accel per stream
   io.app.stores.zipWithIndex.foreach { case (store, i) =>
     val storeCounter = debugCounter(io.enable & store.cmd.valid)
     val storeCounterHandshake = debugCounter(io.enable & store.cmd.valid & store.cmd.ready)
     connectDbgSig(storeCounterHandshake.io.out, s" # from Accel store stream $i")
     val signal = s" # from Fringe store stream ${i}"
-    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === (i+loadStreamInfo.length).U)).io.out, signal)
+//    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady & (cmdArbiter.io.tag === (i+loadStreamInfo.length).U)).io.out, signal)
+
+    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady).io.out, signal)
+    connectDbgSig(debugCounter(io.dram.cmd.valid).io.out, "# from DRAM stores cmd valid")
+    connectDbgSig(debugCounter(dramReady).io.out, "# from DRAM stores dramReady")
     connectDbgSig(storeCounter.io.out, s" # attempted from Accel store stream (cycles valid) $i")
+
+    // checking debug FF
+    connectDbgSig(debugFF(cmdArbiter.io.tag, io.dram.cmd.valid & dramReady).io.out, " cmdArbiter.io.tag, enabled at cmd valid && ready")
+    connectDbgSig(debugFF((i+loadStreamInfo.length).U, io.dram.cmd.valid & dramReady).io.out, " i + loadStreamInfo.length, enabled at cmd valid && ready")
+
+    // checking if cmd valid and cmd ready ever goes hight together
+    connectDbgSig(debugCounter(io.dram.cmd.valid & dramReady).io.out, " # DRAM Commands ready and valid")
   }
 
-  connectDbgSig(debugCounter((io.dram.rresp.valid & io.dram.rresp.ready)).io.out, "# Read Responses Acknowledged")
+  connectDbgSig(debugCounter(io.dram.rresp.valid & io.dram.rresp.ready).io.out, "# Read Responses Acknowledged")
   connectDbgSig(debugCounter(io.enable & io.dram.rresp.valid & ~io.dram.rresp.ready).io.out, "# RResp rejected by ready")
   connectDbgSig(debugCounter(io.enable & ~io.dram.rresp.valid & io.dram.rresp.ready).io.out, "Cycles RResp ready and idle (~valid)")
   (0 until loadStreamInfo.size).map{i =>
