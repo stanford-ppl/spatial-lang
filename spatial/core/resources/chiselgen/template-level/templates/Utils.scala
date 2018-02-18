@@ -651,7 +651,7 @@ object Utils {
     if (retime.toInt > 0) {
       val done_catch = Module(new SRFF())
       val sr = Module(new RetimeWrapperWithReset(1, retime - 1))
-      sr.io.in := done_catch.io.output.data
+      sr.io.in := done_catch.io.output.data & ready
       sr.io.flow := ready
       done_catch.io.input.asyn_reset := reset
       done_catch.io.input.set := Utils.risingEdge(in_done.toBool)
