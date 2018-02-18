@@ -188,7 +188,8 @@ public:
     EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
 
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
+    std::memcpy(dst, hostmem, size);
+   // std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
     // EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
     // Xil_DCacheFlushRange(devmem, alignedSize(burstSizeBytes, size));
 
@@ -198,7 +199,8 @@ public:
 
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    std::memcpy(hostmem, src, size);
+    //std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
     // EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
     // Xil_DCacheFlushRange(devmem, alignedSize(burstSizeBytes, size));
   }
