@@ -94,15 +94,13 @@ trait PIRGenMem extends PIRCodegen {
 
       // SRAMs, RegFile, LUT
       case ParLocalReader((mem, Some(addrs::_), _)::_) =>
-        val instIds = getDispatches(lhs, mem)
-        assert(instIds.size==1)
-        val instId = instIds.head
+        val instId::Nil = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
           val banks = staticBanksOf((lhs, instId)).map { bankId => quote(dmem, instId, bankId) }
           emit(dlhs, s"LoadBanks($banks, ${quote(addrs)})", rhs)
         }
       case ParLocalWriter((mem, Some(value::_), Some(addrs::_), _)::_) =>
-        val instIds = getDispatches(lhs, mem).toList
+        val instIds = getDispatches(mem, lhs).toList
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           val mems = instIds.flatMap { instId =>
             staticBanksOf((lhs, instId)).map { bankId => quote(dmem, instId, bankId) }
@@ -112,15 +110,13 @@ trait PIRGenMem extends PIRCodegen {
 
       // Reg, FIFO, Stream
       case ParLocalReader((mem, None, _)::_) =>
-        val instIds = getDispatches(lhs, mem)
-        assert(instIds.size==1)
-        val instId = instIds.head
+        val instId::Nil = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
           val mem = quote(dmem, instId)
           emit(dlhs, s"ReadMem($mem)", rhs)
         }
       case ParLocalWriter((mem, Some(value::_), None, _)::_) =>
-        val instIds = getDispatches(lhs, mem)
+        val instIds = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           val mems = instIds.map { instId => quote(dmem, instId) }
           mems.foreach { mem => emit(s"${dlhs}_$mem", s"WriteMem($mem, $dvalue)", rhs) }
