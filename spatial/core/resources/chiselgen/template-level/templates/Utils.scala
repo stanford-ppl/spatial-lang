@@ -261,6 +261,10 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) %-% c      
     }
 
+    def %-% (c: FixedPoint): FixedPoint = {this.%-%(c, None)}
+    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,None)      
+    }
     def %-% (c: UInt): UInt = {b.%-%(c,None)} // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
     def %-% (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
@@ -654,7 +658,7 @@ object Utils {
       sr.io.in := done_catch.io.output.data & ready
       sr.io.flow := ready
       done_catch.io.input.asyn_reset := reset
-      done_catch.io.input.set := Utils.risingEdge(in_done.toBool)
+      done_catch.io.input.set := in_done.toBool & ready
       val out = sr.io.out
       val out_overlap = done_catch.io.output.data
       done_catch.io.input.reset := out & out_overlap & ready

@@ -14,9 +14,9 @@ elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
 fi
 
-tid=`cat ${REGRESSION_HOME}/data/tid`
-hash=`cat ${REGRESSION_HOME}/data/hash`
-ahash=`cat ${REGRESSION_HOME}/data/ahash`
+tid=`cat ${REGRESSION_HOME}/spatial/spatial-lang/tid`
+hash=`cat ${REGRESSION_HOME}/spatial/spatial-lang/hash`
+ahash=`cat ${REGRESSION_HOME}/spatial/spatial-lang/ahash`
 
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
