@@ -19,13 +19,7 @@ trait PIRGenOp extends PIRCodegen {
         val inputs = rhs.expInputs
         val (accumAccess::_, input::_) = inputs.partition { in => isReduceStarter(in) }
         var accumInput = s"$input"
-        val innerPar = getInnerPar(currCtrl)
-        val numReduceStages = (Math.log(innerPar) / Math.log(2)).toInt
-        (0 until numReduceStages).foreach { i =>
-          emit(s"${input}_$i", s"ReduceOp(op=$op, input=$accumInput)", rhs)
-          accumInput = s"${input}_$i"
-        }
-        emit(lhs, s"AccumOp(op=$op, input=$accumInput, accum=$accumAccess)", rhs)
+        emit(lhs, s"ReduceAccumOp(op=$op, input=$accumInput, accum=$accumAccess)", rhs)
       case Some(op) if inHwBlock =>
         val inputs = rhs.expInputs
         emit(lhs, s"OpDef(op=$op, inputs=${inputs.map(quote)})", rhs)
