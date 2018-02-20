@@ -27,6 +27,8 @@ class FringeZynq(
   val axiLiteParams: AXI4BundleParameters,
   val axiParams: AXI4BundleParameters
 ) extends Module {
+
+  val target_w = if (FringeGlobals.target == "zcu") 64 else 64
   val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
   // val addrWidth = log2Up(numRegs)
 
@@ -57,9 +59,9 @@ class FringeZynq(
     val done = Input(Bool())
 
     // Accel Scalar IO
-    val argIns = Output(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
-    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
+    val argIns = Output(Vec(numArgIns, UInt(target_w.W)))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(target_w.W)))))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(target_w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
