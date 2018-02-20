@@ -29,7 +29,8 @@ trait CppGenHostTransfer extends CppGenSRAM  {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
     case SetArg(reg, v) => 
       reg.tp.typeArguments.head match {
-        case FixPtType(s,d,f) => if (f != 0) {
+        case FixPtType(s,d,f) => 
+          if (f != 0) {
             emit(src"c1->setArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, (int64_t)($v * ((int64_t)1 << $f)), ${isHostIO(reg)}); // $reg")
             emit(src"$reg = $v;")
           } else {
@@ -47,9 +48,11 @@ trait CppGenHostTransfer extends CppGenSRAM  {
             emit(src"$reg = $v;")
       }
     case GetArg(reg)    => 
+      val bitWidth = reg.tp.typeArguments.head match {case FixPtType(s,d,f) => d+f; case FltPtType(g,e) => g+e; case _ => 32}
+      val bigArg = if (bitWidth > 32 & bitWidth <= 64) "64" else ""
       val get_string = reg match {
         case Def(ArgInNew(_)) => src"c1->getArgIn(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})" 
-        case _ => src"c1->getArg(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})"
+        case _ => src"c1->getArg${bigArg}(${reg.name.getOrElse(quote(reg)).toUpperCase}_arg, ${isHostIO(reg)})"
       }
       reg.tp.typeArguments.head match {
         case FixPtType(s,d,f) => 
