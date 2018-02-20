@@ -57,7 +57,7 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   Predef.assert(numArgOuts <= d, s"numArgOuts ($numArgOuts) must be less than number of registers ($d)!")
 
   val regs = List.tabulate(d) { i =>
-    val id = if (FringeGlobals.target == "zcu") i*2 else i // ZCU hack used to be i * 2
+    val id = if (FringeGlobals.target == "zcu") i*2 else i
     val ff = Module(new FF(UInt(w.W)))
     if ((argOutRange contains i) & (argInRange contains i)) {
       ff.io.enable := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wen & (io.waddr === id.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
@@ -79,11 +79,17 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
   val regOuts = Vec(regs.map{_.io.out})
   rport.io.ins := regOuts
   if (FringeGlobals.target == "zcu") {
-    rport.io.sel := io.raddr / 2.U(addrWidth.W) // ZCU hack used to be radder / 2
+    rport.io.sel := io.raddr / 2.U(addrWidth.W)
+    io.rdata := rport.io.out
+  } else if (FringeGlobals.target == "zynq") {
+    // Use MSB of addr to read either lower or upper 32 bits.  Bridge gives true addr bits 18:2
+    rport.io.sel := io.raddr & Cat(Fill(15, true.B), false.B, Fill(16, true.B))
+    io.rdata := Mux(io.raddr(16), rport.io.out(63,32), rport.io.out(31,0))
   } else {
     rport.io.sel := io.raddr
+    io.rdata := rport.io.out
   }
-  io.rdata := rport.io.out
+  
 
   io.argIns := Vec(regOuts.zipWithIndex.filter { case (arg, idx) => argInRange.contains(idx) }.map {_._1})
 }

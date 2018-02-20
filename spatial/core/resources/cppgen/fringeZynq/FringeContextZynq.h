@@ -297,9 +297,16 @@ public:
     writeReg(arg+2, data);
   }
 
-  virtual uint64_t getArg(uint32_t arg, bool isIO) {
+  virtual uint32_t getArg(uint32_t arg, bool isIO) {
     return readReg(numArgIns+2+arg);
+  }
 
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    uint32_t lsb = readReg(numArgIns+2+arg);
+    uint32_t msb = readReg(numArgIns+2+arg + (1 << 16));
+    uint64_t full = (uint64_t)lsb ^ ((uint64_t)msb << 32);
+    EPRINTF("lsb %x msb %x full %x\n", lsb, msb, full);
+    return full;
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
@@ -307,9 +314,9 @@ public:
     Xil_Out32(fringeScalarBase+reg*sizeof(u32), data);
   }
 
-  virtual uint64_t readReg(uint32_t reg) {
+  virtual uint32_t readReg(uint32_t reg) {
     uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u32));
-//    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
+   // fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
     return value;
   }
 
@@ -347,7 +354,7 @@ public:
   }
 
   ~FringeContextZynq() {
-    dumpDebugRegs();
+    // dumpDebugRegs();
   }
 };
 

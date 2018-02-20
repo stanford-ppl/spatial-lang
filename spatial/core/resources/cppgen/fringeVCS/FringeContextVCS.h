@@ -382,6 +382,10 @@ public:
     if (isIO) numArgIOsId++;
   }
 
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    return getArg(arg, isIO);
+  }
+
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
     if (isIO) {
       return readReg(2+arg);

@@ -310,9 +310,12 @@ public:
     writeReg(arg+2, data);
   }
 
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    return getArg(arg, isIO);
+  }
+
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
     return readReg(numArgIns+2+arg);
-
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
