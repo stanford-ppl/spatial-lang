@@ -196,37 +196,39 @@ object DRAMTransfersInternal {
       val ackStream  = StreamIn[Bit](BurstAckBus)
 
       // Command generator
-      Pipe {
-        val startBound = Reg[Index]
-        val endBound   = Reg[Index]
-        val length     = Reg[Index]
+      Pipe{ // Outer pipe necessary or else acks may come back after extra write commands
         Pipe {
-          val aligned = alignmentCalc(offchipAddr)
+          val startBound = Reg[Index]
+          val endBound   = Reg[Index]
+          val length     = Reg[Index]
+          Pipe {
+            val aligned = alignmentCalc(offchipAddr)
 
-          cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, false)
-//          issueQueue.enq(aligned.size)
-          startBound := aligned.start
-          endBound := aligned.end
-          length := aligned.size
+            cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, false)
+  //          issueQueue.enq(aligned.size)
+            startBound := aligned.start
+            endBound := aligned.end
+            length := aligned.size
+          }
+          Foreach(length par p){i =>
+            val en = i >= startBound && i < endBound
+            val data = Math.mux(en, mem.load(local,onchipAddr(i - startBound), en), implicitly[Bits[T]].zero)
+            dataStream := pack(data,en)
+          }
         }
-        Foreach(length par p){i =>
-          val en = i >= startBound && i < endBound
-          val data = Math.mux(en, mem.load(local,onchipAddr(i - startBound), en), implicitly[Bits[T]].zero)
-          dataStream := pack(data,en)
+        // Fringe
+        fringe_dense_store(offchip, cmdStream.s, dataStream.s, ackStream.s)
+        // Ack receive
+        // TODO: Assumes one ack per command
+        Pipe {
+  //        val size = Reg[Index]
+  //        Pipe{size := issueQueue.deq()}
+          val ack  = ackStream.value()
+          ()
+  //        Foreach(size.value by size.value) {i => // TODO: Can we use by instead of par?
+  //          val ack  = ackStream.value()
+  //        }
         }
-      }
-      // Fringe
-      fringe_dense_store(offchip, cmdStream.s, dataStream.s, ackStream.s)
-      // Ack receive
-      // TODO: Assumes one ack per command
-      Pipe {
-//        val size = Reg[Index]
-//        Pipe{size := issueQueue.deq()}
-        val ack  = ackStream.value()
-        ()
-//        Foreach(size.value by size.value) {i => // TODO: Can we use by instead of par?
-//          val ack  = ackStream.value()
-//        }
       }
     }
 
