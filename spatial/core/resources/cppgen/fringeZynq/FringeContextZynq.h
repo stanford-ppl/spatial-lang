@@ -95,6 +95,7 @@ class FringeContextZynq : public FringeContextBase<void> {
 
 public:
   uint32_t numArgIns = 0;
+  uint32_t numArgIOs = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
@@ -283,6 +284,7 @@ public:
   }
 
   virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void setNumArgOuts(uint32_t number) {
@@ -298,15 +300,42 @@ public:
   }
 
   virtual uint32_t getArg(uint32_t arg, bool isIO) {
-    return readReg(numArgIns+2+arg);
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
+
+    }
+  }
+
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
   }
 
   virtual uint64_t getArg64(uint32_t arg, bool isIO) {
-    uint32_t lsb = readReg(numArgIns+2+arg);
-    uint32_t msb = readReg(numArgIns+2+arg + (1 << 16));
-    uint64_t full = (uint64_t)lsb ^ ((uint64_t)msb << 32);
-    EPRINTF("lsb %x msb %x full %x\n", lsb, msb, full);
-    return full;
+    uint32_t lsb;
+    uint32_t msb;
+    uint64_t full;
+
+    if (isIO) {
+      lsb = readReg(2+arg);
+      msb = readReg(2+arg + (1 << 16));
+    } else {
+      if (numArgIns == 0) {
+        lsb = readReg(1-numArgIOs+2+arg);
+        msb = readReg(1-numArgIOs+2+arg + (1 << 16));
+      } else {
+        lsb = readReg(numArgIns-numArgIOs+2+arg);
+        msb = readReg(numArgIns-numArgIOs+2+arg + (1 << 16));
+      }
+
+    }
+    full = (uint64_t)lsb ^ ((uint64_t)msb << 32);
+    return full;  
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
