@@ -136,8 +136,8 @@ if [[ $1 = "Zynq" ]]; then
     python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
 elif [[ $1 = "ZCU" ]]; then
 	APP=$(basename $(pwd))
-	scp $(basename $(pwd)).tar.gz root@zcu102:
-	ssh root@zcu102 "
+	scp $(basename $(pwd)).tar.gz root@holodeck-zcu102:
+	ssh root@holodeck-zcu102 "
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
