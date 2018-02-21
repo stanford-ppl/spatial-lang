@@ -3,7 +3,6 @@
 #1 = Backend
 #2+ = args
 
-# get tid
 if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
 elif [[ $1 = "ZCU" ]]; then
@@ -14,9 +13,8 @@ elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
 fi
 
-tid=`cat ${REGRESSION_HOME}/spatial/spatial-lang/tid`
-hash=`cat ${REGRESSION_HOME}/spatial/spatial-lang/hash`
-ahash=`cat ${REGRESSION_HOME}/spatial/spatial-lang/ahash`
+hash=`cat ../../../../hash`
+ahash=`cat ../../../../ahash`
 
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
