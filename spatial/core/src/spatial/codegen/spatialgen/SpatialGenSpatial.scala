@@ -3,6 +3,7 @@ package spatial.codegen.spatialgen
 import scala.language.existentials
 import argon.codegen.{Codegen, FileDependencies, FileGen}
 import argon.core.{Block, Const, Exp, Op, Param, Sym, Type}
+import argon.lang.FixPt
 import argon.nodes._
 import spatial.nodes._
 
@@ -33,7 +34,12 @@ trait SpatialGenSpatial extends Codegen with FileDependencies with FileGen {
     emit("")
     emit(s"object $mainFile extends SpatialApp {")
     indent()
+    emit("@virtualize")
+    emit("def main() {")
+    indent()
     emitBlock(b)
+    dedent()
+    emit("}")
     dedent()
     emit("}")
   }
@@ -48,7 +54,7 @@ trait SpatialGenSpatial extends Codegen with FileDependencies with FileGen {
       case _ =>
         v match {
           case s: Sym[_] => v.toString
-          case p: Param[_] => p.toString
+          case p: Param[_] => p.x.toString
           case _ => v.toString
         }
     }
@@ -94,10 +100,10 @@ trait SpatialGenSpatial extends Codegen with FileDependencies with FileGen {
         val rhsString = rhs match {
           case ArgInNew(init) =>
             val t = init.tp
-            s"ArgInNew[$t]"
+            s"ArgIn[$t]"
           case ArgOutNew(init) =>
             val t = init.tp
-            s"ArgOutNew[$t]"
+            s"ArgOut[$t]"
           case InputArguments() =>
             s"args"
           case ArrayApply(exp, i) =>
@@ -109,10 +115,10 @@ trait SpatialGenSpatial extends Codegen with FileDependencies with FileGen {
           case SetArg(reg, value) =>
             val s = ExpToString(value)
             val s2 = ExpToString(reg)
-            s"SetArg($s2, s)"
+            s"setArg($s2, $s)"
           case GetArg(reg) =>
             val s = ExpToString(reg)
-            s"GetArg($s)"
+            s"getArg($s)"
           case StringConcat(x, y) =>
             val s1 = ExpToString(x)
             val s2 = ExpToString(y)
