@@ -91,6 +91,7 @@ class FringeContextZCU : public FringeContextBase<void> {
 
 public:
   uint32_t numArgIns = 0;
+  uint32_t numArgIOs = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
@@ -296,6 +297,7 @@ public:
   }
 
   virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void setNumArgOuts(uint32_t number) {
@@ -315,7 +317,16 @@ public:
   }
 
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    return readReg(numArgIns+2+arg);
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
+
+    }
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
