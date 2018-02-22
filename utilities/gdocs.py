@@ -344,6 +344,7 @@ def prepare_sheet(hash, apphash, timestamp, backend):
 			worksheet = sh.worksheet('index', x)
 			if (worksheet.title != "STATUS" and worksheet.title != "Properties"):
 				worksheet.insert_rows(row = 2, values = [link, alink, t, freq + ' MHz', os.uname()[1] ])
+				worksheet.delete_rows(row = 75)
 				# worksheet.update_cell(id,1, link)
 				# worksheet.update_cell(id,2, alink)
 				# worksheet.update_cell(id,3, t)
@@ -366,6 +367,7 @@ def prepare_sheet(hash, apphash, timestamp, backend):
 				worksheet = sh.worksheet('index', x)
 				if (worksheet.title != "STATUS" and worksheet.title != "Properties"):
 					worksheet.insert_rows(row = 2, values = [link, alink, t, freq + ' MHz', os.uname()[1] ])
+					worksheet.delete_rows(row = 75)
 					# worksheet.update_cell(id,1, link)
 					# worksheet.update_cell(id,2, alink)
 					# worksheet.update_cell(id,3, t)
