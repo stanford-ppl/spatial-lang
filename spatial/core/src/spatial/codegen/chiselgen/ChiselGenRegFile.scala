@@ -62,8 +62,8 @@ trait ChiselGenRegFile extends ChiselGenSRAM {
         resettersOf(lhs).indices.foreach{ ii => emitGlobalWire(src"""val ${lhs}_${i}_manual_reset_$ii = Wire(Bool())""")}
         if (resettersOf(lhs).length > 0) {
           emitGlobalModule(src"""val ${lhs}_${i}_manual_reset = ${resettersOf(lhs).indices.map{ii => src"${lhs}_${i}_manual_reset_$ii"}.mkString(" | ")}""")
-          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_${i}_manual_reset | reset.toBool""")
-        } else {emitGlobalModule(src"${lhs}_$i.io.reset := reset.toBool")}
+          emitGlobalModule(src"""${lhs}_$i.io.reset := ${lhs}_${i}_manual_reset | accelReset""")
+        } else {emitGlobalModule(src"${lhs}_$i.io.reset := accelReset")}
 
       }
 

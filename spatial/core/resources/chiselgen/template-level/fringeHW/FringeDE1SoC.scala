@@ -36,6 +36,7 @@ class FringeDE1SoC(
     // Accel Control IO
     val enable = Output(Bool())
     val done = Input(Bool())
+    val reset = Output(Bool())
 
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(w.W)))

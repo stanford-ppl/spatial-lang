@@ -261,6 +261,8 @@ public:
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
+    writeReg(commandReg, 2);
+    writeReg(commandReg, 0);
     writeReg(commandReg, 1);
 
     fprintf(stderr, "Running design..\n");

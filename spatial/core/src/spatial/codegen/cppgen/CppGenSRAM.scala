@@ -19,6 +19,24 @@ trait CppGenSRAM extends CppCodegen {
     case _ => super.name(s)
   }
 
+  var argHandleMap = scala.collection.mutable.HashMap[Exp[_], String]() // Map for tracking defs of nodes and if they get redeffed anywhere, we map it to a suffix
+  def argHandle(d: Exp[_]): String = {
+    if (argHandleMap.contains(d)) {
+      argHandleMap(d)
+    } else {
+      val attempted_name = d.name.getOrElse(quote(d)).toUpperCase
+      if (argHandleMap.values.toList.contains(attempted_name)) {
+        val taken = argHandleMap.values.toList.filter(_.contains(attempted_name))
+        val given_name = attempted_name + "_dup" + taken.length
+        argHandleMap += (d -> given_name)
+        given_name
+      } else {
+        argHandleMap += (d -> attempted_name)
+        attempted_name
+      }
+    }
+  }
+
   protected def remapIntType(tp: Type[_]): String = tp match {
     case IntType() => "int32_t"
     case LongType() => "int32_t"
