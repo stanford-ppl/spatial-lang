@@ -33,7 +33,7 @@ val commonSettings = assemblySettings ++ Seq(
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 )
 
-publishArtifact := true
+publishArtifact := false
 
 lazy val virtualized = (project in file("scala-virtualized"))
   .settings(assemblySettings)
