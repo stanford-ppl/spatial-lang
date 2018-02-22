@@ -1,4 +1,4 @@
-# This is called by regression_run.sh
+# This is called by regression_run.sh / scrape.sh / regression_functions.sh / receive.sh / synth_launcher.sh / synth_regression.sh
 
 import gspread
 import pygsheets
@@ -183,7 +183,7 @@ def isPerf(title):
 
 
 
-def report_regression_results(branch, appname, passed, cycles, hash, apphash, csv):
+def report_regression_results(branch, appname, passed, cycles, hash, apphash, csv, args):
 	sh = getDoc(branch)
 	tid = getTID(sh, hash, apphash)
 
@@ -196,7 +196,8 @@ def report_regression_results(branch, appname, passed, cycles, hash, apphash, cs
 	# Page 1 - Runtime
 	worksheet = sh.worksheet_by_title('Runtime') # Select worksheet by index
 	col = getRuntimeCol(worksheet, appname)
-	write(worksheet, tid,col,cycles)
+	write(worksheet, 2,  col,  args)
+	write(worksheet, tid,col,  cycles)
 	write(worksheet, tid,col+1,passed)
 
 	# Page 2 - Properties
@@ -393,8 +394,8 @@ def prepare_sheet(hash, apphash, timestamp, backend):
 
 
 if (sys.argv[1] == "report_regression_results"):
-	print("report_regression_results('%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8]))
-	report_regression_results(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8])
+	print("report_regression_results('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9]))
+	report_regression_results(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9])
 elif (sys.argv[1] == "report_board_runtime"):
 	print("report_board_runtime('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10]))
 	report_board_runtime(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10])

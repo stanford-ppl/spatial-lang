@@ -27,6 +27,8 @@ class FringeZynq(
   val axiLiteParams: AXI4BundleParameters,
   val axiParams: AXI4BundleParameters
 ) extends Module {
+
+  val target_w = if (FringeGlobals.target == "zcu") 64 else 64
   val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
   // val addrWidth = log2Up(numRegs)
 
@@ -37,7 +39,7 @@ class FringeZynq(
   val v = 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
+  // val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
 
   val io = IO(new Bundle {
     // Host scalar interface
@@ -57,9 +59,9 @@ class FringeZynq(
     val done = Input(Bool())
 
     // Accel Scalar IO
-    val argIns = Output(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
-    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
+    val argIns = Output(Vec(numArgIns, UInt(target_w.W)))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(target_w.W)))))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(target_w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -92,7 +94,7 @@ class FringeZynq(
     fringeCommon.io.wdata := axiLiteBridge.io.wdata
     axiLiteBridge.io.rdata := fringeCommon.io.rdata
   } else if (FringeGlobals.target == "zcu") {
-    val datawidth = 32
+    val datawidth = 64
     val axiLiteBridge = Module(new AXI4LiteToRFBridgeZCU(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
@@ -102,6 +104,7 @@ class FringeZynq(
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
     fringeCommon.io.wdata := axiLiteBridge.io.wdata
     axiLiteBridge.io.rdata := fringeCommon.io.rdata
+  
   }
 
   fringeCommon.io.aws_top_enable := io.externalEnable

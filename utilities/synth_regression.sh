@@ -1,42 +1,43 @@
 #!/bin/bash
 
+jobs=`ps aux | grep "synth_launcher.sh $1" | wc -l`
+if [[ $jobs -gt 3 ]]; then
+	echo "Too many synth_launcher $1 jobs running!  quitting..." > /tmp/last_synth
+	exit 1
+fi
+
 if [[ $1 = "zynq" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
 	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "Zynq"`
-	echo $tid > ${REGRESSION_HOME}/data/tid
-	echo $hash > ${REGRESSION_HOME}/data/hash
-	echo $apphash > ${REGRESSION_HOME}/data/ahash
 elif [[ $1 = "zcu" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
 	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "ZCU"`
-	echo $tid > ${REGRESSION_HOME}/data/tid
-	echo $hash > ${REGRESSION_HOME}/data/hash
-	echo $apphash > ${REGRESSION_HOME}/data/ahash
 elif [[ $1 = "arria10" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=125
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
 	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "Arria10"`
-	echo $tid > ${REGRESSION_HOME}/data/tid
-	echo $hash > ${REGRESSION_HOME}/data/hash
-	echo $apphash > ${REGRESSION_HOME}/data/ahash
 elif [[ $1 = "aws" ]]; then
 	export PIR_HOME=${REGRESSION_HOME}
 	export CLOCK_FREQ_MHZ=250
 	# Prep the spreadsheet
 	cd ${REGRESSION_HOME}
 	tid=`python3 ${REGRESSION_HOME}/next-spatial/spatial-lang/utilities/gdocs.py "prepare_sheet" "$hash" "$apphash" "$timestamp" "AWS"`
-	echo $tid > ${REGRESSION_HOME}/data/tid
-	echo $hash > ${REGRESSION_HOME}/data/hash
-	echo $apphash > ${REGRESSION_HOME}/data/ahash
 fi
+
+echo $tid > ${REGRESSION_HOME}/data/tid
+echo $hash > ${REGRESSION_HOME}/data/hash
+echo $apphash > ${REGRESSION_HOME}/data/ahash
+echo $tid > ${REGRESSION_HOME}/next-spatial/spatial-lang/tid
+echo $hash > ${REGRESSION_HOME}/next-spatial/spatial-lang/hash
+echo $apphash > ${REGRESSION_HOME}/next-spatial/spatial-lang/ahash
 
 export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:/opt/Xilinx/Vivado/2017.1/bin:/opt/Xilinx/SDK/2017.1/bin:$PATH
 export LM_LICENSE_FILE=1717@cadlic0.stanford.edu:7195@cadlic0.stanford.edu:7193@cadlic0.stanford.edu:/opt/Xilinx/awsF1.lic:27000@cadlic0.stanford.edu:$LM_LICENSE_FILE
@@ -65,12 +66,12 @@ else
 	cd ${REGRESSION_HOME}/spatial/spatial-lang
 
 	if [[ $1 = "zynq" ]]; then
-		bin/regression 2 nobranch Zynq Dense Sparse
+		bin/regression 4 nobranch Zynq Dense Sparse Unit
 	elif [[ $1 = "zcu" ]]; then
-		bin/regression 2 nobranch ZCU Dense Sparse
+		bin/regression 4 nobranch ZCU Dense Sparse Unit
 	elif [[ $1 = "arria10" ]]; then
-		bin/regression 2 nobranch Arria10 Dense Sparse
+		bin/regression 2 nobranch Arria10 Dense Sparse Unit
 	elif [[ $1 = "aws" ]]; then
-		bin/regression 2 nobranch AWS Dense Sparse
+		bin/regression 3 nobranch AWS Dense Sparse Unit
 	fi
 fi

@@ -158,7 +158,7 @@ class FIFOCore[T<:Data](override val t: T, override val d: Int, override val v: 
   // Backing SRAM
   val mems = List.fill(bankCount) {
     List.fill(v) {
-      if (w == 1 || banked) Module(new FFRAM(t, depth)) else {
+      if (w == 1 || banked || depth == 1) Module(new FFRAM(t, depth)) else {
         val sram = Module(new SRAM(t, depth))
         sram.io.flow := true.B
         sram
@@ -186,7 +186,7 @@ class FIFOCore[T<:Data](override val t: T, override val d: Int, override val v: 
 
           val enqWen = Mux(io.config.chainWrite, writeEn & tailBankAddr === j.U, writeEn) & tailLocalAddr === i.U
           val deqWen = Mux(io.config.chainRead, readEn & headBankAddr === j.U, readEn) & headLocalAddr === i.U
-          val ff = Module(new FFType(Bool()))
+          val ff = Module(new FF(Bool()))
           ff.io.init := false.B
           ff.io.enable := enqWen | deqWen
           ff.io.in := enqWen
@@ -209,7 +209,7 @@ class FIFOCore[T<:Data](override val t: T, override val d: Int, override val v: 
           val deqData = j match {
             case 0 =>
               val rdata0Mux = Module(new MuxN(t, v))
-              val addrFF = Module(new FF(log2Ceil(v)))
+              val addrFF = Module(new FF(UInt(log2Ceil(v).W)))
               addrFF.io.in := Mux(readEn, nextHeadBankAddr, headBankAddr)
               addrFF.io.enable := true.B
 

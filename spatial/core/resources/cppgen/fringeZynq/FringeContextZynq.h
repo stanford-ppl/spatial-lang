@@ -95,6 +95,7 @@ class FringeContextZynq : public FringeContextBase<void> {
 
 public:
   uint32_t numArgIns = 0;
+  uint32_t numArgIOs = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
@@ -186,33 +187,15 @@ public:
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
     EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
-//#ifdef USE_PHYS_ADDR
-//    void *dst = physToVirt(devmem);
-//#else
-//    void *dst = (void*) devmem;
-//#endif
-
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
-
-    // Flush CPU cache
-//    char *start = (char*)dst;
-//    char *end = start + size;
-//    __clear_cache(start, end);
-
+    std::memcpy(dst, hostmem, size); // Using alignedSize(bsb, size) causes corrupted memory in Viterbi???
 
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-//#ifdef USE_PHYS_ADDR
-//    void *src = physToVirt(devmem);
-//#else
-//    void *src = (void*) devmem;
-//#endif
-
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    std::memcpy(hostmem, src, size); // Using alignedSize(bsb, size) causes corrupted memory in Viterbi???
   }
 
   void flushCache(uint32_t kb) {
@@ -301,6 +284,7 @@ public:
   }
 
   virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void setNumArgOuts(uint32_t number) {
@@ -315,9 +299,43 @@ public:
     writeReg(arg+2, data);
   }
 
-  virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    return readReg(numArgIns+2+arg);
+  virtual uint32_t getArg(uint32_t arg, bool isIO) {
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
 
+    }
+  }
+
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
+  }
+
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    uint32_t lsb;
+    uint32_t msb;
+    uint64_t full;
+
+    if (isIO) {
+      lsb = readReg(2+arg);
+      msb = readReg(2+arg + (1 << 16));
+    } else {
+      if (numArgIns == 0) {
+        lsb = readReg(1-numArgIOs+2+arg);
+        msb = readReg(1-numArgIOs+2+arg + (1 << 16));
+      } else {
+        lsb = readReg(numArgIns-numArgIOs+2+arg);
+        msb = readReg(numArgIns-numArgIOs+2+arg + (1 << 16));
+      }
+
+    }
+    full = (uint64_t)lsb ^ ((uint64_t)msb << 32);
+    return full;  
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
@@ -325,9 +343,9 @@ public:
     Xil_Out32(fringeScalarBase+reg*sizeof(u32), data);
   }
 
-  virtual uint64_t readReg(uint32_t reg) {
+  virtual uint32_t readReg(uint32_t reg) {
     uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u32));
-//    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
+   // fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
     return value;
   }
 
@@ -365,7 +383,7 @@ public:
   }
 
   ~FringeContextZynq() {
-    dumpDebugRegs();
+    // dumpDebugRegs();
   }
 };
 

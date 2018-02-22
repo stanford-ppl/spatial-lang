@@ -145,21 +145,22 @@ trait ChiselGenSRAM extends ChiselCodegen {
     result
   }
 
+  def getStreamInfoReady(sym: Exp[_]): List[String] = {
+    pushesTo(sym).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+        case fifo @ Def(FIFONew(_)) if s"${fifo.tp}".contains("IssuedCmd") => src"~${fifo}.io.full"
+        case _ => ""
+    }}.filter(_ != "")
+  }
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS)
   def DL[T](name: String, latency: T, isBit: Boolean = false): String = {
-    val streamOuts = if (!controllerStack.isEmpty) {
-      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
-        case _ => ""
-      }}.filter(_ != "").mkString(" & ")
-    } else { "" }
-
+    val streamOuts = if (!controllerStack.isEmpty) {getStreamInfoReady(controllerStack.head).mkString(" && ")} else { "" }
     latency match {
       case lat: Int => 
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"          
@@ -172,7 +173,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -185,7 +186,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -199,19 +200,14 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS), specifically for signals like inhibitor resets that must acknowledeg a done signal that can strobe while stalled
   def DLI[T](name: String, latency: T, isBit: Boolean = false): String = {
-    val streamOuts = if (!controllerStack.isEmpty) {
-      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}.D(${latency}, rr)"
-        case _ => ""
-      }}.filter(_ != "").mkString(" & ")
-    } else { "" }
+    val streamOuts = if (!controllerStack.isEmpty) {getStreamInfoReady(controllerStack.head).mkString(" && ")} else { "" }
 
     latency match {
       case lat: Int => 
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"          
@@ -224,7 +220,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -237,7 +233,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
         if (!controllerStack.isEmpty) {
           if (isStreamChild(controllerStack.head) & streamOuts != "") {
             if (isBit) src"(${name}).DS(${latency}.toInt, rr, ${streamOuts})"
-            else src"Utils.getRetimedStream($name, $latency, ${streamOuts})"
+            else src"Utils.getRetimed($name, $latency, ${streamOuts})"
           } else {
             if (isBit) src"(${name}).D(${latency}.toInt, rr)"
             else src"Utils.getRetimed($name, $latency)"
@@ -837,6 +833,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(32))}.toInt")
       emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(32))}.toInt")
       emit(s"Utils.fixeql_latency = ${latencyOption("FixEql", None)}.toInt")
+      emit(s"Utils.tight_control   = ${spatialConfig.enableTightControl}")
       emit(s"Utils.mux_latency    = ${latencyOption("Mux", None)}.toInt")
       emit(s"Utils.sramload_latency    = ${latencyOption("SRAMLoad", None)}.toInt")
       emit(s"Utils.sramstore_latency    = ${latencyOption("SRAMStore", None)}.toInt")

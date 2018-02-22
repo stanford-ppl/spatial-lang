@@ -2,7 +2,7 @@
 package templates
 
 import chisel3._
-import chisel3.util.{log2Ceil, isPow2}
+import chisel3.util._
 import chisel3.internal.sourceinfo._
 import types._
 import fringe._
@@ -69,7 +69,7 @@ object ops {
     // Stream version
     def DS(delay: Int, retime_released: Bool, flow: Bool): Bool = {
 //      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
-      Mux(retime_released, Utils.getRetimedStream(b, delay, flow), false.B)
+      Mux(retime_released, Utils.getRetimed(b, delay, flow), false.B)
     }
     def DS(delay: Double, retime_released: Bool, flow: Bool): Bool = {
       b.DS(delay.toInt, retime_released, flow)
@@ -261,6 +261,10 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) %-% c      
     }
 
+    def %-% (c: FixedPoint): FixedPoint = {this.%-%(c, None)}
+    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,None)      
+    }
     def %-% (c: UInt): UInt = {b.%-%(c,None)} // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
     def %-% (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
@@ -579,6 +583,7 @@ object Utils {
   var fixeql_latency = 1
   var sramload_latency = 0
   var sramstore_latency = 0
+  var tight_control = false
   var SramThreshold = 4 // Threshold between turning Mem1D into register array vs real memory
   var mux_latency = 1
   var retime = false
@@ -642,6 +647,25 @@ object Utils {
           }
           (regs(length-1)).asInstanceOf[T]
       }
+    }
+  }
+
+  def streamCatchDone(in_done: Bool, ready: Bool, retime: Int, rr: Bool, reset: Bool): Bool = {
+    import ops._
+    if (retime.toInt > 0) {
+      val done_catch = Module(new SRFF())
+      val sr = Module(new RetimeWrapperWithReset(1, retime - 1))
+      sr.io.in := done_catch.io.output.data & ready
+      sr.io.flow := ready
+      done_catch.io.input.asyn_reset := reset
+      done_catch.io.input.set := in_done.toBool & ready
+      val out = sr.io.out
+      val out_overlap = done_catch.io.output.data
+      done_catch.io.input.reset := out & out_overlap & ready
+      sr.io.rst := out(0) & out_overlap & ready
+      out(0) & out_overlap & ready    
+    } else {
+      in_done & ready
     }
   }
 
@@ -837,53 +861,33 @@ object Utils {
   }
 
   def getFF[T<: chisel3.core.Data](sig: T, en: UInt) = {
-    val in = sig match {
-      case v: Vec[_] => v.asInstanceOf[Vec[UInt]].reverse.reduce { chisel3.util.Cat(_,_) }
-      case u: UInt => u
-    }
-
-    val ff = Module(new fringe.FF(sig.getWidth))
-    ff.io.init := 0.U
-    ff.io.in := in
+    val ff = Module(new fringe.FF(sig))
+    ff.io.init := 0.U(sig.getWidth.W).asTypeOf(sig)
+    ff.io.in := sig
     ff.io.enable := en
     ff.io.out
   }
 
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int): T = {
+  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int, en: Bool = true.B): T = {
     if (delay == 0) {
       sig
     }
     else {
       if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
-        chisel3.util.ShiftRegister(sig, delay)
+        chisel3.util.ShiftRegister(sig, delay, en)
       } else {
         val sr = Module(new RetimeWrapper(sig.getWidth, delay))
         sr.io.in := sig.asUInt
-        sr.io.flow := true.B
+        sr.io.flow := en
         sig.cloneType.fromBits(sr.io.out)
       }
     }
   }
 
-  // Special retime that allows the retime chain to halt if the flow signal in this controller is low
-  def getRetimedStream[T<:chisel3.core.Data](sig: T, delay: Int, flow: Bool): T = {
-    if (delay == 0) {
-      sig
-    }
-    else {
-      if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
-        chisel3.util.ShiftRegister(sig, delay)
-      } else {
-        val sr = Module(new RetimeWrapper(sig.getWidth, delay))
-        sr.io.in := sig.asUInt
-        sr.io.flow := flow
-        sig.cloneType.fromBits(sr.io.out)
-      }
-    }
-  }
-
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Double): T = {
-    getRetimed(sig, delay.toInt)
+  def vecWidthConvert[T<:chisel3.core.Data](vec: Vec[T], newW: Int) = {
+    assert(vec.getWidth % newW == 0)
+    val newV = vec.getWidth / newW
+    vec.asTypeOf(Vec(newV, Bits(newW.W)))
   }
 
   class PrintStackTraceException extends Exception

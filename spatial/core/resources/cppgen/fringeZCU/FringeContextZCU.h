@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 #include "generated_debugRegs.h"
 #include <xil_cache.h>
 #include <xil_io.h>
@@ -48,16 +49,6 @@ class FringeContextZCU : public FringeContextBase<void> {
   const u64 statusReg = 1;
 
   std::map<uint64_t, void*> physToVirtMap;
-
-  uint64_t getFPGAVirt(uint64_t physAddr) {
-    uint32_t offset = physAddr - FRINGE_MEM_BASEADDR;
-    return (uint64_t)(fringeMemBase + offset);
-  }
-
-  uint64_t getFPGAPhys(uint64_t virtAddr) {
-    uint32_t offset = virtAddr - fringeMemBase;
-    return (uint64_t)(FRINGE_MEM_BASEADDR + offset);
-  }
 
   void* physToVirt(uint64_t physAddr) {
     std::map<uint64_t, void*>::iterator iter = physToVirtMap.find(physAddr);
@@ -100,6 +91,7 @@ class FringeContextZCU : public FringeContextBase<void> {
 
 public:
   uint32_t numArgIns = 0;
+  uint32_t numArgIOs = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgOutInstrs = 0;
   std::string bitfile = "";
@@ -124,6 +116,16 @@ public:
     ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
     fringeMemBase = (u64) ptr;
     fpgaMallocPtr = fringeMemBase;
+  }
+
+  uint64_t getFPGAVirt(uint64_t physAddr) {
+    uint32_t offset = physAddr - FRINGE_MEM_BASEADDR;
+    return (uint64_t)(fringeMemBase + offset);
+  }
+
+  uint64_t getFPGAPhys(uint64_t virtAddr) {
+    uint32_t offset = virtAddr - fringeMemBase;
+    return (uint64_t)(FRINGE_MEM_BASEADDR + offset);
   }
 
   virtual void load() {
@@ -181,63 +183,43 @@ public:
 
   virtual void free(uint64_t buf) {
     EPRINTF("[free] devmem = %lx\n", buf);
-    // TODO: Freeing memory in a linear allocator is tricky. Just don't do anything until a more 'real' allocator is added
-//#ifdef USE_PHYS_ADDR
-//    std::free(physToVirt(buf));
-//#else
-//    std::free((void*)buf);
-//#endif
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
     EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
-//#ifdef USE_PHYS_ADDR
-//    void *dst = physToVirt(devmem);
-//#else
-//    void *dst = (void*) devmem;
-//#endif
 
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
-    EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
-    Xil_DCacheFlushRange(devmem, size);
-
-    // Flush CPU cache
-//    char *start = (char*)dst;
-//    char *end = start + size;
-//    __clear_cache(start, end);
-
+    std::memcpy(dst, hostmem, size);
+   // std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
+    // EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
+    // Xil_DCacheFlushRange(devmem, alignedSize(burstSizeBytes, size));
 
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-//#ifdef USE_PHYS_ADDR
-//    void *src = physToVirt(devmem);
-//#else
-//    void *src = (void*) devmem;
-//#endif
 
     EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
-    EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
-    Xil_DCacheFlushRange(devmem, size);
+    std::memcpy(hostmem, src, size);
+    //std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    // EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
+    // Xil_DCacheFlushRange(devmem, alignedSize(burstSizeBytes, size));
   }
 
   void flushCache(uint32_t kb) {
-    // // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
-    // int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on ZCU, 1MB on ZCU
-    // int arraySize = cacheSizeWords * 10;
-    // int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
-    // EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
-    // for (int i = 0; i<arraySize; i++) {
-    //   if (i == 0) {
-    //     dummyBuf[i] = 10;
-    //   } else {
-    //     dummyBuf[i] = dummyBuf[i-1] * 2;
-    //   }
-    // }
-    // EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
+    // Iterate through an array the size of the L2$, to "flush" the cache aka fill it with garbage
+    int cacheSizeWords = kb * (1 << 10) / sizeof(int); // 512kB on ZCU, 1MB on ZCU
+    int arraySize = cacheSizeWords * 10;
+    int *dummyBuf = (int*) std::malloc(arraySize * sizeof(int));
+    EPRINTF("[memcpy] dummyBuf = %p, (phys = %lx), arraySize = %d\n", dummyBuf, getFPGAPhys((uint64_t) dummyBuf), arraySize);
+    for (int i = 0; i<arraySize; i++) {
+      if (i == 0) {
+        dummyBuf[i] = 10;
+      } else {
+        dummyBuf[i] = dummyBuf[i-1] * 2;
+      }
+    }
+    EPRINTF("[memcpy] dummyBuf = %p, dummyBuf[%d] = %d\n", dummyBuf, arraySize-1, dummyBuf[arraySize-1]);
   }
 
   void dumpRegs() {
@@ -256,7 +238,11 @@ public:
     for (int i = 0; i < 5; i++) {
       // Pulse deq signal
       writeReg(0+2, 1);
-      usleep(10);
+      struct timespec delay;
+     
+      delay.tv_sec = 0;
+      delay.tv_nsec = 10000000000L;  /* Half a second in nano's */
+      nanosleep(&delay, NULL);
       writeReg(0+2, 0);
 
       // Dump regs
@@ -297,6 +283,7 @@ public:
     double endTime = getTime();
     fprintf(stderr, "Design done, ran for %lf ms, status = %08x\n", endTime - startTime, status);
     writeReg(commandReg, 0);
+    dumpAllRegs();
     while (status == 1) {
       if (timed_out == 1) {
         break;
@@ -310,6 +297,7 @@ public:
   }
 
   virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void setNumArgOuts(uint32_t number) {
@@ -324,18 +312,34 @@ public:
     writeReg(arg+2, data);
   }
 
-  virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    return readReg(numArgIns+2+arg);
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    return getArg(arg, isIO);
+  }
 
+  virtual uint64_t getArg(uint32_t arg, bool isIO) {
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
+
+    }
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
-    sleep(0.2); // Prevents zcu crash for some unknown reason
-    Xil_Out32(fringeScalarBase+reg*sizeof(u64), data);
+    struct timespec delay;
+     
+    delay.tv_sec = 0;
+    delay.tv_nsec = 100000000L;  /* Half a second in nano's */
+    nanosleep(&delay, NULL); // Prevents zcu crash for some unknown reason
+    Xil_Out64(fringeScalarBase+reg*sizeof(u64), data);
   }
 
   virtual uint64_t readReg(uint32_t reg) {
-    uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u64));
+    uint64_t value = Xil_In64(fringeScalarBase+reg*sizeof(u64));
 //    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
     return value;
   }
@@ -347,13 +351,13 @@ public:
     int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
 
     for (int i=0; i<totalRegs; i++) {
-      uint32_t value = readReg(i);
+      uint64_t value = readReg(i);
       if (i < debugRegStart) {
         if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
-        EPRINTF("\tR%d: %08x (%08u)\n", i, value, value);
+        EPRINTF("\tR%d: %016llx (%08u)\n", i, value, value);
       } else {
         if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
-        EPRINTF("\tR%d %s: %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
+        EPRINTF("\tR%d %s: %016llx (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
       }
     }
   }
@@ -367,8 +371,8 @@ public:
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint32_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
-      EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
+      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
+      EPRINTF("\t%s: %016llx (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

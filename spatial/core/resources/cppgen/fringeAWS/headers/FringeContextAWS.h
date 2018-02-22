@@ -371,6 +371,10 @@ public:
 
 
   // read 64b scalar
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    return getArg(arg, isIO);
+  }
+
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
     uint64_t value;
     uint32_t value_32b;
