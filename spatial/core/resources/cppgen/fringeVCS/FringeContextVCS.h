@@ -332,12 +332,14 @@ public:
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
+    writeReg(commandReg, 2);
+    sleep(1);
     writeReg(commandReg, 1);
 
     while((status == 0) && (numCycles <= maxCycles)) {
       step();
       status = readReg(statusReg);
-    }
+    }  
     EPRINTF("Design ran for %lu cycles, status = %u\n", numCycles, status);
     if (status == 0) { // Design did not run to completion
       EPRINTF("=========================================\n");
