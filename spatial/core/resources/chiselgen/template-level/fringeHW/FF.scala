@@ -7,6 +7,7 @@ class FF[T<:Data](val t: T) extends Module {
   val io = IO(new Bundle {
     val in   = Input(t.cloneType)
     val init = Input(t.cloneType)
+    val reset = Input(Bool())
     val out  = Output(t.cloneType)
     val enable = Input(Bool())
   })
@@ -16,7 +17,7 @@ class FF[T<:Data](val t: T) extends Module {
     val ff = Utils.getRetimed(d, 1)
     when (io.enable) {
       d := io.in
-    }.elsewhen (reset.toBool) {
+    }.elsewhen (io.reset) {
       d := io.init
     } .otherwise {
       d := ff

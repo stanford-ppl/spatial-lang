@@ -12,8 +12,8 @@
 #include <unistd.h>
 #include <time.h>
 #include "generated_debugRegs.h"
-#include <xil_cache.h>
-#include <xil_io.h>
+// #include <xil_cache.h>
+// #include <xil_io.h>
 
 // Some key code snippets have been borrowed from the following source:
 // https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
@@ -30,20 +30,20 @@
  * ZCU Fringe Context
  */
 
-extern "C" {
-  void __clear_cache(char* beg, char* end);
-  void Xil_DCacheFlushRange(INTPTR adr, INTPTR len);
+// extern "C" {
+//   void __clear_cache(char* beg, char* end);
+//   void Xil_DCacheFlushRange(INTPTR adr, INTPTR len);
 
-}
+// }
 
 class FringeContextZCU : public FringeContextBase<void> {
 
   const uint32_t burstSizeBytes = 64;
   int fd = 0;
-  u64 fringeScalarBase = 0;
-  u64 fringeMemBase    = 0;
-  u64 fpgaMallocPtr    = 0;
-  u64 fpgaFreeMemSize  = MEM_SIZE;
+  u64 fringeScalarBase;
+  u64 fringeMemBase;
+  u64 fpgaMallocPtr;
+  u64 fpgaFreeMemSize;
 
   const u64 commandReg = 0;
   const u64 statusReg = 1;
@@ -94,11 +94,16 @@ public:
   uint32_t numArgIOs = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgOutInstrs = 0;
+  uint32_t numArgEarlyExits = 0;
   std::string bitfile = "";
 
   FringeContextZCU(std::string path = "") : FringeContextBase(path) {
     bitfile = path;
 
+    fringeScalarBase = 0;
+    fringeMemBase = 0;
+    fpgaMallocPtr = 0;
+    fpgaFreeMemSize = MEM_SIZE;
     // open /dev/mem file
     int retval = setuid(0);
     ASSERT(retval == 0, "setuid(0) failed\n");
@@ -298,6 +303,10 @@ public:
     numArgIns = number;
   }
 
+  virtual void setNumEarlyExits(uint32_t number) {
+    numArgEarlyExits = number;
+  }
+
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
   }
@@ -348,9 +357,9 @@ public:
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
-    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
-    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs + numArgEarlyExits;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + numArgEarlyExits + 2 + NUM_DEBUG_SIGNALS;
 
     for (int i=0; i<totalRegs; i++) {
       uint64_t value = readReg(i);
@@ -368,12 +377,12 @@ public:
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
     EPRINTF("argInOffset: %d\n", argInOffset);
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
+      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + numArgEarlyExits + 2 + i);
       EPRINTF("\t%s: %016llx (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");

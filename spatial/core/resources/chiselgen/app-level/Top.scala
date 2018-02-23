@@ -399,7 +399,9 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      accel.reset := ~reset.toBool | ~fringe.io.reset
+      // fringe.reset := ~reset.toBool
+      // accel.reset := fringe.io.reset
+      accel.reset := ~reset.toBool
       io.is_enabled := ~accel.io.enable
 
     case "aws" | "aws-sim" =>
