@@ -4,8 +4,8 @@
 template <class T>
 class FringeContextBase {
 public:
-  T *dut = NULL;
-  std::string path = "";
+  T *dut;
+  std::string path;
 
   FringeContextBase(std::string p) {
     path = p;
@@ -25,6 +25,7 @@ public:
   virtual void setNumArgIOs(uint32_t number) = 0;
   virtual void setNumArgOutInstrs(uint32_t number) = 0;
   virtual void setNumArgOuts(uint32_t number) = 0;
+  virtual void setNumEarlyExits(uint32_t number) = 0;
   virtual void flushCache(uint32_t kb) = 0;
 
   ~FringeContextBase() {

@@ -12,6 +12,16 @@ void Xil_Out32(u32 OutAddress, u32 Value)
 	*(volatile u32 *) OutAddress = Value;
 }
 
+u64 Xil_In64(u64 Addr)
+{
+  return *(volatile u64 *) Addr;
+}
+
+void Xil_Out64(u64 OutAddress, u64 Value)
+{
+  *(volatile u64 *) OutAddress = Value;
+}
+
 
 int fileToBuf(unsigned char *buf, char *filename, u32 max_bytes)
 {
