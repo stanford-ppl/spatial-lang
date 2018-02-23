@@ -88,7 +88,7 @@ class FringeZynq(
     val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
-    fringeCommon.reset := ~reset.toBool
+    // fringeCommon.reset := ~reset.toBool
     fringeCommon.io.raddr := axiLiteBridge.io.raddr
     fringeCommon.io.wen   := axiLiteBridge.io.wen
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
@@ -99,7 +99,7 @@ class FringeZynq(
     val axiLiteBridge = Module(new AXI4LiteToRFBridgeZCU(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
-    fringeCommon.reset := ~reset.toBool
+    // fringeCommon.reset := ~reset.toBool
     fringeCommon.io.raddr := axiLiteBridge.io.raddr
     fringeCommon.io.wen   := axiLiteBridge.io.wen
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
@@ -112,8 +112,12 @@ class FringeZynq(
 
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done
+  fringeCommon.reset := ~reset.toBool
+  // fringeCommon.reset := reset.toBool
+  // io.reset := fringeCommon.io.reset
 
   io.argIns := fringeCommon.io.argIns
+  io.argOutLoopbacks := fringeCommon.io.argOutLoopbacks
   fringeCommon.io.argOuts <> io.argOuts
   // io.argIOIns := fringeCommon.io.argIOIns
   // fringeCommon.io.argIOOuts <> io.argIOOuts
