@@ -9,4 +9,4 @@ trait ChiselGenSpatial extends ChiselCodegen with ChiselFileGen
   with ChiselGenDRAM with ChiselGenHostTransfer with ChiselGenUnrolled with ChiselGenVector
   with ChiselGenArray with ChiselGenAlteraVideo with ChiselGenStream with ChiselGenStructs with ChiselGenLineBuffer
   with ChiselGenRegFile with ChiselGenStateMachine with ChiselGenFileIO with ChiselGenRetiming with ChiselGenFILO
-  with ChiselGenSwitch with ChiselGenRange
+  with ChiselGenSwitch with ChiselGenRange with ChiselGenHashMap
