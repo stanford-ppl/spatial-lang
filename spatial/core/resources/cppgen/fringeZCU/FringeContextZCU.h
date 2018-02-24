@@ -38,22 +38,22 @@
 
 class FringeContextZCU : public FringeContextBase<void> {
 
-  const uint32_t burstSizeBytes = 64;
-  int fd = 0;
+  uint32_t burstSizeBytes;
+  int fd;
   u64 fringeScalarBase;
   u64 fringeMemBase;
   u64 fpgaMallocPtr;
   u64 fpgaFreeMemSize;
 
-  const u64 commandReg = 0;
-  const u64 statusReg = 1;
+  u64 commandReg;
+  u64 statusReg;
 
   std::map<uint64_t, void*> physToVirtMap;
 
   void* physToVirt(uint64_t physAddr) {
     std::map<uint64_t, void*>::iterator iter = physToVirtMap.find(physAddr);
     if (iter == physToVirtMap.end()) {
-      EPRINTF("Physical address '%x' not found in physToVirtMap\n. Was this allocated before?");
+      EPRINTF("Physical address '%lx' not found in physToVirtMap\n. Was this allocated before?", physAddr);
       exit(-1);
     }
     return iter->second;
@@ -90,16 +90,25 @@ class FringeContextZCU : public FringeContextBase<void> {
   }
 
 public:
-  uint32_t numArgIns = 0;
-  uint32_t numArgIOs = 0;
-  uint32_t numArgOuts = 0;
-  uint32_t numArgOutInstrs = 0;
-  uint32_t numArgEarlyExits = 0;
-  std::string bitfile = "";
+  uint32_t numArgIns;
+  uint32_t numArgIOs;
+  uint32_t numArgOuts;
+  uint32_t numArgOutInstrs;
+  uint32_t numArgEarlyExits;
+  std::string bitfile;
 
   FringeContextZCU(std::string path = "") : FringeContextBase(path) {
     bitfile = path;
 
+    numArgIns = 0;
+    numArgIOs = 0;
+    numArgOuts = 0;
+    numArgOutInstrs = 0;
+    numArgEarlyExits = 0;
+    commandReg = 0;
+    statusReg = 1;
+    fd = 0;
+    burstSizeBytes = 64;
     fringeScalarBase = 0;
     fringeMemBase = 0;
     fpgaMallocPtr = 0;
@@ -135,7 +144,8 @@ public:
 
   virtual void load() {
     std::string cmd = "prog_fpga " + bitfile;
-    system(cmd.c_str());
+    int dnu = system(cmd.c_str());
+    return;
   }
 
   size_t alignedSize(uint32_t alignment, size_t size) {
@@ -170,7 +180,7 @@ public:
 //    return addr;
 //#endif
 
-    ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %u, available %u\n", paddedSize, fpgaFreeMemSize);
+    ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %lu, available %lu\n", paddedSize, fpgaFreeMemSize);
 
     uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
 
@@ -191,7 +201,7 @@ public:
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
-    EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
+    EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %lu\n", devmem, hostmem, size);
 
     void* dst = (void*) getFPGAVirt(devmem);
     std::memcpy(dst, hostmem, size);
@@ -203,7 +213,7 @@ public:
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
 
-    EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
+    EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %lu\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
     std::memcpy(hostmem, src, size);
     //std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
@@ -230,7 +240,7 @@ public:
   void dumpRegs() {
     fprintf(stderr, "---- DUMPREGS ----\n");
     for (int i=0; i<100; i++) {
-      fprintf(stderr, "reg[%d] = %08x\n", i, readReg(i));
+      fprintf(stderr, "reg[%d] = %08lx\n", i, readReg(i));
     }
     fprintf(stderr, "---- END DUMPREGS ----\n");
   }
@@ -365,10 +375,10 @@ public:
       uint64_t value = readReg(i);
       if (i < debugRegStart) {
         if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
-        EPRINTF("\tR%d: %016llx (%08u)\n", i, value, value);
+        EPRINTF("\tR%d: %016lx (%08lu)\n", i, value, value);
       } else {
         if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
-        EPRINTF("\tR%d %s: %016llx (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
+        EPRINTF("\tR%d %s: %016lx (%08lu)\n", i, signalLabels[i - debugRegStart], value, value);
       }
     }
   }
@@ -383,7 +393,7 @@ public:
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
       uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + numArgEarlyExits + 2 + i);
-      EPRINTF("\t%s: %016llx (%08u)\n", signalLabels[i], value, value);
+      EPRINTF("\t%s: %016lx (%08lu)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

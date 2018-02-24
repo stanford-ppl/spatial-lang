@@ -50,6 +50,8 @@ void printOpts();
 void parseOpts(int argc, char **argv, struct opts *opts);
 u32 Xil_In32(u32 Addr);
 void Xil_Out32(u32 OutAddress, u32 Value);
+u64 Xil_In64(u64 Addr);
+void Xil_Out64(u64 OutAddress, u64 Value);
 double getTime();
 
 #endif  // ifndef __ZCU_UTILS_H__
