@@ -454,16 +454,6 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_adjustment = if (${sym}${i}_evenfit) 0 else 1")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := (${sym}${i}_hops + ${sym}${i}_adjustment).U(${32 min 2*w}.W)""")
-              case (Exact(s), _, Exact(st), Exact(p)) => 
-                appPropertyStats += HasVariableCtrBounds
-                emit(src"val ${sym}${i}_range =  ${DL(src"${end} - ${start}", "Utils.fixsub_latency")}")
-                emit(src"val ${sym}${i}_jump = ${st} * ${p}")
-                emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
-                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump.FP(true, 32, 0)")
-                emit(src"val ${sym}${i}_evenfit = ${DL(src"${sym}${i}_leftover === 0.U", "Utils.fixeql_latency")}")
-                emit(src"val ${sym}${i}_adjustment = ${DL(src"Mux(${sym}${i}_evenfit, 0.U, 1.U)", "Utils.mux_latency")}")
-                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", "Utils.fixadd_latency")}.r""")
               case (Exact(s), Exact(e), _, Exact(p)) => 
                 appPropertyStats += HasVariableCtrStride
                 emit("// TODO: Figure out how to make this one cheaper!")
@@ -474,6 +464,16 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_evenfit = ${DL(src"${sym}${i}_leftover.asUInt === 0.U", "Utils.fixeql_latency")}")
                 emit(src"val ${sym}${i}_adjustment = ${DL(src"Mux(${sym}${i}_evenfit, 0.U, 1.U)", "Utils.mux_latency")}")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", "Utils.fixadd_latency")}.r""")
+              case (_, _, Exact(st), Exact(p)) => 
+                appPropertyStats += HasVariableCtrBounds
+                emit(src"val ${sym}${i}_range =  ${DL(src"${end} - ${start}", "Utils.fixsub_latency")}")
+                emit(src"val ${sym}${i}_jump = ${st} * ${p}")
+                emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
+                emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump.FP(true, 32, 0)")
+                emit(src"val ${sym}${i}_evenfit = ${DL(src"${sym}${i}_leftover === 0.U", "Utils.fixeql_latency")}")
+                emit(src"val ${sym}${i}_adjustment = ${DL(src"Mux(${sym}${i}_evenfit, 0.U, 1.U)", "Utils.mux_latency")}")
+                emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
                 emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", "Utils.fixadd_latency")}.r""")
               case _ => 
                 appPropertyStats += HasVariableCtrBounds // TODO: Possible variable stride too, should probably match against this
@@ -562,7 +562,7 @@ trait ChiselGenController extends ChiselGenCounter{
       emit(src"""${swap(sym, Done)} := ${DL(src"${swap(sym, SM)}.io.output.done & ${DL(src"~${swap(sym, Inhibitor)}", 2, true)}", swap(sym, Retime), true)}""")      
     } else if (isStreamChild(sym)) {
       val streamOuts = if (getStreamInfoReady(sym).mkString(" && ").replace(" ","") != "") getStreamInfoReady(sym).mkString(" && ") else { "true.B" }
-      emit(src"""${swap(sym, Done)} := Utils.streamCatchDone(${swap(sym, SM)}.io.output.done, $streamOuts, ${swap(sym, Retime)}, rr, reset.toBool) // Directly connecting *_done.D* creates a hazard on stream pipes if ~*_ready turns off for that exact cycle, since the retime reg will reject it""")
+      emit(src"""${swap(sym, Done)} := Utils.streamCatchDone(${swap(sym, SM)}.io.output.done, $streamOuts, ${swap(sym, Retime)}, rr, accelReset) // Directly connecting *_done.D* creates a hazard on stream pipes if ~*_ready turns off for that exact cycle, since the retime reg will reject it""")
     } else {
       emit(src"""${swap(sym, Done)} := Utils.risingEdge(${DL(src"${swap(sym, SM)}.io.output.done", swap(sym, Retime), true)}) // Rising edge necessary in case stall happens at same time as done comes through""")
     }
@@ -780,8 +780,9 @@ trait ChiselGenController extends ChiselGenCounter{
       toggleEn() // turn on
       val streamAddition = getStreamEnablers(lhs)
       emitController(lhs, None, None)
+      emitGlobalWire(src"val accelReset = reset.toBool | io.reset")
       emit(s"""${swap(lhs, En)} := io.enable & !io.done ${streamAddition}""")
-      emit(s"""${swap(lhs, Resetter)} := Utils.getRetimed(reset.toBool, 1)""")
+      emit(s"""${swap(lhs, Resetter)} := Utils.getRetimed(accelReset, 1)""")
       emit(src"""${swap(lhs, CtrTrivial)} := false.B""")
       emitGlobalWireMap(src"""${lhs}_II_done""", """Wire(Bool())""")
       if (iiOf(lhs) <= 1) {
@@ -791,12 +792,12 @@ trait ChiselGenController extends ChiselGenCounter{
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs,En)}""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${iiOf(lhs)}.toInt.S // ${swap(lhs, Retime)}.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${DL(swap(lhs, IIDone), 1, true)}""")
+        emit(src"""${lhs}_IICtr.io.input.reset := accelReset | ${DL(swap(lhs, IIDone), 1, true)}""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       emit(src"""val retime_counter = Module(new SingleCounter(1, Some(0), Some(max_retime), Some(1), Some(0))) // Counter for masking out the noise that comes out of ShiftRegister in the first few cycles of the app""")
       // emit(src"""retime_counter.io.input.start := 0.S; retime_counter.io.input.stop := (max_retime.S); retime_counter.io.input.stride := 1.S; retime_counter.io.input.gap := 0.S""")
-      emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := reset.toBool; retime_counter.io.input.enable := true.B;""")
+      emit(src"""retime_counter.io.input.saturate := true.B; retime_counter.io.input.reset := accelReset; retime_counter.io.input.enable := true.B;""")
       emitGlobalWire(src"""val retime_released_reg = RegInit(false.B)""")
       emitGlobalWire(src"""val retime_released = ${DL("retime_released_reg", 1)}""")
       emitGlobalWire(src"""val rr = retime_released // Shorthand""")

@@ -33,6 +33,7 @@ class FringeContextVCS : public FringeContextBase<void> {
   uint32_t numArgIOs = 0;
   uint32_t numArgIOsId = 0;
   uint32_t numArgOutInstrs = 0;
+  uint32_t numArgEarlyExits = 0;
 
   posix_spawn_file_actions_t action;
   int globalID = 1;
@@ -332,12 +333,16 @@ public:
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
+    writeReg(commandReg, 2);
+    sleep(0.1);
+    writeReg(commandReg, 0);
+    sleep(0.1);
     writeReg(commandReg, 1);
 
     while((status == 0) && (numCycles <= maxCycles)) {
       step();
       status = readReg(statusReg);
-    }
+    }  
     EPRINTF("Design ran for %lu cycles, status = %u\n", numCycles, status);
     if (status == 0) { // Design did not run to completion
       EPRINTF("=========================================\n");
@@ -363,7 +368,11 @@ public:
   virtual void setNumArgIns(uint32_t number) {
     numArgIns = number;
   }
-  
+
+  virtual void setNumEarlyExits(uint32_t number) {
+    numArgEarlyExits = number;
+  }
+
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
   }
@@ -405,9 +414,9 @@ public:
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
     int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
-    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + numArgEarlyExits + 2 + NUM_DEBUG_SIGNALS;
     for (int i=0; i<totalRegs; i++) {
       uint32_t value = readReg(i);
       if (i < debugRegStart) {
@@ -423,10 +432,10 @@ public:
   void dumpDebugRegs() {
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs) ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 - numArgIOs + i);
+      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + numArgEarlyExits + 2 - numArgIOs + i);
       EPRINTF("\t%s: %08x (%08d)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");

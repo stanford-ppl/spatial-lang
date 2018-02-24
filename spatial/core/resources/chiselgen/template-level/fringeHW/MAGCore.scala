@@ -62,6 +62,7 @@ class MAGCore(
 
   val io = IO(new Bundle {
     val enable = Input(Bool())
+    val reset = Input(Bool())
     val app = new AppStreams(loadStreamInfo, storeStreamInfo)
     val dram = new DRAMStream(w, v)
     val config = Input(new MAGOpcode())
@@ -80,7 +81,7 @@ class MAGCore(
   // debug registers
   def debugCounter(en: Bool) = {
     val c = Module(new Counter(w))
-    c.io.reset := false.B
+    c.io.reset := io.reset
     c.io.saturate := false.B
     c.io.max := ~(0.U(w.W))
     c.io.stride := 1.U
@@ -292,13 +293,13 @@ class MAGCore(
 
     val sDeq_latch = Module(new SRFF())
     sDeq_latch.io.input.set := m.io.deqVld
-    sDeq_latch.io.input.reset := reset.toBool
-    sDeq_latch.io.input.asyn_reset := reset.toBool
+    sDeq_latch.io.input.reset := reset.toBool | io.reset
+    sDeq_latch.io.input.asyn_reset := reset.toBool | io.reset
 
     val sEnq_latch = Module(new SRFF())
     sEnq_latch.io.input.set := m.io.enqVld
-    sEnq_latch.io.input.reset := reset.toBool
-    sEnq_latch.io.input.asyn_reset := reset.toBool
+    sEnq_latch.io.input.reset := reset.toBool | io.reset
+    sEnq_latch.io.input.asyn_reset := reset.toBool | io.reset
 
 
     connectDbgSig(debugFF(m.io.deq, ~sDeq_latch.io.output.data & Utils.risingEdge(m.io.deqVld)).io.out, s"m.io.deq")
@@ -432,7 +433,7 @@ class MAGCore(
   val dramValid = io.dram.cmd.valid
   burstCounter.io.max := Mux(io.dram.cmd.bits.isWr, io.dram.cmd.bits.size, 1.U)
   burstCounter.io.stride := 1.U
-  burstCounter.io.reset := false.B
+  burstCounter.io.reset := io.reset
   burstCounter.io.enable := Mux(io.dram.cmd.bits.isWr, wdataValid & wdataReady, dramValid  & dramReady)
   burstCounter.io.saturate := false.B
 
@@ -440,7 +441,7 @@ class MAGCore(
   // and sometimes apps make requests to the same address so tagging with the address isn't enough to guarantee uniqueness
   burstTagCounter.io.max := (numOutstandingBursts - 1).U
   burstTagCounter.io.stride := 1.U
-  burstTagCounter.io.reset := false.B
+  burstTagCounter.io.reset := io.reset
   burstTagCounter.io.enable := dramValid  & dramReady
   burstTagCounter.io.saturate := false.B
 

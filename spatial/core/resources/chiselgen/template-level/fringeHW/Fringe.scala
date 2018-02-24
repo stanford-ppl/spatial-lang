@@ -53,6 +53,7 @@ class Fringe(
     // Accel Control IO
     val enable = Output(Bool())
     val done = Input(Bool())
+    val reset = Output(Bool())
 
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(regWidth.W)))
@@ -139,13 +140,16 @@ class Fringe(
 
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
-  val localEnable = command(0) & ~curStatus(0)          // enable = LSB of first argIn
+  val localEnable = command(0) === 1.U & ~curStatus(0)          // enable = LSB of first argIn
+  val localReset = command === 2.U | reset.toBool               // reset = first argIn == 2
   io.enable := localEnable
+  io.reset := localReset
+  regs.io.reset := localReset
 
   // Hardware time out (for debugging)
   val timeoutCycles = 12000000000L
   val timeoutCtr = Module(new Counter(40))
-  timeoutCtr.io.reset := 0.U
+  timeoutCtr.io.reset := 0.U //localReset
   timeoutCtr.io.saturate := 1.U
   timeoutCtr.io.max := timeoutCycles.U
   timeoutCtr.io.stride := 1.U
@@ -181,6 +185,7 @@ class Fringe(
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mags.foreach { _.io.config := magConfig }
+  mags.foreach { _.io.reset := localReset }
   if ((FringeGlobals.target == "aws") | (FringeGlobals.target == "aws-sim")) {
     mags.foreach { _.io.enable := io.aws_top_enable }
   } else {

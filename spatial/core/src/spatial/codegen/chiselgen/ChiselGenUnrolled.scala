@@ -66,7 +66,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(src"""${lhs}_IICtr.io.input.enable := ${swap(lhs, DatapathEn)}""")
         emit(src"""${lhs}_IICtr.io.input.stop := ${swap(lhs, Retime)}.S //${iiOf(lhs)}.S""")
-        emit(src"""${lhs}_IICtr.io.input.reset := reset.toBool | ${DL(swap(lhs, IIDone), 1, true)}""")
+        emit(src"""${lhs}_IICtr.io.input.reset := accelReset | ${DL(swap(lhs, IIDone), 1, true)}""")
         emit(src"""${lhs}_IICtr.io.input.saturate := false.B""")       
       }
       if (styleOf(lhs) != StreamPipe) { 
@@ -148,7 +148,7 @@ trait ChiselGenUnrolled extends ChiselGenController {
         emit(src"""${swap(lhs, IIDone)} := ${lhs}_IICtr.io.output.done | ${swap(lhs, CtrTrivial)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.enable := ${swap(lhs, DatapathEn)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.stop := ${swap(lhs, Retime)}.S""")
-        emit(s"""${quote(lhs)}_IICtr.io.input.reset := reset.toBool | ${DL(swap(lhs, IIDone), 1, true)}""")
+        emit(s"""${quote(lhs)}_IICtr.io.input.reset := accelReset | ${DL(swap(lhs, IIDone), 1, true)}""")
         emit(s"""${quote(lhs)}_IICtr.io.input.saturate := false.B""")       
       }
       val dlay = bodyLatency.sum(lhs)
