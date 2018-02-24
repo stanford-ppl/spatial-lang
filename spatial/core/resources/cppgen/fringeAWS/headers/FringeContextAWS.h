@@ -63,6 +63,7 @@ private:
   int numArgOuts = 0;
   int numArgIOs = 0;
   int numArgOutInstrs = 0;
+  int numArgEarlyExits = 0;
 
   // Helper to peek in sim or F1
   void aws_peek(uint64_t addr, uint32_t *value) {
@@ -391,7 +392,11 @@ public:
   virtual void setNumArgIns(uint32_t number) {
     numArgIns = number;
   }
-  
+
+  virtual void setNumEarlyExits(uint32_t number) {
+    numArgEarlyExits = number;
+  }
+
   virtual void setNumArgIOs(uint32_t number) {
     numArgIOs = number;
   }

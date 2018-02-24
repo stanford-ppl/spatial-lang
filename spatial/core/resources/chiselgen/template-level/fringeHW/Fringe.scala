@@ -141,14 +141,15 @@ class Fringe(
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
   val localEnable = command(0) === 1.U & ~curStatus(0)          // enable = LSB of first argIn
-  val localReset = command === 2.U                           // reset = first argIn == 2
+  val localReset = command === 2.U | reset.toBool               // reset = first argIn == 2
   io.enable := localEnable
   io.reset := localReset
+  regs.io.reset := localReset
 
   // Hardware time out (for debugging)
   val timeoutCycles = 12000000000L
   val timeoutCtr = Module(new Counter(40))
-  timeoutCtr.io.reset := 0.U
+  timeoutCtr.io.reset := 0.U //localReset
   timeoutCtr.io.saturate := 1.U
   timeoutCtr.io.max := timeoutCycles.U
   timeoutCtr.io.stride := 1.U

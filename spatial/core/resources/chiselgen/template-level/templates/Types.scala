@@ -111,7 +111,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 						// (0 until dst.d).map{i => number(f + i) * scala.math.pow(2,i).toInt.U}.reduce{_+_}
 					case Saturation =>
 						val sign = number.msb
-						val overflow = (sign & expect_pos) | (~sign & expect_neg)
+						val overflow = ((sign & expect_pos) | (~sign & expect_neg)) 
 					  val not_saturated = ( number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W) ) | ( ~number(f+d-1,f+d-1-shave_d) === 0.U(shave_d.W) )
 
 					  val saturated_frac = Mux(expect_pos, 
@@ -121,8 +121,8 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					  			util.Cat((0 until up_frac).map{i => if (i == 0 & (dst.s | s)) false.B else true.B}), 
 					  			Mux(expect_neg, 1.U((dst.d).W) << (dst.d-1), 1.U((dst.d).W) << (dst.d-1))) 
 
-					  new_frac := Mux(not_saturated & ~overflow, tmp_frac, saturated_frac)
-					  new_dec := Mux(not_saturated & ~overflow, number(dst.d + f - 1, f), saturated_dec)
+					  new_frac := Mux(number === 0.U, 0.U, Mux(not_saturated & ~overflow, tmp_frac, saturated_frac))
+					  new_dec := Mux(number === 0.U, 0.U, Mux(not_saturated & ~overflow, number(dst.d + f - 1, f), saturated_dec))
 					case _ =>
 						new_frac := tmp_frac
 						new_dec := 0.U(dst.d.W)
