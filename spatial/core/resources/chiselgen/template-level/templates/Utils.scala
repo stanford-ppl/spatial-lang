@@ -172,7 +172,7 @@ object ops {
     def *-* (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b, c, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b, c, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b*c // Raghu's box
@@ -187,7 +187,7 @@ object ops {
     def *-* (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b.asSInt, c, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b.asSInt, c, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b.asSInt, c, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b.asSInt*c // Raghu's box
@@ -218,11 +218,11 @@ object ops {
     def /-/ (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b, c, delay.get.toInt) 
-        else FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) 
+        else FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
       } else {
        Utils.target match {
          case AWS_F1 => b/c // Raghu's box
-         case Zynq => FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) 
+         case Zynq => FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
          case DE1 => b/c // Raghu's box
         case `de1soc` => b/c // Raghu's box
          case Default => b/c
@@ -233,7 +233,7 @@ object ops {
     def /-/ (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b.asSInt, c, delay.get.toInt) 
-        else FringeGlobals.bigIP.divide(b.asSInt, c, Utils.fixdiv_latency) 
+        else FringeGlobals.bigIP.divide(b.asSInt, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
       } else {
        Utils.target match {
          case AWS_F1 => b.asSInt/c // Raghu's box
@@ -269,7 +269,7 @@ object ops {
     def %-% (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b, c, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b, c, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b%c // Raghu's box
@@ -285,7 +285,7 @@ object ops {
     def %-% (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b.asSInt, c, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b.asSInt, c, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b.asSInt, c, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b.asSInt%c // Raghu's box
@@ -386,7 +386,7 @@ object ops {
     def *-* (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b, c.asSInt, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b, c.asSInt, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b, c.asSInt, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b*c.asSInt // Raghu's box
@@ -401,7 +401,7 @@ object ops {
     def *-* (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b, c, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b, c, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b*c // Raghu's box
@@ -434,7 +434,7 @@ object ops {
     def /-/ (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b, c.asSInt, delay.get.toInt)
-        else FringeGlobals.bigIP.divide(b, c.asSInt, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+        else FringeGlobals.bigIP.divide(b, c.asSInt, (Utils.fixdiv_latency * b.getWidth).toInt) // Raghu's box. Divide latency set to 16.
       } else {
        Utils.target match {
          case AWS_F1 => b/c.asSInt // Raghu's box
@@ -449,7 +449,7 @@ object ops {
     def /-/ (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b, c, delay.get.toInt) // Raghu's box. Divide latency set to 16.
-        else FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+        else FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) // Raghu's box. Divide latency set to 16.
       } else {
        Utils.target match {
          case AWS_F1 => b/c // Raghu's box
@@ -484,7 +484,7 @@ object ops {
     def %-% (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b, c.asSInt, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b, c.asSInt, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b, c.asSInt, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b%c.asSInt // Raghu's box
@@ -499,7 +499,7 @@ object ops {
     def %-% (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b, c, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b, c, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b%c // Raghu's box
@@ -575,11 +575,11 @@ object Utils {
 
   // These properties should be set inside IOModule
   var target: DeviceTarget = Default
-  var fixmul_latency = 6
-  var fixdiv_latency = 20
-  var fixadd_latency = 1
-  var fixsub_latency = 1
-  var fixmod_latency = 16
+  var fixmul_latency = 0.03125
+  var fixdiv_latency = 0.03125
+  var fixadd_latency = 0.1875
+  var fixsub_latency = 0.625
+  var fixmod_latency = 0.5
   var fixeql_latency = 1
   var sramload_latency = 0
   var sramstore_latency = 0
@@ -589,10 +589,10 @@ object Utils {
   var retime = false
 
   val delay_per_numIter = List(
-              fixsub_latency + fixdiv_latency + fixadd_latency,
-              fixmul_latency + fixdiv_latency + fixadd_latency,
-              fixsub_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency,
-              fixmul_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency
+              fixsub_latency*32 + fixdiv_latency*32 + fixadd_latency*32,
+              fixmul_latency*32 + fixdiv_latency*32 + fixadd_latency*32,
+              fixsub_latency*32 + fixmod_latency*32 + fixeql_latency + mux_latency + fixadd_latency*32,
+              fixmul_latency*32 + fixmod_latency*32 + fixeql_latency + mux_latency + fixadd_latency*32
     ).max
 
   def singleCycleDivide(num: SInt, den: SInt): SInt = {
