@@ -14,6 +14,16 @@
 
 // typedef unsigned long u32;
 
+// Power-up Request Status for PL
+#define RESET_HANDSHAKE_SIZE		  0x010000
+#define RESET_HANDSHAKE_START       0xFF0A0000
+#define GPIO_MASK_DATA_5_MSW_OFFSET 0XFF0A0028
+#undef GPIO_DIRM_5_OFFSET 
+#define GPIO_DIRM_5_OFFSET          0XFF0A0340
+#undef GPIO_OEN_5_OFFSET 
+#define GPIO_OEN_5_OFFSET           0XFF0A0348
+#undef GPIO_DATA_5_OFFSET 
+#define GPIO_DATA_5_OFFSET          0XFF0A0054
 
 // Bit masks and positions - Command register
 #define MREAD(val, mask) (((val) & (mask)) >> __builtin_ctz(mask))
