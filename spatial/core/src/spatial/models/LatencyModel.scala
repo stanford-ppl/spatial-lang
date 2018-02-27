@@ -131,6 +131,7 @@ trait LatencyModel {
 
   @stateful protected def latencyOfNodeInReduce(s: Exp[_], d: Def): Double = d match {
     case FixAdd(_,_)     => model("FixAdd")("b" -> nbits(s))("LatencyInReduce").toDouble
+    case SatAdd(_,_)     => model("SatAdd")("b" -> nbits(s))("LatencyInReduce").toDouble
     case Mux(_,_,_)      => model("Mux")()("LatencyInReduce").toDouble
     case FltAdd(_,_)     => model("FltAdd")()("LatencyInReduce").toDouble
     //case RegWrite(_,_,_) => 0
@@ -149,6 +150,8 @@ trait LatencyModel {
     case _:SRAMLoad[_]     => if (spatialConfig.enableSyncMem) model("SRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("SRAMLoad")()("RequiresInReduce") > 0
     case _:ParSRAMLoad[_]  => if (spatialConfig.enableSyncMem) model("ParSRAMLoadSyncMem")()("RequiresInReduce") > 0 else model("ParSRAMLoad")()("RequiresInReduce") > 0
     case FixMul(_,_) => model("FixMul")("b" -> nbits(s))("RequiresInReduce") > 0
+    case SatMul(_,_) => model("SatMul")("b" -> nbits(s))("RequiresInReduce") > 0
+    case UnbSatMul(_,_) => model("UnbSatMul")("b" -> nbits(s))("RequiresInReduce") > 0
     case d => latencyOfNodeInReduce(s,d) > 0
   }
 
@@ -305,14 +308,14 @@ trait LatencyModel {
     case FixAbs(_)    => model("FixAbs")()("RequiresRegs") > 0
     case FixConvert(_) => model("FixConvert")()("RequiresRegs") > 0
 
-    case SatAdd(x,y) => model("SatAdd")()("RequiresRegs") > 0
-    case SatSub(x,y) => model("SatSub")()("RequiresRegs") > 0
-    case SatMul(x,y) => model("SatMul")()("RequiresRegs") > 0
-    case SatDiv(x,y) => model("SatDiv")()("RequiresRegs") > 0
-    case UnbMul(x,y) => model("UnbMul")()("RequiresRegs") > 0
-    case UnbDiv(x,y) => model("UnbDiv")()("RequiresRegs") > 0
-    case UnbSatMul(x,y) => model("UnbSatMul")()("RequiresRegs") > 0
-    case UnbSatDiv(x,y) => model("UnbSatDiv")()("RequiresRegs") > 0
+    case SatAdd(x,y) => model("SatAdd")("b" -> nbits(s))("RequiresRegs") > 0
+    case SatSub(x,y) => model("SatSub")("b" -> nbits(s))("RequiresRegs") > 0
+    case SatMul(x,y) => model("SatMul")("b" -> nbits(s))("RequiresRegs") > 0
+    case SatDiv(x,y) => model("SatDiv")("b" -> nbits(s))("RequiresRegs") > 0
+    case UnbMul(x,y) => model("UnbMul")("b" -> nbits(s))("RequiresRegs") > 0
+    case UnbDiv(x,y) => model("UnbDiv")("b" -> nbits(s))("RequiresRegs") > 0
+    case UnbSatMul(x,y) => model("UnbSatMul")("b" -> nbits(s))("RequiresRegs") > 0
+    case UnbSatDiv(x,y) => model("UnbSatDiv")("b" -> nbits(s))("RequiresRegs") > 0
 
     case Mux(_,_,_) => model("Mux")()("RequiresRegs") > 0
     case Min(_,_)   => model("Min")()("RequiresRegs") > 0
@@ -416,14 +419,14 @@ trait LatencyModel {
     case FixAbs(_)    => model("FixAbs")()("LatencyOf").toDouble
 
     // Saturating and/or unbiased math
-    case SatAdd(x,y) => model("SatAdd")()("LatencyOf").toDouble
-    case SatSub(x,y) => model("SatSub")()("LatencyOf").toDouble
-    case SatMul(x,y) => model("SatMul")()("LatencyOf").toDouble
-    case SatDiv(x,y) => model("SatDiv")()("LatencyOf").toDouble
-    case UnbMul(x,y) => model("UnbMul")()("LatencyOf").toDouble
-    case UnbDiv(x,y) => model("UnbDiv")()("LatencyOf").toDouble
-    case UnbSatMul(x,y) => model("UnbSatMul")()("LatencyOf").toDouble
-    case UnbSatDiv(x,y) => model("UnbSatDiv")()("LatencyOf").toDouble
+    case SatAdd(x,y) => model("SatAdd")("b" -> nbits(s))("LatencyOf").toDouble
+    case SatSub(x,y) => model("SatSub")("b" -> nbits(s))("LatencyOf").toDouble
+    case SatMul(x,y) => model("SatMul")("b" -> nbits(s))("LatencyOf").toDouble
+    case SatDiv(x,y) => model("SatDiv")("b" -> nbits(s))("LatencyOf").toDouble
+    case UnbMul(x,y) => model("UnbMul")("b" -> nbits(s))("LatencyOf").toDouble
+    case UnbDiv(x,y) => model("UnbDiv")("b" -> nbits(s))("LatencyOf").toDouble
+    case UnbSatMul(x,y) => model("UnbSatMul")("b" -> nbits(s))("LatencyOf").toDouble
+    case UnbSatDiv(x,y) => model("UnbSatDiv")("b" -> nbits(s))("LatencyOf").toDouble
 
     // Floating point math
     // TODO: Floating point for things besides single precision
@@ -578,14 +581,14 @@ trait LatencyModel {
       case Def(FixAbs(_))    => model("FixAbs")()("BuiltInLatency").toDouble
 
       // Saturating and/or unbiased math
-      case Def(SatAdd(x,y)) => model("SatAdd")()("BuiltInLatency").toDouble
-      case Def(SatSub(x,y)) => model("SatSub")()("BuiltInLatency").toDouble
-      case Def(SatMul(x,y)) => model("SatMul")()("BuiltInLatency").toDouble
-      case Def(SatDiv(x,y)) => model("SatDiv")()("BuiltInLatency").toDouble
-      case Def(UnbMul(x,y)) => model("UnbMul")()("BuiltInLatency").toDouble
-      case Def(UnbDiv(x,y)) => model("UnbDiv")()("BuiltInLatency").toDouble
-      case Def(UnbSatMul(x,y)) => model("UnbSatMul")()("BuiltInLatency").toDouble
-      case Def(UnbSatDiv(x,y)) => model("UnbSatDiv")()("BuiltInLatency").toDouble
+      case Def(SatAdd(x,y)) => model("SatAdd")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(SatSub(x,y)) => model("SatSub")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(SatMul(x,y)) => model("SatMul")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(SatDiv(x,y)) => model("SatDiv")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(UnbMul(x,y)) => model("UnbMul")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(UnbDiv(x,y)) => model("UnbDiv")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(UnbSatMul(x,y)) => model("UnbSatMul")("b" -> nbits(s))("BuiltInLatency").toDouble
+      case Def(UnbSatDiv(x,y)) => model("UnbSatDiv")("b" -> nbits(s))("BuiltInLatency").toDouble
 
       // Floating point math
       // TODO: Floating point for things besides single precision

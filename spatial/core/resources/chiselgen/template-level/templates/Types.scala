@@ -256,8 +256,12 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
-				val expect_neg = if (op.s | s) {(this.msb ^ op.msb)} else false.B
-				val expect_pos = if (op.s | s) {~(this.msb ^ op.msb)} else true.B
+				val op_latency = if (Utils.retime) { 
+					if (delay.isDefined) delay.get.toInt
+					else Utils.fixmul_latency
+				} else 0
+				val expect_neg = if (op.s | s) {Utils.getRetimed((this.msb ^ op.msb), op_latency)} else false.B
+				val expect_pos = if (op.s | s) {Utils.getRetimed(~(this.msb ^ op.msb), op_latency)} else true.B
 				full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 				result
 			case op: UInt => 
@@ -303,8 +307,12 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					}
 					// Downcast to result
 					val result = Wire(new FixedPoint(return_type))
-					val expect_neg = if (op.s | s) {(op.msb ^ this.msb)} else false.B
-					val expect_pos = if (op.s | s) {~(this.msb ^ op.msb)} else true.B
+					val op_latency = if (Utils.retime) { 
+						if (delay.isDefined) delay.get.toInt
+						else Utils.fixmul_latency
+					} else 0
+					val expect_neg = if (op.s | s) {Utils.getRetimed((op.msb ^ this.msb), op_latency)} else false.B
+					val expect_pos = if (op.s | s) {Utils.getRetimed(~(this.msb ^ op.msb), op_latency)} else true.B
 					full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 					result					
 				}

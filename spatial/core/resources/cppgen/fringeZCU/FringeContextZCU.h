@@ -44,6 +44,7 @@ class FringeContextZCU : public FringeContextBase<void> {
   u64 fringeMemBase;
   u64 fpgaMallocPtr;
   u64 fpgaFreeMemSize;
+  u64 resetHandshakePtr;
 
   u64 commandReg;
   u64 statusReg;
@@ -125,11 +126,80 @@ public:
     void *ptr;
     ptr = mmap(NULL, MAP_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_SCALAR_BASEADDR);
     fringeScalarBase = (u64) ptr;
+    EPRINTF("placing fringeScalarBase at %lx\n", fringeScalarBase);
 
     // Initialize pointer to fringeMemBase
     ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
     fringeMemBase = (u64) ptr;
+    EPRINTF("placing fringeMemBase at %lx\n", fringeMemBase);
     fpgaMallocPtr = fringeMemBase;
+
+    // Initialize pointer to Xilinx reset handshake
+    ptr = mmap(NULL, RESET_HANDSHAKE_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, RESET_HANDSHAKE_START);
+    resetHandshakePtr = (u64) ptr;
+    EPRINTF("placing resetHandshakePtr at %lx\n", resetHandshakePtr);
+
+  }
+
+  void PSU_Mask_Write(u64 offset, u32 mask, u32 val) {
+    u64 virtOfs = resetHandshakePtr + (offset - RESET_HANDSHAKE_START);
+    // EPRINTF("Computing: %lx = %lx + %lx - %lx\n", virtOfs, resetHandshakePtr, offset, RESET_HANDSHAKE_START);
+    u32 RegVal = 0x0;
+
+    RegVal = Xil_In32(virtOfs);
+    EPRINTF("before: addr %lx has %lx\n", offset, RegVal);
+    RegVal &= ~(mask);
+    RegVal |= (val & mask);
+    Xil_Out32(virtOfs, RegVal);
+    EPRINTF("after: addr %lx has %lx\n", offset, Xil_In32(virtOfs));
+    return;
+  }
+
+  u32 PLReset(){
+ //    PSU_Mask_Write(GPIO_MASK_DATA_5_MSW_OFFSET, 0xFFFF0000U, 0x80000000U);
+ //    PSU_Mask_Write(GPIO_DIRM_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+ //    PSU_Mask_Write(GPIO_OEN_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+ //    PSU_Mask_Write(GPIO_DATA_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+ //    struct timespec delay;
+  // delay.tv_sec = 0;
+  // delay.tv_nsec = 1000L;  
+  // nanosleep(&delay, NULL);
+ //    PSU_Mask_Write(GPIO_DATA_5_OFFSET, 0xFFFFFFFFU, 0x00000000U);
+  // delay.tv_sec = 0;
+  // delay.tv_nsec = 1000L;  
+  // nanosleep(&delay, NULL);
+ //    PSU_Mask_Write(GPIO_DATA_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+
+ //    return 1;
+
+    int TotalResets = 1;
+    int MAX_REG_BITS = 31;
+  u32 RegVal = 0;
+  u32 MaskVal;
+
+  /* Set EMIO Direction */
+  RegVal = Xil_In32(resetHandshakePtr + (GPIO_DIRM_5_OFFSET - RESET_HANDSHAKE_START)) |
+    ~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets);
+  Xil_Out32(GPIO_DIRM_5_OFFSET, RegVal);
+
+  /*Assert the EMIO with the required Mask */
+  MaskVal = ~(~0U << TotalResets) << (MAX_REG_BITS/2 + 1 - TotalResets) | 0xFFFF0000;
+  RegVal = MaskVal & ~(~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets));
+  Xil_Out32(resetHandshakePtr + (GPIO_DATA_5_OFFSET - RESET_HANDSHAKE_START),RegVal);
+  mysleep(1000000000L);  
+
+  /*De-assert the EMIO with the required Mask */
+  RegVal = ~(~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets)) & 0xFFFF0000;
+  Xil_Out32(resetHandshakePtr + (GPIO_DATA_5_OFFSET - RESET_HANDSHAKE_START), RegVal);
+  mysleep(1000000000L);
+
+  /*Assert the EMIO with the required Mask */
+  MaskVal = ~(~0U << TotalResets) << (MAX_REG_BITS/2 + 1 - TotalResets) | 0xFFFF0000;
+  RegVal = MaskVal & ~(~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets));
+  Xil_Out32(resetHandshakePtr + (GPIO_DATA_5_OFFSET - RESET_HANDSHAKE_START),RegVal);
+  mysleep(1000000000L);
+
+  return 1;
   }
 
   uint64_t getFPGAVirt(uint64_t physAddr) {
@@ -253,11 +323,7 @@ public:
     for (int i = 0; i < 5; i++) {
       // Pulse deq signal
       writeReg(0+2, 1);
-      struct timespec delay;
-     
-      delay.tv_sec = 0;
-      delay.tv_nsec = 10000000000L;  /* Half a second in nano's */
-      nanosleep(&delay, NULL);
+      mysleep(10000000000L);
       writeReg(0+2, 0);
 
       // Dump regs
@@ -265,6 +331,14 @@ public:
     }
 
     fprintf(stderr, "---- End debugging ----\n");
+  }
+
+  void mysleep(unsigned long nanosec) {
+    struct timespec delay;
+    
+    delay.tv_sec = 0;
+    delay.tv_nsec = nanosec;  /* Half a second in nano's */
+    nanosleep(&delay, NULL);
   }
 
   virtual void run() {
@@ -277,7 +351,12 @@ public:
     // Implement 4-way handshake
     writeReg(statusReg, 0);
     writeReg(commandReg, 2);
+    mysleep(1000);
     writeReg(commandReg, 0);
+    mysleep(1000);
+    // dumpNonDebugRegs();
+    // PLReset();
+    // dumpNonDebugRegs();
     writeReg(commandReg, 1);
 
     fprintf(stderr, "Running design..\n");
@@ -300,7 +379,7 @@ public:
     double endTime = getTime();
     fprintf(stderr, "Design done, ran for %lf ms, status = %08x\n", endTime - startTime, status);
     writeReg(commandReg, 0);
-    dumpAllRegs();
+    // dumpAllRegs();
     while (status == 1) {
       if (timed_out == 1) {
         break;
@@ -351,11 +430,7 @@ public:
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
-    struct timespec delay;
-     
-    delay.tv_sec = 0;
-    delay.tv_nsec = 100000000L;  /* Half a second in nano's */
-    nanosleep(&delay, NULL); // Prevents zcu crash for some unknown reason
+    mysleep(100000000L);  /* Half a second in nano's */
     Xil_Out64(fringeScalarBase+reg*sizeof(u64), data);
   }
 
@@ -379,6 +454,20 @@ public:
       } else {
         if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
         EPRINTF("\tR%d %s: %016lx (%08lu)\n", i, signalLabels[i - debugRegStart], value, value);
+      }
+    }
+  }
+
+  void dumpNonDebugRegs() {
+    int argIns = numArgIns == 0 ? 1 : numArgIns;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs + numArgEarlyExits;
+
+    for (int i=0; i<debugRegStart; i++) {
+      uint64_t value = readReg(i);
+      if (i < debugRegStart) {
+        if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
+        EPRINTF("\tR%d: %016lx (%08lu)\n", i, value, value);
       }
     }
   }
