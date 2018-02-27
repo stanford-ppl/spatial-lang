@@ -464,27 +464,27 @@ trait ChiselGenController extends ChiselGenCounter{
                 emit(src"val ${sym}${i}_evenfit = ${DL(src"${sym}${i}_leftover.asUInt === 0.U", "Utils.fixeql_latency")}")
                 emit(src"val ${sym}${i}_adjustment = ${DL(src"Mux(${sym}${i}_evenfit, 0.U, 1.U)", "Utils.mux_latency")}")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(${32 min 2*w}.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", "Utils.fixadd_latency")}.r""")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", src"(Utils.fixadd_latency*${sym}${i}_hops.getWidth).toInt")}.r""")
               case (_, _, Exact(st), Exact(p)) => 
                 appPropertyStats += HasVariableCtrBounds
-                emit(src"val ${sym}${i}_range =  ${DL(src"${end} - ${start}", "Utils.fixsub_latency")}")
+                emit(src"val ${sym}${i}_range =  ${DL(src"${end} - ${start}", src"(Utils.fixsub_latency*${end}.getWidth).toInt")}")
                 emit(src"val ${sym}${i}_jump = ${st} * ${p}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump.FP(true, 32, 0)")
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump.FP(true, 32, 0)")
                 emit(src"val ${sym}${i}_evenfit = ${DL(src"${sym}${i}_leftover === 0.U", "Utils.fixeql_latency")}")
                 emit(src"val ${sym}${i}_adjustment = ${DL(src"Mux(${sym}${i}_evenfit, 0.U, 1.U)", "Utils.mux_latency")}")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", "Utils.fixadd_latency")}.r""")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", src"(Utils.fixadd_latency*${sym}${i}_hops.getWidth).toInt")}.r""")
               case _ => 
                 appPropertyStats += HasVariableCtrBounds // TODO: Possible variable stride too, should probably match against this
-                emit(src"val ${sym}${i}_range = ${DL(src"${end} - ${start}", "Utils.fixsub_latency")}")
+                emit(src"val ${sym}${i}_range = ${DL(src"${end} - ${start}", src"(Utils.fixsub_latency*${end}.getWidth).toInt")}")
                 emit(src"val ${sym}${i}_jump = ${step} *-* ${par}")
                 emit(src"val ${sym}${i}_hops = ${sym}${i}_range /-/ ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_leftover = ${sym}${i}_range %-% ${sym}${i}_jump")
                 emit(src"val ${sym}${i}_evenfit = ${DL(src"${sym}${i}_leftover === 0.U", "Utils.fixeql_latency")}")
                 emit(src"val ${sym}${i}_adjustment = ${DL(src"Mux(${sym}${i}_evenfit, 0.U, 1.U)", "Utils.mux_latency")}")
                 emitGlobalWireMap(src"${sym}_level${i}_iters", src"Wire(UInt(32.W))")
-                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", "Utils.fixadd_latency")}.r""")
+                emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", src"(Utils.fixadd_latency*${sym}${i}_hops.getWidth).toInt")}.r""")
             }
             // emit(src"""${swap(src"${sym}_level${i}_iters", Blank)} := ${DL(src"${sym}${i}_hops + ${sym}${i}_adjustment", 1)}.r""")
             src"${swap(src"${sym}_level${i}_iters", Blank)}"
