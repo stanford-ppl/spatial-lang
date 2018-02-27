@@ -45,15 +45,15 @@ trait ChiselGenReg extends ChiselGenSRAM {
     case ArgInNew(init)  => 
       argIns = argIns :+ lhs.asInstanceOf[Sym[Reg[_]]]
     case ArgOutNew(init) => 
-      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful=true)
-      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful=true)
+      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).size)}, UInt(64.W)))", forceful=true)
+      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).size)}, Bool()))", forceful=true)
       emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${swap(lhs, EnOptions)}, ${swap(lhs, DataOptions)}) // ${lhs.name.getOrElse("")}""", forceful=true)
       emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${swap(lhs, EnOptions)}.reduce{_|_}""", forceful=true)
       argOuts = argOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
 
     case HostIONew(init) =>
-      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, UInt(64.W)))", forceful = true)
-      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).length)}, Bool()))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).size)}, UInt(64.W)))", forceful = true)
+      emitGlobalWireMap(src"${lhs}_en_options", src"Wire(Vec(${scala.math.max(1,writersOf(lhs).size)}, Bool()))", forceful = true)
       emit(src"""io.argOuts(${argMapping(lhs).argOutId}).bits := chisel3.util.Mux1H(${swap(lhs, EnOptions)}, ${swap(lhs, DataOptions)}) // ${lhs.name.getOrElse("")}""", forceful = true)
       emit(src"""io.argOuts(${argMapping(lhs).argOutId}).valid := ${swap(lhs, EnOptions)}.reduce{_|_}""", forceful = true)
       argIOs = argIOs :+ lhs.asInstanceOf[Sym[Reg[_]]]
@@ -63,13 +63,13 @@ trait ChiselGenReg extends ChiselGenSRAM {
       val width = bitWidth(init.tp)
       emitGlobalWire(src"val ${lhs}_initval = ${init}")
       resettersOf(lhs).indices.foreach{ i => emitGlobalWire(src"""val ${lhs}_manual_reset_$i = Wire(Bool())""")}
-      if (resettersOf(lhs).length > 0) emitGlobalWire(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
+      if (resettersOf(lhs).nonEmpty) emitGlobalWire(src"""val ${lhs}_manual_reset = ${resettersOf(lhs).indices.map{i => src"${lhs}_manual_reset_$i"}.mkString(" | ")}""")
       val duplicates = duplicatesOf(lhs)
       duplicates.zipWithIndex.foreach{ case (d, i) => 
-        val numBroadcasters = if (writersOf(lhs).length == 0) 0 else {writersOf(lhs).map { write => if (portsOf(write, lhs, i).toList.length > 1) 1 else 0 }.reduce{_+_}}
+        val numBroadcasters = if (writersOf(lhs).isEmpty) 0 else writersOf(lhs).count{write => portsOf(write, lhs, i).toList.length > 1}
         val numWriters = writersOf(lhs)
           .filter{write => dispatchOf(write, lhs) contains i}
-          .filter{w => portsOf(w, lhs, i).toList.length == 1}.length.max(1)
+          .count{w => portsOf(w, lhs, i).toList.length == 1}.max(1)
         reduceType(lhs) match {
           case Some(fps: ReduceFunction) => 
             fps match {
@@ -84,7 +84,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                     }                  
                   }
                   // Figure out if we need to tie down direct ports
-                  val direct_tiedown = writersOf(lhs).map{w => reduceType(w.node).isDefined}.reduce{_&_}
+                  val direct_tiedown = writersOf(lhs).forall{w => reduceType(w.node).isDefined }
                   if (direct_tiedown) {
                     emitGlobalModule(src"""${lhs}_${i}.io.input.direct_enable := false.B""")
                   }

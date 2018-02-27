@@ -152,7 +152,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     val LocalWriter(writes) = writer
     val Def(writeDef) = writer
     writes.foreach{case (mem,value,addr,en) =>
-      writersOf(mem) = (writer,ctrl) +: writersOf(mem)      // (5)
+      writersOf(mem) = ((writer,ctrl)) +: writersOf(mem)    // (5)
       writtenIn(ctrl) = mem +: writtenIn(ctrl)              // (10)
       //val isAccumulatingWrite = writeDef.inputs.filterNot(_ == mem).exists{_.dependsOn(mem, curScope) }
       //isAccum(mem) = isAccum(mem) || isAccumulatingWrite
@@ -459,8 +459,8 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
 
     case OpMemReduce(en,cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
       visitBlk((lhs,0), itersMap, cchainMap) { visitBlock(map) }
-      visitBlk((lhs,1), itersRed, cchainRed) { visitBlock(ldAcc) }
-      visitBlk((lhs,2), itersRed, cchainRed) { visitBlock(ldRes) }
+      visitBlk((lhs,1), itersRed, cchainRed) { visitBlock(ldRes) }
+      visitBlk((lhs,2), itersRed, cchainRed) { visitBlock(ldAcc) }
       visitBlk((lhs,3), itersRed, cchainRed) { visitBlock(reduce) }
       visitBlk((lhs,4), itersRed, cchainRed) { visitBlock(store) }
 
