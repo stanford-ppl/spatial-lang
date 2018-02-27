@@ -429,6 +429,20 @@ public:
     }
   }
 
+  void dumpNonDebugRegs() {
+    int argIns = numArgIns == 0 ? 1 : numArgIns;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs + numArgEarlyExits;
+
+    for (int i=0; i<debugRegStart; i++) {
+      uint64_t value = readReg(i);
+      if (i < debugRegStart) {
+        if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
+        EPRINTF("\tR%d: %016lx (%08lu)\n", i, value, value);
+      }
+    }
+  }
+
   void dumpDebugRegs() {
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;

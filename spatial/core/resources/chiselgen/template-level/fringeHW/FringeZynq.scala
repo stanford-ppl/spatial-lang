@@ -112,9 +112,9 @@ class FringeZynq(
 
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done
-  fringeCommon.reset := ~reset.toBool
+  fringeCommon.reset := reset.toBool
   // fringeCommon.reset := reset.toBool
-  // io.reset := fringeCommon.io.reset
+  io.reset := fringeCommon.io.reset
 
   io.argIns := fringeCommon.io.argIns
   io.argOutLoopbacks := fringeCommon.io.argOutLoopbacks
