@@ -827,11 +827,11 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
       }
 
-      emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(32))}.toInt")
-      emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(32))}.toInt")
-      emit(s"Utils.fixadd_latency = ${latencyOption("FixAdd", Some(32))}.toInt")
-      emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(32))}.toInt")
-      emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(32))}.toInt")
+      emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(1))}")
+      emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(1))}")
+      emit(s"Utils.fixadd_latency = ${latencyOption("FixAdd", Some(1))}")
+      emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(1))}")
+      emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(1))}")
       emit(s"Utils.fixeql_latency = ${latencyOption("FixEql", None)}.toInt")
       emit(s"Utils.tight_control   = ${spatialConfig.enableTightControl}")
       emit(s"Utils.mux_latency    = ${latencyOption("Mux", None)}.toInt")
