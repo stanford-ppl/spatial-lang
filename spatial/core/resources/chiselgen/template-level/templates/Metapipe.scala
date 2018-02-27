@@ -44,7 +44,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val deadState = Module(new SRFF()) // This is a hack because with new retime optimizations, mask signal may come one cycle after next state is entered
   deadState.io.input.asyn_reset := Utils.getRetimed(reset, 1)
 
-  val niterComputeDelay = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
+  val niterComputeDelay = (ctrDepth * (fixmul_latency*32).toInt + Utils.delay_per_numIter + 1).toInt
   val rstMax = if (staticNiter) 1 else niterComputeDelay
   val rstw = Utils.log2Up(niterComputeDelay) + 2
   val rstCtr = Module(new SingleCounter(1, Some(0), None, Some(1), Some(0), width = rstw))

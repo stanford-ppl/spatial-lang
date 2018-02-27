@@ -237,6 +237,11 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	def *-*[T] (rawop: T, delay: Option[Double], rounding:LSBCasting = Truncate, saturating:MSBCasting = Lazy): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
+				val op_latency = if (Utils.retime) { 
+					if (delay.isDefined) delay.get.toDouble
+					else (Utils.fixmul_latency * op.getWidth).toDouble
+				} else 0
+
 				// Compute upcasted type and return type
 				val upcasted_type = if (rounding == Truncate && saturating == Lazy) (op.s | s, scala.math.max(op.d, d), scala.math.max(op.f, f))
 									else (op.s | s, op.d + d, op.f + f)
@@ -247,21 +252,17 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				if (rounding == Truncate && saturating == Lazy) {
 					val expanded_self = if (op.f != 0) util.Cat(util.Fill(op.f, this.msb), this.number) else this.number
 					val expanded_op = if (f != 0) util.Cat(util.Fill(f, op.msb), op.number) else op.number
-					full_result.number := (expanded_self.*-*(expanded_op, delay)) >> scala.math.max(op.f, f)
+					full_result.number := (expanded_self.*-*(expanded_op, Some(op_latency))) >> scala.math.max(op.f, f)
 				} else {
 					val expanded_self = util.Cat(util.Fill(op.d+op.f, this.msb), this.number)
 					val expanded_op = util.Cat(util.Fill(d+f, op.msb), op.number)
-					full_result.number := expanded_self.*-*(expanded_op, delay)
+					full_result.number := expanded_self.*-*(expanded_op, Some(op_latency))
 				}
 
 				// Downcast to result
 				val result = Wire(new FixedPoint(return_type))
-				val op_latency = if (Utils.retime) { 
-					if (delay.isDefined) delay.get.toInt
-					else Utils.fixmul_latency
-				} else 0
-				val expect_neg = if (op.s | s) {Utils.getRetimed((this.msb ^ op.msb), op_latency)} else false.B
-				val expect_pos = if (op.s | s) {Utils.getRetimed(~(this.msb ^ op.msb), op_latency)} else true.B
+				val expect_neg = if (op.s | s) {Utils.getRetimed((this.msb ^ op.msb), op_latency.toInt)} else false.B
+				val expect_pos = if (op.s | s) {Utils.getRetimed(~(this.msb ^ op.msb), op_latency.toInt)} else true.B
 				full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 				result
 			case op: UInt => 
@@ -281,11 +282,16 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 	def /-/[T] (rawop: T, delay: Option[Double], rounding:LSBCasting = Truncate, saturating:MSBCasting = Lazy): FixedPoint = {
 		rawop match { 
 			case op: FixedPoint => 
+				val op_latency = if (Utils.retime) { 
+					if (delay.isDefined) delay.get.toDouble
+					else (Utils.fixdiv_latency * op.getWidth).toDouble
+				} else 0
+
 				if (op.f + f == 0) {
 					if (op.s | s) {
-						(this.number.asSInt./-/(op.number.asSInt, delay)).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+						(this.number.asSInt./-/(op.number.asSInt, Some(op_latency))).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
 					} else {
-						(this.number./-/(op.number, delay)).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
+						(this.number./-/(op.number, Some(op_latency))).FP(false, scala.math.max(op.d, d), scala.math.max(op.f, f))
 					}
 				} else {
 					// Compute upcasted type and return type
@@ -299,20 +305,16 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 					if (op.s | s) {
 						val numerator = util.Cat(this.number, 0.U(upcasted_type._3.W)).asSInt
 						val denominator = op.number.asSInt
-						full_result.number := (numerator./-/(denominator, delay)).asUInt
+						full_result.number := (numerator./-/(denominator, Some(op_latency))).asUInt
 					} else {
 						val numerator = util.Cat(this.number, 0.U(upcasted_type._3.W))
 						val denominator = op.number
-						full_result.number := (numerator./-/(denominator, delay)) // Not sure why we need the +1 in pow2
+						full_result.number := (numerator./-/(denominator, Some(op_latency))) // Not sure why we need the +1 in pow2
 					}
 					// Downcast to result
 					val result = Wire(new FixedPoint(return_type))
-					val op_latency = if (Utils.retime) { 
-						if (delay.isDefined) delay.get.toInt
-						else Utils.fixmul_latency
-					} else 0
-					val expect_neg = if (op.s | s) {Utils.getRetimed((op.msb ^ this.msb), op_latency)} else false.B
-					val expect_pos = if (op.s | s) {Utils.getRetimed(~(this.msb ^ op.msb), op_latency)} else true.B
+					val expect_neg = if (op.s | s) {Utils.getRetimed((op.msb ^ this.msb), op_latency.toInt)} else false.B
+					val expect_pos = if (op.s | s) {Utils.getRetimed(~(this.msb ^ op.msb), op_latency.toInt)} else true.B
 					full_result.cast(result, rounding = rounding, saturating = saturating, expect_neg = expect_neg, expect_pos = expect_pos)
 					result					
 				}
