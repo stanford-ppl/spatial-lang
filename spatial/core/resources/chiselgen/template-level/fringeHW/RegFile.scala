@@ -63,15 +63,18 @@ class RegFile(val w: Int, val d: Int, val numArgIns: Int = 0, val numArgOuts: In
     if ((argOutRange contains i) & (argInRange contains i)) {
       ff.io.enable := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wen & (io.waddr === id.U(addrWidth.W)), io.argOuts(argOutRange.indexOf(i)).valid)
       ff.io.in := Mux(io.wen & (io.waddr === id.U(addrWidth.W)), io.wdata, io.argOuts(regIdx2ArgOut(i)).bits)
+      ff.reset := reset.toBool
       ff.io.reset := reset.toBool // Board level
     } else if (argOutRange contains i) {
       ff.io.enable := io.argOuts(argOutRange.indexOf(i)).valid | (io.wen & (io.waddr === id.U(addrWidth.W)))
       ff.io.in := Mux(io.argOuts(regIdx2ArgOut(i)).valid, io.argOuts(regIdx2ArgOut(i)).bits, io.wdata)
       if (argOutLoopbacksMap.contains(regIdx2ArgOut(i-1))) io.argOutLoopbacks(argOutLoopbacksMap(regIdx2ArgOut(i-1))) := ff.io.out
-      ff.io.reset := reset.toBool // io.reset
+      ff.reset := io.reset
+      ff.io.reset := reset.toBool //io.reset // reset.toBool 
     } else {
       ff.io.enable := io.wen & (io.waddr === id.U(addrWidth.W))
       ff.io.in := io.wdata
+      ff.reset := reset.toBool
       ff.io.reset := reset.toBool // Board level
     }
 
