@@ -10,6 +10,7 @@ class SpatialConfig extends argon.core.Config {
   case class SpatialConf(
     fpga: String,
     sim: Boolean,
+    regen: Boolean,
     synth: Boolean,
     interpret: Boolean,
     inputs: Seq[String],
@@ -65,7 +66,8 @@ class SpatialConfig extends argon.core.Config {
   var enableSynth: Boolean = _
   var enablePIR: Boolean = _
   var enablePIRSim: Boolean = false
-  var pirsrc: Option[String] = None 
+  var pirsrc: Option[String] = None
+  var enableRegen: Boolean = _
 
   var enableRetiming: Boolean = _
 
@@ -111,6 +113,7 @@ spatial {
   fpga = "Default"
   interpret = false
   sim = true
+  regen = false
   inputs = ["0", "1", "2", "3", "4"]
   synth = false
   pir = false
@@ -135,6 +138,7 @@ spatial {
         inputs = spatialConf.inputs.toArray
         enableInterpret = spatialConf.interpret
         enableSim = spatialConf.sim
+        enableRegen = spatialConf.regen
         enableSynth = spatialConf.synth
         enablePIR = spatialConf.pir
 

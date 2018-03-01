@@ -116,7 +116,9 @@ trait SpatialCompiler extends ArgonCompiler {
     lazy val interpreter = new Interpreter { var IR = state }
     lazy val spatialgen = new SpatialGenSpatial { var IR = state }
 
-    passes += spatialgen
+    if (spatialConfig.enableRegen) {
+      passes += spatialgen
+    }
     passes += printer
     passes += friendlyTransformer
     passes += printer
