@@ -674,6 +674,11 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
+    dbgs(s"")
+    dbgs(s"  access: ${str(access)}")
+    dbgs(s"  access:  " + unrollFactorsOf(access).mkString(", "))
+    dbgs(s"  memory:  " + unrollFactorsOf(mem).mkString(", "))
+    dbgs(s"  factors: " + factors.mkString(", "))
     (BankedMemory(Seq(NoBanking(1)), depth = 1, isAccum = false), duplicates)
   }
 

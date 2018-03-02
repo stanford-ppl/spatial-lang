@@ -117,7 +117,7 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
     inds.zip(factors).foreach{case (i,f) => parFactorOf(i) = f }
     inds.zip(countersOf(cchain)).foreach{case (i,c) => ctrOf(i) = c }
     controller.foreach{ctrl => inds.foreach{i => ctrlOf(i) = ctrl }}
-    unrollFactors = factors.lastOption.toList +: unrollFactors
+    unrollFactors = factors.toList +: unrollFactors
     loopIterators = loopIterators ++ inds
     inInnerLoop = isInnerControl(blkToCtrl(blk)) // This version of the method is only called for loops
 
@@ -458,10 +458,12 @@ trait ControlSignalAnalyzer extends SpatialTraversal {
       isInnerAccum(accum) = isInnerControl(lhs)
 
     case OpMemReduce(en,cchainMap,cchainRed,accum,map,ldRes,ldAcc,reduce,store,_,_,rV,itersMap,itersRed) =>
-      visitBlk((lhs,0), itersMap, cchainMap) { visitBlock(map) }
-      visitBlk((lhs,1), itersRed, cchainRed) { visitBlock(ldRes) }
-      visitBlk((lhs,2), itersRed, cchainRed) { visitBlock(ldAcc) }
-      visitBlk((lhs,3), itersRed, cchainRed) { visitBlock(reduce) }
+      visitBlk((lhs,0), itersMap, cchainMap) {
+        visitBlock(map)
+        visitBlk((lhs,1), itersRed, cchainRed){ visitBlock(ldRes) }
+        visitBlk((lhs,3), itersRed, cchainRed){ visitBlock(reduce) }
+      }
+      visitBlk((lhs,2), itersRed, cchainRed){ visitBlock(ldAcc) }
       visitBlk((lhs,4), itersRed, cchainRed) { visitBlock(store) }
 
       isAccum(accum) = true

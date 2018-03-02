@@ -11,9 +11,9 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
   override val name = "Register Read CSE"
 
   // Mechanism to track duplicates that are no longer needed due to CSE'd register reads
-  var csedDuplicates = Map[Exp[_], Set[Int]]()
-  private def removeDuplicates(reg: Exp[_], dups: Set[Int]) = {
-    csedDuplicates += reg -> (dups ++ csedDuplicates.getOrElse(reg, Set.empty))
+  var csedDuplicates = Map[Exp[_], Seq[Int]]()
+  private def removeDuplicates(reg: Exp[_], dups: Seq[Int]) = {
+    csedDuplicates += reg -> (dups ++ csedDuplicates.getOrElse(reg, Nil))
   }
 
   override protected def postprocess[T:Type](block: Block[T]): Block[T] = {
@@ -24,7 +24,11 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
 
     for ((reg,csed) <- csedDuplicates) {
       val orig = duplicatesOf(reg)
+      //val csedCounts = csed.groupBy{x=> x}.mapValues(_.length)
       val duplicates = orig.zipWithIndex.filter{case (dup,i) => !csed.contains(i) }
+      /*val removed = csedCounts.getOrElse(i,0)
+        if (removed >= dup.)
+      }*/
       duplicatesOf(reg) = duplicates.map(_._1)
 
       val remap = duplicates.map(_._2).zipWithIndex
@@ -100,7 +104,7 @@ case class RegReadCSE(var IR: State) extends ForwardTransformer {
               dbg(c"  Dups: " + dups.mkString(", "))
               dbg(c"  Same: " + same.mkString(", "))
               dbg(c"  CSEd: " + csed.mkString(", "))
-              removeDuplicates(f(reg), csed)
+              removeDuplicates(f(reg), csed.toSeq)
             case None => // No action
           }
           lhs2.asInstanceOf[Exp[T]]
