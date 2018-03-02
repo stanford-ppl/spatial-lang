@@ -42,6 +42,8 @@ class MAGCore(
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
   val numDebugs = 500
+  val maxBurstsPerCmd = 256
+  val maxBytesPerCmd = maxBurstsPerCmd * burstSizeBytes
 
   val scatterGatherD = d
 
@@ -131,6 +133,7 @@ class MAGCore(
 
   connectDbgSig(debugFF(chisel3.util.Cat(0x7F.U(32.W), io.app.loads.head.cmd.bits.addr(31,0)), io.app.loads.head.cmd.valid ).io.out, "Last load addr issued from app")  
 
+  val sizeCounter = Module(new Counter(sizeWidth)) // Must be able to capture any size command
   val cmds = io.app.loads.map { _.cmd } ++ io.app.stores.map {_.cmd }
   cmdArbiter.io.enq.zip(cmds) foreach {case (enq, cmd) => 
     // enq(0).addr := chisel3.util.Cat(0x7f.U(32.W), cmd.bits.addr(31,0))
@@ -145,7 +148,7 @@ class MAGCore(
   val cmdHead = cmdArbiter.io.deq(0)
 
   val cmdAddr = Wire(new BurstAddr(addrWidth, w, burstSizeBytes))
-  cmdAddr.bits := cmdHead.addr
+  cmdAddr.bits := cmdHead.addr + sizeCounter.io.out
 
   val cmdRead = io.enable & cmdArbiter.io.deqReady & ~cmdHead.isWr
   val cmdWrite = io.enable & cmdArbiter.io.deqReady & cmdHead.isWr
@@ -154,9 +157,26 @@ class MAGCore(
   val wrespTag = io.dram.wresp.bits.tag
 
   val wdataReady = io.dram.wdata.ready
-  val burstCounter = Module(new Counter(w))
+  val burstCounter = Module(new Counter(16)) // 9 bits would capture AXI max cmd of 256 on Xilinx, set to 16 to be safe
   val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts)))
   val dramReadySeen = Wire(Bool())
+
+  // Size counter: Controls the size of requests issued based on target-specific 'maxSize' parameter.
+  // max: size in bursts
+  // stride: maxSize
+  // en: dramReady & dramValid
+  // dram.cmd.bits.size := Mux(sizeCounter.io.done, sizeCounter.io.max - sizeCounter.io.out, sizeCounter.io.max)
+  // Deq cmdFifo when sizeCounter wraps, NOT when burstCounter wraps
+  sizeCounter.io.reset := false.B // TODO: When should this reset
+  sizeCounter.io.saturate := false.B
+  sizeCounter.io.max := cmdHead.size
+  sizeCounter.io.stride := maxBytesPerCmd.U
+
+  val sizeCounterDoneLatch = Module(new FF(Bool()))
+  sizeCounterDoneLatch.io.init := false.B
+  sizeCounterDoneLatch.io.in := true.B
+  sizeCounterDoneLatch.io.enable := sizeCounter.io.done
+  sizeCounterDoneLatch.io.reset := burstCounter.io.done | (io.dram.rresp.valid & io.dram.rresp.ready)  // Assumes burst counter will finish after sizeCounter, potential hazard
 
   val rrespReadyMux = Module(new MuxN(Bool(), loadStreamInfo.size))
   rrespReadyMux.io.sel := rrespTag.streamId
@@ -181,7 +201,8 @@ class MAGCore(
     tag.streamId := cmdArbiter.io.tag
     i.bits.tag := tag
     val size = Wire(new BurstAddr(cmdHead.size.getWidth, w, burstSizeBytes))
-    size.bits := cmdHead.size
+//    size.bits := cmdHead.size
+    size.bits := Mux(sizeCounter.io.done, cmdHead.size - sizeCounter.io.out, maxBytesPerCmd.U)
     i.bits.size := size.burstTag + (size.burstOffset != 0.U)
     i.bits.isWr := cmdHead.isWr
     if (id < loadStreamInfo.length && id == 0) {
@@ -274,7 +295,8 @@ class MAGCore(
     m.io.enqVld := io.dram.rresp.valid & (rrespTag.streamId === i.U)
 
     rrespReadyMux.io.ins(i) := ~m.io.full
-    cmdDeqValidMux.io.ins(i) := dramReady
+//    cmdDeqValidMux.io.ins(i) := dramReady
+    cmdDeqValidMux.io.ins(i) := sizeCounter.io.done
 
     dramCmdMux.io.ins(i).valid := cmdRead
     dramCmdMux.io.ins(i).bits.tag.uid := burstTagCounter.io.out
@@ -395,7 +417,8 @@ class MAGCore(
     val m = Module(new FIFOWidthConvert(s.w, s.v, external_w, external_v, d))
     val stream = io.app.stores(i)
 
-    cmdDeqValidMux.io.ins(j) := burstCounter.io.done
+    // cmdDeqValidMux.io.ins(j) := burstCounter.io.done
+    cmdDeqValidMux.io.ins(j) := burstCounter.io.done & sizeCounterDoneLatch.io.out
 
     dramCmdMux.io.ins(j).valid := cmdWrite & wdataValid & ~dramReadySeen
     dramCmdMux.io.ins(j).bits.tag.uid := burstTagCounter.io.out
@@ -415,9 +438,22 @@ class MAGCore(
     // connectDbgSig(debugCounter(stream.wdata.valid).io.out, s"store stream $i # cycles valid")
     // connectDbgSig(debugCounter(~m.io.full && stream.wdata.valid).io.out, s"store stream $i # handshakes")
 
+    val wrespSizeCounter = Module(new Counter(sizeWidth))
+    val wrespSizeCounterMaxLatch = Module(new FF(UInt(sizeWidth.W)))
+    wrespSizeCounterMaxLatch.io.reset := false.B
+    wrespSizeCounterMaxLatch.io.init := 0.U
+    wrespSizeCounterMaxLatch.io.in := cmdHead.size
+    wrespSizeCounterMaxLatch.io.enable := io.dram.cmd.valid & io.dram.cmd.ready
+
+    wrespSizeCounter.io.reset := false.B
+    wrespSizeCounter.io.saturate := false.B
+    wrespSizeCounter.io.max := wrespSizeCounterMaxLatch.io.out
+    wrespSizeCounter.io.stride := maxBytesPerCmd.U
+    wrespSizeCounter.io.enable := io.dram.wresp.valid & (wrespTag.streamId === j.U)
+
     val wrespFIFO = Module(new FIFOCounter(d, 1))
     wrespFIFO.io.enq(0) := io.dram.wresp.valid
-    wrespFIFO.io.enqVld := io.dram.wresp.valid & (wrespTag.streamId === j.U)
+    wrespFIFO.io.enqVld := wrespSizeCounter.io.done //io.dram.wresp.valid & (wrespTag.streamId === j.U)
     wrespReadyMux.io.ins(i) := ~wrespFIFO.io.full
     stream.wresp.bits  := wrespFIFO.io.deq(0)
     stream.wresp.valid := ~wrespFIFO.io.empty
@@ -431,11 +467,19 @@ class MAGCore(
   }
 
   val dramValid = io.dram.cmd.valid
-  burstCounter.io.max := Mux(io.dram.cmd.bits.isWr, io.dram.cmd.bits.size, 1.U)
+
+  val burstCounterMaxLatch = Module(new FF(UInt(io.dram.cmd.bits.size.getWidth.W)))
+  burstCounterMaxLatch.io.init := Cat("hBADF".U, dbgCount.U)
+  burstCounterMaxLatch.io.in := io.dram.cmd.bits.size
+  burstCounterMaxLatch.io.enable := dramValid
+
+  burstCounter.io.max := Mux(io.dram.cmd.bits.isWr, burstCounterMaxLatch.io.out, 1.U)
   burstCounter.io.stride := 1.U
   burstCounter.io.reset := io.reset
   burstCounter.io.enable := Mux(io.dram.cmd.bits.isWr, wdataValid & wdataReady, dramValid  & dramReady)
   burstCounter.io.saturate := false.B
+
+  sizeCounter.io.enable := dramValid & dramReady
 
   // strictly speaking this isn't necessary, but the DRAM part of the test bench expects unique tags
   // and sometimes apps make requests to the same address so tagging with the address isn't enough to guarantee uniqueness
