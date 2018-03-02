@@ -14,6 +14,7 @@ class Counter(val w: Int) extends Module {
     val stride   = Input(UInt(w.W))
     val out      = Output(UInt(w.W))
     val next     = Output(UInt(w.W))
+    val last     = Output(Bool())
     val reset  = Input(Bool())
     val enable = Input(Bool())
     val saturate = Input(Bool())
@@ -35,6 +36,7 @@ class Counter(val w: Int) extends Module {
     reg.io.in := next
   }
 
+  io.last := isMax
   io.out := count
   io.next := next
   io.done := io.enable & isMax

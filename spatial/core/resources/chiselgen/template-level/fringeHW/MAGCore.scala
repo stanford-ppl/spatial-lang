@@ -178,7 +178,7 @@ class MAGCore(
   sizeCounterDoneLatch.io.init := false.B
   sizeCounterDoneLatch.io.in := true.B
   sizeCounterDoneLatch.io.enable := sizeCounter.io.done
-  sizeCounterDoneLatch.io.reset := (burstCounterDoneLatch.io.out | (io.dram.rresp.valid & io.dram.rresp.ready))  // Assumes burst counter will finish after sizeCounter, potential hazard
+  sizeCounterDoneLatch.io.reset := (burstCounterDoneLatch.io.out)// | (io.dram.rresp.valid & io.dram.rresp.ready))  // Assumes burst counter will finish after sizeCounter, potential hazard
 
   val rrespReadyMux = Module(new MuxN(Bool(), loadStreamInfo.size))
   rrespReadyMux.io.sel := rrespTag.streamId
@@ -377,7 +377,7 @@ class MAGCore(
     m.io.fifo.enqVld := deqCmd
     m.io.fifo.enq(0).data.foreach { _ := wdata.io.deq(0) }
     m.io.fifo.enq(0).cmd := cmdHead
-    m.io.fifo.deqVld := burstCounter.io.done
+    m.io.fifo.deqVld := burstCounterDoneLatch.io.out // burstCounter.io.done
 
     wdataMux.io.ins(i).valid := issueWrite
     wdataMux.io.ins(i).bits.wdata := Utils.vecWidthConvert(m.io.fifo.deq(0).data, w)
@@ -428,9 +428,9 @@ class MAGCore(
     m.io.enqVld := stream.wdata.valid
     m.io.enq := stream.wdata.bits
     m.io.enqStrb := stream.wstrb.bits
-    m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U) & ~cmdCooldown.io.out
+    m.io.deqVld := cmdWrite & ~m.io.empty & io.dram.wdata.ready & (cmdArbiter.io.tag === j.U) & ~cmdCooldown.io.out & ~burstCounterDoneLatch.io.out
 
-    wdataMux.io.ins(i).valid := cmdWrite & ~m.io.empty & ~cmdCooldown.io.out
+    wdataMux.io.ins(i).valid := cmdWrite & ~m.io.empty & ~cmdCooldown.io.out & ~burstCounterDoneLatch.io.out
     wdataMux.io.ins(i).bits.wdata := m.io.deq
     wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := m.io.deqStrb(i)}
     stream.wdata.ready := ~m.io.full
@@ -479,7 +479,7 @@ class MAGCore(
   burstCounterDoneLatch.io.init := false.B
   burstCounterDoneLatch.io.in := true.B
   burstCounterDoneLatch.io.enable := burstCounter.io.done
-  burstCounterDoneLatch.io.reset := burstCounterDoneLatch.io.out & sizeCounterDoneLatch.io.out
+  burstCounterDoneLatch.io.reset := Mux(burstCounter.io.last, burstCounterDoneLatch.io.out & sizeCounterDoneLatch.io.out, burstCounterDoneLatch.io.out)
 
   burstCounter.io.max := Mux(io.dram.cmd.bits.isWr, burstCounterMax, 1.U)
   burstCounter.io.stride := 1.U
