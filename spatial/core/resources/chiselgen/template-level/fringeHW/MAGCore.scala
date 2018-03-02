@@ -58,6 +58,7 @@ class MAGCore(
 
   def storeStreamIndex(id: UInt) = id - loadStreamInfo.size.U
   def storeStreamId(index: Int) = index + loadStreamInfo.size
+  def loadStreamId(index: Int) = index
 
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
@@ -156,6 +157,7 @@ class MAGCore(
   val rrespTag = io.dram.rresp.bits.tag
   val wrespTag = io.dram.wresp.bits.tag
 
+  val isSparseMux = Module(new MuxN(Bool(), numStreams))
   val wdataReady = io.dram.wdata.ready
   val burstCounter = Module(new Counter(16)) // 9 bits would capture AXI max cmd of 256 on Xilinx, set to 16 to be safe
   val burstTagCounter = Module(new Counter(log2Up(numOutstandingBursts)))
@@ -169,7 +171,7 @@ class MAGCore(
   // Deq cmdFifo when sizeCounter wraps, NOT when burstCounter wraps
   sizeCounter.io.reset := false.B // TODO: When should this reset
   sizeCounter.io.saturate := false.B
-  sizeCounter.io.max := cmdHead.size
+  sizeCounter.io.max := Mux(isSparseMux.io.out, 1.U, cmdHead.size)
   sizeCounter.io.stride := maxBytesPerCmd.U
 
   val cmdCooldown =  Module(new FF(Bool()))
@@ -193,6 +195,8 @@ class MAGCore(
 
   val cmdDeqValidMux = Module(new MuxN(Bool(), numStreams))
   cmdDeqValidMux.io.sel := cmdArbiter.io.tag
+
+  isSparseMux.io.sel := cmdArbiter.io.tag
 
   val dramCmdMux = Module(new MuxN(Valid(io.dram.cmd.bits), numStreams))
   dramCmdMux.io.sel := cmdArbiter.io.tag
@@ -268,6 +272,7 @@ class MAGCore(
   }
 
   val gatherBuffers = sparseLoads.map { case (s, i) =>
+    val j = loadStreamId(i)
     val m = Module(new GatherBuffer(s.w, scatterGatherD, s.v, burstSizeBytes, addrWidth, cmdHead, io.dram.rresp.bits))
     m.io.rresp.valid := io.dram.rresp.valid & (rrespTag.streamId === i.U)
     m.io.rresp.bits := io.dram.rresp.bits
@@ -277,8 +282,10 @@ class MAGCore(
     gatherLoadIssueMux.io.ins(i) := ~cmdArbiter.io.empty & cmdDeqValidMux.io.ins(i) & dramCmdMux.io.ins(i).valid
     gatherLoadSkipMux.io.ins(i) := ~cmdArbiter.io.empty & cmdDeqValidMux.io.ins(i) & ~dramCmdMux.io.ins(i).valid
 
+    isSparseMux.io.ins(j) := true.B
+
     rrespReadyMux.io.ins(i) := true.B
-    cmdDeqValidMux.io.ins(i) := ~m.io.fifo.full & dramReady
+    cmdDeqValidMux.io.ins(i) := ~m.io.fifo.full & dramReady //& ~cmdCooldown.io.out
     dramCmdMux.io.ins(i).valid := cmdRead & ~m.io.fifo.full & ~m.io.hit
     dramCmdMux.io.ins(i).bits.tag.uid := cmdAddr.burstTag
 
@@ -292,6 +299,8 @@ class MAGCore(
   // TODO: this currently assumes the memory controller hands back data in the order it was requested,
   // but according to the AXI spec the ARID field should be constant to enforce ordering?
   val denseLoadBuffers = denseLoads.map { case (s, i) =>
+    val j = loadStreamId(i)
+
     val m = Module(new FIFOWidthConvert(external_w, io.dram.rresp.bits.rdata.size, s.w, s.v, d))
     m.io.enq := io.dram.rresp.bits.rdata
     m.io.enqVld := io.dram.rresp.valid & (rrespTag.streamId === i.U)
@@ -302,6 +311,8 @@ class MAGCore(
 
     dramCmdMux.io.ins(i).valid := cmdRead
     dramCmdMux.io.ins(i).bits.tag.uid := burstTagCounter.io.out
+
+    isSparseMux.io.ins(j) := false.B
 
     val stream = io.app.loads(i)
     stream.rdata.bits := m.io.deq
@@ -345,6 +356,8 @@ class MAGCore(
     val issueRead = ~m.io.complete & write & ~m.io.fifo.full & ~wdata.io.empty & ~m.io.hit
     val skipRead = write & m.io.hit & ~wdata.io.empty
 
+    isSparseMux.io.ins(j) := true.B
+
     val deqCmd = skipRead | (issueRead & dramReady)
     wdata.io.config.chainRead := true.B
     wdata.io.config.chainWrite := true.B
@@ -377,9 +390,9 @@ class MAGCore(
     m.io.fifo.enqVld := deqCmd
     m.io.fifo.enq(0).data.foreach { _ := wdata.io.deq(0) }
     m.io.fifo.enq(0).cmd := cmdHead
-    m.io.fifo.deqVld := burstCounterDoneLatch.io.out // burstCounter.io.done
+    m.io.fifo.deqVld := /*~cmdCooldown.io.out &*/ burstCounter.io.done
 
-    wdataMux.io.ins(i).valid := issueWrite
+    wdataMux.io.ins(i).valid := issueWrite /*& ~cmdCooldown.io.out*/ & ~burstCounterDoneLatch.io.out
     wdataMux.io.ins(i).bits.wdata := Utils.vecWidthConvert(m.io.fifo.deq(0).data, w)
     wdataMux.io.ins(i).bits.wstrb.zipWithIndex.foreach{case (st, i) => st := true.B}
 
@@ -424,6 +437,8 @@ class MAGCore(
 
     dramCmdMux.io.ins(j).valid := cmdWrite & wdataValid & ~dramReadySeen
     dramCmdMux.io.ins(j).bits.tag.uid := burstTagCounter.io.out
+
+    isSparseMux.io.ins(j) := false.B
 
     m.io.enqVld := stream.wdata.valid
     m.io.enq := stream.wdata.bits
@@ -498,12 +513,11 @@ class MAGCore(
   burstTagCounter.io.saturate := false.B
 
   val dramReadyFF = Module(new FF(Bool()))
-  val cmdDeqValidSlow = cmdDeqValidMux.io.out// & ~cmdCooldown.io.out
   dramReadyFF.io.init := 0.U
   dramReadyFF.io.enable := burstCounterDoneLatch.io.out | (dramValid  & io.dram.cmd.bits.isWr)
   dramReadyFF.io.in := Mux(burstCounterDoneLatch.io.out, 0.U, dramReady | dramReadySeen)
   dramReadySeen := dramReadyFF.io.out
-  cmdArbiter.io.deqVld := cmdDeqValidSlow
+  cmdArbiter.io.deqVld := cmdDeqValidMux.io.out
 
   io.dram.wdata.bits.wdata := wdataMux.io.out.bits.wdata
   io.dram.wdata.bits.wstrb := wdataMux.io.out.bits.wstrb.reverse // .foreach(_ := 1.U)
@@ -521,7 +535,7 @@ class MAGCore(
   cmdCooldown.io.enable := io.dram.cmd.valid & io.dram.cmd.ready // Enforce one cycle cooldown
   cmdCooldown.io.in := true.B
   cmdCooldown.io.init := 0.U
-  io.dram.cmd.valid := dramCmdMux.io.out.valid & ~cmdCooldown.io.out
+  io.dram.cmd.valid := dramCmdMux.io.out.valid & Mux(isSparseMux.io.out, true.B, ~cmdCooldown.io.out)
 
   val cycleCount = debugCounter(io.enable)
   connectDbgSig(cycleCount.io.out, "Cycles")
