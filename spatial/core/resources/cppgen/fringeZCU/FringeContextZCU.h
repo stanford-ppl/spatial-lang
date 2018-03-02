@@ -359,7 +359,7 @@ public:
     // dumpNonDebugRegs();
     writeReg(commandReg, 1);
 
-    fprintf(stderr, "Running design..\n");
+    // fprintf(stderr, "Running design..\n");
     double startTime = getTime();
     int num = 0;
     while((status == 0)) {
