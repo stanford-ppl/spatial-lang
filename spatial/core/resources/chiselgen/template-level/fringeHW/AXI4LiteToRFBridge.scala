@@ -39,7 +39,7 @@ class AXI4LiteToRFBridge(val addrWidth: Int, val dataWidth: Int) extends Module 
 
   d.io.S_AXI <> io.S_AXI
   d.io.S_AXI_ACLK := clock
-  d.io.S_AXI_ARESETN := reset
+  d.io.S_AXI_ARESETN := ~reset.toBool
 
   io.raddr := d.io.rf_raddr
   io.waddr := d.io.rf_waddr
@@ -85,7 +85,7 @@ class AXI4LiteToRFBridgeZCU(val addrWidth: Int, val dataWidth: Int) extends Modu
 
   d.io.S_AXI <> io.S_AXI
   d.io.S_AXI_ACLK := clock
-  d.io.S_AXI_ARESETN := reset
+  d.io.S_AXI_ARESETN := ~reset.toBool
 
   io.raddr := d.io.rf_raddr
   io.waddr := d.io.rf_waddr

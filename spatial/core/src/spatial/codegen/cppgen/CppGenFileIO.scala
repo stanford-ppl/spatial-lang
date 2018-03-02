@@ -51,6 +51,11 @@ trait CppGenFileIO extends CppCodegen  {
     		close("}")
     	close("}")
 
+    // case OpenBinaryFile(filename: Exp[MString], write: Boolean)
+    // case CloseBinaryFile(file: Exp[MBinaryFile])
+    // case ReadBinaryFile[T:Type:Num](file: Exp[MBinaryFile])
+    // case WriteBinaryFile[T:Type:Num](file:  Exp[MBinaryFile],len:   Exp[Index],value: Lambda1[Index, T],index: Bound[Index])
+
     case _ => super.emitNode(lhs, rhs)
   }
 

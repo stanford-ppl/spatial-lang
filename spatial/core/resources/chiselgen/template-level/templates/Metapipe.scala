@@ -44,7 +44,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val deadState = Module(new SRFF()) // This is a hack because with new retime optimizations, mask signal may come one cycle after next state is entered
   deadState.io.input.asyn_reset := Utils.getRetimed(reset, 1)
 
-  val niterComputeDelay = ctrDepth * fixmul_latency + Utils.delay_per_numIter + 1
+  val niterComputeDelay = (ctrDepth * (fixmul_latency*32).toInt + Utils.delay_per_numIter + 1).toInt
   val rstMax = if (staticNiter) 1 else niterComputeDelay
   val rstw = Utils.log2Up(niterComputeDelay) + 2
   val rstCtr = Module(new SingleCounter(1, Some(0), None, Some(1), Some(0), width = rstw))
@@ -56,11 +56,11 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   val stateFF = Module(new FF(numIterWidth))
   stateFF.io.input(0).enable := true.B // TODO: Do we need this line?
   stateFF.io.input(0).init := resetState.U
-  stateFF.io.input(0).reset := io.input.rst
+  stateFF.io.input(0).reset := Utils.getRetimed(io.input.rst, 1) // Delay to break critical path @ 250MHz
   val state = stateFF.io.output.data
 
   rstCtr.io.input.enable := state === resetState.U & io.input.enable
-  rstCtr.io.input.reset := (state != resetState.U) | io.input.rst
+  rstCtr.io.input.reset := (state != resetState.U) | Utils.getRetimed(io.input.rst, 1)
   rstCtr.io.input.saturate := true.B
   // rstCtr.io.input.stop := Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W))
   rstCtr.io.input.stop := Mux(staticNiter.B, 1.S, Mux(firstIterComplete.io.output.data, rstMax.S(rstw.W), niterComputeDelay.S(rstw.W)))
@@ -73,14 +73,14 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   maxFF.io.input(0).enable := io.input.enable
   maxFF.io.input(0).data := io.input.numIter
   maxFF.io.input(0).init := 0.U
-  maxFF.io.input(0).reset := io.input.rst
+  maxFF.io.input(0).reset := Utils.getRetimed(io.input.rst, 1)
   val max = getRetimed(maxFF.io.output.data,1)
 
   val doneClear = Wire(UInt())
   val doneFF = List.tabulate(n) { i =>
     val ff = Module(new SRFF())
     ff.io.input.set := io.input.stageDone(i) //& ~deadState.io.output.data
-    ff.io.input.asyn_reset := io.input.rst
+    ff.io.input.asyn_reset := Utils.getRetimed(io.input.rst, 1)
     ff.io.input.reset := doneClear //false.B
     ff
   }
@@ -90,7 +90,7 @@ class Metapipe(val n: Int, val ctrDepth: Int = 1, val isFSM: Boolean = false, va
   ctr.io.input.enable := doneClear //& ~deadState.io.output.data
   ctr.io.input.saturate := true.B
   ctr.io.input.stop := max.asSInt
-  ctr.io.input.reset := io.input.rst | (state === doneState.U)
+  ctr.io.input.reset := Utils.getRetimed(io.input.rst | (state === doneState.U), 1)
   io.output.rst_en := getRetimed((state === resetState.U),1)
 
   // Counter for handling drainage while in fill state

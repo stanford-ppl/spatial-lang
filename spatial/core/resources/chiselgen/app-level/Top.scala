@@ -243,6 +243,7 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+      accel.io.reset := fringe.io.reset
 
 
     case "arria10" =>
@@ -281,7 +282,8 @@ class Top(
 
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      accel.reset := reset.toBool
+      accel.reset := reset.toBool | fringe.io.reset
+
 
     case "de1soc" =>
       // DE1SoC Fringe
@@ -362,7 +364,7 @@ class Top(
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
-      accel.reset := reset.toBool
+      accel.reset := reset.toBool | fringe.io.reset
 
     case "zynq" | "zcu" =>
       // Zynq Fringe
@@ -397,7 +399,9 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      accel.reset := ~reset.toBool
+      fringe.reset := ~reset.toBool
+      accel.reset := fringe.io.reset
+      // accel.reset := ~reset.toBool
       io.is_enabled := ~accel.io.enable
 
     case "aws" | "aws-sim" =>
@@ -416,6 +420,7 @@ class Top(
       topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := getFF(accelOut.bits, accelOut.valid) }
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
+      accel.io.reset := fringe.io.reset
 
       fringe.io.externalEnable := topIO.enable
 //      topIO.dbg <> fringe.io.dbg

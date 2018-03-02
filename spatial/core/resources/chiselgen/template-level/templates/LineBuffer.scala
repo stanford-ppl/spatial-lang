@@ -130,15 +130,15 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // Outer counter over number of SRAM -- keep track of current row
   val wCRN_width = 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)
   val WRITE_countRowNum = (0 until rstride).map{i =>
-    val cnt = Module(new NBufCtr(rstride, Some(i), Some(num_lines+extra_rows_to_buffer), wCRN_width))
+    val cnt = Module(new NBufCtr(rstride, Some(i), Some(num_lines+extra_rows_to_buffer), wCRN_width, countDir = 1))
     cnt.io.input.enable := swap
-    cnt.io.input.countUp := true.B
+    // cnt.io.input.countUp := true.B
     cnt
   }
   // Outer counter over number of SRAM -- keep track of current row for transient writer
-  val WRITE_countRowNum_transient = Module(new NBufCtr(1,Some(0), Some(num_lines+extra_rows_to_buffer), wCRN_width))
+  val WRITE_countRowNum_transient = Module(new NBufCtr(1,Some(0), Some(num_lines+extra_rows_to_buffer), wCRN_width, countDir = 1))
   WRITE_countRowNum_transient.io.input.enable := io.transientDone
-  WRITE_countRowNum_transient.io.input.countUp := true.B
+  // WRITE_countRowNum_transient.io.input.countUp := true.B
   val transient_row = WRITE_countRowNum_transient.io.output.count
   
   // Write data_in into line buffer
@@ -185,10 +185,10 @@ class LineBuffer(val num_lines: Int, val line_size: Int, val empty_stages_to_buf
   // ENHANCEMENT: May save some area using a single counter with many outputs and adders/mux for each (to do mod/wrap) but 
   // multiple counters (which start/reset @ various #s) is simpler to write
   val READ_countRowNum = (0 until row_rPar).map{ i => 
-    val c = Module(new NBufCtr(rstride, Some(rstride+i), Some(num_lines+extra_rows_to_buffer), 1 + Utils.log2Up(num_lines+extra_rows_to_buffer)))
+    val c = Module(new NBufCtr(rstride, Some(rstride+i), Some(num_lines+extra_rows_to_buffer), 1 + Utils.log2Up(num_lines+extra_rows_to_buffer), countDir = 1))
     // c.io.input.start := (num_lines+extra_rows_to_buffer-1-i).U
     c.io.input.enable := swap
-    c.io.input.countUp := true.B
+    // c.io.input.countUp := true.B
     c
   }
 

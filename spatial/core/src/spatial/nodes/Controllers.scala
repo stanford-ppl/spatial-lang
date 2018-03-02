@@ -55,11 +55,11 @@ case class OpMemReduce[T:Type:Bits,C[T]](
   cchainMap: Exp[CounterChain],
   cchainRed: Exp[CounterChain],
   accum:     Exp[C[T]],
-  map:       Block[C[T]],
-  loadRes:   Lambda1[C[T],T],
-  loadAcc:   Lambda1[C[T],T],
-  reduce:    Lambda2[T,T,T],
-  storeAcc:  Lambda2[C[T],T,MUnit],
+  map:       Block[C[T]],            // Block #0
+  loadRes:   Lambda1[C[T],T],        // Block #1
+  loadAcc:   Lambda1[C[T],T],        // Block #2
+  reduce:    Lambda2[T,T,T],         // Block #3
+  storeAcc:  Lambda2[C[T],T,MUnit],  // Block #4
   ident:     Option[Exp[T]],
   fold:      Boolean,
   rV:        (Bound[T], Bound[T]),

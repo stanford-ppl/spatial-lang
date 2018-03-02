@@ -90,6 +90,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
       dispatchers.foreach{origDispatches =>
         if (origDispatches.size != 1) {
+          dbgs(s"  READER with ${origDispatches.size} != 1 dispatches: " + origDispatches.mkString(", "))
           bug(c"Readers should have exactly one dispatch, $original -> $unrolled had ${origDispatches.size}")
           bug(original.ctx)
         }

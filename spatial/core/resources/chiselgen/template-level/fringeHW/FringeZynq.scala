@@ -27,6 +27,8 @@ class FringeZynq(
   val axiLiteParams: AXI4BundleParameters,
   val axiParams: AXI4BundleParameters
 ) extends Module {
+
+  val target_w = if (FringeGlobals.target == "zcu") 64 else 64
   val numRegs = numArgIns + numArgOuts + numArgIOs + 2  // (command, status registers)
   // val addrWidth = log2Up(numRegs)
 
@@ -37,7 +39,7 @@ class FringeZynq(
   val v = 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
+  // val d = 16 // FIFO depth: Controls FIFO sizes for address, size, and wdata. Rdata is not buffered
 
   val io = IO(new Bundle {
     // Host scalar interface
@@ -55,11 +57,12 @@ class FringeZynq(
     // Accel Control IO
     val enable = Output(Bool())
     val done = Input(Bool())
+    val reset = Output(Bool())
 
     // Accel Scalar IO
-    val argIns = Output(Vec(numArgIns, UInt(w.W)))
-    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(w.W)))))
-    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(w.W)))
+    val argIns = Output(Vec(numArgIns, UInt(target_w.W)))
+    val argOuts = Vec(numArgOuts, Flipped(Decoupled((UInt(target_w.W)))))
+    val argOutLoopbacks = Output(Vec(1 max argOutLoopbacksMap.toList.length, UInt(target_w.W)))
 
     // Accel memory IO
     val memStreams = new AppStreams(loadStreamInfo, storeStreamInfo)
@@ -85,7 +88,7 @@ class FringeZynq(
     val axiLiteBridge = Module(new AXI4LiteToRFBridge(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
-    fringeCommon.reset := ~reset.toBool
+    // fringeCommon.reset := ~reset.toBool
     fringeCommon.io.raddr := axiLiteBridge.io.raddr
     fringeCommon.io.wen   := axiLiteBridge.io.wen
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
@@ -96,7 +99,7 @@ class FringeZynq(
     val axiLiteBridge = Module(new AXI4LiteToRFBridgeZCU(w, datawidth))
     axiLiteBridge.io.S_AXI <> io.S_AXI
 
-    fringeCommon.reset := ~reset.toBool
+    // fringeCommon.reset := ~reset.toBool
     fringeCommon.io.raddr := axiLiteBridge.io.raddr
     fringeCommon.io.wen   := axiLiteBridge.io.wen
     fringeCommon.io.waddr := axiLiteBridge.io.waddr
@@ -109,8 +112,12 @@ class FringeZynq(
 
   io.enable := fringeCommon.io.enable
   fringeCommon.io.done := io.done
+  fringeCommon.reset := reset.toBool
+  // fringeCommon.reset := reset.toBool
+  io.reset := fringeCommon.io.reset
 
   io.argIns := fringeCommon.io.argIns
+  io.argOutLoopbacks := fringeCommon.io.argOutLoopbacks
   fringeCommon.io.argOuts <> io.argOuts
   // io.argIOIns := fringeCommon.io.argIOIns
   // fringeCommon.io.argIOOuts <> io.argIOOuts

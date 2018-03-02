@@ -3,7 +3,6 @@
 #1 = Backend
 #2+ = args
 
-# get tid
 if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
 elif [[ $1 = "ZCU" ]]; then
@@ -14,9 +13,8 @@ elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
 fi
 
-tid=`cat ${REGRESSION_HOME}/data/tid`
-hash=`cat ${REGRESSION_HOME}/data/hash`
-ahash=`cat ${REGRESSION_HOME}/data/ahash`
+hash=`cat ../../../../hash`
+ahash=`cat ../../../../ahash`
 
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
@@ -136,8 +134,8 @@ if [[ $1 = "Zynq" ]]; then
     python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
 elif [[ $1 = "ZCU" ]]; then
 	APP=$(basename $(pwd))
-	scp $(basename $(pwd)).tar.gz root@zcu102:
-	ssh root@zcu102 "
+	scp $(basename $(pwd)).tar.gz root@holodeck-zcu102:
+	ssh root@holodeck-zcu102 "
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"

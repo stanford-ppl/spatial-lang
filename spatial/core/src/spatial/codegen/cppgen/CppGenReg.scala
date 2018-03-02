@@ -7,7 +7,7 @@ import spatial.metadata._
 import spatial.nodes._
 
 
-trait CppGenReg extends CppCodegen {
+trait CppGenReg extends CppGenSRAM {
 
   override protected def name(s: Dyn[_]): String = s match {
     case Def(ArgInNew(_))  => s"${s}_argin"
@@ -41,32 +41,14 @@ trait CppGenReg extends CppCodegen {
   }
 
   override protected def emitFileFooter() {
-    withStream(getStream("DE1SoC", "h")) {
-      argIOs.foreach{a =>
-        emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${2+argMapping(a)._2}""")
-      }
-    }
     withStream(getStream("ArgAPI", "h")) {
       emit("\n// ArgIns")
-      argIns.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
+      argIns.foreach{a => emit(src"#define ${argHandle(a)}_arg ${argMapping(a)._2}")}
       emit("\n// ArgOuts")
-      argOuts.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._3}")}
+      argOuts.foreach{a => emit(src"#define ${argHandle(a)}_arg ${argMapping(a)._3}")}
       emit("\n// ArgIOs")
-      argIOs.foreach{a => emit(src"#define ${a.name.getOrElse(quote(a)).toUpperCase}_arg ${argMapping(a)._2}")}
+      argIOs.foreach{a => emit(src"#define ${argHandle(a)}_arg ${argMapping(a)._2}")}
     }
-    // withStream(getStream("argmap", "h")) {
-    //   argIOs.foreach{a =>
-    //     emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${argMapping(a)._2}""")
-    //   }
-    //   emit("\n")
-    //   argIns.foreach{a =>
-    //     emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${argMapping(a)._2}""")
-    //   }
-    //   emit("\n")
-    //   argOuts.foreach{a =>
-    //     emit(src"""#define ${a.name.getOrElse("ERROR: Unnamed IO")} ${argMapping(a)._2}""")
-    //   }
-    // }
     super.emitFileFooter()
   }
 }

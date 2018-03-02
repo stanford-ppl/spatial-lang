@@ -534,7 +534,7 @@ extern "C" {
 
       if (write_all) {
         if (debug) {
-          EPRINTF("[Servicing W Command (all channels on)]                   %u %u %u %u\n", data->wdata[0], data->wdata[1], data->wdata[2], data->wdata[3]);
+          EPRINTF("[Servicing W Command (all channels on)]             %u %u %u %u\n", data->wdata[0], data->wdata[1], data->wdata[2], data->wdata[3]);
           EPRINTF("                                                    %u %u %u %u\n", data->wdata[4], data->wdata[5], data->wdata[6], data->wdata[7]);
           EPRINTF("                                                    %u %u %u %u\n", data->wdata[8], data->wdata[9], data->wdata[10], data->wdata[11]);
           EPRINTF("                                                    %u %u %u %u\n", data->wdata[12], data->wdata[13], data->wdata[14], data->wdata[15]);
@@ -562,22 +562,22 @@ extern "C" {
         }
 
         if (debug) {
-          EPRINTF("[Servicing W Command (Strobed) ]   %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[0], data->wstrb[0], wdata[0], data->wdata[1], data->wstrb[1], wdata[1], data->wdata[2], data->wstrb[2], wdata[2], data->wdata[3], data->wstrb[3], wdata[3]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[4], data->wstrb[4], wdata[4], data->wdata[5], data->wstrb[5], wdata[5], data->wdata[6], data->wstrb[6], wdata[6], data->wdata[7], data->wstrb[7], wdata[7]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[8], data->wstrb[8], wdata[8], data->wdata[9], data->wstrb[9], wdata[9], data->wdata[10], data->wstrb[10], wdata[10], data->wdata[11], data->wstrb[11], wdata[11]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[12], data->wstrb[12], wdata[12], data->wdata[13], data->wstrb[13], wdata[13], data->wdata[14], data->wstrb[14], wdata[14], data->wdata[15], data->wstrb[15], wdata[15]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[16], data->wstrb[16], wdata[16], data->wdata[17], data->wstrb[17], wdata[17], data->wdata[18], data->wstrb[18], wdata[18], data->wdata[19], data->wstrb[19], wdata[19]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[20], data->wstrb[20], wdata[20], data->wdata[21], data->wstrb[21], wdata[21], data->wdata[22], data->wstrb[22], wdata[22], data->wdata[23], data->wstrb[23], wdata[23]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[24], data->wstrb[24], wdata[24], data->wdata[25], data->wstrb[25], wdata[25], data->wdata[26], data->wstrb[26], wdata[26], data->wdata[27], data->wstrb[27], wdata[27]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[28], data->wstrb[28], wdata[28], data->wdata[29], data->wstrb[29], wdata[29], data->wdata[30], data->wstrb[30], wdata[30], data->wdata[31], data->wstrb[31], wdata[31]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[32], data->wstrb[32], wdata[32], data->wdata[33], data->wstrb[33], wdata[33], data->wdata[34], data->wstrb[34], wdata[34], data->wdata[35], data->wstrb[35], wdata[35]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[36], data->wstrb[36], wdata[36], data->wdata[37], data->wstrb[37], wdata[37], data->wdata[38], data->wstrb[38], wdata[38], data->wdata[39], data->wstrb[39], wdata[39]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[40], data->wstrb[40], wdata[40], data->wdata[41], data->wstrb[41], wdata[41], data->wdata[42], data->wstrb[42], wdata[42], data->wdata[43], data->wstrb[43], wdata[43]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[44], data->wstrb[44], wdata[44], data->wdata[45], data->wstrb[45], wdata[45], data->wdata[46], data->wstrb[46], wdata[46], data->wdata[47], data->wstrb[47], wdata[47]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[48], data->wstrb[48], wdata[48], data->wdata[49], data->wstrb[49], wdata[49], data->wdata[50], data->wstrb[50], wdata[50], data->wdata[51], data->wstrb[51], wdata[51]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[52], data->wstrb[52], wdata[52], data->wdata[53], data->wstrb[53], wdata[53], data->wdata[54], data->wstrb[54], wdata[54], data->wdata[55], data->wstrb[55], wdata[55]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[56], data->wstrb[56], wdata[56], data->wdata[57], data->wstrb[57], wdata[57], data->wdata[58], data->wstrb[58], wdata[58], data->wdata[59], data->wstrb[59], wdata[59]);
-          EPRINTF("                             %u (%d - %u) %u (%d - %u) %u (%d - %u) %u (%d - %u)\n", data->wdata[60], data->wstrb[60], wdata[60], data->wdata[61], data->wstrb[61], wdata[61], data->wdata[62], data->wstrb[62], wdata[62], data->wdata[63], data->wstrb[63], wdata[63]);
+          EPRINTF("[Servicing W Command (Strobed) ]   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[0],  wdata[0],  data->wstrb[0],  data->wdata[1],  wdata[1],  data->wstrb[1],  data->wdata[2],  wdata[2],  data->wstrb[2],   data->wdata[3],  wdata[3],  data->wstrb[3]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[4],  wdata[4],  data->wstrb[4],  data->wdata[5],  wdata[5],  data->wstrb[5],  data->wdata[6],  wdata[6],  data->wstrb[6],   data->wdata[7],  wdata[7],  data->wstrb[7]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[8],  wdata[8],  data->wstrb[8],  data->wdata[9],  wdata[9],  data->wstrb[9],  data->wdata[10], wdata[10], data->wstrb[10],  data->wdata[11], wdata[11], data->wstrb[11]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[12], wdata[12], data->wstrb[12], data->wdata[13], wdata[13], data->wstrb[13], data->wdata[14], wdata[14], data->wstrb[14],  data->wdata[15], wdata[15], data->wstrb[15]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[16], wdata[16], data->wstrb[16], data->wdata[17], wdata[17], data->wstrb[17], data->wdata[18], wdata[18], data->wstrb[18],  data->wdata[19], wdata[19], data->wstrb[19]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[20], wdata[20], data->wstrb[20], data->wdata[21], wdata[21], data->wstrb[21], data->wdata[22], wdata[22], data->wstrb[22],  data->wdata[23], wdata[23], data->wstrb[23]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[24], wdata[24], data->wstrb[24], data->wdata[25], wdata[25], data->wstrb[25], data->wdata[26], wdata[26], data->wstrb[26],  data->wdata[27], wdata[27], data->wstrb[27]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[28], wdata[28], data->wstrb[28], data->wdata[29], wdata[29], data->wstrb[29], data->wdata[30], wdata[30], data->wstrb[30],  data->wdata[31], wdata[31], data->wstrb[31]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[32], wdata[32], data->wstrb[32], data->wdata[33], wdata[33], data->wstrb[33], data->wdata[34], wdata[34], data->wstrb[34],  data->wdata[35], wdata[35], data->wstrb[35]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[36], wdata[36], data->wstrb[36], data->wdata[37], wdata[37], data->wstrb[37], data->wdata[38], wdata[38], data->wstrb[38],  data->wdata[39], wdata[39], data->wstrb[39]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[40], wdata[40], data->wstrb[40], data->wdata[41], wdata[41], data->wstrb[41], data->wdata[42], wdata[42], data->wstrb[42],  data->wdata[43], wdata[43], data->wstrb[43]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[44], wdata[44], data->wstrb[44], data->wdata[45], wdata[45], data->wstrb[45], data->wdata[46], wdata[46], data->wstrb[46],  data->wdata[47], wdata[47], data->wstrb[47]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[48], wdata[48], data->wstrb[48], data->wdata[49], wdata[49], data->wstrb[49], data->wdata[50], wdata[50], data->wstrb[50],  data->wdata[51], wdata[51], data->wstrb[51]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[52], wdata[52], data->wstrb[52], data->wdata[53], wdata[53], data->wstrb[53], data->wdata[54], wdata[54], data->wstrb[54],  data->wdata[55], wdata[55], data->wstrb[55]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[56], wdata[56], data->wstrb[56], data->wdata[57], wdata[57], data->wstrb[57], data->wdata[58], wdata[58], data->wstrb[58],  data->wdata[59], wdata[59], data->wstrb[59]);
+          EPRINTF("                                   %u -> %u (%d), %u -> %u (%d), %u -> %u (%d), %u -> %u (%d)\n", data->wdata[60], wdata[60], data->wstrb[60], data->wdata[61], wdata[61], data->wstrb[61], data->wdata[62], wdata[62], data->wstrb[62],  data->wdata[63], wdata[63], data->wstrb[63]);
         }
 
         // Fill in accel wdata
@@ -805,22 +805,22 @@ extern "C" {
     data->wstrb = wstrb;
 
     if (debug) {
-      EPRINTF("[sendWdataStrb]   (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb0, wdata[0], strb1, wdata[1], strb2, wdata[2], strb3, wdata[3]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb4, wdata[4], strb5, wdata[5], strb6, wdata[6], strb7, wdata[7]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb8, wdata[8], strb9, wdata[9], strb10, wdata[10], strb11, wdata[11]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb12, wdata[12], strb13, wdata[13], strb14, wdata[14], strb15, wdata[15]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb16, wdata[16], strb17, wdata[17], strb18, wdata[18], strb19, wdata[19]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb20, wdata[20], strb21, wdata[21], strb22, wdata[22], strb23, wdata[23]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb24, wdata[24], strb25, wdata[25], strb26, wdata[26], strb27, wdata[27]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb28, wdata[28], strb29, wdata[29], strb30, wdata[30], strb31, wdata[31]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb32, wdata[32], strb33, wdata[33], strb34, wdata[34], strb35, wdata[35]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb36, wdata[36], strb37, wdata[37], strb38, wdata[38], strb39, wdata[39]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb40, wdata[40], strb41, wdata[41], strb42, wdata[42], strb43, wdata[43]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb44, wdata[44], strb45, wdata[45], strb46, wdata[46], strb47, wdata[47]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb48, wdata[48], strb49, wdata[49], strb50, wdata[50], strb51, wdata[51]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb52, wdata[52], strb53, wdata[53], strb54, wdata[54], strb55, wdata[55]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb56, wdata[56], strb57, wdata[57], strb58, wdata[58], strb59, wdata[59]);
-      EPRINTF("                             (%d - %u) (%d - %u) (%d - %u) (%d - %u)\n", strb60, wdata[60], strb61, wdata[61], strb62, wdata[62], strb63, wdata[63]);
+      EPRINTF("[sendWdataStrb]              %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[0], strb0, wdata[1], strb1, wdata[2], strb2,  wdata[3], strb3);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[4], strb4, wdata[5], strb5, wdata[6], strb6,  wdata[7], strb7);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[8], strb8, wdata[9], strb9, wdata[10], strb10,  wdata[11], strb11);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[12], strb12, wdata[13], strb13, wdata[14], strb14,  wdata[15], strb15);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[16], strb16, wdata[17], strb17, wdata[18], strb18,  wdata[19], strb19);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[20], strb20, wdata[21], strb21, wdata[22], strb22,  wdata[23], strb23);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[24], strb24, wdata[25], strb25, wdata[26], strb26,  wdata[27], strb27);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[28], strb28, wdata[29], strb29, wdata[30], strb30,  wdata[31], strb31);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[32], strb32, wdata[33], strb33, wdata[34], strb34,  wdata[35], strb35);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[36], strb36, wdata[37], strb37, wdata[38], strb38,  wdata[39], strb39);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[40], strb40, wdata[41], strb41, wdata[42], strb42,  wdata[43], strb43);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[44], strb44, wdata[45], strb45, wdata[46], strb46,  wdata[47], strb47);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[48], strb48, wdata[49], strb49, wdata[50], strb50,  wdata[51], strb51);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[52], strb52, wdata[53], strb53, wdata[54], strb54,  wdata[55], strb55);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[56], strb56, wdata[57], strb57, wdata[58], strb58,  wdata[59], strb59);
+      EPRINTF("                             %u (%d), %u (%d), %u (%d), %u (%d)\n", wdata[60], strb60, wdata[61], strb61, wdata[62], strb62,  wdata[63], strb63);
     }
 
     wdataQ.push_back(data);

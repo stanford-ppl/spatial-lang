@@ -194,7 +194,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
             case _ => false
           })
 
-          val (metapipe, ports) = findMetaPipe(mem, reader.toList, writers)
+          val (metapipe, ports) = findMetaPipe(mem, reader.toList, writers.toList)
           val depth = ports.values.max + 1
           // Update memory instance with correct depth
           val bufferedMemory = channels.memory match {
@@ -230,7 +230,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
   def reachingWrites(mem: Exp[_], reader: Access) = writersOf(mem) // TODO: Account for "killing" writes, write ordering
 
   // TODO: Other cases for coalescing?
-  def coalesceMemories(mem: Exp[_], instances: List[InstanceGroup]): List[InstanceGroup] = {
+  def coalesceMemories(mem: Exp[_], instances: Iterable[InstanceGroup]): Iterable[InstanceGroup] = {
     val writers = writersOf(mem).toSet
     val readers = readersOf(mem).toSet
 
@@ -463,7 +463,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       i += grp.channels.duplicates
     }
 
-    duplicatesOf(mem) = coalescedGroups.flatMap{grp => grp.channels.toList }
+    duplicatesOf(mem) = coalescedGroups.flatMap{grp => grp.channels.toList }.toSeq
   }
 
 
@@ -790,7 +790,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       factors.flatten.map{case Exact(c) => c.toInt}.product
     }
 
-    val par = (1 +: pars).max
+    val par = (Seq(1) ++ pars).max
 
     /*val bus = mem match {
       case Op(StreamInNew(bus)) => bus

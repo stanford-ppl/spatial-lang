@@ -95,8 +95,10 @@ class FringeContextZynq : public FringeContextBase<void> {
 
 public:
   uint32_t numArgIns = 0;
+  uint32_t numArgIOs = 0;
   uint32_t numArgOuts = 0;
   uint32_t numArgOutInstrs = 0;
+  uint32_t numArgEarlyExits = 0;
   std::string bitfile = "";
 
   FringeContextZynq(std::string path = "") : FringeContextBase(path) {
@@ -248,6 +250,8 @@ public:
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
+    writeReg(commandReg, 2);
+    writeReg(commandReg, 0);
     writeReg(commandReg, 1);
 
     fprintf(stderr, "Running design..\n");
@@ -282,7 +286,12 @@ public:
     numArgIns = number;
   }
 
+  virtual void setNumEarlyExits(uint32_t number) {
+    numArgEarlyExits = number;
+  }
+
   virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void setNumArgOuts(uint32_t number) {
@@ -297,9 +306,43 @@ public:
     writeReg(arg+2, data);
   }
 
-  virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    return readReg(numArgIns+2+arg);
+  virtual uint32_t getArg(uint32_t arg, bool isIO) {
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
 
+    }
+  }
+
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
+  }
+
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    uint32_t lsb;
+    uint32_t msb;
+    uint64_t full;
+
+    if (isIO) {
+      lsb = readReg(2+arg);
+      msb = readReg(2+arg + (1 << 16));
+    } else {
+      if (numArgIns == 0) {
+        lsb = readReg(1-numArgIOs+2+arg);
+        msb = readReg(1-numArgIOs+2+arg + (1 << 16));
+      } else {
+        lsb = readReg(numArgIns-numArgIOs+2+arg);
+        msb = readReg(numArgIns-numArgIOs+2+arg + (1 << 16));
+      }
+
+    }
+    full = (uint64_t)lsb ^ ((uint64_t)msb << 32);
+    return full;  
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
@@ -307,17 +350,17 @@ public:
     Xil_Out32(fringeScalarBase+reg*sizeof(u32), data);
   }
 
-  virtual uint64_t readReg(uint32_t reg) {
+  virtual uint32_t readReg(uint32_t reg) {
     uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u32));
-//    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
+   // fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
     return value;
   }
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
-    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
-    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs + numArgEarlyExits;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + numArgEarlyExits + 2 + NUM_DEBUG_SIGNALS;
 
     for (int i=0; i<totalRegs; i++) {
       uint32_t value = readReg(i);
@@ -335,19 +378,19 @@ public:
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
     EPRINTF("argInOffset: %d\n", argInOffset);
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint32_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
+      uint32_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + numArgEarlyExits + 2 + i);
       EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }
 
   ~FringeContextZynq() {
-    dumpDebugRegs();
+    // dumpDebugRegs();
   }
 };
 

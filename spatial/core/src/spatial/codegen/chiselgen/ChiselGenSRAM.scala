@@ -145,15 +145,16 @@ trait ChiselGenSRAM extends ChiselCodegen {
     result
   }
 
+  def getStreamInfoReady(sym: Exp[_]): List[String] = {
+    pushesTo(sym).distinct.map{ pt => pt.memory match {
+        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
+        case fifo @ Def(FIFONew(_)) if s"${fifo.tp}".contains("IssuedCmd") => src"~${fifo}.io.full"
+        case _ => ""
+    }}.filter(_ != "")
+  }
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS)
   def DL[T](name: String, latency: T, isBit: Boolean = false): String = {
-    val streamOuts = if (!controllerStack.isEmpty) {
-      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}"
-        case _ => ""
-      }}.filter(_ != "").mkString(" & ")
-    } else { "" }
-
+    val streamOuts = if (!controllerStack.isEmpty) {getStreamInfoReady(controllerStack.head).mkString(" && ")} else { "" }
     latency match {
       case lat: Int => 
         if (!controllerStack.isEmpty) {
@@ -199,12 +200,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
   // Method for deciding if we should use the always-enabled delay line or the stream delay line (DS), specifically for signals like inhibitor resets that must acknowledeg a done signal that can strobe while stalled
   def DLI[T](name: String, latency: T, isBit: Boolean = false): String = {
-    val streamOuts = if (!controllerStack.isEmpty) {
-      pushesTo(controllerStack.head).distinct.map{ pt => pt.memory match {
-        case fifo @ Def(StreamOutNew(bus)) => src"${swap(fifo, Ready)}.D(0 /*${latency}*/, rr)"
-        case _ => ""
-      }}.filter(_ != "").mkString(" & ")
-    } else { "" }
+    val streamOuts = if (!controllerStack.isEmpty) {getStreamInfoReady(controllerStack.head).mkString(" && ")} else { "" }
 
     latency match {
       case lat: Int => 
@@ -405,7 +401,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
       val readTops = readers.flatMap{a => topControllerOf(a, mem, i) }
       mem match {
         case Def(_:LineBufferNew[_]) => // Allow empty lca, meaning we use a sequential pipe for rotations
-          if (readTops.headOption.isDefined) {
+          if (readTops.nonEmpty) {
             readTops.headOption.get.node
           } else {
             warn(u"Memory $mem, instance $i, port $port had no read top controllers.  Consider wrapping this linebuffer in a metapipe to get better speedup")
@@ -424,8 +420,8 @@ trait ChiselGenSRAM extends ChiselCodegen {
 
     if (!specialLB) {
       val allSiblings = childrenOf(parentOf(readCtrls.head).get)
-      val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
-      val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem, i)}}.filter{case l => l.length > 0}.map{case all => all.head.node}
+      val readSiblings = readPorts.map{case (_,r) => r.flatMap{ a => topControllerOf(a, mem, i)}}.filter{_.nonEmpty}.map{all => all.head.node}
+      val writeSiblings = writePorts.map{case (_,w) => w.flatMap{ a => topControllerOf(a, mem, i)}}.filter{_.nonEmpty}.map{all => all.head.node}
       val writePortsNumbers = writeSiblings.map{ sw => allSiblings.indexOf(sw) }
       val readPortsNumbers = readSiblings.map{ sr => allSiblings.indexOf(sr) }
       val firstActivePort = math.min( readPortsNumbers.min, writePortsNumbers.min )
@@ -571,7 +567,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
     case op@SRAMNew(_) =>
       val dimensions = constDimsOf(lhs)
       duplicatesOf(lhs).zipWithIndex.foreach{ case (mem, i) => 
-        val rParZip = readersOf(lhs)
+        val rParZip = readersOf(lhs).toList
           .filter{read => dispatchOf(read, lhs) contains i}
           .map { r => 
             val par = r.node match {
@@ -581,9 +577,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val port = portsOf(r, lhs, i).toList.head
             (par, port)
           }
-        val rPar = if (rParZip.length == 0) "1" else rParZip.map{_._1}.mkString(",")
-        val rBundling = if (rParZip.length == 0) "0" else rParZip.map{_._2}.mkString(",")
-        val wParZip = writersOf(lhs)
+        val rPar = if (rParZip.isEmpty) "1" else rParZip.map{_._1}.mkString(",")
+        val rBundling = if (rParZip.isEmpty) "0" else rParZip.map{_._2}.mkString(",")
+        val wParZip = writersOf(lhs).toList
           .filter{write => dispatchOf(write, lhs) contains i}
           .filter{w => portsOf(w, lhs, i).toList.length == 1}
           .map { w => 
@@ -597,9 +593,9 @@ trait ChiselGenSRAM extends ChiselCodegen {
             val port = portsOf(w, lhs, i).toList.head
             (par, port)
           }
-        val wPar = if (wParZip.length == 0) "1" else wParZip.map{_._1}.mkString(",")
-        val wBundling = if (wParZip.length == 0) "0" else wParZip.map{_._2}.mkString(",")
-        val broadcasts = writersOf(lhs)
+        val wPar = if (wParZip.isEmpty) "1" else wParZip.map{_._1}.mkString(",")
+        val wBundling = if (wParZip.isEmpty) "0" else wParZip.map{_._2}.mkString(",")
+        val broadcasts = writersOf(lhs).toList
           .filter{w => portsOf(w, lhs, i).toList.length > 1}.map { w =>
           w.node match {
             case Def(_: SRAMStore[_]) => 1
@@ -609,7 +605,7 @@ trait ChiselGenSRAM extends ChiselCodegen {
             }
           }
         }
-        val bPar = if (broadcasts.length > 0) broadcasts.mkString(",") else "0"
+        val bPar = if (broadcasts.nonEmpty) broadcasts.mkString(",") else "0"
         val width = bitWidth(lhs.tp.typeArguments.head)
 
         mem match {
@@ -831,12 +827,13 @@ trait ChiselGenSRAM extends ChiselCodegen {
         }
       }
 
-      emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(32))}.toInt")
-      emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(32))}.toInt")
-      emit(s"Utils.fixadd_latency = ${latencyOption("FixAdd", Some(32))}.toInt")
-      emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(32))}.toInt")
-      emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(32))}.toInt")
+      emit(s"Utils.fixmul_latency = ${latencyOption("FixMul", Some(1))}")
+      emit(s"Utils.fixdiv_latency = ${latencyOption("FixDiv", Some(1))}")
+      emit(s"Utils.fixadd_latency = ${latencyOption("FixAdd", Some(1))}")
+      emit(s"Utils.fixsub_latency = ${latencyOption("FixSub", Some(1))}")
+      emit(s"Utils.fixmod_latency = ${latencyOption("FixMod", Some(1))}")
       emit(s"Utils.fixeql_latency = ${latencyOption("FixEql", None)}.toInt")
+      emit(s"Utils.tight_control   = ${spatialConfig.enableTightControl}")
       emit(s"Utils.mux_latency    = ${latencyOption("Mux", None)}.toInt")
       emit(s"Utils.sramload_latency    = ${latencyOption("SRAMLoad", None)}.toInt")
       emit(s"Utils.sramstore_latency    = ${latencyOption("SRAMStore", None)}.toInt")
