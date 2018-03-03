@@ -296,7 +296,8 @@ def report_synth_results(appname, lut, reg, ram, uram, dsp, lal, lam, synth_time
 	# Tell last update
 	worksheet = sh.worksheet_by_title('STATUS')
 	write(worksheet,22,3,stamp)
-	write(worksheet,22,4,os.uname()[1])
+	write(worksheet,22,4,appname)
+	write(worksheet,22,5,os.uname()[1])
 
 def prepare_sheet(hash, apphash, timestamp, backend):
 	sh = getDoc(backend)
