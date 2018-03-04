@@ -49,7 +49,7 @@ module SRAMVerilogSim
             .wdata(wdata),
             .rdata(rdata)
         );	  
-	  end else begin
+      end else begin
         BFFArray #(
           .WORDS(WORDS),
           .AWIDTH(AWIDTH),
@@ -66,8 +66,9 @@ module SRAMVerilogSim
             .rdata(rdata)
         );
       end
-	end
+    end
   endgenerate
+
 endmodule
 
 //Small Flip-Flop Array
@@ -88,17 +89,13 @@ module SFFArray
   output reg [DWIDTH-1:0] rdata
 );
 
-  reg wen_delayed;
-  reg  [DWIDTH-1:0] wdata_delayed;
   wire [DWIDTH-1:0] rdata_wire;
 
   always @(posedge clk) begin
-    wen_delayed <= wen;
-    wdata_delayed <= wdata;
 
     if (flow) begin
-      if (wen_delayed && (waddr == raddr)) begin
-        rdata <= wdata_delayed;
+      if (wen && (waddr == raddr)) begin
+        rdata <= wdata;
       end else begin
         rdata <= rdata_wire;
       end
@@ -142,20 +139,15 @@ module BFFArray
 
   reg [DWIDTH-1:0] mem [0:WORDS-1];
 
-  reg wen_delayed;
-  reg [DWIDTH-1:0] wdata_delayed;
-
   always @(posedge clk) begin
-    wen_delayed <= wen;
-    wdata_delayed <= wdata;
 
     if (wen) begin
       mem[waddr] <= wdata;
     end
     
     if (flow) begin
-      if (wen_delayed && (waddr == raddr)) begin
-        rdata <= wdata_delayed;
+      if (wen && (waddr == raddr)) begin
+        rdata <= wdata;
       end else begin
         rdata <= mem[raddr];
       end
@@ -163,3 +155,35 @@ module BFFArray
   end
 
 endmodule
+
+module SRAMVerilogSimGold
+#(
+    parameter WORDS = 1024,
+    parameter AWIDTH = 10,
+    parameter DWIDTH = 32)
+(
+    input clk,
+    input [AWIDTH-1:0] raddr,
+    input [AWIDTH-1:0] waddr,
+    input raddrEn,
+    input waddrEn,
+    input wen,
+    input flow,
+    input [DWIDTH-1:0] wdata,
+    output reg [DWIDTH-1:0] rdata
+);
+
+    reg [DWIDTH-1:0] mem [0:WORDS-1];
+
+    always @(negedge clk) begin
+      if (wen) begin
+        mem[waddr] <= wdata;
+      end
+    end
+
+    always @(posedge clk) begin
+        if (flow) rdata <= mem[raddr];
+    end
+
+endmodule
+
