@@ -9,7 +9,7 @@ object Arria10 extends AlteraDevice {
   def burstSize = 512
 
   case object VideoCamera extends Bus {def length = 32}
-  case object VGA extends Bus {def length = 32}
+  case object DP extends Bus {def length = 32}
 
 
   // FIXME: No models for Arria10 yet

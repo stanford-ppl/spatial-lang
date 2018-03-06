@@ -24,7 +24,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case BurstAckBus =>
         case ScatterAckBus =>
         case GatherDataBus() =>
-        case VideoCamera => 
+        case VideoCamera =>
           // emit(src"// video in camera, node = $lhs", forceful=true)
           // emit(src"// reset and output logic for video camera", forceful=true)
           // emit(src"when (reset) {", forceful=true)
@@ -37,7 +37,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
           // emit(src"  io.stream_out_startofpacket  := stream_out_startofpacket ", forceful=true)
           // emit(src"  io.stream_out_endofpacket    := stream_out_endofpacket ", forceful=true)
           // emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
-          // emit(src"} ", forceful=true) 
+          // emit(src"} ", forceful=true)
 
           // emit(src"io.led_stream_out_data := io.stream_in_ready", forceful=true)
           emit(src"io.stream_in_ready := ${swap(lhs, Ready)}", forceful=true)
@@ -60,7 +60,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
           // emit(src"  io.stream_out_startofpacket  := io.stream_in_startofpacket ", forceful=true)
           // emit(src"  io.stream_out_endofpacket    := io.stream_in_endofpacket ", forceful=true)
           // emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
-          // emit(src"} ", forceful=true) 
+          // emit(src"} ", forceful=true)
           // emit(src"io.stream_in_ready := ${lhs}_ready", forceful=true)
           // emit(src"${lhs}_valid := io.stream_in_valid", forceful=true)
 
@@ -87,13 +87,13 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emitGlobalModule(src"${swap(src"${lhs}_valid_srff", Blank)}.io.input.asyn_reset := ${swap(src"${lhs}_valid_stops", Blank)}.reduce{_|_} | reset.toBool", forceful = true)
       emitGlobalModule(src"${swap(lhs, Valid)} := ${swap(src"${lhs}_valid_srff", Blank)}.io.output.data | ${swap(lhs, ValidOptions)}.reduce{_|_}", forceful = true)
       writersOf(lhs).head.node match {
-        case Def(e@ParStreamWrite(_, data, ens)) => 
+        case Def(e@ParStreamWrite(_, data, ens)) =>
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${ens.length*writersOf(lhs).length}, ${newWire(data.head.tp)}))")
-          emitGlobalWire(src"""val ${lhs} = Vec((0 until ${ens.length}).map{i => 
+          emitGlobalWire(src"""val ${lhs} = Vec((0 until ${ens.length}).map{i =>
             val ${lhs}_slice_options = (0 until ${writersOf(lhs).length}).map{j => ${swap(lhs, DataOptions)}(i*${writersOf(lhs).length}+j)}
             Mux1H(${swap(lhs, ValidOptions)}, ${lhs}_slice_options)
           }.toList)""")
-        case Def(e@StreamWrite(_, data, _)) => 
+        case Def(e@StreamWrite(_, data, _)) =>
           emitGlobalWireMap(src"${lhs}_data_options", src"Wire(Vec(${writersOf(lhs).length}, ${newWire(data.tp)}))", forceful = true)
           emitGlobalWire(src"val ${lhs} = Mux1H(${swap(lhs, ValidOptions)}, ${swap(lhs, DataOptions)})", forceful = true)
       }
@@ -104,7 +104,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
         case BurstFullDataBus() =>
         case BurstCmdBus =>
         case GatherAddrBus =>
-        case ScatterCmdBus() => 
+        case ScatterCmdBus() =>
         case VGA =>
           emitGlobalWire(src"""val stream_out_startofpacket = Wire(Bool())""")
           emitGlobalWire(src"""val stream_out_endofpacket = Wire(Bool())""")
@@ -121,7 +121,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"  io.stream_out_startofpacket  := stream_out_startofpacket ", forceful=true)
           emit(src"  io.stream_out_endofpacket    := stream_out_endofpacket ", forceful=true)
           emit(src"  io.stream_out_empty          := io.stream_in_empty  ", forceful=true)
-          emit(src"} ", forceful=true) 
+          emit(src"} ", forceful=true)
 
           emit(src"// EMITTING FOR VGA; in OUTPUT REGISTERS, Output Register section $lhs", forceful=true)
           emit(src"io.stream_out_valid := ${swap(lhs, Valid)}", forceful=true)
@@ -132,21 +132,21 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emit(src"${swap(lhs, Valid)} := 1.U", forceful=true)
           emit(src"""io.led_stream_out_data := ${lhs}""")
 
-        case GPOutput1 => 
+        case GPOutput1 =>
           emit(src"// GPOutput1, node = $lhs", forceful=true)
           emit(src"${swap(lhs, Ready)} := 1.U", forceful=true)
           emit(src"${swap(lhs, Valid)} := 1.U", forceful=true)
-        case GPOutput2 => 
+        case GPOutput2 =>
           emit(src"// GPOutput2, node = $lhs", forceful=true)
           emit(src"${swap(lhs, Ready)} := 1.U", forceful=true)
           emit(src"${swap(lhs, Valid)} := 1.U", forceful=true)
         case _ =>
           streamOuts = streamOuts :+ lhs.asInstanceOf[Sym[Reg[_]]]
       }
-    
-    case BufferedOutNew(_, bus) => 
+
+    case BufferedOutNew(_, bus) =>
       bus match {
-        case VGA => 
+        case VGA =>
           emit (src"// EMITTING FOR BUFFEREDOUT ON VGA $lhs", forceful=true)
           emit(src"io.buffout_address := ${lhs}_address", forceful=true)
           emit(src"io.buffout_write := ${lhs}_write", forceful=true)
@@ -161,7 +161,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
           emitGlobalWire(src"""val ${lhs}_wAddr = Wire(UInt(9.W))""", forceful=true)
       }
 
-    case BufferedOutWrite(buffer, data, is, en) => 
+    case BufferedOutWrite(buffer, data, is, en) =>
 //      case Def(BufferedOutNew(Seq(lift(320), lift(240)), bus)) => bus match {
       buffer match {
         case Def(BufferedOutNew(_, bus)) => bus match {
@@ -172,7 +172,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
               }
             emit(s"// default buffer address: 134217728")
             emit(s"")
-            
+
             emit(src"when(true.B /*~${buffer}_waitrequest*/) {")
             emit(src"  ${buffer}_write := 1.U")
             emit(src"  ${buffer}_writedata := ${data}.r")
@@ -208,15 +208,15 @@ trait ChiselGenStream extends ChiselGenSRAM {
       if (!isAck) {
         stream match {
           case Def(StreamInNew(bus)) => bus match {
-            case VideoCamera => 
+            case VideoCamera =>
               emit(src"""val $lhs = io.stream_in_data""")  // Ignores enable for now
-            case SliderSwitch => 
+            case SliderSwitch =>
               emit(src"""val $lhs = io.switch_stream_in_data""")
-            case GPInput1 => 
+            case GPInput1 =>
               emit(src"""val $lhs = io.gpi1_streamin_readdata""")
-            case GPInput2 => 
+            case GPInput2 =>
               emit(src"""val $lhs = io.gpi2_streamin_readdata""")
-            case BurstDataBus() => 
+            case BurstDataBus() =>
               emit(src"""val $lhs = (0 until 1).map{ i => ${stream}(i) }""")
 
             case _ =>
@@ -237,7 +237,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emit(src"""${swap(stream, DataOptions)}(${lhs}_wId) := $data""")
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
-            case VGA => 
+            case VGA =>
               emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
               // emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
               // emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
@@ -246,12 +246,12 @@ trait ChiselGenStream extends ChiselGenSRAM {
               // emit(src"""converted_data := ${stream}""")
               val sources = lhs.collectDeps{case Def(StreamRead(strm,_)) => strm}
               sources.find{ _ match {
-                case Def(StreamInNew(strm)) => 
+                case Def(StreamInNew(strm)) =>
                   strm == VideoCamera
               }}
               if (sources.length > 0) {
                 emit(src"""stream_out_startofpacket := io.stream_in_startofpacket""")
-                emit(src"""stream_out_endofpacket := io.stream_in_endofpacket""")                
+                emit(src"""stream_out_endofpacket := io.stream_in_endofpacket""")
               } else {
                 emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
                 emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
@@ -274,11 +274,11 @@ trait ChiselGenStream extends ChiselGenSRAM {
               emit(src"""${swap(stream, Valid)} := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
-            case BurstCmdBus =>  
+            case BurstCmdBus =>
               emit(src"""${swap(stream, Valid)} := $en & ${DL(src"${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}", src"${symDelay(lhs)}.toInt", true)} // Do not delay ready because datapath includes a delayed _valid already """)
               // emit(src"""${stream} := $data""")
 
-            case _ => 
+            case _ =>
               // emit(src"""${stream}_valid := ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)},${symDelay(lhs)}.toInt) & $en""")
               val id = argMapping(stream)._1
               Predef.assert(id != -1, s"Stream ${quote(stream)} not present in streamOuts")
@@ -293,12 +293,12 @@ trait ChiselGenStream extends ChiselGenSRAM {
       emit(src"""val ${lhs}_rId = getStreamInLane("$strm")""")
       strm match {
         case Def(StreamInNew(bus)) => bus match {
-          case VideoCamera => 
+          case VideoCamera =>
             emit(src"""val $lhs = Vec(io.stream_in_data)""")  // Ignores enable for now
             emit(src"""${swap(strm, ReadyOptions)}(${lhs}_rId) := ${swap(parent, Done)} & ${ens.mkString("&")} & ${DL(swap(parent, DatapathEn), swap(parent, Retime), true)}""")
-          case SliderSwitch => 
+          case SliderSwitch =>
             emit(src"""val $lhs = Vec(io.switch_stream_in_data)""")
-          case _ => 
+          case _ =>
             val isAck = strm match { // TODO: Make this clean, just working quickly to fix bug for Tian
               case Def(StreamInNew(bus)) => bus match {
                 case BurstAckBus => true
@@ -312,7 +312,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
             //   // emit(src"""//val $lhs = List(${ens.map{e => src"${e}"}.mkString(",")}).zipWithIndex.map{case (en, i) => ${strm}(i) }""")
               emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
             // } else {
-            //   emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")        
+            //   emit(src"""val $lhs = (0 until ${ens.length}).map{ i => ${strm}(i) }""")
             // }
 
 
@@ -334,7 +334,7 @@ trait ChiselGenStream extends ChiselGenSRAM {
 
       stream match {
         case Def(StreamOutNew(bus)) => bus match {
-          case VGA => 
+          case VGA =>
             emitGlobalWire(src"""// EMITTING VGA GLOBAL""")
             // emitGlobalWire(src"""val ${stream} = Wire(UInt(16.W))""")
             // emitGlobalWire(src"""val converted_data = Wire(UInt(16.W))""")
@@ -346,6 +346,13 @@ trait ChiselGenStream extends ChiselGenSRAM {
             // emit(src"""${stream} := ${data.head}""")
             // emit(src"""converted_data := ${stream}""")
             // emit(src"""${stream}_valid := ${ens.mkString("&")} & ShiftRegister(${swap(parent, DatapathEn)} & ~${swap(parent, Inhibitor)}, ${symDelay(lhs)}.toInt)""")
+          case DP =>
+            emitGlobalWire(src"""// EMITTING DP GLOBAL""")
+            emitGlobalWireMap(src"""stream_out_startofpacket""", """Wire(Bool())""")
+            emitGlobalWireMap(src"""stream_out_endofpacket""", """Wire(Bool())""")
+            emit(src"""stream_out_startofpacket := Utils.risingEdge(${swap(parent, DatapathEn)})""")
+            emit(src"""stream_out_endofpacket := ${swap(parent, Done)}""")
+            emit(src"""// emiiting data for stream ${stream}""")
           case LEDR =>
             // emitGlobalWire(src"""val ${stream} = Wire(UInt(32.W))""")
       //      emitGlobalWire(src"""val converted_data = Wire(UInt(32.W))""")
