@@ -20,8 +20,8 @@ trait PIRFileGen extends FileGen {
     emit("")
     open(s"""object ${config.name} extends PIRApp {""")
     //emit(s"""override val arch = SN_4x4""")
-    open(s"""def main(top:Top) = {""")
-    emit("  import top.metadata._")
+    open(s"""def main(implicit design:PIRDesign) = {""")
+    emit(s"""import design.pirmeta._""")
 
     super.emitFileHeader()
   }
