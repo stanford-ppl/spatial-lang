@@ -7,7 +7,7 @@ import spatial.models._
 import spatial.nodes._
 import spatial.metadata._
 import spatial.utils._
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 
 import scala.collection.mutable
 

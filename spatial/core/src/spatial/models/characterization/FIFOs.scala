@@ -2,7 +2,7 @@ package spatial.models.characterization
 
 import spatial.dsl._
 import spatial.SpatialCompiler
-import org.virtualized._
+import virtualized._
 
 trait FIFOs extends Benchmarks {
   self: SpatialCompiler =>

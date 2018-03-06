@@ -1,7 +1,7 @@
 package spatial.tests
 import argon.TestBenchFailed
 import org.scalatest.{FlatSpec, Matchers}
-import org.virtualized._
+import virtualized._
 
 
 object TwoDuplicatesSimple extends SpatialTest {

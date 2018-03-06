@@ -8,7 +8,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 
 trait SpatialAccessAnalyzer extends AccessPatternAnalyzer {
   override val name = "Spatial Affine Analysis"
