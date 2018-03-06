@@ -131,10 +131,7 @@ trait PIRStruct {
       case Right(fs) => 
         val matches = fs.filter(_._1==fieldName)
         assert(matches.size<=1, s"$exp has struct type with duplicated field name: [${fs.mkString(",")}]")
-        if (matches.nonEmpty)
-          Some(matches.head._2)
-        else
-          None
+        if (matches.nonEmpty) Some(matches.head._2) else None
     }
   }
 

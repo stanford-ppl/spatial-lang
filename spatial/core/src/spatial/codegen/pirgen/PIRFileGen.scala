@@ -16,7 +16,7 @@ trait PIRFileGen extends FileGen {
     emit("import pir._")
     emit("import pir.node._")
     emit("import arch._")
-    emit("import pirc.enums._")
+    emit("import prism.enums._")
     emit("")
     open(s"""object ${config.name} extends PIRApp {""")
     //emit(s"""override val arch = SN_4x4""")

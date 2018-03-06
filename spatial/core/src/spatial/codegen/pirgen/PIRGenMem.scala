@@ -113,7 +113,7 @@ trait PIRGenMem extends PIRCodegen {
           val mems = instIds.flatMap { instId =>
             staticBanksOf((lhs, instId)).map { bankId => quote(dmem, instId, bankId) }
           }
-          emit(dlhs, s"StoreBanks($mems, ${quote(addrs)}, $dvalue)", rhs)
+          emit(dlhs, s"StoreBanks($mems, ${quote(addrs)}, ${quote(dvalue)})", rhs)
         }
 
       // Reg, FIFO, Stream
@@ -121,13 +121,13 @@ trait PIRGenMem extends PIRCodegen {
         val instId::Nil = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
           val mem = quote(dmem, instId)
-          emit(dlhs, s"ReadMem($mem)", rhs)
+          emit(dlhs, s"ReadMem(${quote(mem)})", rhs)
         }
       case ParLocalWriter((mem, Some(value::_), None, _)::_) =>
         val instIds = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           val mems = instIds.map { instId => quote(dmem, instId) }
-          mems.foreach { mem => emit(s"${dlhs}_$mem", s"WriteMem($mem, $dvalue)", rhs) }
+          mems.foreach { mem => emit(s"${dlhs}_$mem", s"WriteMem($mem, ${quote(dvalue)})", rhs) }
         }
 
       case FIFOPeek(mem) => 

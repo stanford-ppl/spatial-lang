@@ -41,11 +41,7 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
   override protected def quoteConst(c: Const[_]): String = s"$c"
   override protected def quote(x: Exp[_]): String = {
-    x match {
-      case x if isConstant(compose(x)) => s"${super.quote(x)}$quoteCtrl"
-      case x:Iterable[_] => s"${x.map(quote).toList}"
-      case x => super.quote(x)
-    }
+    super[PIRTraversal].quote(x)
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
@@ -64,11 +60,14 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
     else s".ctrl($currCtrl)"
   }
 
+  def emit(lhs:Any):Unit = {
+    super.emit(s"$lhs")
+  }
   def emit(lhs:Any, rhs:Any):Unit = {
-    emit(s"""val $lhs = $rhs$quoteCtrl.name("$lhs")""")
+    emit(s"""val ${quote(lhs)} = $rhs$quoteCtrl.name("$lhs")""")
   }
   def emit(lhs:Any, rhs:Any, comment:Any):Unit = {
-    emit(s"""val $lhs = $rhs.name("$lhs")$quoteCtrl // $comment""")
+    emit(s"""val ${quote(lhs)} = $rhs.name("$lhs")$quoteCtrl // $comment""")
   }
 }
 

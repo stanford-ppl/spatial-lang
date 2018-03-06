@@ -46,11 +46,6 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
     tablevel -=1
     res
   }
-  def quote(n:Any):String = n match {
-    case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
-    case x:Iterable[_] => x.map(quote).toList.toString
-    case n => n.toString
-  }
 
   def qdef(lhs:Any):String = {
     val rhs = lhs match {
