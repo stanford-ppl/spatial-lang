@@ -3,7 +3,7 @@ package spatial.models.characterization
 import spatial.metadata._
 import spatial.dsl._
 import spatial._
-import org.virtualized._
+import virtualized._
 
 trait RegFiles extends Benchmarks {
   self: SpatialCompiler =>

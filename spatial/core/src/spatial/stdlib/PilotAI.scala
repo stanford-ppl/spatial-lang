@@ -1,7 +1,7 @@
 package spatial.stdlib
 
 import spatial.dsl._
-import org.virtualized._
+import virtualized._
 import spatial.metadata._
 import argon.core.State
 

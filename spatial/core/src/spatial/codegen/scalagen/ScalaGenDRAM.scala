@@ -1,7 +1,7 @@
 package spatial.codegen.scalagen
 
 import argon.core._
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 import spatial.aliases._
 import spatial.nodes._
 

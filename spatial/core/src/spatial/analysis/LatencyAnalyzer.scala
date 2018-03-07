@@ -6,7 +6,7 @@ import spatial.metadata._
 import spatial.models.LatencyModel
 import spatial.nodes._
 import spatial.utils._
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 
 case class LatencyAnalyzer(var IR: State, latencyModel: LatencyModel) extends ModelingTraversal {
   override val name = "Latency Analyzer"

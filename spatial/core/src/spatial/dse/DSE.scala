@@ -5,7 +5,7 @@ import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue}
 
 import argon.core._
 import argon.traversal.CompilerPass
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 

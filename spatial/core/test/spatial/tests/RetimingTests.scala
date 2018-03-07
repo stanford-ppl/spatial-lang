@@ -1,7 +1,7 @@
 package spatial.tests
 
 import org.scalatest.{FlatSpec, Matchers}
-import org.virtualized._
+import virtualized._
 import spatial.aliases._
 import spatial.nodes.DelayLine
 
