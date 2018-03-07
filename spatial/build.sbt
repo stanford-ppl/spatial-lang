@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.12.1"
 
-organization in ThisBuild := "stanford-ppl"
+organization in ThisBuild := "edu.stanford.dawn"
 
 version in ThisBuild := "1.0"
 
@@ -23,3 +23,4 @@ lazy val spatial = (project in file("core"))
     addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 
   ))
+

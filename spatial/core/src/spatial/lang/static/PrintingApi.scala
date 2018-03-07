@@ -2,7 +2,7 @@ package spatial.lang.static
 
 import argon.core._
 import forge._
-import org.virtualized.virtualize
+import virtualized.virtualize
 
 trait PrintingApi { this: SpatialApi =>
   /** Prints the given Array to the console, preceded by an optional heading. **/

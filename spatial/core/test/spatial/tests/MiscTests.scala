@@ -1,7 +1,7 @@
 package spatial.tests
 
 import spatial.dsl._
-import org.virtualized._
+import virtualized._
 import org.scalatest.{Matchers, FlatSpec}
 
 object IntPrinting extends SpatialTest {

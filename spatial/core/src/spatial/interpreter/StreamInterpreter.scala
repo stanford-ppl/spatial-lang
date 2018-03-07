@@ -1,7 +1,7 @@
 package spatial.interpreter
 
 import spatial.dsl._
-import org.virtualized._
+import virtualized._
 import spatial.SpatialCompiler
 import argon.interpreter.{Interpreter => AInterpreter}
 import argon.core.Const

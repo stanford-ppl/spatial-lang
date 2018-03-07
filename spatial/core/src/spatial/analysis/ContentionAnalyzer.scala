@@ -2,7 +2,7 @@ package spatial.analysis
 
 import argon.traversal.CompilerPass
 import argon.core._
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 
 import spatial.metadata._
 import spatial.nodes._

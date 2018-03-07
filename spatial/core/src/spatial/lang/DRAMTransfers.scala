@@ -2,7 +2,7 @@ package spatial.lang
 
 import argon.core._
 import forge._
-import org.virtualized._
+import virtualized._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._

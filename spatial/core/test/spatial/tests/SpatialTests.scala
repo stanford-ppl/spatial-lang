@@ -1,6 +1,6 @@
 package spatial.tests
 
-import org.virtualized._
+import virtualized._
 import org.scalatest.{FlatSpec, Matchers}
 import argon.core._
 import argon.ArgonAppRunner
