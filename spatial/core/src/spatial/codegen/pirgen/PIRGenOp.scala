@@ -49,21 +49,19 @@ trait PIRGenOp extends PIRCodegen {
                  * [ s2 | i2   | f2 ]
                  * */
                 val sftamt = Math.abs(i2 - i1)
-                val op = if (i2 > i1) FixRsh else FixLsh
+                val op = if (i2 > i1) PIRFixSra else PIRFixSla
                 val iMask = Array.fill(32)(0)
                 val fMask = Array.fill(32)(0)
                 (if (s1) (1 until (i1+1)) else (0 until i1)).foreach { i => iMask(i) = 1 }
                 (if (s1) ((i1+1) until 32) else (i1 until 32)).foreach { i => fMask(i) = 1 }
                 val iMaskStr = iMask.mkString
-                val iMaskInt = Integer.parseInt(iMaskStr)
                 val fMaskStr = fMask.mkString
-                val fMaskInt = Integer.parseInt(fMaskStr)
                 emit(s"// ${quote(lhs)} = $rhs x.tp=${x.tp} {")
-                emit(s"${quote(lhs)}_int1", s"OpDef(op=FixAnd, inputs=List(${quote(x)}, Const($iMaskInt)))")
+                emit(s"${quote(lhs)}_int1", s"""OpDef(op=BitAnd, inputs=List(${quote(x)}, Const("$iMaskStr")))""")
                 emit(s"${quote(lhs)}_int2", s"OpDef(op=$op, inputs=List(${quote(lhs)}_int1, Const($sftamt)))")
-                emit(s"${quote(lhs)}_frac1", s"OpDef(op=FixAnd, inputs=List(${quote(x)}, Const($fMaskInt)))")
+                emit(s"${quote(lhs)}_frac1", s"""OpDef(op=BitAnd, inputs=List(${quote(x)}, Const("$fMaskStr")))""")
                 emit(s"${quote(lhs)}_frac2", s"OpDef(op=$op, inputs=List(${quote(lhs)}_frac1, Const($sftamt)))")
-                emit(s"${quote(lhs)}", s"OpDef(op=FixOr, inputs=List(${quote(lhs)}_int2, ${quote(lhs)}_frac2))")
+                emit(s"${quote(lhs)}", s"OpDef(op=BitOr, inputs=List(${quote(lhs)}_int2, ${quote(lhs)}_frac2))")
                 emit(s"// }")
             }
           case VectorApply(vec, idx) =>
