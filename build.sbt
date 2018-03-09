@@ -112,6 +112,6 @@ addCommandAlias("make", "; apps/compile")
 
 // GPG Keys
 
-useGpg := true
+// useGpg := true
 pgpReadOnly := false
 
