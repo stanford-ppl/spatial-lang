@@ -301,8 +301,8 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
 
-    def cast(c: FixedPoint): Unit = {
-      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    def cast(c: FixedPoint, sign_extend: scala.Boolean = false): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b, sign_extend).r
     }
 
   }
@@ -518,8 +518,8 @@ object ops {
       Utils.FloatPoint(m, e, b)
     }
 
-    def cast(c: FixedPoint): Unit = {
-      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    def cast(c: FixedPoint, sign_extend: scala.Boolean = false): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b, sign_extend).r
     }
 
 
@@ -531,7 +531,7 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
-      Utils.FixedPoint(s, d, f, b)
+      Utils.FixedPoint(s, d, f, b, true)
     }
     def FlP(m: Int, e: Int): FloatingPoint = {
       Utils.FloatPoint(m, e, b)
@@ -552,7 +552,7 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
-      Utils.FixedPoint(s, d, f, b)
+      Utils.FixedPoint(s, d, f, b, true)
     }
     def FlP(m: Int, e: Int): FloatingPoint = {
       Utils.FloatPoint(m, e, b)
@@ -689,10 +689,10 @@ object Utils {
     sig & Utils.delay(~sig,1)
   }
   // Helper for making fixedpt when you know the value at creation time
-  def FixedPoint[T](s: Int, d: Int, f: Int, init: T): types.FixedPoint = {
-    FixedPoint(s > 0, d, f, init)
+  def FixedPoint[T](s: Int, d: Int, f: Int, init: T, sign_extend: scala.Boolean): types.FixedPoint = {
+    FixedPoint(s > 0, d, f, init, sign_extend)
   }
-  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
+  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T, sign_extend: scala.Boolean = false): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
@@ -700,7 +700,7 @@ object Utils {
       case i: UInt => 
         val tmp = Wire(new types.FixedPoint(s, i.getWidth, 0))
         tmp.r := i
-        tmp.cast(cst)
+        tmp.cast(cst, sign_extend = sign_extend)
         // if (f > 0) cst.r := chisel3.util.Cat(i, 0.U(f.W)) else cst.r := i
       case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
