@@ -6,6 +6,7 @@ import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
 import spatial.targets.DE1._
+import spatial.targets.Arria10._
 
 trait ChiselGenStream extends ChiselGenSRAM {
   var streamIns: List[Sym[Reg[_]]] = List()

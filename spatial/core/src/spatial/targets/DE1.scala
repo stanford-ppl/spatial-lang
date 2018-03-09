@@ -6,9 +6,9 @@ import spatial.models._
 object DE1 extends AlteraDevice {
   import AlteraDevice._
   val name = "DE1"
-  def burstSize = 96 
+  def burstSize = 96
 
-  case object VideoCamera extends Bus {def length = 16}
+  case object DE1VideoCamera extends Bus {def length = 16}
   case object VGA extends Bus {def length = 16}
   case object SliderSwitch extends Bus {def length = 10}
   case object LEDR extends Bus {
