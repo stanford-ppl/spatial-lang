@@ -31,6 +31,7 @@ object DRAMTransfers {
     tile:   DRAMDenseTile[T],
     local:  C[T],
     isLoad: Boolean,
+    origin: Option[Seq[Index]] = None,
     isAlign: Boolean = false
   )(implicit mem: Mem[T,C], mC: Type[C[T]]): MUnit = {
     implicit val mD: Type[DRAM[T]] = tile.dram.tp
@@ -42,6 +43,8 @@ object DRAMTransfers {
     val strides = tile.ranges.map(_.step.map(_.s).getOrElse(int32s(1)))
     val units   = tile.ranges.map(_.isUnit)
     val p       = extractParFactor(tile.ranges.last.p)
+    val og      = if(origin.isDefined){origin.get.map(_.s)}
+                  else(List.fill(tile.ranges.length)(int32s(0)))
 
     // UNSUPPORTED: Strided ranges for DRAM in burst load/store
     if (strides.exists{case Exact(c) if (c == 1 || isLoad) => false ; case _ => true}) {
@@ -54,7 +57,7 @@ object DRAMTransfers {
 
     val iters = List.tabulate(localRank){_ => fresh[Index]}
 
-    MUnit(op_dense_transfer(dram,local.s,ofs,lens,strides,units,p,isLoad,isAlign,iters))
+    MUnit(op_dense_transfer(dram,local.s,ofs,lens,strides,units,p,isLoad,isAlign,iters,og))
   }
 
   @internal def sparse_transfer[T:Type:Bits](
@@ -96,10 +99,11 @@ object DRAMTransfers {
     p:      Const[Index],
     isLoad: Boolean,
     isAlign: Boolean,
-    iters:  List[Bound[Index]]
+    iters:  List[Bound[Index]],
+    og:     Seq[Exp[Index]]
   )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]]): Exp[MUnit] = {
 
-    val node = DenseTransfer(dram,local,ofs,lens,strides,units,p,isLoad,iters)
+    val node = DenseTransfer(dram,local,ofs,lens,strides,units,p,isLoad,iters,og)
     node.isAlign = isAlign
 
     val out = if (isLoad) stageWrite(local)(node)(ctx) else stageWrite(dram)(node)(ctx)
