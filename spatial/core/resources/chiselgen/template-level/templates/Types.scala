@@ -57,7 +57,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 
 	def msb():Bool = number(d+f-1)
 
-	def cast(dst: FixedPoint, rounding: LSBCasting = Truncate, saturating: MSBCasting = Lazy, expect_neg: Bool = false.B, expect_pos: Bool = false.B): Unit = {
+	def cast(dst: FixedPoint, rounding: LSBCasting = Truncate, saturating: MSBCasting = Lazy, sign_extend: scala.Boolean = true, expect_neg: Bool = false.B, expect_pos: Bool = false.B): Unit = {
 		val has_frac = dst.f > 0
 		val has_dec = dst.d > 0
 		val up_frac = dst.f max 1
@@ -129,7 +129,7 @@ class FixedPoint(val s: Boolean, val d: Int, val f: Int) extends Bundle {
 				}
 			} else if (dst.d > d) { // expand decimals
 				val expand = dst.d - d
-				val sgn_extend = if (s) { number(d+f-1) } else {0.U(1.W)}
+				val sgn_extend = if (s & sign_extend) { number(d+f-1) } else {0.U(1.W)}
 				new_frac := tmp_frac
 				new_dec := util.Cat(util.Fill(expand, sgn_extend), number(f+d-1, f))
 				// (0 until dst.d).map{ i => if (i >= dst.d - expand) {sgn_extend*scala.math.pow(2,i).toInt.U} else {number(i+f)*scala.math.pow(2,i).toInt.U }}.reduce{_+_}

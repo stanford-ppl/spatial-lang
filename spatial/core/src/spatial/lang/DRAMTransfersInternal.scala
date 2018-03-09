@@ -28,7 +28,8 @@ object DRAMTransfersInternal {
     units:   Seq[Boolean],
     par:     Const[Index],
     isLoad:  Boolean,
-    isAlign: Boolean
+    isAlign: Boolean,
+    og:      Seq[Exp[Index]]
   )(implicit mem: Mem[T,C], mC: Type[C[T]], mD: Type[DRAM[T]], ctx: SrcCtx): MUnit = {
 
     val unitDims = units
@@ -56,7 +57,7 @@ object DRAMTransfersInternal {
         val offchipAddr = () => flatIndex( offchipOffsets.zip(indices.zip(strideNums)).map{case (a,(b,st)) => a + b*st}, wrap(stagedDimsOf(offchip)))
 
         val onchipOfs   = indices.zip(unitDims).collect{case (i,isUnitDim) if !isUnitDim => i }
-        val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1) :+ (onchipOfs.last + i)}
+        val onchipAddr  = {i: Index => onchipOfs.take(onchipOfs.length - 1).zip(og.take(onchipOfs.length-1)).map{case(of,o)=> of + wrap(o)} :+ (onchipOfs.last + i + wrap(og.last))}
 
         if (isLoad) load(offchipAddr(), onchipAddr)
         else        store(offchipAddr(), onchipAddr)
@@ -65,8 +66,8 @@ object DRAMTransfersInternal {
     else {
       Stream {
         def offchipAddr = () => flatIndex(offchipOffsets, wrap(stagedDimsOf(offchip)))
-        if (isLoad) load(offchipAddr(), {i => List(i) })
-        else        store(offchipAddr(), {i => List(i)})
+        if (isLoad) load(offchipAddr(), {i => List(i+wrap(og.head)) })
+        else        store(offchipAddr(), {i => List(i+wrap(og.head))})
       }
     }
 

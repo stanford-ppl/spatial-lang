@@ -94,7 +94,8 @@ trait ChiselGenFixPt extends ChiselCodegen {
       emit(s"val ${quote(lhs)}_bitsize = Utils.log2Up(${size}) max 1")
       emitGlobalModule(src"val ${lhs}_rng = Module(new PRNG($seed /* seed */))")
       emitGlobalModule(src"${lhs}_rng.io.en := true.B")
-      emit(src"val ${lhs} = ${lhs}_rng.io.output(${lhs}_bitsize-1,0)")
+      emit(src"val ${lhs} = Wire(${newWireFix(lhs.tp)})")
+      emit(src"${lhs}_rng.io.output(${lhs}_bitsize-1,0).cast(${lhs}, sign_extend = false) // FixRandom assumed to return positive")
     case FixUnif() => 
       val bits = lhs.tp match {
         case FixPtType(s,d,f) => f
