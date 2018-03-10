@@ -9,11 +9,16 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   def divide(dividend: UInt, divisor: UInt, latency: Int): UInt = {
     getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        //dividend / bigNum.U
-        val m = Module(new Divider(dividend.getWidth, bigNum.U.getWidth, false, 0))
-        m.io.dividend := dividend
-        m.io.divisor := bigNum.U
-        m.io.out
+        if (bigNum.bitCount == 1) { // Power-of-2
+          val numZeroes = log2Up(bigNum)
+          Cat(Fill(numZeroes, 0.U), dividend(dividend.getWidth-1, numZeroes)) // Zero-extended
+        } else {
+          //dividend / bigNum.U
+          val m = Module(new Divider(dividend.getWidth, bigNum.U.getWidth, false, 0))
+          m.io.dividend := dividend
+          m.io.divisor := bigNum.U
+          m.io.out
+        }
       case None =>
         val m = Module(new Divider(dividend.getWidth, divisor.getWidth, false, latency))
         m.io.dividend := dividend
@@ -25,11 +30,17 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   def divide(dividend: SInt, divisor: SInt, latency: Int): SInt = {
     getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        //dividend / bigNum.S
-        val m = Module(new Divider(dividend.getWidth, bigNum.S.getWidth, true, 0))
-        m.io.dividend := dividend.asUInt
-        m.io.divisor := bigNum.S.asUInt
-        m.io.out.asSInt
+        if (bigNum.bitCount == 1) { // Power-of-2
+          val numZeroes = log2Up(bigNum)
+          val signBit = dividend(dividend.getWidth-1)
+          Cat(Fill(numZeroes, signBit), dividend(dividend.getWidth-1, numZeroes)).asSInt  // Sign-extended
+        } else {
+          //dividend / bigNum.S
+          val m = Module(new Divider(dividend.getWidth, bigNum.S.getWidth, true, 0))
+          m.io.dividend := dividend.asUInt
+          m.io.divisor := bigNum.S.asUInt
+          m.io.out.asSInt
+        }
       case None =>
         val m = Module(new Divider(dividend.getWidth, divisor.getWidth, true, latency))
         m.io.dividend := dividend.asUInt
@@ -41,11 +52,16 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   def mod(dividend: UInt, divisor: UInt, latency: Int): UInt = {
     getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        //dividend % bigNum.U
-        val m = Module(new Modulo(dividend.getWidth, bigNum.U.getWidth, false, 0))
-        m.io.dividend := dividend
-        m.io.divisor := bigNum.U
-        m.io.out
+        if (bigNum.bitCount == 1) { // Power-of-2
+          val numBits = log2Up(bigNum)
+          dividend(numBits-1, 0)
+        } else {
+          //dividend % bigNum.U
+          val m = Module(new Modulo(dividend.getWidth, bigNum.U.getWidth, false, 0))
+          m.io.dividend := dividend
+          m.io.divisor := bigNum.U
+          m.io.out
+        }
       case None =>
         val m = Module(new Modulo(dividend.getWidth, divisor.getWidth, false, latency))
         m.io.dividend := dividend
@@ -57,11 +73,16 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   def mod(dividend: SInt, divisor: SInt, latency: Int): SInt = {
     getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        //dividend % bigNum.S
-        val m = Module(new Modulo(dividend.getWidth, bigNum.S.getWidth, true, 0))
-        m.io.dividend := dividend.asUInt
-        m.io.divisor := bigNum.S.asUInt
-        m.io.out.asSInt
+        if (bigNum.bitCount == 1) { // Power-of-2
+          val numBits = log2Up(bigNum)
+          dividend(numBits-1, 0).asSInt
+        } else {
+          //dividend % bigNum.S
+          val m = Module(new Modulo(dividend.getWidth, bigNum.S.getWidth, true, 0))
+          m.io.dividend := dividend.asUInt
+          m.io.divisor := bigNum.S.asUInt
+          m.io.out.asSInt
+        }
       case None =>
         val m = Module(new Modulo(dividend.getWidth, divisor.getWidth, true, latency))
         m.io.dividend := dividend.asUInt
