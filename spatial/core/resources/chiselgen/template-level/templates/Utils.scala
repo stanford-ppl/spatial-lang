@@ -692,7 +692,7 @@ object Utils {
   def FixedPoint[T](s: Int, d: Int, f: Int, init: T, sign_extend: scala.Boolean): types.FixedPoint = {
     FixedPoint(s > 0, d, f, init, sign_extend)
   }
-  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T, sign_extend: scala.Boolean = false): types.FixedPoint = {
+  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T, sign_extend: scala.Boolean = true): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
