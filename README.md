@@ -1,11 +1,37 @@
 # Spatial
-Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.  Our user forum is here: 
+Spatial is an Argon DSL for programming reconfigurable hardware from a parameterized, high level abstraction.  
 
-## [Forum](https://groups.google.com/forum/#!forum/spatial-lang-users)
+# Getting Started
 
-## [Getting Started](http://spatial-lang.readthedocs.io/en/latest/tutorial/starting.html)
+It is recommended that you use the [spatial-quickstart](https://github.com/stanford-ppl/spatial-quickstart) to get started with Spatial.
 
-## [API](http://spatial-lang.readthedocs.io/en/latest/)
+However, if you intend to build from source, then you are in the right place.  Run the following (bash) commands to clone and update the spatial-lang repository:
+
+```
+    $ git clone https://github.com/stanford-ppl/spatial-lang.git
+    $ cd spatial-lang
+    $ git submodule update --init
+```
+
+This will pull Spatial's submodules ``argon``, ``apps``, and ``scala-virtualized``.
+
+You may need to export your JAVA_HOME environment variable to point to your Java installation (usually /usr/bin)
+
+You are now ready to compile the language.  Run the following:
+
+```
+    $ sbt compile
+```
+
+A good habit would be to pull from these repositories often and run ``sbt compile`` in your spatial-lang directory.
+
+# Links
+
+  * [Quickstart](https://github.com/stanford-ppl/spatial-quickstart)
+  * [Website](https://spatial.stanford.edu)
+  * [Documentation](http://spatial-lang.readthedocs.io/en/latest/)
+  * [Forum](https://groups.google.com/forum/#!forum/spatial-lang-users)
+
 
 # Branch Statuses
 
