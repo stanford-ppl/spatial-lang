@@ -13,7 +13,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
           if (bigNum == 1) {
             dividend
           } else {
-            val shiftAmount = log2Down(bigNum)
+            val shiftAmount = log2Up(bigNum)
             if (dividend.getWidth <= shiftAmount) Fill(dividend.getWidth, 0.U)
             else Cat(Fill(shiftAmount, 0.U), dividend(dividend.getWidth-1, shiftAmount)) // Zero-extended
           }
