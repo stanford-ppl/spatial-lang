@@ -35,7 +35,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   def divide(dividend: SInt, divisor: SInt, latency: Int): SInt = {
     getConst(divisor) match { // Use Designware divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        if (isPow2(bigNum)) { // Power-of-2
+        if (isPow2(bigNum)) { // Power-of-2 -- note this optimization may not be safe if bigNum is negative
           if (bigNum == 1) {
             dividend
           } else {
@@ -87,7 +87,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   def mod(dividend: SInt, divisor: SInt, latency: Int): SInt = {
     getConst(divisor) match { // Use Designware divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        if (isPow2(bigNum)) { // Power-of-2
+        if (isPow2(bigNum)) { // Power-of-2 -- note this optimization may not be safe if bigNum is negative
           if (bigNum == 1) {
             Fill(divisor.getWidth, 0.U).asSInt
           } else {
