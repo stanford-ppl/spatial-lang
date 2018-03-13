@@ -150,7 +150,7 @@ trait ChiselGenReg extends ChiselGenSRAM {
                 case FixPtSum =>
                   if (spatialNeedsFPType(reg.tp.typeArguments.head)) {
                     reg.tp.typeArguments.head match {
-                      case FixPtType(s,d,f) => emit(src"""${lhs}.r := Utils.FixedPoint(${if (s) 1 else 0}, $d, $f, ${reg}_initval).r // get reset value that was created by reduce controller""")                    
+                      case FixPtType(s,d,f) => emit(src"""${lhs}.r := Utils.FixedPoint(${s}, $d, $f, ${reg}_initval).r // get reset value that was created by reduce controller""")                    
                     }
                   } else {
                     emit(src"""${lhs}.r := ${reg}_initval // get reset value that was created by reduce controller""")                    

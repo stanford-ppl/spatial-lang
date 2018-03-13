@@ -1,7 +1,7 @@
 package spatial.tests
 
 import org.scalatest.{FlatSpec, Matchers,Tag}
-import org.virtualized._
+import virtualized._
 
 object SimpleSequential extends SpatialTest {
   import spatial.dsl._

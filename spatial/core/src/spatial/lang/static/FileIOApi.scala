@@ -2,7 +2,7 @@ package spatial.lang.static
 
 import argon.core._
 import forge._
-import org.virtualized.virtualize
+import virtualized.virtualize
 import spatial.lang.File._
 
 trait FileIOApi { this: SpatialApi =>

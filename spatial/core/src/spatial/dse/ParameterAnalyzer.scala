@@ -6,7 +6,7 @@ import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
 import spatial.utils._
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 
 trait ParameterAnalyzer extends SpatialTraversal {
   override val name = "Parameter Analyzer"

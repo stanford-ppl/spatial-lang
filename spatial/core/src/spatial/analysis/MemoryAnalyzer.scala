@@ -2,7 +2,7 @@ package spatial.analysis
 
 import argon.core._
 import argon.traversal.CompilerPass
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 import spatial.models._
@@ -674,6 +674,11 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     val factors = unrollFactorsOf(access) diff unrollFactorsOf(mem)
     val duplicates = factors.flatten.map{case Exact(c) => c.toInt}.product
 
+    dbgs(s"")
+    dbgs(s"  access: ${str(access)}")
+    dbgs(s"  access:  " + unrollFactorsOf(access).mkString(", "))
+    dbgs(s"  memory:  " + unrollFactorsOf(mem).mkString(", "))
+    dbgs(s"  factors: " + factors.mkString(", "))
     (BankedMemory(Seq(NoBanking(1)), depth = 1, isAccum = false), duplicates)
   }
 
@@ -689,7 +694,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     // Simple check, fragile if load structure ever changes.  If this is ParLineBufferRotateEnq with rows =/= lb stride, then this is transient. We get rows from parent of parent of access' counter
     val rowstride = mem match {case Def(LineBufferNew(_,_,stride)) => stride match {case Exact(c) => c.toInt; case _ => 0}; case _ => 0}
     val rowsWritten = access match {
-      case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_)) => dims.zip(strides).dropRight(1).last match {case (Exact(c: BigInt), Exact(st: BigInt)) => c/st}
+      case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_,_)) => dims.zip(strides).dropRight(1).last match {case (Exact(c: BigInt), Exact(st: BigInt)) => c/st}
       case Def(_: LineBufferLoad[_]) => rowstride // Not transient
       case Def(_: ParLineBufferLoad[_]) => rowstride // Not transient
       case Def(_: LineBufferColSlice[_]) => rowstride // Not transient
@@ -719,7 +724,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
               case Def(UnitPipe(_,_)) => 1
               case Def(Hwblock(_,_)) => // This seems to be first mem analyzer pass
                 access match {
-                  case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_)) => 
+                  case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_,_)) => 
                     dims.zip(strides).dropRight(1).last match {case (Exact(c: BigInt), Exact(st: BigInt)) => c/st}
                 }
               case _ => 0

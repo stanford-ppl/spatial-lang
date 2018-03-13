@@ -12,6 +12,8 @@ trait SRAM[T] { this: Template[_] =>
   @internal protected def ofs = lift[Int, Index](0).s
   protected[spatial] var p: Option[Index] = None
 
+  @internal def origin: Seq[Index] = stagedDimsOf(s).map{d => lift[Int, Index](0)}
+
   @internal def ranges: Seq[Range] = stagedDimsOf(s).map{d => Range.alloc(None, wrap(d),None,None)}
 
   /** Returns a Scala List of the dimensions of this DRAM **/
@@ -89,6 +91,10 @@ case class SRAM1[T:Type:Bits](s: Exp[SRAM1[T]]) extends Template[SRAM1[T]] with 
 
   /** Returns the value in this SRAM1 at the given address `a`. **/
   @api def apply(a: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s), ofs, Bit.const(true)))
+
+  /** Create a dense, burst load from the given region of DRAM to this on-chip memory with origin. **/
+  @api def loadOrigin(dram: DRAMDenseTile1[T], origin: Index): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, origin = Some(List(origin)))
+
   /** Updates the value in this SRAM1 at the given address `a` to `data`. **/
   @api def update(a: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s), ofs, data.s, Bit.const(true)))
 
@@ -124,6 +130,7 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
 
   /** Returns the value in this SRAM2 at the given `row` and `col`. **/
   @api def apply(row: Index, col: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(row.s,col.s), ofs, Bit.const(true)))
+
   /** Updates the value in this SRAM2 at the given `row` and `col` to `data`. **/
   @api def update(row: Index, col: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(row.s,col.s), ofs, data.s, Bit.const(true)))
   /**
@@ -137,6 +144,8 @@ case class SRAM2[T:Type:Bits](s: Exp[SRAM2[T]]) extends Template[SRAM2[T]] with 
   @api def load(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true)
   /** Create a dense, burst load from the given region of DRAM to this on-chip memory. **/
   @api def load(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true)
+  /** Create a dense, burst load from the given region of DRAM to this on-chip memory with origin. **/
+  @api def loadOrigin(dram: DRAMDenseTile2[T], origin: (Index, Index)): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, origin = Some(List(origin._1, origin._2)))
 
   @api def loadAligned(dram: DRAM2[T]): MUnit = DRAMTransfers.dense_transfer(dram.toTile(ranges), this, isLoad = true, isAlign = true)
   @api def loadAligned(dram: DRAMDenseTile2[T]): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, isAlign = true)
@@ -160,6 +169,10 @@ case class SRAM3[T:Type:Bits](s: Exp[SRAM3[T]]) extends Template[SRAM3[T]] with 
 
   /** Returns the value in this SRAM3 at the given 3-dimensional address `a`, `b`, `c`. **/
   @api def apply(a: Index, b: Index, c: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, Bit.const(true)))
+
+  /** Create a dense, burst load from the given region of DRAM to this on-chip memory with origin. **/
+  @api def loadOrigin(dram: DRAMDenseTile3[T], origin: (Index, Index, Index)): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, origin = Some(List(origin._1, origin._2, origin._3)))
+
   /** Updates the value in this SRAM3 at the given 3-dimensional address to `data`. **/
   @api def update(a: Index, b: Index, c: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s), ofs, data.s, Bit.const(true)))
   /**
@@ -195,6 +208,10 @@ case class SRAM4[T:Type:Bits](s: Exp[SRAM4[T]]) extends Template[SRAM4[T]] with 
 
   /** Returns the value in this SRAM4 at the 4-dimensional address `a`, `b`, `c`, `d`. **/
   @api def apply(a: Index, b: Index, c: Index, d: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, Bit.const(true)))
+
+  /** Create a dense, burst load from the given region of DRAM to this on-chip memory with origin. **/
+  @api def loadOrigin(dram: DRAMDenseTile4[T], origin: (Index, Index, Index, Index)): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, origin = Some(List(origin._1, origin._2, origin._3, origin._4)))
+
   /** Updates the value in this SRAM4 at the 4-dimensional address to `data`. **/
   @api def update(a: Index, b: Index, c: Index, d: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s), ofs, data.s, Bit.const(true)))
 
@@ -226,6 +243,10 @@ case class SRAM5[T:Type:Bits](s: Exp[SRAM5[T]]) extends Template[SRAM5[T]] with 
 
   /** Returns the value in this SRAM5 at the 5-dimensional address `a`, `b`, `c`, `d`, `e`. **/
   @api def apply(a: Index, b: Index, c: Index, d: Index, e: Index): T = wrap(SRAM.load(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, Bit.const(true)))
+
+  /** Create a dense, burst load from the given region of DRAM to this on-chip memory with origin. **/
+  @api def loadOrigin(dram: DRAMDenseTile5[T], origin: (Index, Index, Index, Index, Index)): MUnit = DRAMTransfers.dense_transfer(dram, this, isLoad = true, origin = Some(List(origin._1, origin._2, origin._3, origin._4, origin._5)))
+
   /** Updates the value in this SRAM5 at the 5-dimensional address to `data`. **/
   @api def update(a: Index, b: Index, c: Index, d: Index, e: Index, data: T): MUnit = MUnit(SRAM.store(this.s, stagedDimsOf(s), Seq(a.s,b.s,c.s,d.s,e.s), ofs, data.s, Bit.const(true)))
 

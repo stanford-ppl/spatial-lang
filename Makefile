@@ -17,11 +17,11 @@ compile:
 
 publish-local:
 	cd scala-virtualized; \
-	sbt publish-local; \
+	sbt publishLocal; \
 	cd ../argon; \
 	sbt publish-local; \
 	cd ../spatial; \
-	sbt publish-local
+	sbt publishLocal
 
 assembly:
 	sbt spatial/assembly

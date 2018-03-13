@@ -3,7 +3,7 @@ package spatial.transform
 import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._
@@ -76,6 +76,8 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
     // For each memory this access reads, set the new dispatch value
     reads.foreach{mem =>
+      dbgs(s"\n\n")
+      dbgs(s"------------------------------------------------------")
       dbgs(u"Registering read of $mem: " + c"$original -> $unrolled")
       dbgs(c"  Channels: $channels")
       dbgs(c"  ${str(original)}")
@@ -98,6 +100,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           dbgs(c"  Dispatch #$orig: ")
           dbgs(c"    Previous unroll numbers: ")
           val others = pachinko.getOrElse( (original,mem,orig), Nil)
+          others.foreach{other => dbgs(c"      $other") }
 
           val banking = duplicatesOf(mem).apply(orig) match {
             case banked: BankedMemory => banked.dims.map(_.banks)
@@ -160,8 +163,6 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           dbgs(c"    Banked Channels: $bankedChannels ($banks)")
           dbgs(c"    Duplicates: $duplicates")
 
-          others.foreach{other => dbgs(c"      $other") }
-
           val dispatchStart = orig + duplicates * others.count{p => p == unrollInts }
           pachinko += (original,mem,orig) -> (unrollInts +: others)
 
@@ -179,6 +180,7 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
           bug(unrolled.ctx, c"Dispatches created for $unrolled on memory $mem (dispatches: $origDispatches) was empty.")
           bug(c"${str(unrolled)}")
         }
+        dbgs(s"------------------------------------------------------")
 
         dispatchOf(unrolled, mem) = dispatches
       }

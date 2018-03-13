@@ -1,7 +1,7 @@
 package spatial.tests
 import org.scalatest.{FlatSpec, Matchers}
 import spatial.dsl._
-import org.virtualized._
+import virtualized._
 
 object OuterSwitchTest extends SpatialTest {
   @virtualize def main(): Unit = {
