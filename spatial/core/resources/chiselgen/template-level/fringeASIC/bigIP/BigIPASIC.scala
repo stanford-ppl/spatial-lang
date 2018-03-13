@@ -13,7 +13,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
           if (bigNum == 1) {
             dividend
           } else {
-            val shiftAmount = log2Up(bigNum)
+            val shiftAmount = log2Ceil(bigNum)
             if (dividend.getWidth <= shiftAmount) Fill(dividend.getWidth, 0.U)
             else Cat(Fill(shiftAmount, 0.U), dividend(dividend.getWidth-1, shiftAmount)) // Zero-extended
           }
@@ -39,7 +39,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
           if (bigNum == 1) {
             dividend
           } else {
-            val shiftAmount = log2Up(bigNum)
+            val shiftAmount = log2Ceil(bigNum)
             val signbit = dividend(dividend.getWidth-1)
             if (dividend.getWidth <= shiftAmount) Fill(dividend.getWidth, 0.U).asSInt
             else Cat(Fill(shiftAmount, signbit), dividend(dividend.getWidth-1, shiftAmount)).asSInt // Sign-extended
@@ -66,7 +66,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
           if (bigNum == 1) {
             Fill(divisor.getWidth, 0.U)
           } else {
-            val numBits = log2Up(bigNum)
+            val numBits = log2Ceil(bigNum)
             dividend(numBits-1, 0)
           }
         } else {
@@ -91,7 +91,7 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
           if (bigNum == 1) {
             Fill(divisor.getWidth, 0.U).asSInt
           } else {
-            val numBits = log2Up(bigNum)
+            val numBits = log2Ceil(bigNum)
             dividend(numBits-1, 0).asSInt
           }
         } else {
