@@ -118,11 +118,22 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
         val const = if (aconst.isDefined) aconst.get else bconst.get
         val other = if (aconst.isDefined) b else a
 
-        //const.U * other
-        val m = Module(new Multiplier(const.U.getWidth, other.getWidth, const.U.getWidth + other.getWidth, false, 0))
-        m.io.a := const.U
-        m.io.b := other
-        m.io.out
+        if (const == 0) {
+          Fill(const.U.getWidth + other.getWidth, 0.U)
+        } else if (isPow2(const)) { // Power-of-2
+          if (const == 1) {
+            other
+          } else {
+            val shiftAmount = log2Ceil(const)
+            Cat(Fill(const.U.getWidth - shiftAmount, 0.U), Cat(other, Fill(shiftAmount, 0.U))) // Zero-pad
+          }
+        } else {
+          //const.U * other
+          val m = Module(new Multiplier(const.U.getWidth, other.getWidth, const.U.getWidth + other.getWidth, false, 0))
+          m.io.a := const.U
+          m.io.b := other
+          m.io.out
+        }
       }
     } else {
       val m = Module(new Multiplier(a.getWidth, b.getWidth, math.max(a.getWidth, b.getWidth), false, latency))
@@ -141,11 +152,24 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
         val const = if (aconst.isDefined) aconst.get else bconst.get
         val other = if (aconst.isDefined) b else a
 
-        //const.S * other
-        val m = Module(new Multiplier(const.S.getWidth, other.getWidth, const.S.getWidth + other.getWidth, true, 0))
-        m.io.a := const.S.asUInt
-        m.io.b := other.asUInt
-        m.io.out.asSInt
+        if (const == 0) {
+          Fill(const.S.getWidth + other.getWidth, 0.U).asSInt
+        } else if (isPow2(const)) { // Power-of-2
+          if (const == 1) {
+            other
+          } else {
+            val shiftAmount = log2Ceil(const)
+            val signbit = other(other.getWidth-1)
+
+            Cat(Fill(const.S.getWidth - shiftAmount, signbit), Cat(other, Fill(shiftAmount, 0.U))).asSInt // Zero-pad, Sign-extend
+          }
+        } else {
+          //const.S * other
+          val m = Module(new Multiplier(const.S.getWidth, other.getWidth, const.S.getWidth + other.getWidth, true, 0))
+          m.io.a := const.S.asUInt
+          m.io.b := other.asUInt
+          m.io.out.asSInt
+        }
       }
     } else {
       val m = Module(new Multiplier(a.getWidth, b.getWidth, math.max(a.getWidth, b.getWidth), true, latency))
