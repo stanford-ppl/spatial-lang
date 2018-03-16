@@ -187,6 +187,7 @@ class Fringe(
   magConfig.scatterGather := false.B
   mags.foreach { _.io.config := magConfig }
   mags.foreach { _.io.reset := localReset }
+  mags.foreach { _.reset := localReset }
   if ((FringeGlobals.target == "aws") | (FringeGlobals.target == "aws-sim")) {
     mags.foreach { _.io.enable := io.aws_top_enable }
   } else {
