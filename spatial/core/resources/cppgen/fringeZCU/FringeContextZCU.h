@@ -416,6 +416,10 @@ public:
     return getArg(arg, isIO);
   }
 
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
+  }
+
   virtual uint64_t getArg(uint32_t arg, bool isIO) {
     if (isIO) {
       return readReg(2+arg);
