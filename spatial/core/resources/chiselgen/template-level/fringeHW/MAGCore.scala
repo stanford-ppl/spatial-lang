@@ -83,7 +83,7 @@ class MAGCore(
   val external_v = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 64 else 16
   // debug registers
   def debugCounter(en: Bool) = {
-    val c = Module(new Counter(w))
+    val c = Module(new Counter(64))
     c.io.reset := io.reset
     c.io.saturate := false.B
     c.io.max := ~(0.U(w.W))
