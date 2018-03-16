@@ -290,6 +290,11 @@ ${indent()}<!-- Close $name -->
       print_stream_info(sym)
       print_stage_suffix(s"$sym", true)
 
+    case RangeForeach(start, end, step, func, i) =>
+      // open(src"for (int $i = $start; $i < $end; $i = $i + $step) {")
+      visitBlock(func)
+      // close("}")
+
     case _ => // Do not visit super because we don't care to traverse everything
   }
 
