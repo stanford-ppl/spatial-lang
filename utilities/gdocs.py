@@ -12,6 +12,8 @@ import socket
 
 def write(wksh, row, col, txt):
 	try:
+		if (col > wksh.cols):
+        	wksh.insert_cols(col-1, inherit=True)
 		wksh.update_cell((row,col),txt)
 	except:
 		print("WARN: pygsheets failed write %s @ %d,%d... -_-" % (txt, row, col))
