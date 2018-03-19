@@ -10,6 +10,8 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
   override def scriptName = "spatial"
   override def description = "CLI for spatial"
 
+  parser.help("X").hidden()
+
   parser.opt[Unit]("synth").action{ (_,_) =>
     spatialConfig.enableSynth = true
     spatialConfig.enableSim = false

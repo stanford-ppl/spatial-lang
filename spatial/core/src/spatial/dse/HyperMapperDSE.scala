@@ -57,34 +57,40 @@ trait HyperMapperDSE { this: DSE =>
     }
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/hypermapper.py", pcsFile) { (cmd,reader) =>
       if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
-        println(s"[Master] Received Line: $cmd")
+        try {
+          val parts = cmd.split(" ").map(_.trim)
+          val command = parts.head
+          val nPoints = parts.last.toInt
+          val header  = reader.readLine().split(",").map(_.trim)
+          val order   = space.map{d => header.indexOf(d.name) }
+          val points  = (0 until nPoints).map{_ => reader.readLine() }
 
-        val parts = cmd.split(" ").map(_.trim)
-        val command = parts.head
-        val nPoints = parts.last.toInt
-        val header  = reader.readLine().split(",").map(_.trim)
-        val order   = space.map{d => header.indexOf(d.name) }
-        val points  = (0 until nPoints).map{_ => reader.readLine() }
+          println(s"[Master] Received Line: $cmd")
 
-        command match {
-          case "Request" =>
-            points.foreach{point =>
-              val values = point.split(",").map(_.trim.toInt)
-              workQueue.put(order.map{i => values(i) })
-            }
-            val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")
-            println("[Master] Sending back:")
-            println(result)
-            Some(result)
+          command match {
+            case "Request" =>
+              points.foreach { point =>
+                val values = point.split(",").map(_.trim.toInt)
+                workQueue.put(order.map { i => values(i) })
+              }
+              val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")
+              println("[Master] Sending back:")
+              println(result)
+              Some(result)
 
-          case "Pareto" =>
-            // TODO: Do something with the pareto
-            //val data = new PrintStream(config.name + "_hm_data.csv")
-            //data.println(HEADER)
-            //points.foreach{pt => data.println(pt) }
-            //data.close()
-            None
-      }}
+            case "Pareto" =>
+              // TODO: Do something with the pareto
+              //val data = new PrintStream(config.name + "_hm_data.csv")
+              //data.println(HEADER)
+              //points.foreach{pt => data.println(pt) }
+              //data.close()
+              None
+        }}
+        catch {case _:Throwable =>
+          println(s"[Ignored] $cmd")
+          None
+        }
+      }
       else None
     }
 
