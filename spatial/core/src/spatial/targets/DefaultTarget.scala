@@ -11,7 +11,6 @@ object DefaultTarget extends AlteraDevice {
 
   protected def makeAreaModel: AreaModel = new StratixVAreaModel
   protected def makeLatencyModel: LatencyModel = new StratixVLatencyModel
-  def capacity: Area = AreaMap(ALMs->524800, Regs->1024800, DSPs->6000, BRAM->6000, Channels->13)
-  //AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
+  def capacity: Area = AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
 }
 
