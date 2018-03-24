@@ -56,8 +56,8 @@ abstract class FPGATarget {
   }
   def capacity: Area              // Device resource maximum, in terms of FIELDS
 
-  final def areaAnalyzer(state: State): AreaAnalyzer = AreaAnalyzer(state, areaModel, latencyModel)
-  final def cycleAnalyzer(state: State): LatencyAnalyzer = LatencyAnalyzer(state, latencyModel)
+  final def areaAnalyzer(state: State): AreaAnalyzer = AreaAnalyzer(state, makeAreaModel, makeLatencyModel)
+  final def cycleAnalyzer(state: State): LatencyAnalyzer = LatencyAnalyzer(state, makeLatencyModel)
 }
 
 object Targets {

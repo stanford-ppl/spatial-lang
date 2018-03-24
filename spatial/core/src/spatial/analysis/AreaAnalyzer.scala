@@ -17,11 +17,13 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
 
   var totalArea: Area = _
   var scopeArea: Seq[Area] = Nil
-  var savedArea: Area = NoArea
+  var savedArea: Area = _
   var isRerun: Boolean = false
 
   override def init(): Unit = if (needsInit) {
     areaModel.init()
+    scopeArea = Nil
+    savedArea = NoArea
     super.init()
   }
 
