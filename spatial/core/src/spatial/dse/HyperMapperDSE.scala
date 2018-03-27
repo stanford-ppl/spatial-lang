@@ -10,7 +10,7 @@ import spatial.metadata._
 
 trait HyperMapperDSE { this: DSE =>
 
-  def hyperMapperDSE(space: Seq[Domain[Int]], program: Block[_], file: String = config.name + "_data.csv"): Unit = {
+  def hyperMapperDSE(space: Seq[Domain[_]], program: Block[_], file: String = config.name + "_data.csv"): Unit = {
     val N = space.size
     val T = spatialConfig.threads
     val dir =  config.cwd + "/results/"

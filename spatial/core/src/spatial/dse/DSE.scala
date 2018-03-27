@@ -54,7 +54,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
 
 
 
-  def heuristicDSE(params: Seq[Exp[_]], space: Seq[Domain[Int]], restrictions: Set[Restrict], program: Block[_]): Unit = {
+  def heuristicDSE(params: Seq[Exp[_]], space: Seq[Domain[_]], restrictions: Set[Restrict], program: Block[_]): Unit = {
     val EXPERIMENT = spatialConfig.experimentDSE
     report("Intial Space Statistics: ")
     report("-------------------------")
@@ -186,7 +186,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   }
 
   // P: Total space size
-  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[Int]], program: Block[_], file: String = config.name+"_data.csv", overhead: Long = 0L)(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
+  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[_]], program: Block[_], file: String = config.name+"_data.csv", overhead: Long = 0L)(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
     val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val T = spatialConfig.threads
@@ -300,7 +300,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     println(s"[Master] Completed space search in $totalTime seconds.")
   }
 
-  def bruteForceDSE(params: Seq[Exp[_]], space: Seq[Domain[Int]], program: Block[_]): Unit = {
+  def bruteForceDSE(params: Seq[Exp[_]], space: Seq[Domain[_]], program: Block[_]): Unit = {
     val P = space.map{d => BigInt(d.len) }.product
     val T = spatialConfig.threads
     val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)

@@ -11,7 +11,7 @@ import spatial.models._
 case class DSEThread(
   threadId:  Int,
   params:    Seq[Exp[_]],
-  space:     Seq[Domain[Int]],
+  space:     Seq[Domain[_]],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],

@@ -47,14 +47,14 @@ trait SpaceGenerator {
     }
   }
 
-  def createCtrlSpace(metapipes: Seq[Exp[_]])(implicit ir: State): Seq[Domain[Int]] = {
+  def createCtrlSpace(metapipes: Seq[Exp[_]])(implicit ir: State): Seq[Domain[Boolean]] = {
     metapipes.map{mp =>
-      Domain.apply(
+      new Domain[Boolean](
         name    = mp.name.getOrElse(c"$mp"),
-        range   = 0 to 1,
-        setter  = {(c: Int, state:State) => if (c == 1) styleOf.set(mp, MetaPipe)(state)
-                                            else   styleOf.set(mp, SeqPipe)(state) },
-        getter  = {(state: State) => if (styleOf(mp)(state) == MetaPipe) 1 else 0 },
+        options = Seq(false, true),
+        setter  = {(c: Boolean, state:State) => if (c) styleOf.set(mp, MetaPipe)(state)
+                                                else   styleOf.set(mp, SeqPipe)(state) },
+        getter  = {(state: State) => styleOf(mp)(state) == MetaPipe },
         tp      = Categorical
       )
     }

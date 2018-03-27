@@ -10,7 +10,7 @@ import spatial.models._
 
 case class HyperMapperThread(
   threadId:  Int,
-  space:     Seq[Domain[Int]],
+  space:     Seq[Domain[_]],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
@@ -96,9 +96,9 @@ case class HyperMapperThread(
     hasTerminated = true
   }
 
-  def run(request: Seq[Int]): String = {
+  def run(request: Seq[Any]): String = {
     state.resetErrors()
-    request.indices.foreach{i => space(i).setValue(request(i)) }
+    request.indices.foreach{i => space(i).setValueUnsafe(request(i)) }
 
     val (area, runtime) = evaluate()
     val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point

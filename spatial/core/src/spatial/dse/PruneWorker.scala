@@ -12,7 +12,7 @@ case class PruneWorker(
   size: Int,
   prods: Seq[BigInt],
   dims:  Seq[BigInt],
-  indexedSpace: Seq[(Domain[Int],Int)],
+  indexedSpace: Seq[(Domain[_],Int)],
   restricts: Set[Restrict],
   queue: LinkedBlockingQueue[Seq[Int]]
 )(implicit state: State) extends Runnable {
