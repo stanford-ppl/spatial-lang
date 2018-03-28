@@ -25,7 +25,7 @@ trait HyperMapperDSE { this: DSE =>
     report(s"Using $T threads")
     report(s"Writing results to file $filename")
 
-    val workQueue = new LinkedBlockingQueue[Seq[Int]](5000)  // Max capacity specified here
+    val workQueue = new LinkedBlockingQueue[Seq[Any]](5000)  // Max capacity specified here
     val fileQueue = new LinkedBlockingQueue[String](5000)
 
     val workerIds = (0 until T).toList
@@ -81,7 +81,11 @@ trait HyperMapperDSE { this: DSE =>
           command match {
             case "Request" =>
               points.foreach { point =>
-                val values = point.split(",").map(_.trim.toInt)
+                val values = point.split(",").map(_.trim.toLowerCase).map{
+                  case "true" => true
+                  case "false" => false
+                  case x => x.toInt
+                }
                 workQueue.put(order.map { i => values(i) })
               }
               val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")

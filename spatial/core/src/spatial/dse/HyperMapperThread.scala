@@ -14,7 +14,7 @@ case class HyperMapperThread(
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[Seq[Int]],
+  workQueue: BlockingQueue[Seq[Any]],
   outQueue:  BlockingQueue[String]
 )(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
