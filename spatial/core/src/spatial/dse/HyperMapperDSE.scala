@@ -46,6 +46,7 @@ trait HyperMapperDSE { this: DSE =>
     }
 
     val pcsFile = config.name + ".pcs"
+    val jsonFile = config.name + ".json"
     val workDir = "dse_hm"
     val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid"
 
@@ -55,7 +56,17 @@ trait HyperMapperDSE { this: DSE =>
         msg(s"""${domain.name} ${domain.tp} {${domain.options.mkString(", ")}}""", 100)
       }
     }
-    val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/hypermapper.py", pcsFile) { (cmd,reader) =>
+    println("Creating Hypermapper config JSON file")
+    withLog(workDir, jsonFile){
+      msg("{")
+        msg(s""" "application_name": "${config.name}", """)
+        msg(s""" "pcs_file": "$workDir/$pcsFile", """)
+        msg(s""" "optimization_objectives": ["ALMs", "Cycles"] """)
+      msg("}")
+    }
+
+    Console.println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
+    val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile) { (cmd,reader) =>
       if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
         try {
           val parts = cmd.split(" ").map(_.trim)
