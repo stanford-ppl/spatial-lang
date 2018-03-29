@@ -192,12 +192,12 @@ endif
 	echo "cd $(AWS_HOME)/hdk/cl/examples/${app_name}"                                                               >> create_spatial_AFI_instructions.sh
 	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket  --region us-east-1"                                       >> create_spatial_AFI_instructions.sh
 	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket/dcp 2>&1 | tee log"                                             >> create_spatial_AFI_instructions.sh
-	echo "too_many_buckets=`cat log | grep TooManyBuckets | wc -l`"							                        >> create_spatial_AFI_instructions.sh                 								
-	echo "if [[ ${too_many_buckets} -ne 0 ]]; then echo \"Too many buckets error.  Delete some in S3\";	exit 1; fi" >> create_spatial_AFI_instructions.sh 
+	echo "too_many_buckets=\`cat log | grep TooManyBuckets | wc -l\`"							                        >> create_spatial_AFI_instructions.sh                 								
+	echo "if [[ \$${too_many_buckets} -ne 0 ]]; then echo \"Too many buckets error.  Delete some in S3\"; exit 1; fi" >> create_spatial_AFI_instructions.sh 
 	echo "aws s3 cp build/checkpoints/to_aws/*.Developer_CL.tar s3://${app_name}_$(timestamp)_bucket/dcp/ | tee log" >> create_spatial_AFI_instructions.sh
+	echo "tarname=\`cat log | grep \"Developer_CL.tar\" -m 1 | rev | cut -d/ -f1 | rev\`"                             >> create_spatial_AFI_instructions.sh
+	echo "if [[ -z \$$tarname ]]; then echo \"No tarname found!\"; exit 1; fi"                                          >> create_spatial_AFI_instructions.sh
 	echo "aws s3 mb s3://${app_name}_$(timestamp)_bucket/logs | tee log"                                            >> create_spatial_AFI_instructions.sh
-	echo "tarname=`cat log | grep \"Developer_CL.tar\" -m 1 | rev | cut -d/ -f1 | rev`"                             >> create_spatial_AFI_instructions.sh
-	echo "if [[ -z $tarname ]]; then echo \"No tarname found!\"; exit 1; fi"                                          >> create_spatial_AFI_instructions.sh
 	echo "touch LOGS_FILES_GO_HERE.txt"                                                                             >> create_spatial_AFI_instructions.sh
 	echo "aws s3 cp LOGS_FILES_GO_HERE.txt s3://${app_name}_$(timestamp)_bucket/logs/ 2>&1 | tee log"                    >> create_spatial_AFI_instructions.sh
 	echo ""                                                                                                         >> create_spatial_AFI_instructions.sh
@@ -207,13 +207,13 @@ endif
 	echo "#            e.g. replace <tarball-name> with 17_10_06-######.Developer_CL.tar."                          >> create_spatial_AFI_instructions.sh
 	echo "aws ec2 create-fpga-image \\"                                                                             >> create_spatial_AFI_instructions.sh
 	echo "--name ${app_name} \\"                                                                                    >> create_spatial_AFI_instructions.sh
-	echo "--input-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=dcp/\$tarname \\"                     >> create_spatial_AFI_instructions.sh
+	echo "--input-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=dcp/\$$tarname \\"                     >> create_spatial_AFI_instructions.sh
 	echo "--logs-storage-location Bucket=${app_name}_$(timestamp)_bucket,Key=logs/ | tee fpgaIds"                   >> create_spatial_AFI_instructions.sh
 	echo ""                                                                                                         >> create_spatial_AFI_instructions.sh
 	echo "# Keep a record of the afi and agfi IDs returned above."                                                  >> create_spatial_AFI_instructions.sh
 	echo "# Now wait for the logs to be created in S3. The State file should indicate that the AFI is available"    >> create_spatial_AFI_instructions.sh
 	echo "# Once that is done, see the online Spatial AWS documentation for how to open and run on an F1 instance." >> create_spatial_AFI_instructions.sh
-	echo "echo \"FpgaImageId and FpgaImageGlobalId stored in `pwd`/fpgaIds\" "                                      >> create_spatial_AFI_instructions.sh
+	echo "echo \"FpgaImageId and FpgaImageGlobalId stored in \`pwd\`/fpgaIds\" "                                      >> create_spatial_AFI_instructions.sh
 	echo ""                                                                                                         >> create_spatial_AFI_instructions.sh
 	#
 	# *** Place and Route is now running in the background.                             ***
