@@ -190,7 +190,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val T = spatialConfig.threads
-    val dir =  config.cwd + "/results/"
+    val dir =  config.cwd + s"/${config.resDir}/"
     val filename = dir + file
     val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)
 
