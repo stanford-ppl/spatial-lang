@@ -65,8 +65,8 @@ trait HyperMapperDSE { this: DSE =>
              |  "max_number_AL_iterations": 5,
              |  "number_of_repetitions": 1,
              |  "hypermapper_mode": {
-             |   "mode": "iterative"
-             |      },
+             |    "mode": "iterative"
+             |  },
              |  "optimization_objectives": ["ALMs", "Cycles"],
              |  "feasible_output": {
              |    "name": "Valid",
@@ -75,12 +75,12 @@ trait HyperMapperDSE { this: DSE =>
              |  },
              |  "timestamp": "Timestamp",
              |  "max_runs_in_one_AL_iteration": 100,
-             |  "run_directory": "/home/lnardi/spatial-lang",
-             |  "output_data_file": "app_output_dse_samples.csv",
-             |  "output_pareto_file": "app_output_pareto.csv",
+             |  "run_directory": "${config.cwd}",
+             |  "output_data_file": "${config.name}_output_dse_samples.csv",
+             |  "output_pareto_file": "${config.name}_output_pareto.csv",
              |  "number_of_startup_random_sampling": 1000,
              |  "output_image": {
-             |    "output_image_pdf_file": "app_output_pareto.pdf",
+             |    "output_image_pdf_file": "${config.name}_output_pareto.pdf",
              |    "optimization_objectives_labels_image_pdf": ["Logic Utilization (%)", "Cycles (log)"],
              |    "image_xlog": false,
              |    "image_ylog": true,
