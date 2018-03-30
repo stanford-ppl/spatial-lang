@@ -58,11 +58,35 @@ trait HyperMapperDSE { this: DSE =>
     }
     println("Creating Hypermapper config JSON file")
     withLog(workDir, jsonFile){
-      msg("{")
-        msg(s""" "application_name": "${config.name}", """)
-        msg(s""" "pcs_file": "$workDir/$pcsFile", """)
-        msg(s""" "optimization_objectives": ["ALMs", "Cycles"] """)
-      msg("}")
+      msg(s"""{
+             |  "application_name": "${config.name}",
+             |  "pcs_file": "$workDir/$pcsFile",
+             |  "max_number_of_predictions": 1000000,
+             |  "max_number_AL_iterations": 5,
+             |  "number_of_repetitions": 1,
+             |  "hypermapper_mode": {
+             |   "mode": "iterative"
+             |      },
+             |  "optimization_objectives": ["ALMs", "Cycles"],
+             |  "feasible_output": {
+             |    "name": "Valid",
+             |    "true_value": "true",
+             |    "false_value": "false"
+             |  },
+             |  "timestamp": "Timestamp",
+             |  "max_runs_in_one_AL_iteration": 100,
+             |  "run_directory": "/home/lnardi/spatial-lang",
+             |  "output_data_file": "app_output_dse_samples.csv",
+             |  "output_pareto_file": "app_output_pareto.csv",
+             |  "number_of_startup_random_sampling": 1000,
+             |  "output_image": {
+             |    "output_image_pdf_file": "app_output_pareto.pdf",
+             |    "optimization_objectives_labels_image_pdf": ["Logic Utilization (%)", "Cycles (log)"],
+             |    "image_xlog": false,
+             |    "image_ylog": true,
+             |    "objective_1_max": 262400
+             |  }
+             |}""".stripMargin)
     }
 
     Console.println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
