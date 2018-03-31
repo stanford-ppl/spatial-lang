@@ -60,12 +60,12 @@ trait HyperMapperDSE { this: DSE =>
     withLog(workDir, jsonFile){
       msg(s"""{
              |  "application_name": "${config.name}",
-             |  "pcs_file": "$workDir/$pcsFile",
+             |  "pcs_file": "${config.cwd}/$workDir/$pcsFile",
              |  "max_number_of_predictions": 1000000,
              |  "max_number_AL_iterations": 5,
              |  "number_of_repetitions": 1,
              |  "hypermapper_mode": {
-             |    "mode": "iterative"
+             |    "mode": "interactive"
              |  },
              |  "optimization_objectives": ["ALMs", "Cycles"],
              |  "feasible_output": {
@@ -76,8 +76,8 @@ trait HyperMapperDSE { this: DSE =>
              |  "timestamp": "Timestamp",
              |  "max_runs_in_one_AL_iteration": 100,
              |  "run_directory": "${config.cwd}",
-             |  "output_data_file": "${config.name}_output_dse_samples.csv",
-             |  "output_pareto_file": "${config.name}_output_pareto.csv",
+             |  "output_data_file": "$dir${config.name}_output_dse_samples.csv",
+             |  "output_pareto_file": "$dir${config.name}_output_pareto.csv",
              |  "number_of_startup_random_sampling": 1000,
              |  "output_image": {
              |    "output_image_pdf_file": "${config.name}_output_pareto.pdf",
