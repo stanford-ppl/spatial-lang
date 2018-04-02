@@ -13,7 +13,7 @@ trait HyperMapperDSE { this: DSE =>
   def hyperMapperDSE(space: Seq[Domain[_]], program: Block[_], file: String = config.name + "_data.csv"): Unit = {
     val N = space.size
     val T = spatialConfig.threads
-    val dir =  config.cwd + s"/${config.resDir}/"
+    val dir = if (config.resDir.startsWith("/")) config.resDir + "/" else config.cwd + s"/${config.resDir}/"
     val filename = dir + file
 
     new java.io.File(dir).mkdirs()
@@ -123,6 +123,8 @@ trait HyperMapperDSE { this: DSE =>
                 println(s"[Ignored] $cmd")
                 points.foreach{point => println(s"[Ignored] $point") }
                 println(s"[Ignored] Reason: ${t.getMessage}")
+                // TODO: this will hang forever at the moment
+                error("Something went wrong when communicating with HyperMapper!")
                 None
               }
 

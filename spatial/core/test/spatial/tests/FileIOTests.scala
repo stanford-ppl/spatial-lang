@@ -1,7 +1,7 @@
 package spatial.tests
 import org.scalatest.{Matchers, FlatSpec}
 import spatial.dsl._
-import org.virtualized._
+import virtualized._
 
 object BinaryFileTest extends SpatialTest {
   type Nibble = FixPt[TRUE,_4,_0]

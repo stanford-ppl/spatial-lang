@@ -3,7 +3,7 @@ package spatial.transform
 import argon.core._
 import argon.nodes._
 import argon.transform.ForwardTransformer
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 import spatial.nodes._

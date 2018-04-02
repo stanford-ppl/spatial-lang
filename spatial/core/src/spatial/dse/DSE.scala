@@ -5,7 +5,7 @@ import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, Time
 
 import argon.core._
 import argon.traversal.CompilerPass
-import org.virtualized.SourceContext
+import virtualized.SourceContext
 import spatial.aliases._
 import spatial.metadata._
 
@@ -190,7 +190,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val T = spatialConfig.threads
-    val dir =  config.cwd + s"/${config.resDir}/"
+    val dir = if (config.resDir.startsWith("/")) config.resDir + "/" else config.cwd + s"/${config.resDir}/"
     val filename = dir + file
     val BLOCK_SIZE = Math.min(Math.ceil(P.toDouble / T).toInt, 500)
 

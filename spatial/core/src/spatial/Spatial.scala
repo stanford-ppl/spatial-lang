@@ -11,7 +11,6 @@ import spatial.dse._
 import spatial.analysis._
 import spatial.transform._
 import spatial.codegen.pirgen._
-import spatial.codegen.chiselgen.ChiselGenSpatial
 import spatial.codegen.cppgen.CppGenSpatial
 import spatial.codegen.dotgen.DotGenSpatial
 import spatial.codegen.scalagen.ScalaGenSpatial
@@ -107,7 +106,7 @@ trait SpatialCompiler extends ArgonCompiler {
     }
 
     lazy val scalagen = new ScalaGenSpatial { var IR = state; def localMems = uctrlAnalyzer.localMems }
-    lazy val chiselgen = new ChiselGenSpatial { var IR = state }
+    //lazy val chiselgen = new ChiselGenSpatial { var IR = state }
     lazy val pirgen = new PIRGenSpatial { var IR = state }
     lazy val cppgen = new CppGenSpatial { var IR = state }
     lazy val treegen = new TreeGenSpatial { var IR = state }
@@ -245,11 +244,10 @@ trait SpatialCompiler extends ArgonCompiler {
     if (spatialConfig.enableTree)  passes += treegen
     if (spatialConfig.enableSim)   passes += scalagen
     if (spatialConfig.enableSynth) passes += cppgen
-    if (spatialConfig.enableSynth) passes += chiselgen
+    //if (spatialConfig.enableSynth) passes += chiselgen
     if (spatialConfig.enableDot)   passes += dotgen
     if (spatialConfig.enablePIR)   passes += pirgen
     if (spatialConfig.enableInterpret)   passes += interpreter
-
   }
 
   val target: FPGATarget = targets.DefaultTarget

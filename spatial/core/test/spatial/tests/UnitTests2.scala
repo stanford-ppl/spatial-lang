@@ -1,7 +1,7 @@
 package spatial.tests
 
 import org.scalatest.{FlatSpec, Matchers}
-import org.virtualized._
+import virtualized._
 
 // Args: 192 384
 object BlockReduce2D extends SpatialTest {
