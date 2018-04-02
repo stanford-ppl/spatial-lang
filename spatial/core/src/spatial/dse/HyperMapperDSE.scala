@@ -104,19 +104,27 @@ trait HyperMapperDSE { this: DSE =>
 
           command match {
             case "Request" =>
-              points.foreach { point =>
-                println(s"[Master] Received Line: $point")
-                val values = point.split(",").map(_.trim.toLowerCase).map{
-                  case "true" => true
-                  case "false" => false
-                  case x => x.toInt
+              try {
+                points.foreach { point =>
+                  println(s"[Master] Received Line: $point")
+                  val values = point.split(",").map(_.trim.toLowerCase).map {
+                    case "true" => true
+                    case "false" => false
+                    case x => x.toInt
+                  }
+                  workQueue.put(order.map { i => values(i) })
                 }
-                workQueue.put(order.map { i => values(i) })
+                val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")
+                println("[Master] Sending back:")
+                println(result)
+                Some(result)
               }
-              val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")
-              println("[Master] Sending back:")
-              println(result)
-              Some(result)
+              catch {case t: Throwable =>
+                println(s"[Ignored] $cmd")
+                points.foreach{point => println(s"[Ignored] $point") }
+                println(s"[Ignored] Reason: ${t.getMessage}")
+                None
+              }
 
             case "Pareto" =>
               // TODO: Do something with the pareto
@@ -126,8 +134,9 @@ trait HyperMapperDSE { this: DSE =>
               //data.close()
               None
         }}
-        catch {case _:Throwable =>
+        catch {case t:Throwable =>
           println(s"[Ignored] $cmd")
+          println(s"[Ignored] Reason: ${t.getMessage}")
           None
         }
       }
