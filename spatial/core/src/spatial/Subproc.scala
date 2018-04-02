@@ -1,7 +1,7 @@
 package spatial
 
 import java.io._
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 
 // TODO: Asynchronous error response
 // TODO: Should give an iterator rather than the reader directly
@@ -70,6 +70,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     }
     //watcher.isRunning = false
     //pool.shutdownNow()
+    p.waitFor(30, TimeUnit.SECONDS)
     p.exitValue()
   }
 
