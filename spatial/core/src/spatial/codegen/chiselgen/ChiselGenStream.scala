@@ -191,6 +191,21 @@ trait ChiselGenStream extends ChiselGenSRAM {
         }
       }
 
+    case BufferedInNew(_, bus) =>
+      bus match {
+        case VideoCamera =>
+          emit(src"// EMITTING FOR BUFFEREDIN ON VideoCamera $lhs", forceful=true)
+          emitGlobalWire(src"""// EMIT TO GLOBAL AT BufferedIn NODE""", forceful=true)
+      }
+
+    case BufferedInRead(buffer, is, en) =>
+      buffer match {
+        case Def(BufferedInNew(_, bus)) => bus match {
+          case VideoCamera =>
+            emit(src"// EMITTING FOR BUFFERDIN READ ON DP $buffer, $is, $en", forceful=true)
+        }
+      }
+
     case StreamRead(stream, en) =>
       val isAck = stream match {
         case Def(StreamInNew(bus)) => bus match {

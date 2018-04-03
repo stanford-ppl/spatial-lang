@@ -122,6 +122,8 @@ trait SpatialCommonAliases extends SpatialLangAliases {
 
   type BufferedOut[T] = spatial.lang.BufferedOut[T]
   val BufferedOut = spatial.lang.BufferedOut
+  type BufferedIn[T] = spatial.lang.BufferedIn[T]
+  val BufferedIn = spatial.lang.BufferedIn
   type StreamIn[T] = spatial.lang.StreamIn[T]
   val StreamIn = spatial.lang.StreamIn
   type StreamOut[T] = spatial.lang.StreamOut[T]

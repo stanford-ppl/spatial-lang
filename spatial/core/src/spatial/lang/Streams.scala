@@ -20,6 +20,11 @@ case class BufferedOut[T:Type:Bits](s: Exp[BufferedOut[T]]) extends Template[Buf
   @api def update(row: Index, col: Index, data: T): MUnit = MUnit(BufferedOut.write(s, data.s, Seq(row.s,col.s), Bit.const(true)))
 }
 
+case class BufferedIn[T:Type:Bits](s: Exp[BufferedIn[T]]) extends Template[BufferedIn[T]] {
+  /** Read `data` from the given two dimensional address. **/
+  @api def value(row: Index, col: Index): T = wrap(BufferedIn.read(s, Seq(row.s, col.s), Bit.const(true)))
+}
+
 private object Streams {
   @internal def bus_check[T:Type:Bits](bus: Bus): Unit = {
     if (bits[T].length < bus.length) {
@@ -89,10 +94,11 @@ object BufferedOut {
   /**
     * Creates a BufferedOut of type T connected to the specified bus.
     * The size of the buffer is currently fixed at 240 x 320 elements.
+    * TODO: currently for Arria10, is specified as 720 x 1280 elements.
     */
   @api def apply[T:Type:Bits](bus: Bus): BufferedOut[T] = {   // (rows: Index, cols: Index)
     bus_check[T](bus)
-    BufferedOut(alloc[T](Seq(lift(240).s,lift(320).s),bus))
+    BufferedOut(alloc[T](Seq(lift(720).s,lift(1280).s),bus))
   }
 
   /** Constructors **/
@@ -103,3 +109,24 @@ object BufferedOut {
     stageWrite(buffer)(BufferedOutWrite(buffer,data,is,en))(ctx)
   }
 }
+
+object BufferedIn {
+  import Streams._
+
+  implicit def bufferedInType[T:Type:Bits]: Type[BufferedIn[T]] = BufferedInType(typ[T])
+
+  @api def apply[T:Type:Bits](bus: Bus): BufferedIn[T] = {
+    bus_check[T](bus)
+    BufferedIn(alloc[T](Seq(lift(720).s, lift(1280).s), bus))
+  }
+
+  /** Constructors **/
+  @internal def alloc[T:Type:Bits](dims: Seq[Exp[Index]], bus: Bus): Exp[BufferedIn[T]] = {
+    stageMutable(BufferedInNew[T](dims, bus))(ctx)
+  }
+
+  @internal def read[T:Type:Bits](buffer: Exp[BufferedIn[T]], is: Seq[Exp[Index]], en: Exp[Bit]) = {
+    stageWrite(buffer)(BufferedInRead(buffer, is, en))(ctx)
+  }
+}
+

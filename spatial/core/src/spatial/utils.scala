@@ -658,6 +658,7 @@ object utils {
       implicit val ctx: SrcCtx = x.ctx
       Seq(int32s(1))
     case Def(BufferedOutNew(dims,_)) => dims
+    case Def(BufferedInNew(dims,_)) => dims
     case Def(LUTNew(dims,_)) =>
       implicit val ctx: SrcCtx = x.ctx
       dims.map{d => int32s(d) }
@@ -715,7 +716,7 @@ object utils {
   def isReg(e: Exp[_]): Boolean  = e.tp.isInstanceOf[RegType[_]]
   def isRegFile(e: Exp[_]): Boolean = e.tp.isInstanceOf[RegFileType[_]]
   def isLineBuffer(e: Exp[_]): Boolean = e.tp.isInstanceOf[LineBufferType[_]]
-  def isStreamIn(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamInType[_]]
+  def isStreamIn(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamInType[_]] || e.tp.isInstanceOf[BufferedInType[_]]
   def isStreamOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[StreamOutType[_]] || e.tp.isInstanceOf[BufferedOutType[_]]
   def isBufferedOut(e: Exp[_]): Boolean = e.tp.isInstanceOf[BufferedOutType[_]]
   def isStream(e: Exp[_]): Boolean = isStreamIn(e) || isStreamOut(e)
@@ -751,6 +752,7 @@ object utils {
     case Def(_:FILOPop[_]) => true
     case Def(_:ParFILOPop[_]) => true
     case Def(_:StreamRead[_]) => true
+    case Def(_:BufferedInRead[_]) => true
     case Def(_:ParStreamRead[_]) => true
     case Def(_:DecoderTemplateNew[_]) => true
     case Def(_:DMATemplateNew[_]) => true
@@ -775,6 +777,7 @@ object utils {
     case _:StreamInType[_]  => true
     case _:StreamOutType[_] => true
     case _:BufferedOutType[_] => true
+    case _:BufferedInType[_] => true
     case _ => false
   }
 
@@ -783,6 +786,7 @@ object utils {
     case _:StreamInType[_]    => true
     case _:StreamOutType[_]   => true
     case _:BufferedOutType[_] => true
+    case _:BufferedInType[_] => true
     case _:RegType[_]         => isArgIn(e) || isArgOut(e) || isHostIO(e)
     case _ => false
   }
@@ -791,6 +795,7 @@ object utils {
     case _:StreamInType[_]    => if (parentOf(e).isDefined) true else false
     case _:StreamOutType[_]   => if (parentOf(e).isDefined) true else false
     case _:BufferedOutType[_] => true
+    case _:BufferedInType[_] => true
     case _:RegType[_]         => false
     case _ => false
   }

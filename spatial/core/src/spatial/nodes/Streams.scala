@@ -24,6 +24,13 @@ case class BufferedOutType[T:Bits](child: Type[T]) extends Type[BufferedOut[T]] 
   override def isPrimitive = false
 }
 
+case class BufferedInType[T:Bits](child: Type[T]) extends Type[BufferedIn[T]] {
+  override def wrapped(x: Exp[BufferedIn[T]]) = BufferedIn(x)(child, bits[T])
+  override def typeArguments = List(child)
+  override def stagedClass = classOf[BufferedIn[T]]
+  override def isPrimitive = false
+}
+
 
 /** IR Nodes **/
 case class StreamInNew[T:Type:Bits](bus: Bus) extends Alloc[StreamIn[T]] {
@@ -48,6 +55,17 @@ case class StreamWrite[T:Type:Bits](
   en:     Exp[Bit]
 ) extends LocalWriterOp(stream,value=data,en=en) {
   def mirror(f:Tx) = StreamOut.write(f(stream), f(data), f(en))
+  val mT = typ[T]
+  val bT = bits[T]
+}
+
+case class BufferedInNew[T:Type:Bits](dims: Seq[Exp[Index]], bus: Bus) extends Alloc[BufferedIn[T]] {
+  def mirror(f: Tx) = BufferedIn.alloc[T](f(dims), bus)
+  val mT = typ[T]
+}
+
+case class BufferedInRead[T:Type:Bits] (buffer: Exp[BufferedIn[T]], is: Seq[Exp[Index]], en: Exp[Bit]) extends LocalReaderOp[T](buffer, en=en) {
+  def mirror(f: Tx) = BufferedIn.read(f(buffer), f(is), f(en))
   val mT = typ[T]
   val bT = bits[T]
 }

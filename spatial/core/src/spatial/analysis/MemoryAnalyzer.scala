@@ -516,6 +516,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       case _:StreamInType[_]  => bankStream(mem)
       case _:StreamOutType[_] => bankStream(mem)
       case _:BufferedOutType[_] => bankBufferOut(mem)
+      case _:BufferedInType[_] => bankBufferIn(mem)
       case tp => throw new spatial.UndefinedBankingException(tp)(mem.ctx, state)
     }}
 
@@ -693,14 +694,14 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       case Def(_: LineBufferLoad[_]) => rowstride // Not transient
       case Def(_: ParLineBufferLoad[_]) => rowstride // Not transient
       case Def(_: LineBufferColSlice[_]) => rowstride // Not transient
-      case _ => 
+      case _ =>
         if (parentOf(access).isDefined) {
           if (parentOf(parentOf(access).get).isDefined) {
             // Console.println(s"parent 1 is ${parentOf(access).get}, parent 2 is ${parentOf(parentOf(access).get).get}")
             val prnt = parentOf((parentOf(access).get)).get
             val counter_holder = if (styleOf(prnt) == StreamPipe) {prnt} else parentOf(prnt).get
             counter_holder match {
-              case Def(UnrolledForeach(_,cchain,_,_,_)) => 
+              case Def(UnrolledForeach(_,cchain,_,_,_)) =>
                 cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
                   case Def(CounterNew(s,e,str,p)) => (s,e) match {
                     case (Exact(st), Exact(e)) => e - st
@@ -708,7 +709,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
                   }
                 }
               }
-              case Def(OpForeach(_,cchain,_,_)) =>             
+              case Def(OpForeach(_,cchain,_,_)) =>
                 cchain match {case Def(CounterChainNew(ctrs)) => ctrs.last match {
                   case Def(CounterNew(s,e,str,p)) => (s,e) match {
                     case (Exact(st), Exact(e)) => e - st
@@ -719,11 +720,11 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
               case Def(UnitPipe(_,_)) => 1
               case Def(Hwblock(_,_)) => // This seems to be first mem analyzer pass
                 access match {
-                  case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_)) => 
+                  case Def(DenseTransfer(_,_,_,dims,strides,_,_,_,_)) =>
                     dims.zip(strides).dropRight(1).last match {case (Exact(c: BigInt), Exact(st: BigInt)) => c/st}
                 }
               case _ => 0
-            }        
+            }
 
           } else 0
         } else 0
@@ -867,4 +868,42 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     }
   }
 
+
+  def bankBufferIn(buffer: Exp[_]): Unit = {
+    dbg("")
+    dbg("")
+    dbg("-----------------------------------")
+    dbg(u"Inferring instances for memory ${str(buffer)}")
+
+    val dims: Seq[Int] = stagedDimsOf(buffer).map{case Exact(c) => c.toInt}
+    val allStrides = constDimsToStrides(dims)
+
+    val reads = readersOf(buffer)
+    val writes = writersOf(buffer)
+    val accesses = reads ++ writes
+
+    if (writes.nonEmpty) {
+      error(writes.head.node.ctx, s"BufferedIn had write ${str(reads.head.node)}")
+      error(writes.head.node.ctx)
+    }
+
+    accesses.foreach{access =>
+      dispatchOf.add(access, buffer, 0)
+      portsOf(access, buffer, 0) = Set(0)
+    }
+
+    // The rest can be thought of as streams... not sure if this is the right way to do...
+    // val pars = accesses.map { access =>
+    //   val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
+    //   factors.flatten.map{case Exact(c) => c.toInt}.product
+    // }
+
+    // val par = (1 +: pars).max
+    // val dup = BankedMemory(Seq(Banking(1,par,true)),1,isAccum=false)
+
+    dbg(s"bankBufferIn")
+    // dbg(s"  accesses: ")
+    // accesses.zip(pars).foreach{case (access, p) => dbg(c"    ${str(access.node)} [$p]")}
+    // dbg(s"  duplicate: $dup")
+  }
 }
