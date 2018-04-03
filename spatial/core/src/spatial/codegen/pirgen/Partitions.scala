@@ -77,7 +77,7 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
 
   def recomputeOwnedCChains(p: Partition, ctrl: Option[CUCChain], isEdge: Boolean): Unit = {
-    p.cchains = usedCChains(p.allStages)
+    p.cchains = collectInput[CUCChain](p.allStages)
 
     if (isEdge && ctrl.isDefined) p.cchains += ctrl.get
   }
@@ -175,35 +175,35 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }
 
     dbgl(s"CChains: ") {
-      p.cchains.foreach{cc => dbgs(s"    $cc :: " + globalInputs(cc).mkString(", ")) }
+      p.cchains.foreach{cc => dbgs(s"    $cc :: " + collectInput[GlobalBus](cc).mkString(", ")) }
     }
 
     val remote = all diff local
 
-    val localIns: Set[LocalComponent] = local.flatMap(_.inputMems).toSet.filterNot(isControl)
-    val localOuts: Set[LocalComponent] = local.flatMap(_.outputMems).toSet
-    val remoteIns: Set[LocalComponent] = remote.flatMap(_.inputMems).toSet
-    val remoteOuts: Set[LocalComponent] = remote.flatMap(_.outputMems).toSet
+    val localIns: Set[LocalComponent] = local.flatMap(_.ins).toSet.filterNot(isControl)
+    val localOuts: Set[LocalComponent] = local.flatMap(_.outs).toSet
+    val remoteIns: Set[LocalComponent] = remote.flatMap(_.ins).toSet
+    val remoteOuts: Set[LocalComponent] = remote.flatMap(_.outs).toSet
 
     // --- Memory reads
     val readMems = localIns.collect{case MemLoad(mem) => mem }
     dbgs(s"Read Mems: " + readMems.mkString(", "))
 
     // --- CU inputs and outputs
-    val cuInBuses = globalInputs(localIns) ++ globalInputs(p.cchains) ++ globalInputs(readMems)
-    val cuOutBuses = globalOutputs(localOuts)
+    val cuInBuses = collectInput[GlobalBus](localIns) ++ collectInput[GlobalBus](p.cchains) ++ collectInput[GlobalBus](readMems)
+    val cuOutBuses = collectOutput[GlobalBus](localOuts)
 
-    var vIns: Int   = vectorInputs(cuInBuses).size
-    var vOuts: Int  = vectorOutputs(cuOutBuses).size 
-    var sIns:Int = scalarInputs(cuInBuses).size
-    var sOuts: Int = scalarOutputs(cuOutBuses).size 
+    var vIns: Int   = collectInput[VectorBus](cuInBuses).size
+    var vOuts: Int  = collectOutput[VectorBus](cuOutBuses).size 
+    var sIns:Int = collectInput[ScalarBus](cuInBuses).size
+    var sOuts: Int = collectOutput[ScalarBus](cuOutBuses).size 
 
     // --- Registers
 
-    dbgs(s"Scalar ins: " + scalarInputs(cuInBuses).mkString(", "))
-    dbgs(s"Vector ins: " + vectorInputs(cuInBuses).mkString(", "))
-    dbgs(s"Scalar outs: " + scalarOutputs(cuOutBuses).mkString(", "))
-    dbgs(s"Vector outs: " + vectorOutputs(cuOutBuses).mkString(", "))
+    dbgs(s"Scalar ins: " + collectInput[ScalarBus](cuInBuses).mkString(", "))
+    dbgs(s"Vector ins: " + collectInput[VectorBus](cuInBuses).mkString(", "))
+    dbgs(s"Scalar outs: " + collectOutput[ScalarBus](cuOutBuses).mkString(", "))
+    dbgs(s"Vector outs: " + collectOutput[VectorBus](cuOutBuses).mkString(", "))
 
     // Live inputs from other partitions
     val liveIns  = localIns intersect remoteOuts
@@ -217,9 +217,9 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
 
     // --- Bypass stages
     val bypasses = local.map{
-      case ReduceStage(_,_,in,acc,accParent) =>
-        val bypassInCost  = if (localIns.contains(in.reg)) 0 else 1
-        val bypassOutCost = if (remoteIns.contains(acc))   1 else 0
+      case stage:ReduceStage =>
+        val bypassInCost  = if (localIns.contains(stage.in)) 0 else 1
+        val bypassOutCost = if (remoteIns.contains(stage.accum))   1 else 0
         bypassInCost + bypassOutCost
       case MapStage(PIRBypass,_,_) => 1
       case _ => 0
@@ -236,9 +236,9 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     val cuOutputs = liveOuts ++ localOuts.filter{case _:VectorOut | _:ScalarOut => true; case _ => false }
 
     val liveRegs = (1 until local.size).map{i =>
-      val prevOut = local.take(i).flatMap(_.outputMems).toSet ++ cuInputs // Values currently available
-      val aftIn   = local.drop(i).flatMap(_.inputMems).toSet  // Values needed locally
-      val aftOut  = local.drop(i).flatMap(_.outputMems).toSet // Values not yet produced
+      val prevOut = local.take(i).flatMap(_.outs).toSet ++ cuInputs // Values currently available
+      val aftIn   = local.drop(i).flatMap(_.ins).toSet  // Values needed locally
+      val aftOut  = local.drop(i).flatMap(_.outs).toSet // Values not yet produced
       val lives = (cuOutputs diff aftOut) ++ (prevOut intersect aftIn) // Values that will be output + values to be used locally
       val reduceRegs = if (local(i-1).isInstanceOf[ReduceStage] || local(i).isInstanceOf[ReduceStage]) 1 else 0
       dbgs(s"$i: " + lives.mkString(", "))
@@ -369,15 +369,15 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
   }
   def regsPerStage(cu: CU): Seq[Int] = {
     val local = cu.allStages.toList
-    val cuInputs  = local.flatMap(_.inputMems).filter{case _:VectorIn | _:ScalarIn | _:MemLoad | _:CounterReg => true; case _ => false }.toSet
-    val cuOutputs = local.flatMap(_.outputMems).filter{case _:VectorOut | _:ScalarOut => true; case _ => false }.toSet
+    val cuInputs  = local.flatMap(_.ins).filter{case _:VectorIn | _:ScalarIn | _:MemLoad | _:CounterReg => true; case _ => false }.toSet
+    val cuOutputs = local.flatMap(_.outs).filter{case _:VectorOut | _:ScalarOut => true; case _ => false }.toSet
 
     dbgs(s"  Live values: ")
     (1 until local.size).flatMap{i =>
 
-      val prevOut = local.take(i).flatMap(_.outputMems).toSet ++ cuInputs // Values currently available
-      val aftIn   = local.drop(i).flatMap(_.inputMems).toSet  // Values needed locally
-      val aftOut  = local.drop(i).flatMap(_.outputMems).toSet // Values not yet produced
+      val prevOut = local.take(i).flatMap(_.outs).toSet ++ cuInputs // Values currently available
+      val aftIn   = local.drop(i).flatMap(_.ins).toSet  // Values needed locally
+      val aftOut  = local.drop(i).flatMap(_.outs).toSet // Values not yet produced
       val lives = (cuOutputs diff aftOut) ++ (prevOut intersect aftIn) // Values that will be output + values to be used locally
       val reduceRegs = if (local(i-1).isInstanceOf[ReduceStage]) 1 else 0
       dbgs(s"    $i: " + lives.mkString(", "))
@@ -392,10 +392,10 @@ trait Partitions extends SpatialTraversal { this: PIRTraversal =>
     }.sum
   }
 
-  def nScalarIn(cu: CU): Int = scalarInputs(cu).size
-  def nScalarOut(cu: CU): Int = scalarOutputs(cu).size
-  def nVectorIns(cu: CU): Int = vectorInputs(cu).size
-  def nVectorOuts(cu: CU): Int = vectorOutputs(cu).size
+  def nScalarIn(cu: CU): Int = collectInput[ScalarBus](cu).size
+  def nScalarOut(cu: CU): Int = collectOutput[ScalarBus](cu).size
+  def nVectorIns(cu: CU): Int = collectInput[VectorBus](cu).size
+  def nVectorOuts(cu: CU): Int = collectOutput[VectorBus](cu).size
 
   def reportUtil(stats: Utilization) {
     val Utilization(pcus, pmus, ucus, switch, addr, stages, alus, mems, sclIn, sclOut, vecIn, vecOut, regsMax, regsUse) = stats

@@ -58,7 +58,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           CUCounter(min, max, step, par)
         }
         val Def(CounterChainNew(ctrs)) = cchain
-        val counters = ctrs.collect{case ctr@Def(CounterNew(start,end,stride,_)) => 
+        val counters = ctrs.map{case ctr@Def(CounterNew(start,end,stride,_)) => 
           val par = getConstant(parFactorsOf(ctr).head).get.asInstanceOf[Int]
           allocateCounter(start, end, stride, par)
         }
@@ -124,11 +124,12 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
       val mem = compose(dmem)
       val parentCU = parentOf(mem).map(allocateCU)
       val writers = getWriters(mem)
-      dbgblk(s"allocateMemoryCU ${qdef(mem)}") {
+      dbgblk(s"allocateMemoryCU dmem=$dmem ${qdef(mem)}") {
         dbgs(s"writers=${writers}")
         dbgs(s"duplicates=${duplicatesOf(mem)}")
         mutable.Set() ++ 
-        duplicatesOf(mem).zip(numOuterBanksOf(mem)).zipWithIndex.flatten { case ((m, numBanks), i) =>
+        duplicatesOf(mem).zipWithIndex.flatten { case (m, i) =>
+          val numBanks = numOuterBanksOf((mem, i))
           (0 until numBanks).map { bank =>
             val cu = ComputeUnit(s"${quote(dmem)}_dsp${i}_bank${bank}", MemoryCU)
             dbgs(s"Allocating MCU duplicates $cu for ${quote(dmem)}, duplicateId=$i")
@@ -236,10 +237,10 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     cuMem.size = constDimsOf(compose(dmem).asInstanceOf[Exp[SRAM[_]]]).product / inst.totalBanks
     inst match {
       case BankedMemory(dims, depth, isAccum) =>
-        innerDimOf.get(mem).fold {
+        innerDimOf.get((mem, i)).fold {
           cuMem.banking = Some(NoBanks)
-        } { dim =>
-          dims(dim) match { case Banking(stride, banks, _) =>
+        } { case (dim, ctrls) =>
+          dims(dim) match { case Banking(stride, banks, isOuter) =>
             // Inner loop dimension 
             if (banks > 1) {
               assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
@@ -466,10 +467,10 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
           remoteReaders.foreach { reader =>
             dbgs(s"getReaderCUs($reader) = ${getReaderCUs(reader)}")
             getReaderCUs(reader).foreach { readerCU =>
-              val lmem = readerCU.memMap(dmem)
               val locallyWritten = isLocallyWritten(dmem, reader, readerCU)
               if (!locallyWritten) {
                 dbgs(s"set ${quote(dmem)}.writePort = $bus in readerCU=$readerCU reader=$reader")
+                val lmem = readerCU.memMap(dmem)
                 val producer = getTopController(mem, writer, instOf(lmem))
                 lmem.writePort += ((bus, None, producer))
               }
@@ -582,7 +583,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
                         else        CUVector(s"${quote(dmem)}_${sramCU.name}_data", readerPar)
 
           // Set up PMUs connections
-          val sram = sramCU.memMap(mem)
+          val sram = sramCU.memMap(dmem)
           val addrPort = flatAddr.map { flatAddr => 
             addrBus.fold {
               sramCU.get(flatAddr).get
@@ -629,7 +630,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
         // Setup PMUs connections
         val sramCUs = getPMUforAccess(dmem, dwriter) 
         sramCUs.foreach { sramCU =>
-          val sram = sramCU.memMap(mem)
+          val sram = sramCU.memMap(dmem)
           val addrPort = flatAddr.map { flatAddr =>
             addrBus.fold {
               sramCU.get(flatAddr).get
@@ -656,7 +657,7 @@ class PIRAllocation(implicit val codegen:PIRCodegen) extends PIRTraversal {
     streamIns.foreach { streamIn =>
       val readers = readersOf(streamIn)
       val readerCUs = readers.map(_.node).flatMap(getReaderCUs)
-      val dmems = decomposeWithFields(streamIn) match {
+      val dmems = decomposed(streamIn) match {
         case Right(dmems) if dmems.size==1 => dmems
         case Right(dmems) => throw new Exception(s"PIR don't support struct load/gather ${qdef(fringe)}") 
       }

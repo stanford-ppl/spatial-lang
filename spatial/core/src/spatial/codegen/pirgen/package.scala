@@ -12,6 +12,7 @@ import virtualized.SourceContext
 import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, Type => _, _}
+import scala.reflect.ClassTag
 
 package object pirgen {
   type Expr = Exp[_]
@@ -20,33 +21,6 @@ package object pirgen {
   val globals   = mutable.Set[GlobalComponent]()
   val metadatas = scala.collection.mutable.ListBuffer[MetadataMaps]()
   def cus = mappingOf.values.flatMap{cus => cus}.collect { case cu:CU => cu}.toList
-
-  @stateful def quote(x: Any):String = x match {
-    case x:Expr => s"${composed.get(x).fold("") {o => s"${quote(o)}_"} }$x"
-    case DefStage(exp, isReduce) => s"DefStage(${qdef(exp)}, isReduce=$isReduce)"
-    case x:Iterable[_] => x.map(quote).toString
-    case x => x.toString
-  }
-
-  @stateful def qdef(lhs:Any):String = {
-    val rhs = lhs match {
-      case lhs:Expr if (composed.contains(lhs)) => s"-> ${qdef(compose(lhs))}"
-      case Def(e:UnrolledForeach) => 
-        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case Def(e:UnrolledReduce[_,_]) => 
-        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
-      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
-      case Op(rhs) => s"$rhs"
-      case Def(rhs) => s"$rhs"
-      case lhs => s"$lhs"
-    }
-    val name = lhs match {
-      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
-      case _ => ""
-    }
-    s"$lhs = $rhs$name"
-  }
-
 
   @stateful def isConstant(x: Expr):Boolean = x match {
     case Const(c) => true
@@ -75,94 +49,60 @@ package object pirgen {
     case None => throw new Exception(s"Cannot allocate constant value for $x")
   }
 
-  private def collectX[T](a: Any)(func: Any => Set[T]): Set[T] = a match {
-    case cu: ComputeUnit => func(cu.allStages) ++ func(cu.cchains) ++ func(cu.mems) ++ func(cu.fringeGlobals.values)
+  private def log[T](msg:String, logger:Option[PIRLogger] = None)(f: => T):T = {
+    logger.fold(f) { _.dbgblk(msg) { f } }
+  }
 
-    case cchain: CChainInstance => func(cchain.counters)
-    case cchain: CChainCopy => func(cchain.inst)
+  private def visitDown(a: Any): Set[Any] = a match {
+    case cu: ComputeUnit => (cu.allStages ++ cu.cchains ++ cu.mems ++ cu.fringeGlobals.values).toSet
+
+    case cchain: CChainInstance => cchain.counters.toSet
+    case cchain: CChainCopy => Set(cchain.inst)
     case cchain: UnitCChain => Set.empty
 
-    case Some(x) => func(x) // Why is this not matching on Iterable or Iterator?
-    case iter: Iterator[_] => iter.flatMap(func).toSet
-    case iter: Iterable[_] => func(iter.iterator)
-    case (data,addr,_) => func(data) ++ func(addr)
-    case _ => Set.empty
-  }
-
-  def localInputs(a: Any): Set[LocalComponent] = a match {
-    case reg: LocalComponent => Set(reg)
-    case mem: CUMemory => localInputs(/*mem.readAddr ++ mem.writeAddr ++ */mem.writePort ++ mem.readPort)
-    case counter: CUCounter => localInputs(List(counter.start, counter.end, counter.stride))
-    case stage: Stage => stage.inputMems.toSet
-    case _ => collectX[LocalComponent](a)(localInputs)
-  }
-
-  def localOutputs(a: Any): Set[LocalComponent] = a match {
-    case reg: LocalComponent => Set(reg)
-    case stage: Stage => stage.outputMems.toSet
-    case _ => collectX[LocalComponent](a)(localOutputs)
-  }
-
-  def globalInputs(a: Any): Set[GlobalBus] = a match {
-    case glob: GlobalBus => Set(glob)
+    case MemLoad(mem) => Set(mem)
+    case CounterReg(counter, _, _) => Set(counter)
     case ControlIn(in) => Set(in)
     case ScalarIn(in) => Set(in)
     case VectorIn(in) => Set(in)
-    case mem: CUMemory => globalInputs(mem.writePort/* ++ mem.readAddr ++ mem.writeAddr*/)
-    case counter: CUCounter => globalInputs(List(counter.start, counter.end, counter.stride))
-    case stage:Stage => globalInputs(stage.inputMems)
-    case MemLoad(mem) => globalInputs(mem)
-    case _ => collectX[GlobalBus](a)(globalInputs)
-  }
-  def globalOutputs(a: Any): Set[GlobalBus] = a match {
-    case glob: GlobalBus => Set(glob)
+    case ControlOut(out) => Set(out)
     case ScalarOut(out) => Set(out)
     case VectorOut(out) => Set(out)
-    case mem: CUMemory => globalOutputs(mem.readPort)
-    case stage: Stage => globalOutputs(stage.outputMems)
-    case _ => collectX[GlobalBus](a)(globalOutputs)
-  }
 
-  def scalarInputs(a: Any): Set[ScalarBus]  = globalInputs(a).collect{case x: ScalarBus => x}
-  def scalarOutputs(a: Any): Set[ScalarBus] = globalOutputs(a).collect{case x: ScalarBus => x}
-
-  def vectorInputs(a: Any): Set[VectorBus]  = globalInputs(a).collect{case x: VectorBus => x}
-  def vectorOutputs(a: Any): Set[VectorBus] = globalOutputs(a).collect{case x: VectorBus => x}
-
-  def usedCChains(a: Any): Set[CUCChain] = a match {
-    case cc:CUCChain => Set(cc)
-    case cu: ComputeUnit => usedCChains(cu.allStages) ++ usedCChains(cu.mems)
-
-    case stage: Stage => stage.inputMems.collect{case CounterReg(cchain,_,_) => cchain}.toSet
-    case sram: CUMemory =>
-      //(sram.readAddr.collect{case CounterReg(cchain,_,_) => cchain} ++
-        //sram.writeAddr.collect{case CounterReg(cchain,_,_) => cchain}).toSet
-      sram.readPort.flatMap { case (_, addr, _) => usedCChains(addr) }.toSet ++
-      sram.writePort.flatMap { case (_, addr, _) => usedCChains(addr) }.toSet
-
-    case iter: Iterator[Any] => iter.flatMap(usedCChains).toSet
-    case iter: Iterable[Any] => usedCChains(iter.iterator)
-    case Some(x) => usedCChains(x)
-    case CounterReg(cchain, counterIdx, parIdx) => Set(cchain)
+    case Some(x) => Set(x)
+    case (data,addr,_) => Set(data, addr)
     case _ => Set.empty
   }
 
-  def usedMem(x:Any, logger:Option[PIRLogger]=None):Set[CUMemory] = {
-    def rec(x:Any) = usedMem(x, logger)
-    def f = x match {
-      case MemLoad(mem) => Set(mem)
-      case x:CUMemory if x.tpe == SRAMType => 
-        x.readPort.flatMap { case (_, addr, _) => rec(addr) }.toSet ++
-        x.writePort.flatMap { case (data, addr, _) => rec(addr) ++ rec(data) } + x
-      case x:CUMemory => Set(x)
-      case x:Stage => rec(x.inputMems)
-      case x:CUCounter => rec(x.start) ++ rec(x.end) ++ rec(x.stride)
-      case x:ComputeUnit if x.style.isInstanceOf[FringeCU] => rec(x.mems)
-      case x:ComputeUnit => rec(x.allStages) ++ rec(x.cchains) ++ rec(x.srams)
-      case LocalRef(stage, reg) => rec(reg)
-      case _ => collectX[CUMemory](x)(rec)
+  def visitIn(a: Any): Set[Any] = a match {
+    case counter: CUCounter => Set(counter.start, counter.end, counter.stride)
+    case mem: CUMemory => (mem.writePort ++ mem.readPort.map { case (data, addr, _) => addr}).toSet
+    case stage: Stage => stage.ins.toSet
+    case a => visitDown(a)
+  }
+
+  def visitOut(a: Any): Set[Any] = a match {
+    case stage: Stage => stage.outs.toSet
+    case mem: CUMemory => mem.readPort.map { case (data, addr, _) => data}.toSet
+    case a => visitDown(a)
+  }
+
+  def collectInput[T:ClassTag](x:Any, logger:Option[PIRLogger]=None):Set[T] = log(s"collectInput($x, ${x.getClass.getSimpleName})", logger) {
+    x match {
+      case m:T => Set(m)
+      case iter: Iterator[_] => iter.flatMap(x => collectInput[T](x, logger)).toSet
+      case iter: Iterable[_] => iter.flatMap(x => collectInput[T](x, logger)).toSet
+      case _ => visitIn(x).flatMap(x => collectInput[T](x, logger))
     }
-    logger.fold (f) { _.dbgblk(s"usedMem($x, ${x.getClass.getSimpleName})") { f } }
+  }
+
+  def collectOutput[T:ClassTag](x:Any, logger:Option[PIRLogger]=None):Set[T] = log(s"collectOutput($x, ${x.getClass.getSimpleName})", logger) {
+    x match {
+      case m:T => Set(m)
+      case iter: Iterator[_] => iter.flatMap(x => collectOutput[T](x, logger)).toSet
+      case iter: Iterable[_] => iter.flatMap(x => collectOutput[T](x, logger)).toSet
+      case _ => visitOut(x).flatMap(x => collectOutput[T](x, logger))
+    }
   }
 
   def isReadable(x: LocalComponent): Boolean = x match {
@@ -365,42 +305,6 @@ package object pirgen {
     }
   }
 
-  /*def bank(mem: Expr, access: Expr, iter: Option[Expr]) = {
-    //val indices = accessIndicesOf(access)
-    val pattern = accessPatternOf(access)
-    val strides = constDimsToStrides(dimsOf(mem).map{case Exact(d) => d.toInt})
-
-    def bankFactor(i: Expr) = if (iter.isDefined && i == iter.get) spatialConfig.lanes else 1
-
-    if (pattern.forall(_ == InvariantAccess)) NoBanks
-    else {
-      val ap = pattern.last
-      val str = stride.last
-      ap match {
-        case AffineAccess(Exact(a),i,b) =>
-      }
-
-      (pattern.last, stride.last) match {
-        case
-      }
-      val banking = (pattern, strides).zipped.map{case (pattern, stride) => pattern match {
-        case AffineAccess(Exact(a),i,b) => StridedBanking(a.toInt*stride, bankFactor(i))
-        case StridedAccess(Exact(a), i) => StridedBanking(a.toInt*stride, bankFactor(i))
-        case OffsetAccess(i, b)         => StridedBanking(stride, bankFactor(i))
-        case LinearAccess(i)            => StridedBanking(stride, bankFactor(i))
-        case InvariantAccess(b)         => NoBanking
-        case RandomAccess               => NoBanking
-      }}
-
-      val form = banking.find(_.banks > 1).getOrElse(NoBanking)
-
-      form match {
-        case StridedBanking(stride,_)    => Strided(stride)
-        case NoBanking if iter.isDefined => Duplicated
-        case NoBanking                   => NoBanks
-      }
-    }
-  }*/
   def mergeBanking(bank1: SRAMBanking, bank2: SRAMBanking) = (bank1,bank2) match {
     case (Strided(s1, b1),Strided(s2, b2)) if s1 == s2 && b1 == b2 => Strided(s1, b1)
     case (Strided(s1, b1),Strided(s2, b2)) => Diagonal(s1, s2)
@@ -445,7 +349,7 @@ package object pirgen {
     case Def(_:RegWrite[_]) => 1 
     case Def(_:RegRead[_]) => 1 
     case n if isArgIn(n) | isArgOut(n) | isGetDRAMAddress(n) => 1
-    case n => throw new Exception(s"Undefined getInnerPar for ${qdef(n)}")
+    case n => throw new Exception(s"Undefined getInnerPar for $n")
   }
 
   @stateful def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
@@ -478,122 +382,32 @@ package object pirgen {
     } { exp => nIters(exp) }
   }
 
-  // Struct handling
-  def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
-
-  @stateful def decomposeWithFields[T](exp: Expr, fields: Seq[T]): Either[Expr, Seq[(String, Expr)]] = {
-    if (fields.size < 1) {
-      Left(exp)
-    }
-    else if (fields.size == 1) {
-      Right(fields.map {
-        case field:String => (field, exp)
-        case (field:String, dexp:Expr) => (field, exp)
-      })
-    }
-    else {
-      Right(decomposed.getOrElseUpdate(exp) {
-        fields.map { f => 
-          val (field, dexp) = f match {
-            case field:String => (field, fresh[Int32]) 
-            case (field:String, dexp:Expr) => (field, dexp)
-          }
-          // Special case where if dexp is constant, it can map to 
-          // multiple exp but doesn't matter is the mapping is incorrect
-          if (!isConstant(dexp) || !composed.contains(dexp)) {
-            composed(dexp) = exp
-          }
-          (field, dexp)
-        }
-      })
-    }
-  }
-
-  @stateful def decomposeWithFields[T](exp:Expr)(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = exp match {
-    case Def(StreamInNew(bus)) => decomposeBus(bus, exp) 
-    case Def(StreamOutNew(bus)) => decomposeBus(bus, exp)
-    case Def(SimpleStruct(elems)) => decomposeWithFields(exp, elems)
-    case Def(VectorApply(vec, idx)) => decomposeWithFields(exp, getFields(vec))
-    case Def(ListVector(elems)) => decomposeWithFields(exp, elems.flatMap(ele => getFields(ele)))
-    case Def(GetDRAMAddress(dram)) => Left(exp) //TODO: consider the case where dram is composed
-    case Def(RegNew(init)) => 
-      val fields = decomposeWithFields(init) match {
-        case Left(init) => Seq() 
-        case Right(seq) => seq.map{ case (f, e) => f }
-      }
-      decomposeWithFields(exp, fields)
-    case Const(a:WrappedArray[_]) => decomposeWithFields(exp, a.toSeq) 
-    case mem if isMem(mem) => 
-      val fields =  mem.tp.typeArguments(0) match {
-        case s:StructType[_] => s.fields.map(_._1)
-        case _ => Seq()
-      }
-      decomposeWithFields(mem, fields)
-    case ParLocalReader(reads) => 
-      val (mem, _, _) = reads.head
-      decomposeWithFields(exp, getFields(mem))
-    case ParLocalWriter(writes) =>
-      val (mem, _, _, _) = writes.head
-      decomposeWithFields(exp, getFields(mem))
-    case _ => 
-      decomposed.get(exp).map(fs => Right(fs)).getOrElse(Left(exp))
-  }
-
-  @stateful def decomposeBus(bus:Bus, mem:Expr) = bus match {
-    //case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size", "isLoad"))
-    case BurstCmdBus => decomposeWithFields(mem, Seq("offset", "size")) // throw away isLoad bit
-    case BurstAckBus => decomposeWithFields(mem, Seq("ack")) 
-    case bus:BurstDataBus[_] => decomposeWithFields(mem, Seq("data")) 
-    //case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
-    case bus:BurstFullDataBus[_] => decomposeWithFields(mem, Seq("data"))
-    case GatherAddrBus => decomposeWithFields(mem, Seq("addr"))
-    case bus:GatherDataBus[_] => decomposeWithFields(mem, Seq("data"))
-    //case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data", "valid")) // throw away valid bit
-    case bus:ScatterCmdBus[_] => decomposeWithFields(mem, Seq("data"))
-    case ScatterAckBus => decomposeWithFields(mem, Seq("ack")) 
-    case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
-  }
-
-  @stateful def decompose[T](exp: Expr, fields: Seq[T])(implicit ev: TypeTag[T]): Seq[Expr] = {
-    decomposeWithFields(exp, fields) match {
-      case Left(e) => Seq(e)
-      case Right(seq) => seq.map(_._2)
-    }
-  }
-
-  @stateful def decompose(exp: Expr): Seq[Expr] = {
-    decomposeWithFields(exp) match {
-      case Left(e) => Seq(e)
-      case Right(seq) => seq.map(_._2)
-    }
-  }
-
-  @stateful def getFields(exp: Expr): Seq[String] = {
-    decomposeWithFields(exp) match {
-      case Left(e) => Seq()
-      case Right(seq) => seq.map(_._1)
-    }
-  }
-
-  @stateful def getField(dexp: Expr): Option[String] = {
-    decomposeWithFields(compose(dexp)) match {
-      case Left(e) => None 
-      case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
-        throw new Exception(s"composed $dexp=${compose(dexp)}doesn't contain $dexp. seq=$seq")
-        ))
-    }
-  }
-
-  @stateful def getMatchedDecomposed(dele:Expr, ele:Expr):Expr = {
-    val i = decompose(compose(dele)).indexOf(dele)
-    val seq = decompose(ele)
-    seq(i)
-  }
-
-  def getWriterCU(bus:GlobalBus):CU = {
-    val writers = cus.filter { cu => globalOutputs(cu).contains(bus) }
+  def getWriterCU(bus:GlobalBus, logger:Option[PIRLogger] = None):CU = log(s"getWriterCU($bus)", logger) {
+    val writers = cus.filter { cu => collectOutput[GlobalBus](cu, logger).contains(bus) }
     assert(writers.size==1, s"writers of $bus = ${writers}.size != 1")
     writers.head
+  }
+
+  val times = scala.collection.mutable.Stack[Long]()
+  def tic = {
+    times.push(System.nanoTime())
+  }
+  def toc(unit:String):Double = {
+    val startTime = times.pop()
+    val endTime = System.nanoTime()
+    val timeUnit = unit match {
+      case "ns" => 1
+      case "us" => 1000
+      case "ms" => 1000000
+      case "s" => 1000000000
+      case _ => throw new Exception(s"Unknown time unit!")
+    }
+    (endTime - startTime) * 1.0 / timeUnit
+  }
+
+  def toc(info:String, unit:String):Unit = {
+    val time = toc(unit)
+    println(s"$info elapsed time: ${f"$time%1.3f"}$unit")
   }
 
 }

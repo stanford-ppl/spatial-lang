@@ -24,7 +24,7 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
       dbgs("Parent: " + cu.parentCU.map(_.name).getOrElse("None"))
       dbgs("Lanes: " + cu.lanes)
       dbgl("Counter chains:") {
-        cu.cchains.foreach{cchain => dbgs(s"${cchain.longString}") }
+        cu.cchains.foreach{cchain => dbgs(s"${quote(cchain)}") }
       }
       dbgl("Memories:") {
         cu.mems.foreach{mem => dbgs(s"$mem") }
@@ -37,16 +37,16 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
       }
 
       dbgl("Scalar Inputs: ") {
-        scalarInputs(cu).foreach{bus => dbgs(s"$bus") }
+        collectInput[ScalarBus](cu).foreach{bus => dbgs(s"$bus") }
       }
       dbgl("Scalar Outputs: ") {
-        scalarOutputs(cu).foreach{bus => dbgs(s"$bus") }
+        collectOutput[ScalarBus](cu).foreach{bus => dbgs(s"$bus") }
       }
       dbgl("Vector Inputs: ") {
-        vectorInputs(cu).foreach{bus => dbgs(s"$bus") }
+        collectInput[VectorBus](cu).foreach{bus => dbgs(s"$bus") }
       }
       dbgl("Vector Outputs: ") {
-        vectorOutputs(cu).foreach{bus => dbgs(s"$bus") }
+        collectOutput[VectorBus](cu).foreach{bus => dbgs(s"$bus") }
       }
 
       cu.style match {
@@ -61,8 +61,9 @@ class PIRPrintout(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  override protected def visit(lhs: Sym[_], rhs: Op[_]) {
+  override def process[S:Type](b: Block[S]): Block[S] = {
     cus.foreach(printCU)
+    b
   }
 
 }

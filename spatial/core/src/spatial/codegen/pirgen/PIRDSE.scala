@@ -11,7 +11,7 @@ import java.io.PrintStream
 import java.nio.file.{Files, Paths}
 
 
-class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetiming {
+class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting {
   override val name = "Plasticine DSE"
   override val recurse = Always
   var IR = codegen.IR
@@ -51,7 +51,6 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
       try {
         for (orig <- cus) {
           val split = splitCU(orig, unrestrictedPCU, mcu, others)
-          retime(split, others)
           split.foreach{cu => others += cu }
         }
         foundMCU = true
@@ -113,7 +112,6 @@ class PIRDSE(implicit val codegen:PIRCodegen) extends PIRSplitting with PIRRetim
 
             for (orig <- cus) {
               val split = splitCU(orig, pcu, mcu, others)
-              retime(split, others)
 
               for (cu <- split) {
                 val cost = getUtil(cu, others)

@@ -13,7 +13,7 @@ trait MetadataMaps extends MMap {
   // Mapping Mem[Struct(Seq(fieldName, T))] -> Seq((fieldName, Mem[T]))
 object decomposed extends MOneToOneMap with MetadataMaps {
   type K = Expr
-  type V = Seq[(String, Expr)]
+  type V = Either[Expr, Seq[(String, Expr)]]
 }
 
   // Mapping Mem[T] -> Mem[Struct(Seq(fieldName, T))]
@@ -41,20 +41,18 @@ object readerCUsOf extends MOneToOneMap with MetadataMaps {
 }
 
 object innerDimOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr // SRAM
-  type V = Int
+  type K = (Expr, Int) // (SRAM, dispatch ID)
+  type V = (Int, mutable.Set[Expr]) // (dim, ctrls)
 }
 
 object outerDimsOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr // SRAM
+  type K = (Expr, Int) // (SRAM, dispatch ID)
   type V = Seq[Int]
 }
 
-// K: sram Exp
-// V: List of number of outer banks per duplicate
 object numOuterBanksOf extends MOneToOneMap with MetadataMaps {
-  type K = Expr
-  type V = Seq[Int]
+  type K = (Expr, Int) // (SRAM, dispatch ID)
+  type V = Int
 }
 
 object bankOf extends MOneToOneMap with MetadataMaps {

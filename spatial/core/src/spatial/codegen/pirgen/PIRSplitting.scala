@@ -129,7 +129,7 @@ trait PIRSplitting extends PIRTraversal {
       mappingOf(exp) = parent
       parent.parent = cu.parent
       parent.cchains ++= cu.cchains
-      parent.memMap ++= cu.memMap.filter { case (e, m) => usedMem(cu.cchains).contains(m) } 
+      parent.memMap ++= cu.memMap.filter { case (e, m) => collectInput[CUMemory](cu.cchains).contains(m) } 
       Some(parent)
     }
     else None
@@ -159,6 +159,7 @@ trait PIRSplitting extends PIRTraversal {
     val isUnit = orig.lanes == 1
 
     val cu = ComputeUnit(orig.name+"_"+i, orig.style)
+    dbgs(s"Creating $cu")
     mappingOf(mappingOf(orig)) = cu
     cu.parent = if (parent.isDefined) parent else orig.parent
     cu.innerPar = orig.innerPar
@@ -167,16 +168,15 @@ trait PIRSplitting extends PIRTraversal {
     val local = part.cstages
     val remote = orig.allStages.toList diff part.allStages
 
-    val localIns  = local.flatMap(_.inputMems).toSet ++ cu.cchains.flatMap(localInputs)
-    val localOuts = local.flatMap(_.outputMems).toSet
+    val localIns  = local.flatMap(_.ins).toSet
+    val localOuts = local.flatMap(_.outs).toSet
+    dbgs(s"localIns=${local.flatMap(_.ins).toSet}")
 
-    val readMems = localIns.collect{case MemLoad(mem) => mem }
+    val readMems = collectInput[CUMemory](localIns)
     orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
 
-    val remoteIns = remote.flatMap(_.inputMems).toSet
-    val remoteOuts = remote.flatMap(_.outputMems).toSet
-
-    val ctx = ComputeContext(cu)
+    val remoteIns = remote.flatMap(_.ins).toSet
+    val remoteOuts = remote.flatMap(_.outs).toSet
 
     def globalBus(reg: LocalComponent, isScalar:Option[Boolean]): GlobalBus = {
       val bus = reg match {
@@ -219,23 +219,23 @@ trait PIRSplitting extends PIRTraversal {
       MemLoad(fifo)
     }
 
-    def rerefIn(reg: LocalComponent): LocalRef = {
+    def rerefIn(reg: LocalComponent): LocalComponent = {
       val in = reg match {
         case _:ConstReg[_] | _:CounterReg => reg
         case _:ValidReg | _:ControlReg => reg
         case _:ReduceMem[_]   => if (localOuts.contains(reg)) reg else portIn(reg)
         case MemLoad(mem) => 
           assert(localIns.contains(reg), s"localIns=$localIns doesn't contains $reg")
-          assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} doesn't contains $mem")
+          assert(cu.mems.contains(mem), s"cu.mems=${cu.mems} cu=${cu.name} doesn't contains $mem")
           reg
         case _ if !remoteOuts.contains(reg) | cu.regs.contains(reg) => reg 
         case _ if remoteOuts.contains(reg) & !cu.regs.contains(reg) => portIn(reg)
       }
       cu.regs += in
-      ctx.refIn(in)
+      in
     }
 
-    def rerefOut(reg: LocalComponent): List[LocalRef] = {
+    def rerefOut(reg: LocalComponent): List[LocalComponent] = {
       val outs = reg match {
         case _:ControlOut => List(reg)
         case _:ScalarOut => List(reg)
@@ -246,98 +246,42 @@ trait PIRSplitting extends PIRTraversal {
           local ++ global
       }
       cu.regs ++= outs
-      outs.map{out => ctx.refOut(out)}
+      outs
     }
-
-    // --- Reconnect remotely computed read addresses (after write stages, before compute)
-    /*cu.mems.foreach{ sram =>
-      val remoteAddr = remoteOuts.find{case ReadAddrWire(`sram`) => true; case _ => false}
-      val localAddr  = localOuts.find{case ReadAddrWire(`sram`) => true; case _ => false}
-
-      if (remoteAddr.isDefined && localAddr.isEmpty) {
-        val reg = ReadAddrWire(sram)
-        val addrIn = portIn(reg, isUnit)
-        ctx.addStage(MapStage(PIRBypass, List(ctx.refIn(addrIn)), List(ctx.refOut(reg))))
-        cu.regs += reg
-        cu.regs += addrIn
-      }
-    }*/
 
     // --- Reschedule compute stages
     part.cstages.foreach{
       case MapStage(op, ins, outs) =>
-        val inputs = ins.map{in => rerefIn(in.reg) }
-        val outputs = outs.flatMap{out => rerefOut(out.reg) }
-        ctx.addStage(MapStage(op, inputs, outputs))
+        val inputs = ins.map{in => rerefIn(in) }
+        val outputs = outs.flatMap{out => rerefOut(out) }
+        addComputeStage(cu, MapStage(op, inputs, outputs))
 
-      case ReduceStage(op, init, in, acc, accumParent) =>
-        var input = rerefIn(in.reg)
-        if (!input.reg.isInstanceOf[ReduceMem[_]]) {
+      case stage@ReduceStage(op, inputs, outputs) =>
+        var accum = stage.accum
+        var in = stage.in 
+        in = rerefIn(in)
+        if (!in.isInstanceOf[ReduceMem[_]]) {
           val redReg = ReduceReg()
-          val reduce = ctx.refOut(redReg)
           cu.regs += redReg
-          ctx.addStage(MapStage(PIRBypass, List(input), List(reduce)))
-          input = ctx.refIn(redReg)
+          bypass(cu, in, redReg)
+          in = redReg
         }
-        cu.regs += acc
+        accum = rerefIn(accum).asInstanceOf[AccumReg]
         val newAccumParent = 
-          if (accumParent==orig) parent.getOrElse(cu) // Take StreamController of the splitted cu
+          if (accum.parent==orig) parent.getOrElse(cu) // Take StreamController of the splitted cu
                                                       // Or current CU if single partition
-          else accumParent // outer controller. Shouldn't be splitted 
-        dbgs(s"accumParent==orig ${accumParent==orig}")
-        dbgs(s"accumParent=${accumParent} orig=${orig} parent=${parent.map(_.name)} cu=${cu.name}")
+          else accum.parent // outer controller. Shouldn't be splitted 
+        dbgs(s"accum.parent==orig ${accum.parent==orig}")
+        dbgs(s"accum.parent=${accum.parent} orig=${orig} parent=${parent.map(_.name)} cu=${cu.name}")
         dbgs(s"newAccumParent=${newAccumParent.name}")
-        ctx.addStage(ReduceStage(op, init, input, acc, newAccumParent))
+        accum.parent = newAccumParent
+        addComputeStage(cu, ReduceStage(op, List(in, accum), outputs))
 
-        if (remoteIns.contains(acc)) {
-          val bus = portOut(acc, Some(true))
-          ctx.addStage(MapStage(PIRBypass, List(ctx.refIn(acc)), List(ctx.refOut(bus))))
+        if (remoteIns.contains(accum)) {
+          val bus = portOut(accum, Some(true))
+          addComputeStage(cu, MapStage(PIRBypass, List(accum), List(bus)))
         }
     }
-
-    // --- Add bypass stages for locally hosted, remotely read SRAMs
-    /*val remoteSRAMReads = remoteIns.collect{case MemLoad(sram) => sram}
-    val localBypasses = remoteSRAMReads intersect cu.mems
-    localBypasses.foreach{sram =>
-      val reg = MemLoad(sram)
-      val out = portOut(reg, isUnit)
-
-      if (!cu.computeStages.flatMap(_.outputMems).contains(out)) {
-        ctx.addStage(MapStage(PIRBypass, List(ctx.refIn(reg)), List(ctx.refOut(out))))
-        cu.regs += reg
-        cu.regs += out
-      }
-    }*/
-
-
-    // --- Reconnect split feedback paths
-    //val rescheduledOutputs = cu.computeStages.flatMap(_.outputMems).toSet
-    //TODO: readPort?
-    /*cu.mems.foreach{sram => sram.writePort match {
-      case Some(LocalVectorBus) =>
-        val dataReg = FeedbackDataReg(sram)
-        val addrReg = FeedbackAddrReg(sram)
-
-        // TODO: What is the correct thing to do here?
-        // TODO: Will the timing still be correct?
-        if (!rescheduledOutputs.contains(dataReg)) {
-          //sram.vector = Some(globalBus(dataReg, cu.isUnit))
-          val in = portIn(dataReg, cu.isUnit)
-          ctx.addStage(MapStage(PIRBypass, List(ctx.refIn(in)), List(ctx.refOut(dataReg))))
-          cu.regs += in
-          cu.regs += dataReg
-        }
-        if (!rescheduledOutputs.contains(addrReg)) {
-          val in = portIn(addrReg, cu.isUnit)
-          ctx.addStage(MapStage(PIRBypass, List(ctx.refIn(in)), List(ctx.refOut(addrReg))))
-          cu.regs += in
-          cu.regs += dataReg
-        }
-
-      case _ =>
-    }}*/
-
-    // --- TODO: Control logic
 
     // --- Copy counters
     parent.fold { // No split
@@ -348,24 +292,24 @@ trait PIRSplitting extends PIRTraversal {
       val f = copyIterators(cu, parent)
 
       def tx(cc: CUCChain): CUCChain = f.getOrElse(cc, cc)
-      def swap_cchain_Reg(x: LocalComponent) = x match {
+      def swap(x: LocalComponent) = x match {
         case CounterReg(cc,cIdx,iter) => CounterReg(tx(cc), cIdx, iter)
         case ValidReg(cc,cIdx, valid) => ValidReg(tx(cc), cIdx, valid)
         case _ => x
       }
-      def swap_cchains_Ref(x: LocalRef) = x match {
-        case LocalRef(i, reg) => LocalRef(i, swap_cchain_Reg(reg))
-      }
 
       cu.allStages.foreach{
-        case stage@MapStage(_,ins,_) => stage.ins = ins.map{in => swap_cchains_Ref(in) }
+        case stage@MapStage(_,ins,_) => stage.ins = ins.map{in => swap(in) }
         case _ =>
       }
+
+      val readMems = collectInput[CUMemory](cu.cchains)
+      dbgs(s"cu.cchains=${cu.cchains}")
+      dbgs(s"readMems of cchains = ${readMems}")
+      orig.memMap.foreach{case (k,mem) => if (readMems contains mem) cu.memMap += k -> mem }
       cu.mems.foreach{sram =>
-        //sram.readAddr = sram.readAddr.map{swap_cchain_Reg(_)}
-        //sram.writeAddr = sram.writeAddr.map{swap_cchain_Reg(_)}
-        sram.readPort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
-        sram.writePort.transform{ case (data, addr, top) => (data, addr.map(swap_cchain_Reg), top) }
+        sram.readPort.transform{ case (data, addr, top) => (data, addr.map(swap), top) }
+        sram.writePort.transform{ case (data, addr, top) => (data, addr.map(swap), top) }
       }
     }
 
