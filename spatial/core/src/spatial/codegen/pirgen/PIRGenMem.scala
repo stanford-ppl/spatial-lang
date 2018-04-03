@@ -66,7 +66,7 @@ trait PIRGenMem extends PIRCodegen {
       case RegNew(init) =>
         decompose(lhs).zip(decompose(init)).foreach { case (dlhs, dinit) => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-            emit(quote(dlhs, instId), s"Reg(init=${getConstant(init).get})", s"$lhs = $rhs")
+            emit(quote(dlhs, instId), s"Reg(init=${getConstant(init)})", s"$lhs = $rhs")
             emitAccum(quote(dlhs, instId), inst)
           }
         }
@@ -80,6 +80,9 @@ trait PIRGenMem extends PIRCodegen {
         }
       case ArgInNew(init) =>
         emit(quote(lhs, 0), s"top.argFringe.argIn(init=${getConstant(init).get})", rhs)
+        boundOf.get(lhs).foreach { bound =>
+          emit(s"boundOf(${quote(lhs, 0)}) = ${bound}")
+        }
 
       case ArgOutNew(init) =>
         emit(quote(lhs, 0), s"top.argFringe.argOut(init=${getConstant(init).get})", rhs)

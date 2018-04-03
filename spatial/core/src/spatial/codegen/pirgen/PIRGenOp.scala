@@ -52,8 +52,8 @@ trait PIRGenOp extends PIRCodegen {
                 val op = if (i2 > i1) PIRFixSra else PIRFixSla
                 val iMask = Array.fill(32)(0)
                 val fMask = Array.fill(32)(0)
-                (if (s1) (1 until (i1+1)) else (0 until i1)).foreach { i => iMask(i) = 1 }
-                (if (s1) ((i1+1) until 32) else (i1 until 32)).foreach { i => fMask(i) = 1 }
+                (if (s1) (1 until i1) else (0 until i1)).foreach { i => iMask(i) = 1 }
+                (i1 until 32).foreach { i => fMask(i) = 1 }
                 val iMaskStr = iMask.mkString
                 val fMaskStr = fMask.mkString
                 emit(s"// ${quote(lhs)} = $rhs x.tp=${x.tp} {")
