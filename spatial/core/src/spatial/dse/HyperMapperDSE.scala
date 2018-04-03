@@ -89,6 +89,8 @@ trait HyperMapperDSE { this: DSE =>
              |}""".stripMargin)
     }
 
+    case class SpatialError(t: Throwable) extends Throwable
+
     Console.println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile) { (cmd,reader) =>
       if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
@@ -96,8 +98,16 @@ trait HyperMapperDSE { this: DSE =>
           val parts = cmd.split(" ").map(_.trim)
           val command = parts.head
           val nPoints = parts.last.toInt
-          val header  = reader.readLine().split(",").map(_.trim)
+          val head    = reader.readLine()
+          val header  = head.split(",").map(_.trim)
           val order   = space.map{d => header.indexOf(d.name) }
+          if (order.exists(_ < 0)) {
+            bug(s"Received header: $head")
+            order.zipWithIndex.filter{case (idx, i) => idx < 0 }.foreach{case (idx, i) =>
+              bug(s"Header was missing: ${space(i).name}")
+            }
+            throw SpatialError(new Exception(s"Missing header names"))
+          }
           val points  = (0 until nPoints).map{_ => reader.readLine() }
 
           println(s"[Master] Received Line: $cmd")
@@ -120,11 +130,11 @@ trait HyperMapperDSE { this: DSE =>
                 Some(result)
               }
               catch {case t: Throwable =>
-                println(s"[Ignored] $cmd")
-                points.foreach{point => println(s"[Ignored] $point") }
-                println(s"[Ignored] Reason: ${t.getMessage}")
-                // TODO: this will hang forever at the moment
-                error("Something went wrong when communicating with HyperMapper!")
+                bug(s"$cmd")
+                bug(s"$head")
+                points.foreach{point => bug(s"$point") }
+                bug(s"${t.getMessage}")
+                throw SpatialError(t)
                 None
               }
 
@@ -136,10 +146,12 @@ trait HyperMapperDSE { this: DSE =>
               //data.close()
               None
         }}
-        catch {case t:Throwable =>
-          println(s"[Ignored] $cmd")
-          println(s"[Ignored] Reason: ${t.getMessage}")
-          None
+        catch {
+          case SpatialError(e) => throw e
+          case t:Throwable =>
+            println(s"[Ignored] $cmd")
+            println(s"[Ignored] Reason: ${t.getMessage}")
+            None
         }
       }
       else None
