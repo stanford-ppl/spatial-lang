@@ -11,6 +11,7 @@ trait ScalaGenStream extends ScalaGenMemories with ScalaGenControl {
   var streamIns: List[Exp[_]] = Nil
   var streamOuts: List[Exp[_]] = Nil
   var bufferedOuts: List[Exp[_]] = Nil
+  var bufferedIns: List[Exp[_]] = Nil
 
   override protected def remap(tp: Type[_]): String = tp match {
     case tp: StreamInType[_]  => src"scala.collection.mutable.Queue[${tp.child}]"

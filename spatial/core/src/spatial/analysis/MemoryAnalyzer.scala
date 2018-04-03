@@ -873,7 +873,7 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
     dbg("")
     dbg("")
     dbg("-----------------------------------")
-    dbg(u"Inferring instances for memory ${str(buffer)}")
+    dbg(u"Inferring instances for bufferIn ${str(buffer)}")
 
     val dims: Seq[Int] = stagedDimsOf(buffer).map{case Exact(c) => c.toInt}
     val allStrides = constDimsToStrides(dims)
@@ -892,18 +892,17 @@ trait MemoryAnalyzer extends CompilerPass with AffineMemoryAnalysis {
       portsOf(access, buffer, 0) = Set(0)
     }
 
-    // The rest can be thought of as streams... not sure if this is the right way to do...
-    // val pars = accesses.map { access =>
-    //   val factors = unrollFactorsOf(access.node) // relative to stream, which always has par of 1
-    //   factors.flatten.map{case Exact(c) => c.toInt}.product
-    // }
-
-    // val par = (1 +: pars).max
-    // val dup = BankedMemory(Seq(Banking(1,par,true)),1,isAccum=false)
-
     dbg(s"bankBufferIn")
-    // dbg(s"  accesses: ")
-    // accesses.zip(pars).foreach{case (access, p) => dbg(c"    ${str(access.node)} [$p]")}
-    // dbg(s"  duplicate: $dup")
+
+    // The rest can be thought of as streams... not sure if this is the right way to do...
+    val pars = accesses.map { access =>
+      val strides = allStrides
+      val factors = unrollFactorsOf(access.node)
+      factors.flatten.map{ case Exact(c) => c.toInt }.product
+    }
+
+    val par = (1 +: pars).max
+    val dup = BankedMemory(Seq(Banking(1, par, true)), 1, isAccum=false)
+    duplicatesOf(buffer) = List(dup)
   }
 }
