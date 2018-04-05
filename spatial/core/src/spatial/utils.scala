@@ -269,27 +269,47 @@ object utils {
     **/
   @stateful def findMetaPipe(mem: Exp[_], readers: Seq[Access], writers: Seq[Access]): (Option[Ctrl], Map[Access,Int]) = {
 
+    val accesses = readers ++ writers
+    assert(accesses.nonEmpty)
+
     def ambiguousMetapipesError(lcas: Map[Ctrl,Seq[(Access,Access)]]): Unit = {
       error(u"Ambiguous metapipes for readers/writers of $mem defined here:")
       error(str(mem))
       error(mem.ctx)
-      lcas.foreach{case (pipe,accs) =>
-        error(c"  metapipe: $pipe ")
-        error(c"  accesses: ")
-        accs.foreach(x => error(c"${x._1} / ${x._2}"))
-        error(str(pipe.node))
-        error(pipe.node.ctx)
-        error("")
+
+      writers.indices.foreach{i =>
+        accesses.indices.foreach{j =>
+          val (lca, dist) = lcaWithCoarseDistance(writers(i), accesses(j))
+          if (dist != 0) {
+            error(writers(i))
+            error(writers(i)._1.ctx)
+            error(accesses(j))
+            error(accesses(j)._1.ctx)
+            error(s"LCA: $lca, dist: ")
+            error("")
+          }
+        }
       }
-      error(c"  readers:")
-      readers.foreach{rd => error(c"    $rd") }
-      error(c"  writers:")
-      writers.foreach{wr => error(c"    $wr") }
+
+//      lcas.foreach{case (pipe,accs) =>
+//        error(c"  metapipe: $pipe ")
+//        error(c"  accesses: ")
+//        accs.foreach{x =>
+//          error(x._1._1.ctx, c"${x._1}")
+//          error(x._1._1.ctx)
+//          error(x._2._1.ctx, c"${x._2}")
+//          error(x._2._1.ctx)
+//        }
+//        error(str(pipe.node))
+//        error(pipe.node.ctx)
+//        error("")
+//      }
+//      error(c"  readers:")
+//      readers.foreach{rd => error(c"    $rd") }
+//      error(c"  writers:")
+//      writers.foreach{wr => error(c"    $wr") }
       state.logError()
     }
-
-    val accesses = readers ++ writers
-    assert(accesses.nonEmpty)
 
     val lcas = writers.indices.flatMap{i =>
       accesses.indices.map{j =>
