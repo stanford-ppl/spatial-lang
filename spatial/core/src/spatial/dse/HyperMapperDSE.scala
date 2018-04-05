@@ -35,7 +35,6 @@ trait HyperMapperDSE { this: DSE =>
     val pcsFile = config.name + ".pcs"
     val jsonFile = config.name + ".json"
     val workDir = "dse_hm"
-    val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid"
 
     println("Creating PCS file")
     withLog(workDir, pcsFile){
@@ -93,6 +92,7 @@ trait HyperMapperDSE { this: DSE =>
         outQueue  = fileQueue
       )(state)
     }
+    val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid"
 
     Console.println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile) { (cmd,reader) =>
