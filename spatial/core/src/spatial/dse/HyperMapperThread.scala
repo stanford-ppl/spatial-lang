@@ -10,6 +10,7 @@ import spatial.models._
 
 case class HyperMapperThread(
   threadId:  Int,
+  start:     Long,
   space:     Seq[Domain[_]],
   accel:     Exp[_],
   program:   Block[_],
@@ -102,9 +103,11 @@ case class HyperMapperThread(
 
     val (area, runtime) = evaluate()
     val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
+    val time  = System.currentTimeMillis()
+    val timestamp = time - start
 
     // Only report the area resources that the target gives maximum capacities for
-    space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid
+    space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid + "," + timestamp
   }
 
   private def evaluate(): (Area, Long) = {

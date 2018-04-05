@@ -31,19 +31,6 @@ trait HyperMapperDSE { this: DSE =>
     val workerIds = (0 until T).toList
 
     val pool = Executors.newFixedThreadPool(T)
-    val workers = workerIds.map{id =>
-      val threadState = new State
-      state.copyTo(threadState)
-      HyperMapperThread(
-        threadId  = id,
-        space     = space,
-        accel     = top,
-        program   = program,
-        localMems = localMems,
-        workQueue = workQueue,
-        outQueue  = fileQueue
-      )(state)
-    }
 
     val pcsFile = config.name + ".pcs"
     val jsonFile = config.name + ".json"
@@ -90,6 +77,22 @@ trait HyperMapperDSE { this: DSE =>
     }
 
     case class SpatialError(t: Throwable) extends Throwable
+
+    val start = System.currentTimeMillis()
+    val workers = workerIds.map{id =>
+      val threadState = new State
+      state.copyTo(threadState)
+      HyperMapperThread(
+        threadId  = id,
+        start     = start,
+        space     = space,
+        accel     = top,
+        program   = program,
+        localMems = localMems,
+        workQueue = workQueue,
+        outQueue  = fileQueue
+      )(state)
+    }
 
     Console.println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile) { (cmd,reader) =>
