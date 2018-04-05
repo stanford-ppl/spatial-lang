@@ -118,6 +118,7 @@ trait HyperMapperDSE { this: DSE =>
           command match {
             case "Request" =>
               try {
+                println(s"[Master] Received Line: $head")
                 points.foreach { point =>
                   println(s"[Master] Received Line: $point")
                   val values = point.split(",").map(_.trim.toLowerCase).map {
