@@ -34,7 +34,7 @@ trait HyperMapperDSE { this: DSE =>
 
     val pcsFile = config.name + ".pcs"
     val jsonFile = config.name + ".json"
-    val workDir = "dse_hm"
+    val workDir = config.cwd + "/dse_hm"
 
     println("Creating PCS file")
     withLog(workDir, pcsFile){
@@ -46,7 +46,7 @@ trait HyperMapperDSE { this: DSE =>
     withLog(workDir, jsonFile){
       msg(s"""{
              |  "application_name": "${config.name}",
-             |  "pcs_file": "${config.cwd}/$workDir/$pcsFile",
+             |  "pcs_file": "$workDir/$pcsFile",
              |  "max_number_of_predictions": 1000000,
              |  "max_number_AL_iterations": 5,
              |  "number_of_repetitions": 1,
@@ -61,9 +61,9 @@ trait HyperMapperDSE { this: DSE =>
              |  },
              |  "timestamp": "Timestamp",
              |  "max_runs_in_one_AL_iteration": 100,
-             |  "run_directory": "${config.cwd}",
-             |  "output_data_file": "$dir${config.name}_output_dse_samples.csv",
-             |  "output_pareto_file": "$dir${config.name}_output_pareto.csv",
+             |  "run_directory": "$dir",
+             |  "output_data_file": "${config.name}_output_dse_samples.csv",
+             |  "output_pareto_file": "${config.name}_output_pareto.csv",
              |  "number_of_startup_random_sampling": 1000,
              |  "output_image": {
              |    "output_image_pdf_file": "${config.name}_output_pareto.pdf",
