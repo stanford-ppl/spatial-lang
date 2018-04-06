@@ -41,7 +41,7 @@ class MAGCore(
   val numRdataWordsDebug = 16
   val numWdataDebug = 0
   val numWdataWordsDebug = 16
-  val numDebugs = 500
+  val numDebugs = 800
   val maxBurstsPerCmd = 256
   val maxBytesPerCmd = maxBurstsPerCmd * burstSizeBytes
 
