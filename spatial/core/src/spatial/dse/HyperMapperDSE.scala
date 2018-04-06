@@ -98,6 +98,8 @@ trait HyperMapperDSE { this: DSE =>
     val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile) { (cmd,reader) =>
       if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
         try {
+          println(s"[Master] Received Line: $cmd")
+
           val parts = cmd.split(" ").map(_.trim)
           val command = parts.head
           val nPoints = parts.last.toInt
@@ -105,15 +107,13 @@ trait HyperMapperDSE { this: DSE =>
           val header  = head.split(",").map(_.trim)
           val order   = space.map{d => header.indexOf(d.name) }
           if (order.exists(_ < 0)) {
-            bug(s"Received header: $head")
+            bug(s"[Master] Received Line: $head")
             order.zipWithIndex.filter{case (idx, i) => idx < 0 }.foreach{case (idx, i) =>
               bug(s"Header was missing: ${space(i).name}")
             }
             throw SpatialError(new Exception(s"Missing header names"))
           }
           val points  = (0 until nPoints).map{_ => reader.readLine() }
-
-          println(s"[Master] Received Line: $cmd")
 
           command match {
             case "Request" =>
