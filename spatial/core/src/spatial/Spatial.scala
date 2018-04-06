@@ -231,10 +231,10 @@ trait SpatialCompiler extends ArgonCompiler {
     // passes += pipeMerger
     passes += uctrlAnalyzer     // Control signal analysis (post-unrolling)
     passes += printer
-    passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += streamAnalyzer    // Set stream pipe children fifo dependencies
     passes += argMapper         // Get address offsets for each used DRAM object
     if (spatialConfig.enablePIRSim) passes += pirTiming // PIR delays (retiming control signals)
+    passes += bufferAnalyzer    // Set top controllers for n-buffers
     passes += printer
 
     // --- Sanity Checks
