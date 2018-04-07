@@ -99,24 +99,29 @@ trait HyperMapperDSE { this: DSE =>
       if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
         try {
           println(s"[Master] Received Line: $cmd")
-
           val parts = cmd.split(" ").map(_.trim)
           val command = parts.head
-          val nPoints = parts.last.toInt
-          val head    = reader.readLine()
-          val header  = head.split(",").map(_.trim)
-          val order   = space.map{d => header.indexOf(d.name) }
-          if (order.exists(_ < 0)) {
-            bug(s"[Master] Received Line: $head")
-            order.zipWithIndex.filter{case (idx, i) => idx < 0 }.foreach{case (idx, i) =>
-              bug(s"Header was missing: ${space(i).name}")
-            }
-            throw SpatialError(new Exception(s"Missing header names"))
-          }
-          val points  = (0 until nPoints).map{_ => reader.readLine() }
 
           command match {
             case "Request" =>
+              val nPoints = parts.last.toInt
+              val head    = reader.readLine()
+              val header  = head.split(",").map(_.trim)
+              val order   = space.map{d => header.indexOf(d.name) }
+              if (order.exists(_ < 0)) {
+                bug(s"[Master] Received Line: $head")
+                order.zipWithIndex.filter{case (idx, i) => idx < 0 }.foreach{case (idx, i) =>
+                  bug(s"Header was missing: ${space(i).name}")
+                }
+                throw SpatialError(new Exception(s"Missing header names"))
+              }
+              val points  = (0 until nPoints).map{i =>
+                print(s"[Master] Receiving Point $i: ")
+                val pt = reader.readLine()
+                println(pt)
+                pt
+              }
+
               try {
                 println(s"[Master] Received Line: $head")
                 points.foreach { point =>
