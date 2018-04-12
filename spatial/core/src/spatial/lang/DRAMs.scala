@@ -346,6 +346,7 @@ case class DRAMDenseTile1[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) e
   @api def store(data: FILO[T]): MUnit = DRAMTransfers.dense_transfer(this, data, isLoad = false)
   /** Creates a dense, burst transfer from the given on-chip `data` to this tiles's region of main memory. **/
   @api def store(data: RegFile1[T]): MUnit = DRAMTransfers.dense_transfer(this, data, isLoad = false)
+  @api def storeOrigin(data: SRAM1[T], origin: Index): MUnit = DRAMTransfers.dense_transfer(this, data, origin = Some(List(origin)), isLoad = false)
   @api def storeAligned(sram: SRAM1[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false, isAlign = true)
   @api def storeAligned(fifo: FIFO[T]): MUnit     = DRAMTransfers.dense_transfer(this, fifo, isLoad = false, isAlign = true)
   @api def storeAligned(filo: FILO[T]): MUnit     = DRAMTransfers.dense_transfer(this, filo, isLoad = false, isAlign = true)
@@ -356,20 +357,24 @@ case class DRAMDenseTile2[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) e
   @api def store(data: SRAM2[T]): MUnit    = DRAMTransfers.dense_transfer(this, data, isLoad = false)
   /** Creates a dense, burst transfer from the given on-chip `data` to this tiles's region of main memory. **/
   @api def store(data: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this, data, isLoad = false)
+  @api def storeOrigin(data: SRAM2[T], origin: (Index, Index)): MUnit    = DRAMTransfers.dense_transfer(this, data, origin = Some(List(origin._1, origin._2)), isLoad = false)
   @api def storeAligned(sram: SRAM2[T]): MUnit    = DRAMTransfers.dense_transfer(this, sram, isLoad = false, isAlign = true)
   @api def storeAligned(regs: RegFile2[T]): MUnit = DRAMTransfers.dense_transfer(this, regs, isLoad = false, isAlign = true)
 }
 case class DRAMDenseTile3[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
   /** Creates a dense, burst transfer from the given on-chip `data` to this tiles's region of main memory. **/
   @api def store(data: SRAM3[T]): MUnit   = DRAMTransfers.dense_transfer(this, data, isLoad = false)
+  @api def storeOrigin(data: SRAM3[T], origin: (Index, Index, Index)): MUnit    = DRAMTransfers.dense_transfer(this, data, origin = Some(List(origin._1, origin._2, origin._3)), isLoad = false)
 }
 case class DRAMDenseTile4[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
   /** Creates a dense, burst transfer from the given on-chip `data` to this tiles's region of main memory. **/
   @api def store(data: SRAM4[T]): MUnit   = DRAMTransfers.dense_transfer(this, data, isLoad = false)
+  @api def storeOrigin(data: SRAM4[T], origin: (Index, Index, Index, Index)): MUnit    = DRAMTransfers.dense_transfer(this, data, origin = Some(List(origin._1, origin._2, origin._3, origin._4)), isLoad = false)
 }
 case class DRAMDenseTile5[T:Type:Bits](dram: Exp[DRAM[T]], ranges: Seq[Range]) extends DRAMDenseTile[T] {
   /** Creates a dense, burst transfer from the given on-chip `data` to this tiles's region of main memory. **/
   @api def store(data: SRAM5[T]): MUnit   = DRAMTransfers.dense_transfer(this, data, isLoad = false)
+  @api def storeOrigin(data: SRAM5[T], origin: (Index, Index, Index, Index, Index)): MUnit    = DRAMTransfers.dense_transfer(this, data, origin = Some(List(origin._1, origin._2, origin._3, origin._4, origin._5)), isLoad = false)
 }
 
 /** Sparse Tiles are limited to 1D right now **/

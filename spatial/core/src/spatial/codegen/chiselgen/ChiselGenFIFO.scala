@@ -68,7 +68,7 @@ trait ChiselGenFIFO extends ChiselGenSRAM {
           }
         }.max
         val width = bitWidth(lhs.tp.typeArguments.head)
-        emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
+        emitGlobalModule(src"""val $lhs = Module(new FIFO($rPar, $wPar, $size, ${writersOf(lhs).size}, ${readersOf(lhs).size}, $width)) // ${lhs.name.getOrElse("")}""")
       } else {
         val size = constSizeOf(lhs)
         // ASSERT that all pars are the same!

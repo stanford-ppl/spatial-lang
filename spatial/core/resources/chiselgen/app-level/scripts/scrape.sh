@@ -3,7 +3,6 @@
 #1 = Backend
 #2+ = args
 
-# get tid
 if [[ $1 = "Zynq" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/zynq"
 elif [[ $1 = "ZCU" ]]; then
@@ -14,20 +13,23 @@ elif [[ $1 = "AWS" ]]; then
 	REGRESSION_HOME="/home/mattfel/regression/synth/arria10"
 fi
 
-tid=`cat ${REGRESSION_HOME}/data/tid`
-hash=`cat ${REGRESSION_HOME}/data/hash`
-ahash=`cat ${REGRESSION_HOME}/data/ahash`
+hash=`cat ../../../../hash`
+ahash=`cat ../../../../ahash`
 
 appname=`basename \`pwd\``
 if [[ $1 = "Zynq" ]]; then
 	par_util=`pwd`/verilog-zynq/par_utilization.rpt
+	if [[ ! -f ${par_util} ]]; then par_util=`pwd`/verilog-zynq/synth_utilization.rpt; fi
 	par_tmg=`pwd`/verilog-zynq/par_timing_summary.rpt
+	if [[ ! -f ${par_tmp} ]]; then par_tmp=`pwd`/verilog-zynq/synth_timing_summary.rpt; fi
 	word="Slice"
 	f1=3
 	f2=6
 elif [[ $1 = "ZCU" ]]; then
     par_util=`pwd`/verilog-zcu/par_utilization.rpt
+    if [[ ! -f ${par_util} ]]; then par_util=`pwd`/verilog-zcu/synth_utilization.rpt; fi
     par_tmg=`pwd`/verilog-zcu/par_timing_summary.rpt
+    if [[ ! -f ${par_tmp} ]]; then par_tmp=`pwd`/verilog-zcu/synth_timing_summary.rpt; fi
     word="CLB"
     f1=3
     f2=6
@@ -130,14 +132,14 @@ if [[ $1 = "Zynq" ]]; then
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
-    runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
+    runtime=`cat log | grep "ran for" | head -1 | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
     python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"
 elif [[ $1 = "ZCU" ]]; then
 	APP=$(basename $(pwd))
-	scp $(basename $(pwd)).tar.gz root@zcu102:
-	ssh root@zcu102 "
+	scp $(basename $(pwd)).tar.gz root@holodeck-zcu102:
+	ssh root@holodeck-zcu102 "
 	  locked=\`ls -F /home/sync | grep -v README | wc -l\`
 	  if [[ \$locked -gt 0 ]]; then
 	    echo -n \"Board locked at $(date +"%Y-%m-%d_%H-%M-%S") by \$(ls -F /home/sync | grep -v README) \"
@@ -157,7 +159,7 @@ elif [[ $1 = "ZCU" ]]; then
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
-    runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
+    runtime=`cat log | grep "ran for" | head -1 | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
     python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	
@@ -180,7 +182,7 @@ elif [[ $1 = "Arria10" ]]; then
 	fi" &> log
     timeout=`if [[ $(cat log | grep TIMEOUT | wc -l) -gt 0 ]]; then echo 1; else echo 0; fi`
     locked=`if [[ $(cat log | grep "Board locked" | wc -l) -gt 0 ]]; then cat log | grep "Board locked"; else echo 0; fi`
-    runtime=`cat log | grep "ran for" | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
+    runtime=`cat log | grep "ran for" | head -1 | sed "s/^.*ran for //g" | sed "s/ ms, .*$//g"`
     if [[ $runtime = "" ]]; then runtime=NA; fi
     pass=`if [[ $(cat log | grep "PASS: 1" | wc -l) -gt 0 ]]; then echo Passed!; else echo FAILED; fi`
     python3 ${REGRESSION_HOME}/spatial/spatial-lang/utilities/gdocs.py "report_board_runtime" $appname $timeout $runtime $pass "$2 $3 $4 $5 $6 $7 $8" "$1" "$locked" "$hash" "$ahash"	

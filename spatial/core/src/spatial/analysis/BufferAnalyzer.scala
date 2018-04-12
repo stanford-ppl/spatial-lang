@@ -59,7 +59,7 @@ trait BufferAnalyzer extends CompilerPass {
         val writes = writers.filter{write => dispatchOf(write, mem) contains i }
         val accesses = reads ++ writes
         if (accesses.nonEmpty) {
-          val (metapipe, _) = findMetaPipe(mem, reads, writes)
+          val (metapipe, _) = findMetaPipe(mem, reads.toSeq, writes.toSeq)
           if (metapipe.isDefined && dup.depth > 1) {
             val parent = metapipe.get
             accesses.filter{a => !isTransient(a.node.asInstanceOf[Exp[_]])}.foreach { access =>

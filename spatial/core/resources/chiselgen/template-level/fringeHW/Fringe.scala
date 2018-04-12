@@ -28,17 +28,17 @@ class Fringe(
 ) extends Module {
 //  val numRegs = numArgIns + numArgOuts + 2 - numArgIOs // (command, status registers)
 //  val addrWidth = log2Up(numRegs)
-  val addrWidth = 32
+  val addrWidth = if (FringeGlobals.target == "zcu") 64 else 32
 
   val commandReg = 0  // TODO: These vals are used in test only, logic below does not use them.
   val statusReg = 1   //       Changing these values alone has no effect on the logic below.
 
   // Some constants (mostly MAG-related) that will later become module parameters
-  val v = 16 // Number of words in the same stream
+  val v = if (FringeGlobals.target == "vcs" || FringeGlobals.target == "asic") 64 else 16 // Number of words in the same stream
   val numOutstandingBursts = 1024  // Picked arbitrarily
   val burstSizeBytes = 64
-  val d = 512 // FIFO depth: Controls FIFO sizes for address, size, and wdata
-  val regWidth = 64 // Force 64-bit registers
+  val d = 256 // FIFO depth: Controls FIFO sizes for address, size, and wdata
+  val regWidth = 64
 
   val axiLiteParams = new AXI4BundleParameters(64, 512, 1)
 
@@ -53,6 +53,7 @@ class Fringe(
     // Accel Control IO
     val enable = Output(Bool())
     val done = Input(Bool())
+    val reset = Output(Bool())
 
     // Accel Scalar IO
     val argIns = Output(Vec(numArgIns, UInt(regWidth.W)))
@@ -139,13 +140,17 @@ class Fringe(
 
   val command = regs.io.argIns(0)   // commandReg = first argIn
   val curStatus = regs.io.argIns(1) // current status
-  val localEnable = command(0) & ~curStatus(0)          // enable = LSB of first argIn
+  val localEnable = command(0) === 1.U & ~curStatus(0)          // enable = LSB of first argIn
+  val localReset = command(1) === 1.U | reset.toBool               // reset = first argIn == 2
   io.enable := localEnable
+  io.reset := localReset
+  regs.io.reset := localReset
+  regs.reset := reset.toBool
 
   // Hardware time out (for debugging)
   val timeoutCycles = 12000000000L
   val timeoutCtr = Module(new Counter(40))
-  timeoutCtr.io.reset := 0.U
+  timeoutCtr.io.reset := 0.U 
   timeoutCtr.io.saturate := 1.U
   timeoutCtr.io.max := timeoutCycles.U
   timeoutCtr.io.stride := 1.U
@@ -181,6 +186,8 @@ class Fringe(
   val magConfig = Wire(new MAGOpcode())
   magConfig.scatterGather := false.B
   mags.foreach { _.io.config := magConfig }
+  mags.foreach { _.io.reset := localReset }
+  mags.foreach { _.reset := localReset }
   if ((FringeGlobals.target == "aws") | (FringeGlobals.target == "aws-sim")) {
     mags.foreach { _.io.enable := io.aws_top_enable }
   } else {

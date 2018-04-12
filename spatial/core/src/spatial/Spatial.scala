@@ -202,6 +202,7 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += unroller          // Unrolling
     passes += printer
     passes += uctrlAnalyzer     // Readers/writers for CSE
+    passes += printer
     passes += regReadCSE        // CSE register reads in inner pipelines
     passes += printer
     passes += uctrlAnalyzer

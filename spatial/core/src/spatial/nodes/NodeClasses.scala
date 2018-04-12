@@ -5,7 +5,7 @@ import argon.transform.SubstTransformer
 import forge._
 import spatial.aliases._
 import spatial.utils._
-import org.virtualized.EmptyContext
+import virtualized.EmptyContext
 import spatial.aliases
 
 /** Memory Allocations **/

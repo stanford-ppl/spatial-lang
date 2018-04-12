@@ -147,8 +147,8 @@ case class Readers(readers: List[Access]) extends Metadata[Readers] {
   def mirror(f:Tx) = Readers(readers.map(mirrorAccess(_,f)))
 }
 @data object readersOf {
-  def apply(x: Exp[_]): List[Access] = metadata[Readers](x).map(_.readers).getOrElse(Nil)
-  def update(x: Exp[_], readers: List[Access]) = metadata.add(x, Readers(readers))
+  def apply(x: Exp[_]): List[Access] = metadata[Readers](x).map(_.readers.distinct).getOrElse(Nil)
+  def update(x: Exp[_], readers: List[Access]) = metadata.add(x, Readers(readers.distinct))
 }
 
 /**
@@ -158,8 +158,8 @@ case class Writers(writers: List[Access]) extends Metadata[Writers] {
   def mirror(f:Tx) = Writers(writers.map(mirrorAccess(_,f)))
 }
 @data object writersOf {
-  def apply(x: Exp[_]): List[Access] = metadata[Writers](x).map(_.writers).getOrElse(Nil)
-  def update(x: Exp[_], writers: List[Access]) = metadata.add(x, Writers(writers))
+  def apply(x: Exp[_]): List[Access] = metadata[Writers](x).map(_.writers.distinct).getOrElse(Nil)
+  def update(x: Exp[_], writers: List[Access]) = metadata.add(x, Writers(writers.distinct))
 }
 
 /**

@@ -2,7 +2,7 @@ package spatial.models.characterization
 
 import spatial.dsl._
 import spatial._
-import org.virtualized._
+import virtualized._
 
 trait Primitives extends Benchmarks {
   self: SpatialCompiler =>

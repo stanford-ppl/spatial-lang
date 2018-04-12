@@ -116,6 +116,7 @@ case class RegisterCleanup(var IR: State) extends ForwardTransformer {
 
   private def mirrorWithDuplication[T:Type](lhs: Sym[T], rhs: Op[T])(implicit ctx: SrcCtx): Exp[T] = {
     dbgs(c"${str(lhs)} [$blk]")
+    //statelessSubstRules.keys.foreach{k => dbgs(s"  $k") }
     if ( statelessSubstRules.contains((lhs,blk)) ) {
       dbgs("")
       dbgs(c"[external user, blk = $blk]")

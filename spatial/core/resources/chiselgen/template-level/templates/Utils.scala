@@ -2,7 +2,7 @@
 package templates
 
 import chisel3._
-import chisel3.util.{log2Ceil, isPow2}
+import chisel3.util._
 import chisel3.internal.sourceinfo._
 import types._
 import fringe._
@@ -69,7 +69,7 @@ object ops {
     // Stream version
     def DS(delay: Int, retime_released: Bool, flow: Bool): Bool = {
 //      Mux(retime_released, chisel3.util.ShiftRegister(b, delay, false.B, true.B), false.B)
-      Mux(retime_released, Utils.getRetimedStream(b, delay, flow), false.B)
+      Mux(retime_released, Utils.getRetimed(b, delay, flow), false.B)
     }
     def DS(delay: Double, retime_released: Bool, flow: Bool): Bool = {
       b.DS(delay.toInt, retime_released, flow)
@@ -172,7 +172,7 @@ object ops {
     def *-* (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b, c, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b, c, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b*c // Raghu's box
@@ -187,7 +187,7 @@ object ops {
     def *-* (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b.asSInt, c, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b.asSInt, c, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b.asSInt, c, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b.asSInt*c // Raghu's box
@@ -218,11 +218,11 @@ object ops {
     def /-/ (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b, c, delay.get.toInt) 
-        else FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) 
+        else FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
       } else {
        Utils.target match {
          case AWS_F1 => b/c // Raghu's box
-         case Zynq => FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) 
+         case Zynq => FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
          case DE1 => b/c // Raghu's box
         case `de1soc` => b/c // Raghu's box
          case Default => b/c
@@ -233,7 +233,7 @@ object ops {
     def /-/ (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b.asSInt, c, delay.get.toInt) 
-        else FringeGlobals.bigIP.divide(b.asSInt, c, Utils.fixdiv_latency) 
+        else FringeGlobals.bigIP.divide(b.asSInt, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
       } else {
        Utils.target match {
          case AWS_F1 => b.asSInt/c // Raghu's box
@@ -261,11 +261,15 @@ object ops {
       Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b) %-% c      
     }
 
+    def %-% (c: FixedPoint): FixedPoint = {this.%-%(c, None)}
+    def %-% (c: FixedPoint, delay: Option[Double]): FixedPoint = {
+      Utils.FixedPoint(c.s, b.getWidth max c.d, c.f, b).%-%(c,None)      
+    }
     def %-% (c: UInt): UInt = {b.%-%(c,None)} // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
     def %-% (c: UInt, delay: Option[Double]): UInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b, c, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b, c, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b%c // Raghu's box
@@ -281,7 +285,7 @@ object ops {
     def %-% (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b.asSInt, c, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b.asSInt, c, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b.asSInt, c, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b.asSInt%c // Raghu's box
@@ -297,8 +301,8 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
 
-    def cast(c: FixedPoint): Unit = {
-      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    def cast(c: FixedPoint, sign_extend: scala.Boolean = false): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b, sign_extend).r
     }
 
   }
@@ -382,7 +386,7 @@ object ops {
     def *-* (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b, c.asSInt, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b, c.asSInt, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b, c.asSInt, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b*c.asSInt // Raghu's box
@@ -397,7 +401,7 @@ object ops {
     def *-* (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.multiply(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.multiply(b, c, Utils.fixmul_latency)
+        else FringeGlobals.bigIP.multiply(b, c, (Utils.fixmul_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b*c // Raghu's box
@@ -430,7 +434,7 @@ object ops {
     def /-/ (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b, c.asSInt, delay.get.toInt)
-        else FringeGlobals.bigIP.divide(b, c.asSInt, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+        else FringeGlobals.bigIP.divide(b, c.asSInt, (Utils.fixdiv_latency * b.getWidth).toInt) // Raghu's box. Divide latency set to 16.
       } else {
        Utils.target match {
          case AWS_F1 => b/c.asSInt // Raghu's box
@@ -445,7 +449,7 @@ object ops {
     def /-/ (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.divide(b, c, delay.get.toInt) // Raghu's box. Divide latency set to 16.
-        else FringeGlobals.bigIP.divide(b, c, Utils.fixdiv_latency) // Raghu's box. Divide latency set to 16.
+        else FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) // Raghu's box. Divide latency set to 16.
       } else {
        Utils.target match {
          case AWS_F1 => b/c // Raghu's box
@@ -480,7 +484,7 @@ object ops {
     def %-% (c: UInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b, c.asSInt, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b, c.asSInt, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b, c.asSInt, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b%c.asSInt // Raghu's box
@@ -495,7 +499,7 @@ object ops {
     def %-% (c: SInt, delay: Option[Double]): SInt = { // TODO: Find better way to capture UInt / UInt, since implicit resolves won't make it this far
       if (Utils.retime) {
         if (delay.isDefined) FringeGlobals.bigIP.mod(b, c, delay.get.toInt)
-        else FringeGlobals.bigIP.mod(b, c, Utils.fixmod_latency)
+        else FringeGlobals.bigIP.mod(b, c, (Utils.fixmod_latency * b.getWidth).toInt)
       } else {
         Utils.target match {
           case AWS_F1 => b%c // Raghu's box
@@ -514,8 +518,8 @@ object ops {
       Utils.FloatPoint(m, e, b)
     }
 
-    def cast(c: FixedPoint): Unit = {
-      c.r := Utils.FixedPoint(c.s,c.d,c.f,b).r
+    def cast(c: FixedPoint, sign_extend: scala.Boolean = false): Unit = {
+      c.r := Utils.FixedPoint(c.s,c.d,c.f,b, sign_extend).r
     }
 
 
@@ -527,7 +531,7 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
-      Utils.FixedPoint(s, d, f, b)
+      Utils.FixedPoint(s, d, f, b, true)
     }
     def FlP(m: Int, e: Int): FloatingPoint = {
       Utils.FloatPoint(m, e, b)
@@ -548,7 +552,7 @@ object ops {
       Utils.FixedPoint(s, d, f, b)
     }
     def FP(s: Int, d: Int, f: Int): FixedPoint = {
-      Utils.FixedPoint(s, d, f, b)
+      Utils.FixedPoint(s, d, f, b, true)
     }
     def FlP(m: Int, e: Int): FloatingPoint = {
       Utils.FloatPoint(m, e, b)
@@ -571,23 +575,24 @@ object Utils {
 
   // These properties should be set inside IOModule
   var target: DeviceTarget = Default
-  var fixmul_latency = 6
-  var fixdiv_latency = 20
-  var fixadd_latency = 1
-  var fixsub_latency = 1
-  var fixmod_latency = 16
+  var fixmul_latency = 0.03125
+  var fixdiv_latency = 0.03125
+  var fixadd_latency = 0.1875
+  var fixsub_latency = 0.625
+  var fixmod_latency = 0.5
   var fixeql_latency = 1
   var sramload_latency = 0
   var sramstore_latency = 0
+  var tight_control = false
   var SramThreshold = 4 // Threshold between turning Mem1D into register array vs real memory
   var mux_latency = 1
   var retime = false
 
   val delay_per_numIter = List(
-              fixsub_latency + fixdiv_latency + fixadd_latency,
-              fixmul_latency + fixdiv_latency + fixadd_latency,
-              fixsub_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency,
-              fixmul_latency + fixmod_latency + fixeql_latency + mux_latency + fixadd_latency
+              fixsub_latency*32 + fixdiv_latency*32 + fixadd_latency*32,
+              fixmul_latency*32 + fixdiv_latency*32 + fixadd_latency*32,
+              fixsub_latency*32 + fixmod_latency*32 + fixeql_latency + mux_latency + fixadd_latency*32,
+              fixmul_latency*32 + fixmod_latency*32 + fixeql_latency + mux_latency + fixadd_latency*32
     ).max
 
   def singleCycleDivide(num: SInt, den: SInt): SInt = {
@@ -645,6 +650,25 @@ object Utils {
     }
   }
 
+  def streamCatchDone(in_done: Bool, ready: Bool, retime: Int, rr: Bool, reset: Bool): Bool = {
+    import ops._
+    if (retime.toInt > 0) {
+      val done_catch = Module(new SRFF())
+      val sr = Module(new RetimeWrapperWithReset(1, retime - 1))
+      sr.io.in := done_catch.io.output.data & ready
+      sr.io.flow := ready
+      done_catch.io.input.asyn_reset := reset
+      done_catch.io.input.set := in_done.toBool & ready
+      val out = sr.io.out
+      val out_overlap = done_catch.io.output.data
+      done_catch.io.input.reset := out & out_overlap & ready
+      sr.io.rst := out(0) & out_overlap & ready
+      out(0) & out_overlap & ready    
+    } else {
+      in_done & ready
+    }
+  }
+
   // def ShiftRegister[T <: chisel3.core.Data](data: T, size: Int):T = {
   //   data match {
   //     case d: UInt => chisel3.util.ShiftRegister(data, size)
@@ -665,10 +689,10 @@ object Utils {
     sig & Utils.delay(~sig,1)
   }
   // Helper for making fixedpt when you know the value at creation time
-  def FixedPoint[T](s: Int, d: Int, f: Int, init: T): types.FixedPoint = {
-    FixedPoint(s > 0, d, f, init)
+  def FixedPoint[T](s: Int, d: Int, f: Int, init: T, sign_extend: scala.Boolean): types.FixedPoint = {
+    FixedPoint(s > 0, d, f, init, sign_extend)
   }
-  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T): types.FixedPoint = {
+  def FixedPoint[T](s: Boolean, d: Int, f: Int, init: T, sign_extend: scala.Boolean = true): types.FixedPoint = {
     val cst = Wire(new types.FixedPoint(s, d, f))
     init match {
       case i: Double => cst.raw := (i * scala.math.pow(2,f)).toLong.S((d+f+1).W).asUInt()
@@ -676,7 +700,7 @@ object Utils {
       case i: UInt => 
         val tmp = Wire(new types.FixedPoint(s, i.getWidth, 0))
         tmp.r := i
-        tmp.cast(cst)
+        tmp.cast(cst, sign_extend = sign_extend)
         // if (f > 0) cst.r := chisel3.util.Cat(i, 0.U(f.W)) else cst.r := i
       case i: SInt => cst.r := FixedPoint(s,d,f,i.asUInt).r
       case i: FixedPoint => cst.raw := i.raw
@@ -837,53 +861,33 @@ object Utils {
   }
 
   def getFF[T<: chisel3.core.Data](sig: T, en: UInt) = {
-    val in = sig match {
-      case v: Vec[_] => v.asInstanceOf[Vec[UInt]].reverse.reduce { chisel3.util.Cat(_,_) }
-      case u: UInt => u
-    }
-
-    val ff = Module(new fringe.FF(sig.getWidth))
-    ff.io.init := 0.U
-    ff.io.in := in
+    val ff = Module(new fringe.FF(sig))
+    ff.io.init := 0.U(sig.getWidth.W).asTypeOf(sig)
+    ff.io.in := sig
     ff.io.enable := en
     ff.io.out
   }
 
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int): T = {
+  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Int, en: Bool = true.B): T = {
     if (delay == 0) {
       sig
     }
     else {
       if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
-        chisel3.util.ShiftRegister(sig, delay)
+        chisel3.util.ShiftRegister(sig, delay, en)
       } else {
         val sr = Module(new RetimeWrapper(sig.getWidth, delay))
         sr.io.in := sig.asUInt
-        sr.io.flow := true.B
+        sr.io.flow := en
         sig.cloneType.fromBits(sr.io.out)
       }
     }
   }
 
-  // Special retime that allows the retime chain to halt if the flow signal in this controller is low
-  def getRetimedStream[T<:chisel3.core.Data](sig: T, delay: Int, flow: Bool): T = {
-    if (delay == 0) {
-      sig
-    }
-    else {
-      if (regression_testing == "1") { // Major hack until someone helps me include the sv file in Driver (https://groups.google.com/forum/#!topic/chisel-users/_wawG_guQgE)
-        chisel3.util.ShiftRegister(sig, delay)
-      } else {
-        val sr = Module(new RetimeWrapper(sig.getWidth, delay))
-        sr.io.in := sig.asUInt
-        sr.io.flow := flow
-        sig.cloneType.fromBits(sr.io.out)
-      }
-    }
-  }
-
-  def getRetimed[T<:chisel3.core.Data](sig: T, delay: Double): T = {
-    getRetimed(sig, delay.toInt)
+  def vecWidthConvert[T<:chisel3.core.Data](vec: Vec[T], newW: Int) = {
+    assert(vec.getWidth % newW == 0)
+    val newV = vec.getWidth / newW
+    vec.asTypeOf(Vec(newV, Bits(newW.W)))
   }
 
   class PrintStackTraceException extends Exception

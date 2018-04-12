@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import glob
+import re
 from argparse import ArgumentParser
 import os, sys, datetime
 import subprocess
@@ -44,9 +46,31 @@ Usage: spatial [options]
   --naming                 generates the debug name for all syms, rather than "x${s.id}" only'
   --tree                   enables logging of controller tree for visualizing app structure
   --dot                    enables dot generation
+  --withoutSrc             disable app source code copy to generated directory
       """)
   #sys.exit(0)
 
+
+def getSrcCode(opts, args):
+  outdir = "gen/%s" % opts.app
+  for arg in args:
+    if ("--out=" in arg):
+      outdir = arg.replace("--out=","")
+
+  outfile = open(os.path.join(os.getcwd(), './%s/%s.ref' % (outdir, opts.app)), 'w+')
+  os.chdir( "apps/src" )
+  found = False
+  for files in glob.glob( "*.scala" ):
+      f = open( files, 'r' )
+      for line in f:
+          if re.match("^object %s extends SpatialApp.*" % opts.app, line) is not None:
+            found = True
+          if (found):
+            outfile.write(line)
+          if (found and re.match("^}.*", line) is not None):
+            found = False
+  outfile.close()
+  os.chdir("../..")
 
 def main():
   parser = SpatialArgumentParser()
@@ -64,6 +88,8 @@ def main():
   if ecode != 0:
     print("[" + bcolors.FAIL + "error" + bcolors.ENDC + "] Spatial compilation failed")
   else:
+    if not any("--withoutSrc" in s for s in args):
+      getSrcCode(opts, args)
     simScript = open(opts.app + ".sim", 'w')
     simScript.write("#!/bin/bash\n\n")
     simScript.write("cd gen/" + opts.app + "\n")

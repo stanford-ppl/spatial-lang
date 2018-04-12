@@ -67,7 +67,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
         }
       }.max
       val width = bitWidth(lhs.tp.typeArguments.head)
-      emitGlobalModule(src"""val $lhs = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).length}, ${readersOf(lhs).length}, $width)) // ${lhs.name.getOrElse("")}""")
+      emitGlobalModule(src"""val $lhs = Module(new FILO($rPar, $wPar, $size, ${writersOf(lhs).size}, ${readersOf(lhs).size}, $width)) // ${lhs.name.getOrElse("")}""")
 
     case FILOPush(fifo,v,en) => 
       val writer = writersOf(fifo).find{_.node == lhs}.get.ctrlNode
@@ -79,7 +79,7 @@ trait ChiselGenFILO extends ChiselGenSRAM {
       val reader = readersOf(fifo).find{_.node == lhs}.get.ctrlNode
       val bug202delay = reader match {
         case Def(op@SwitchCase(_)) => 
-          if (Bits.unapply(op.mT).isDefined & listensTo(reader).distinct.length == 0) src"${symDelay(parentOf(reader).get)}" else src"${enableRetimeMatch(en, lhs)}.toInt" 
+          if (Bits.unapply(op.mT).isDefined & listensTo(reader).isEmpty) src"${symDelay(parentOf(reader).get)}" else src"${enableRetimeMatch(en, lhs)}.toInt"
         case _ => src"${enableRetimeMatch(en, lhs)}.toInt" 
       }
       val enabler = src"${swap(reader, DatapathEn)} & ~${swap(reader, Inhibitor)} & ${swap(reader, IIDone)}"

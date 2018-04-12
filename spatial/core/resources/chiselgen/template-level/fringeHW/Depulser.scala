@@ -12,7 +12,7 @@ class Depulser() extends Module {
     val out = Output(Bool())
   })
 
-  val r = Module(new FF(1))
+  val r = Module(new FF(Bool()))
   r.io.in := Mux(io.rst, 0.U, io.in)
   r.io.init := 0.U
   r.io.enable := io.in | io.rst

@@ -275,7 +275,8 @@ object utils {
       error(mem.ctx)
       lcas.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
-        error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
+        error(c"  accesses: ")
+        accs.foreach(x => error(c"${x._1} / ${x._2}"))
         error(str(pipe.node))
         error(pipe.node.ctx)
         error("")
@@ -290,9 +291,9 @@ object utils {
     val accesses = readers ++ writers
     assert(accesses.nonEmpty)
 
-    val lcas = accesses.indices.flatMap{i =>
-      (i + 1 until accesses.length).map{j =>
-        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+    val lcas = writers.indices.flatMap{i =>
+      accesses.indices.map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(writers(i), accesses(j))
         (lca,dist,(accesses(i),accesses(j)))
       }
     }
@@ -359,23 +360,23 @@ object utils {
     }
   }
 
-  @internal def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
+  @internal def checkConcurrentReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem).toList){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentReadersError(mem, a.node, b.node); true } else false
   }
-  @internal def checkConcurrentWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
+  @internal def checkConcurrentWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem).toList){(a,b) =>
     if (areConcurrent(a,b)) {new ConcurrentWritersError(mem, a.node, b.node); true } else false
   }
-  @internal def checkPipelinedReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem)){(a,b) =>
+  @internal def checkPipelinedReaders(mem: Exp[_]): Boolean = checkAccesses(readersOf(mem).toList){(a,b) =>
     if (arePipelined(a,b)) {new PipelinedReadersError(mem, a.node, b.node); true } else false
   }
-  @internal def checkPipelinedWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem)){(a,b) =>
+  @internal def checkPipelinedWriters(mem: Exp[_]): Boolean = checkAccesses(writersOf(mem).toList){(a,b) =>
     if (arePipelined(a,b)) {new PipelinedWritersError(mem, a.node, b.node); true } else false
   }
-  @internal def checkMultipleReaders(mem: Exp[_]): Boolean = if (readersOf(mem).length > 1) {
-    new MultipleReadersError(mem, readersOf(mem).map(_.node)); true
+  @internal def checkMultipleReaders(mem: Exp[_]): Boolean = if (readersOf(mem).size > 1) {
+    new MultipleReadersError(mem, readersOf(mem).toList.map(_.node)); true
   } else false
-  @internal def checkMultipleWriters(mem: Exp[_]): Boolean = if (writersOf(mem).length > 1) {
-    new MultipleWritersError(mem, writersOf(mem).map(_.node)); true
+  @internal def checkMultipleWriters(mem: Exp[_]): Boolean = if (writersOf(mem).size > 1) {
+    new MultipleWritersError(mem, writersOf(mem).toList.map(_.node)); true
   } else false
 
   /*def checkConcurrentReadWrite(mem: Exp[_]): Boolean = {

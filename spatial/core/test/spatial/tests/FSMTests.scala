@@ -1,7 +1,7 @@
 package spatial.tests
 
 import org.scalatest.{FlatSpec, Matchers}
-import org.virtualized._
+import virtualized._
 
 object BasicFSM extends SpatialTest {
   import spatial.dsl._

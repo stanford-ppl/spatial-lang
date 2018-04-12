@@ -46,7 +46,7 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
   rdata = Output(Bits(64.W))
 
   // DRAM interface - currently only one stream
-  val dram = Vec(p.numChannels, new DRAMStream(p.dataWidth, p.v))
+  val dram = Vec(p.numChannels, new DRAMStream(p.dataWidth, p.v)) // Bus is 64 elements of 8 bits
   val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 32)
 
   // Input streams
@@ -58,8 +58,8 @@ class VerilatorInterface(p: TopParams) extends TopInterface {
 }
 
 class ZynqInterface(p: TopParams) extends TopInterface {
-  val axiLiteParams = new AXI4BundleParameters(p.dataWidth, p.dataWidth, 1)
-  val axiParams = new AXI4BundleParameters(p.dataWidth, 512, 32)
+  val axiLiteParams = new AXI4BundleParameters(p.addrWidth, p.dataWidth, 1)
+  val axiParams = new AXI4BundleParameters(p.addrWidth, 512, 32)
 
   val S_AXI = Flipped(new AXI4Lite(axiLiteParams))
   val M_AXI = Vec(p.numChannels, new AXI4Inlined(axiParams))
@@ -176,7 +176,8 @@ class Top(
   val totalRegs = totalArgIns + totalArgOuts + 2  // (command, status registers)
 
   val addrWidth = if (target == "zcu") 40 else 32
-  val v = 16
+  val dataWidth = if (target == "zcu") 64 else w
+  val v = if (target == "vcs" || target == "asic") 64 else 16
   val totalLoadStreamInfo = loadStreamInfo ++ (if (loadStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
   val totalStoreStreamInfo = storeStreamInfo ++ (if (storeStreamInfo.size == 0) List(StreamParInfo(w, v, 0, false)) else List[StreamParInfo]())
 
@@ -187,7 +188,7 @@ class Top(
     case _                  => 1
   }
 
-  val topParams = TopParams(addrWidth, w, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
+  val topParams = TopParams(addrWidth, dataWidth, v, totalArgIns, totalArgOuts, numArgIOs, numChannels, numArgInstrs, argOutLoopbacksMap, totalLoadStreamInfo, totalStoreStreamInfo, streamInsInfo, streamOutsInfo, target)
 
   FringeGlobals.target = target
 
@@ -242,6 +243,7 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
+      accel.io.reset := fringe.io.reset
 
 
     case "arria10" =>
@@ -280,7 +282,8 @@ class Top(
 
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      accel.reset := reset.toBool
+      accel.reset := reset.toBool | fringe.io.reset
+
 
     case "de1soc" =>
       // DE1SoC Fringe
@@ -361,7 +364,7 @@ class Top(
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
       // Top reset is connected to a rst controller on DE1SoC, which converts active low to active high
-      accel.reset := reset.toBool
+      accel.reset := reset.toBool | fringe.io.reset
 
     case "zynq" | "zcu" =>
       // Zynq Fringe
@@ -396,7 +399,9 @@ class Top(
       fringe.io.memStreams <> accel.io.memStreams
       accel.io.enable := fringe.io.enable
       fringe.io.done := accel.io.done
-      accel.reset := ~reset.toBool
+      fringe.reset := ~reset.toBool
+      accel.reset := fringe.io.reset
+      // accel.reset := ~reset.toBool
       io.is_enabled := ~accel.io.enable
 
     case "aws" | "aws-sim" =>
@@ -415,6 +420,7 @@ class Top(
       topIO.scalarOuts.zip(accel.io.argOuts) foreach { case (ioOut, accelOut) => ioOut := getFF(accelOut.bits, accelOut.valid) }
       accel.io.enable := topIO.enable
       topIO.done := accel.io.done
+      accel.io.reset := fringe.io.reset
 
       fringe.io.externalEnable := topIO.enable
 //      topIO.dbg <> fringe.io.dbg

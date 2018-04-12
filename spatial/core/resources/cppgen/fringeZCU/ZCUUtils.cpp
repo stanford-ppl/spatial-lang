@@ -4,12 +4,22 @@
 
 u32 Xil_In32(u32 Addr)
 {
-	return *(volatile u32 *) Addr;
+  return *(volatile u32 *) Addr;
 }
 
 void Xil_Out32(u32 OutAddress, u32 Value)
 {
-	*(volatile u32 *) OutAddress = Value;
+  *(volatile u32 *) OutAddress = Value;
+}
+
+u64 Xil_In64(u64 Addr)
+{
+  return *(volatile u64 *) Addr;
+}
+
+void Xil_Out64(u64 OutAddress, u64 Value)
+{
+  *(volatile u64 *) OutAddress = Value;
 }
 
 
@@ -61,7 +71,7 @@ int fileToBufHex(unsigned char *buf, char *filename, u32 max_bytes)
   while ((wordsRead = fscanf(ifile, "%x\n", &word)) != -1) {
     wordbuf[totalRead++] = word;
     if (totalRead*sizeof(u32) >= max_bytes) {
-      EPRINTF("Read %d words (0x%x bytes), stopping read\n", totalRead, totalRead*sizeof(u32));
+      EPRINTF("Read %d words (0x%lx bytes), stopping read\n", totalRead, totalRead*sizeof(u32));
       break;
     }
   }

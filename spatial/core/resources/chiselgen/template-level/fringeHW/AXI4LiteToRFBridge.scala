@@ -39,7 +39,53 @@ class AXI4LiteToRFBridge(val addrWidth: Int, val dataWidth: Int) extends Module 
 
   d.io.S_AXI <> io.S_AXI
   d.io.S_AXI_ACLK := clock
-  d.io.S_AXI_ARESETN := reset
+  d.io.S_AXI_ARESETN := ~reset.toBool
+
+  io.raddr := d.io.rf_raddr
+  io.waddr := d.io.rf_waddr
+  io.wdata := d.io.rf_wdata
+  io.wen   := d.io.rf_wen
+  d.io.rf_rdata := io.rdata
+}
+
+
+
+class AXI4LiteToRFBridgeZCUVerilog(val addrWidth: Int, val dataWidth: Int) extends BlackBox {
+  val idBits = 1 // AXI-Lite does not have ID field
+  val p = new AXI4BundleParameters(addrWidth, dataWidth, idBits)
+
+  val io = IO(new Bundle {
+    val S_AXI = Flipped(new AXI4Lite(p))
+    val S_AXI_ACLK = Input(Clock())
+    val S_AXI_ARESETN = Input(Bool())
+    val rf_raddr = Output(UInt(addrWidth.W))
+    val rf_wen   = Output(Bool())
+    val rf_waddr = Output(UInt(addrWidth.W))
+    val rf_wdata = Output(Bits(dataWidth.W))
+    val rf_rdata = Input(Bits(dataWidth.W))
+
+  })
+}
+
+
+class AXI4LiteToRFBridgeZCU(val addrWidth: Int, val dataWidth: Int) extends Module {
+  val idBits = 1 // AXI-Lite does not have ID field
+  val p = new AXI4BundleParameters(addrWidth, dataWidth, idBits)
+
+  val io = IO(new Bundle {
+    val S_AXI = Flipped(new AXI4Lite(p))
+    val raddr = Output(UInt(addrWidth.W))
+    val wen   = Output(Bool())
+    val waddr = Output(UInt(addrWidth.W))
+    val wdata = Output(Bits(dataWidth.W))
+    val rdata = Input(Bits(dataWidth.W))
+  })
+
+  val d = Module(new AXI4LiteToRFBridgeZCUVerilog(addrWidth, dataWidth))
+
+  d.io.S_AXI <> io.S_AXI
+  d.io.S_AXI_ACLK := clock
+  d.io.S_AXI_ARESETN := ~reset.toBool
 
   io.raddr := d.io.rf_raddr
   io.waddr := d.io.rf_waddr

@@ -10,8 +10,11 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 #include "generated_debugRegs.h"
 // #include <xil_cache.h>
+// #include <xil_io.h>
+
 // Some key code snippets have been borrowed from the following source:
 // https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space
 
@@ -27,39 +30,31 @@
  * ZCU Fringe Context
  */
 
-extern "C" {
-  void __clear_cache(char* beg, char* end);
-  void Xil_DCacheFlush(void);
-}
+// extern "C" {
+//   void __clear_cache(char* beg, char* end);
+//   void Xil_DCacheFlushRange(INTPTR adr, INTPTR len);
+
+// }
 
 class FringeContextZCU : public FringeContextBase<void> {
 
-  const uint32_t burstSizeBytes = 64;
-  int fd = 0;
-  u64 fringeScalarBase = 0;
-  u64 fringeMemBase    = 0;
-  u64 fpgaMallocPtr    = 0;
-  u64 fpgaFreeMemSize  = MEM_SIZE;
+  uint32_t burstSizeBytes;
+  int fd;
+  u64 fringeScalarBase;
+  u64 fringeMemBase;
+  u64 fpgaMallocPtr;
+  u64 fpgaFreeMemSize;
+  u64 resetHandshakePtr;
 
-  const u64 commandReg = 0;
-  const u64 statusReg = 1;
+  u64 commandReg;
+  u64 statusReg;
 
   std::map<uint64_t, void*> physToVirtMap;
-
-  uint64_t getFPGAVirt(uint64_t physAddr) {
-    uint32_t offset = physAddr - FRINGE_MEM_BASEADDR;
-    return (uint64_t)(fringeMemBase + offset);
-  }
-
-  uint64_t getFPGAPhys(uint64_t virtAddr) {
-    uint32_t offset = virtAddr - fringeMemBase;
-    return (uint64_t)(FRINGE_MEM_BASEADDR + offset);
-  }
 
   void* physToVirt(uint64_t physAddr) {
     std::map<uint64_t, void*>::iterator iter = physToVirtMap.find(physAddr);
     if (iter == physToVirtMap.end()) {
-      EPRINTF("Physical address '%x' not found in physToVirtMap\n. Was this allocated before?");
+      EPRINTF("Physical address '%lx' not found in physToVirtMap\n. Was this allocated before?", physAddr);
       exit(-1);
     }
     return iter->second;
@@ -96,14 +91,29 @@ class FringeContextZCU : public FringeContextBase<void> {
   }
 
 public:
-  uint32_t numArgIns = 0;
-  uint32_t numArgOuts = 0;
-  uint32_t numArgOutInstrs = 0;
-  std::string bitfile = "";
+  uint32_t numArgIns;
+  uint32_t numArgIOs;
+  uint32_t numArgOuts;
+  uint32_t numArgOutInstrs;
+  uint32_t numArgEarlyExits;
+  std::string bitfile;
 
   FringeContextZCU(std::string path = "") : FringeContextBase(path) {
     bitfile = path;
 
+    numArgIns = 0;
+    numArgIOs = 0;
+    numArgOuts = 0;
+    numArgOutInstrs = 0;
+    numArgEarlyExits = 0;
+    commandReg = 0;
+    statusReg = 1;
+    fd = 0;
+    burstSizeBytes = 64;
+    fringeScalarBase = 0;
+    fringeMemBase = 0;
+    fpgaMallocPtr = 0;
+    fpgaFreeMemSize = MEM_SIZE;
     // open /dev/mem file
     int retval = setuid(0);
     ASSERT(retval == 0, "setuid(0) failed\n");
@@ -116,16 +126,96 @@ public:
     void *ptr;
     ptr = mmap(NULL, MAP_LEN, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_SCALAR_BASEADDR);
     fringeScalarBase = (u64) ptr;
+    EPRINTF("placing fringeScalarBase at %lx\n", fringeScalarBase);
 
     // Initialize pointer to fringeMemBase
     ptr = mmap(NULL, MEM_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, FRINGE_MEM_BASEADDR);
     fringeMemBase = (u64) ptr;
+    EPRINTF("placing fringeMemBase at %lx\n", fringeMemBase);
     fpgaMallocPtr = fringeMemBase;
+
+    // Initialize pointer to Xilinx reset handshake
+    ptr = mmap(NULL, RESET_HANDSHAKE_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, RESET_HANDSHAKE_START);
+    resetHandshakePtr = (u64) ptr;
+    EPRINTF("placing resetHandshakePtr at %lx\n", resetHandshakePtr);
+
+  }
+
+  void PSU_Mask_Write(u64 offset, u32 mask, u32 val) {
+    u64 virtOfs = resetHandshakePtr + (offset - RESET_HANDSHAKE_START);
+    // EPRINTF("Computing: %lx = %lx + %lx - %lx\n", virtOfs, resetHandshakePtr, offset, RESET_HANDSHAKE_START);
+    u32 RegVal = 0x0;
+
+    RegVal = Xil_In32(virtOfs);
+    EPRINTF("before: addr %lx has %lx\n", offset, RegVal);
+    RegVal &= ~(mask);
+    RegVal |= (val & mask);
+    Xil_Out32(virtOfs, RegVal);
+    EPRINTF("after: addr %lx has %lx\n", offset, Xil_In32(virtOfs));
+    return;
+  }
+
+  u32 PLReset(){
+ //    PSU_Mask_Write(GPIO_MASK_DATA_5_MSW_OFFSET, 0xFFFF0000U, 0x80000000U);
+ //    PSU_Mask_Write(GPIO_DIRM_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+ //    PSU_Mask_Write(GPIO_OEN_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+ //    PSU_Mask_Write(GPIO_DATA_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+ //    struct timespec delay;
+  // delay.tv_sec = 0;
+  // delay.tv_nsec = 1000L;  
+  // nanosleep(&delay, NULL);
+ //    PSU_Mask_Write(GPIO_DATA_5_OFFSET, 0xFFFFFFFFU, 0x00000000U);
+  // delay.tv_sec = 0;
+  // delay.tv_nsec = 1000L;  
+  // nanosleep(&delay, NULL);
+ //    PSU_Mask_Write(GPIO_DATA_5_OFFSET, 0xFFFFFFFFU, 0x80000000U);
+
+ //    return 1;
+
+    int TotalResets = 1;
+    int MAX_REG_BITS = 31;
+  u32 RegVal = 0;
+  u32 MaskVal;
+
+  /* Set EMIO Direction */
+  RegVal = Xil_In32(resetHandshakePtr + (GPIO_DIRM_5_OFFSET - RESET_HANDSHAKE_START)) |
+    ~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets);
+  Xil_Out32(GPIO_DIRM_5_OFFSET, RegVal);
+
+  /*Assert the EMIO with the required Mask */
+  MaskVal = ~(~0U << TotalResets) << (MAX_REG_BITS/2 + 1 - TotalResets) | 0xFFFF0000;
+  RegVal = MaskVal & ~(~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets));
+  Xil_Out32(resetHandshakePtr + (GPIO_DATA_5_OFFSET - RESET_HANDSHAKE_START),RegVal);
+  mysleep(1000000000L);  
+
+  /*De-assert the EMIO with the required Mask */
+  RegVal = ~(~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets)) & 0xFFFF0000;
+  Xil_Out32(resetHandshakePtr + (GPIO_DATA_5_OFFSET - RESET_HANDSHAKE_START), RegVal);
+  mysleep(1000000000L);
+
+  /*Assert the EMIO with the required Mask */
+  MaskVal = ~(~0U << TotalResets) << (MAX_REG_BITS/2 + 1 - TotalResets) | 0xFFFF0000;
+  RegVal = MaskVal & ~(~(~0U << TotalResets) << (MAX_REG_BITS + 1 - TotalResets));
+  Xil_Out32(resetHandshakePtr + (GPIO_DATA_5_OFFSET - RESET_HANDSHAKE_START),RegVal);
+  mysleep(1000000000L);
+
+  return 1;
+  }
+
+  uint64_t getFPGAVirt(uint64_t physAddr) {
+    uint32_t offset = physAddr - FRINGE_MEM_BASEADDR;
+    return (uint64_t)(fringeMemBase + offset);
+  }
+
+  uint64_t getFPGAPhys(uint64_t virtAddr) {
+    uint32_t offset = virtAddr - fringeMemBase;
+    return (uint64_t)(FRINGE_MEM_BASEADDR + offset);
   }
 
   virtual void load() {
     std::string cmd = "prog_fpga " + bitfile;
-    system(cmd.c_str());
+    int dnu = system(cmd.c_str());
+    return;
   }
 
   size_t alignedSize(uint32_t alignment, size_t size) {
@@ -160,7 +250,7 @@ public:
 //    return addr;
 //#endif
 
-    ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %u, available %u\n", paddedSize, fpgaFreeMemSize);
+    ASSERT(paddedSize <= fpgaFreeMemSize, "FPGA Out-Of-Memory: requested %lu, available %lu\n", paddedSize, fpgaFreeMemSize);
 
     uint64_t virtAddr = (uint64_t) fpgaMallocPtr;
 
@@ -178,43 +268,27 @@ public:
 
   virtual void free(uint64_t buf) {
     EPRINTF("[free] devmem = %lx\n", buf);
-    // TODO: Freeing memory in a linear allocator is tricky. Just don't do anything until a more 'real' allocator is added
-//#ifdef USE_PHYS_ADDR
-//    std::free(physToVirt(buf));
-//#else
-//    std::free((void*)buf);
-//#endif
   }
 
   virtual void memcpy(uint64_t devmem, void* hostmem, size_t size) {
-    EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %u\n", devmem, hostmem, size);
-//#ifdef USE_PHYS_ADDR
-//    void *dst = physToVirt(devmem);
-//#else
-//    void *dst = (void*) devmem;
-//#endif
+    EPRINTF("[memcpy HOST -> FPGA] devmem = %lx, hostmem = %p, size = %lu\n", devmem, hostmem, size);
 
     void* dst = (void*) getFPGAVirt(devmem);
-    std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
-
-    // Flush CPU cache
-//    char *start = (char*)dst;
-//    char *end = start + size;
-//    __clear_cache(start, end);
-
+    std::memcpy(dst, hostmem, size);
+   // std::memcpy(dst, hostmem, alignedSize(burstSizeBytes, size));
+    // EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
+    // Xil_DCacheFlushRange(devmem, alignedSize(burstSizeBytes, size));
 
   }
 
   virtual void memcpy(void* hostmem, uint64_t devmem, size_t size) {
-//#ifdef USE_PHYS_ADDR
-//    void *src = physToVirt(devmem);
-//#else
-//    void *src = (void*) devmem;
-//#endif
 
-    EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %u\n", hostmem, devmem, size);
+    EPRINTF("[memcpy FPGA -> HOST] hostmem = %p, devmem = %lx, size = %lu\n", hostmem, devmem, size);
     void *src = (void*) getFPGAVirt(devmem);
-    std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    std::memcpy(hostmem, src, size);
+    //std::memcpy(hostmem, src, alignedSize(burstSizeBytes, size));
+    // EPRINTF("[Cache Flush] devmem = %lx, size = %u\n", devmem, alignedSize(burstSizeBytes, size));
+    // Xil_DCacheFlushRange(devmem, alignedSize(burstSizeBytes, size));
   }
 
   void flushCache(uint32_t kb) {
@@ -236,7 +310,7 @@ public:
   void dumpRegs() {
     fprintf(stderr, "---- DUMPREGS ----\n");
     for (int i=0; i<100; i++) {
-      fprintf(stderr, "reg[%d] = %08x\n", i, readReg(i));
+      fprintf(stderr, "reg[%d] = %08lx\n", i, readReg(i));
     }
     fprintf(stderr, "---- END DUMPREGS ----\n");
   }
@@ -249,7 +323,7 @@ public:
     for (int i = 0; i < 5; i++) {
       // Pulse deq signal
       writeReg(0+2, 1);
-      usleep(10);
+      mysleep(10000000000L);
       writeReg(0+2, 0);
 
       // Dump regs
@@ -257,6 +331,14 @@ public:
     }
 
     fprintf(stderr, "---- End debugging ----\n");
+  }
+
+  void mysleep(unsigned long nanosec) {
+    struct timespec delay;
+    
+    delay.tv_sec = 0;
+    delay.tv_nsec = nanosec;  /* Half a second in nano's */
+    nanosleep(&delay, NULL);
   }
 
   virtual void run() {
@@ -268,9 +350,16 @@ public:
 
     // Implement 4-way handshake
     writeReg(statusReg, 0);
+    writeReg(commandReg, 2);
+    mysleep(1000);
+    writeReg(commandReg, 0);
+    mysleep(1000);
+    // dumpNonDebugRegs();
+    // PLReset();
+    // dumpNonDebugRegs();
     writeReg(commandReg, 1);
 
-    fprintf(stderr, "Running design..\n");
+    // fprintf(stderr, "Running design..\n");
     double startTime = getTime();
     int num = 0;
     while((status == 0)) {
@@ -290,6 +379,7 @@ public:
     double endTime = getTime();
     fprintf(stderr, "Design done, ran for %lf ms, status = %08x\n", endTime - startTime, status);
     writeReg(commandReg, 0);
+    // dumpAllRegs();
     while (status == 1) {
       if (timed_out == 1) {
         break;
@@ -302,7 +392,12 @@ public:
     numArgIns = number;
   }
 
+  virtual void setNumEarlyExits(uint32_t number) {
+    numArgEarlyExits = number;
+  }
+
   virtual void setNumArgIOs(uint32_t number) {
+    numArgIOs = number;
   }
 
   virtual void setNumArgOuts(uint32_t number) {
@@ -317,36 +412,66 @@ public:
     writeReg(arg+2, data);
   }
 
-  virtual uint64_t getArg(uint32_t arg, bool isIO) {
-    return readReg(numArgIns+2+arg);
+  virtual uint64_t getArg64(uint32_t arg, bool isIO) {
+    return getArg(arg, isIO);
+  }
 
+  virtual uint64_t getArgIn(uint32_t arg, bool isIO) {
+    return readReg(2+arg);
+  }
+
+  virtual uint64_t getArg(uint32_t arg, bool isIO) {
+    if (isIO) {
+      return readReg(2+arg);
+    } else {
+      if (numArgIns == 0) {
+        return readReg(1-numArgIOs+2+arg);
+      } else {
+        return readReg(numArgIns-numArgIOs+2+arg);
+      }
+
+    }
   }
 
   virtual void writeReg(uint32_t reg, uint64_t data) {
-    sleep(0.2); // Prevents zcu crash for some unknown reason
-    Xil_Out32(fringeScalarBase+reg*sizeof(u64), data);
+    mysleep(100000000L);  /* Half a second in nano's */
+    Xil_Out64(fringeScalarBase+reg*sizeof(u64), data);
   }
 
   virtual uint64_t readReg(uint32_t reg) {
-    uint32_t value = Xil_In32(fringeScalarBase+reg*sizeof(u64));
+    uint64_t value = Xil_In64(fringeScalarBase+reg*sizeof(u64));
 //    fprintf(stderr, "[readReg] Reading register %d, value = %lx\n", reg, value);
     return value;
   }
 
   void dumpAllRegs() {
     int argIns = numArgIns == 0 ? 1 : numArgIns;
-    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
-    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs;
-    int totalRegs = argIns + argOuts + numArgOutInstrs + 2 + NUM_DEBUG_SIGNALS;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs + numArgEarlyExits;
+    int totalRegs = argIns + argOuts + numArgOutInstrs + numArgEarlyExits + 2 + NUM_DEBUG_SIGNALS;
 
     for (int i=0; i<totalRegs; i++) {
-      uint32_t value = readReg(i);
+      uint64_t value = readReg(i);
       if (i < debugRegStart) {
         if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
-        EPRINTF("\tR%d: %08x (%08u)\n", i, value, value);
+        EPRINTF("\tR%d: %016lx (%08lu)\n", i, value, value);
       } else {
         if (i == debugRegStart) EPRINTF("\n\n ******* Debug regs *******\n");
-        EPRINTF("\tR%d %s: %08x (%08u)\n", i, signalLabels[i - debugRegStart], value, value);
+        EPRINTF("\tR%d %s: %016lx (%08lu)\n", i, signalLabels[i - debugRegStart], value, value);
+      }
+    }
+  }
+
+  void dumpNonDebugRegs() {
+    int argIns = numArgIns == 0 ? 1 : numArgIns;
+    int argOuts = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
+    int debugRegStart = 2 + argIns + argOuts + numArgOutInstrs + numArgEarlyExits;
+
+    for (int i=0; i<debugRegStart; i++) {
+      uint64_t value = readReg(i);
+      if (i < debugRegStart) {
+        if (i == 0) EPRINTF(" ******* Non-debug regs *******\n");
+        EPRINTF("\tR%d: %016lx (%08lu)\n", i, value, value);
       }
     }
   }
@@ -355,13 +480,13 @@ public:
 //    int numDebugRegs = 224;
     EPRINTF(" ******* Debug regs *******\n");
     int argInOffset = numArgIns == 0 ? 1 : numArgIns;
-    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0) ? 1 : numArgOuts;
+    int argOutOffset = (numArgOuts == 0 & numArgOutInstrs == 0 & numArgEarlyExits == 0) ? 1 : numArgOuts;
     EPRINTF("argInOffset: %d\n", argInOffset);
     EPRINTF("argOutOffset: %d\n", argOutOffset);
     for (int i=0; i<NUM_DEBUG_SIGNALS; i++) {
       if (i % 16 == 0) EPRINTF("\n");
-      uint32_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + 2 + i);
-      EPRINTF("\t%s: %08x (%08u)\n", signalLabels[i], value, value);
+      uint64_t value = readReg(argInOffset + argOutOffset + numArgOutInstrs + numArgEarlyExits + 2 + i);
+      EPRINTF("\t%s: %016lx (%08lu)\n", signalLabels[i], value, value);
     }
     EPRINTF(" **************************\n");
   }

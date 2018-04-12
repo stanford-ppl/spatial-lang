@@ -3,10 +3,11 @@ package fringe
 import chisel3._
 import templates._
 
-class FFType[T<:Data](val t: T) extends Module {
+class FF[T<:Data](val t: T) extends Module {
   val io = IO(new Bundle {
     val in   = Input(t.cloneType)
     val init = Input(t.cloneType)
+    val reset = Input(Bool())
     val out  = Output(t.cloneType)
     val enable = Input(Bool())
   })
@@ -16,7 +17,7 @@ class FFType[T<:Data](val t: T) extends Module {
     val ff = Utils.getRetimed(d, 1)
     when (io.enable) {
       d := io.in
-    }.elsewhen (reset.toBool) {
+    }.elsewhen (io.reset) {
       d := io.init
     } .otherwise {
       d := ff
@@ -28,14 +29,3 @@ class FFType[T<:Data](val t: T) extends Module {
   }
 }
 
-class FF(val w: Int) extends Module {
-  val io = IO(new Bundle {
-    val in   = Input(UInt(w.W))
-    val init = Input(UInt(w.W))
-    val out  = Output(UInt(w.W))
-    val enable = Input(Bool())
-  })
-
-  val ff = Module(new FFType(UInt(w.W)))
-  io <> ff.io
-}

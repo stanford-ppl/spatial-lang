@@ -7,6 +7,7 @@ export JAVA_HOME=$(readlink -f $(dirname $(readlink -f $(which java)))/..)
 if [[ ${JAVA_HOME} = *"/jre"* ]]; then # ugly ass hack because idk wtf is going on with tucson
   export JAVA_HOME=${JAVA_HOME}/..
 fi
+export REGRESSION_ENV=1
 export XILINX_VIVADO=/opt/Xilinx/Vivado/2017.1
 export PATH=/usr/bin:/local/ssd/home/mattfel/aws-fpga/hdk/common/scripts:/opt/Xilinx/SDx/2017.1/Vivado/bin:/opt/Xilinx/SDx/2017.1/SDK/bin:$PATH
 export FOREGROUND="-foreground"
