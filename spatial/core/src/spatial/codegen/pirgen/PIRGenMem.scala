@@ -29,8 +29,9 @@ trait PIRGenMem extends PIRCodegen {
     }
   }
 
-  def emitAccum(name:String, mem:Memory) = {
+  def emitMeta(name:String, mem:Memory) = {
     emit(s"isAccum($name) = ${mem.isAccum}")
+    emit(s"bufferDepthOf($name) = ${mem.depth}")
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
@@ -44,7 +45,7 @@ trait PIRGenMem extends PIRCodegen {
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(quote(dlhs, instId, bankId), s"SRAM(size=$size, banking=$innerBanks)", s"$lhs = $rhs")
-              emitAccum(quote(dlhs, instId, bankId), inst)
+              emitMeta(quote(dlhs, instId, bankId), inst)
             }
           }
         }
@@ -59,7 +60,7 @@ trait PIRGenMem extends PIRCodegen {
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(quote(dlhs, instId, bankId), s"RegFile(sizes=${quote(sizes)}, inits=$inits)", s"$lhs = $rhs banking:${innerBanks}")
-              emitAccum(quote(dlhs, instId, bankId), inst)
+              emitMeta(quote(dlhs, instId, bankId), inst)
             }
           }
         }
@@ -67,7 +68,7 @@ trait PIRGenMem extends PIRCodegen {
         decompose(lhs).zip(decompose(init)).foreach { case (dlhs, dinit) => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
             emit(quote(dlhs, instId), s"Reg(init=${getConstant(init)})", s"$lhs = $rhs")
-            emitAccum(quote(dlhs, instId), inst)
+            emitMeta(quote(dlhs, instId), inst)
           }
         }
       case FIFONew(size) =>
@@ -75,7 +76,7 @@ trait PIRGenMem extends PIRCodegen {
           val size = constDimsOf(lhs).product
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
             emit(quote(dlhs, instId), s"FIFO(size=$size)", s"$lhs = $rhs")
-            emitAccum(quote(dlhs, instId), inst)
+            emitMeta(quote(dlhs, instId), inst)
           }
         }
       case ArgInNew(init) =>
