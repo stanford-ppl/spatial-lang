@@ -20,7 +20,6 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
 
   lazy val structAnalyzer = new PIRStructAnalyzer
   lazy val memoryAnalyzer = new PIRMemoryAnalyzer
-  lazy val controlAnalyzer = new PIRControlAnalyzer
 
   val preprocessPasses = mutable.ListBuffer[PIRTraversal]()
 
@@ -32,7 +31,6 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
     reset
     preprocessPasses += structAnalyzer
     preprocessPasses += memoryAnalyzer
-    preprocessPasses += controlAnalyzer
 
     preprocessPasses.foreach { pass => pass.runAll(block) }
     super.preprocess(block) // generateHeader
