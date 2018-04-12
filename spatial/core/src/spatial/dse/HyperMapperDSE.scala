@@ -50,6 +50,7 @@ trait HyperMapperDSE { this: DSE =>
              |  "max_number_of_predictions": 1000000,
              |  "max_number_AL_iterations": 5,
              |  "number_of_repetitions": 1,
+             |  "number_of_cpus": 6,
              |  "hypermapper_mode": {
              |    "mode": "interactive"
              |  },
