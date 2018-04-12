@@ -13,6 +13,7 @@ object Zynq extends DeviceTarget
 object DE1 extends DeviceTarget // Do not use this one
 object de1soc extends DeviceTarget
 object AWS_F1 extends DeviceTarget
+object ZCU102 extends DeviceTarget
 
 object ops {
 
@@ -179,6 +180,7 @@ object ops {
           case Zynq => b*c // Raghu's box
           case DE1 => b*c // Raghu's box
           case `de1soc` => b*c // Raghu's box
+          case ZCU102 => b*c
           case Default => b*c
         }
       }
@@ -194,6 +196,7 @@ object ops {
           case Zynq => b.asSInt*c // Raghu's box
           case DE1 => b.asSInt*c // Raghu's box
           case `de1soc` => b.asSInt*c // Raghu's box
+          case ZCU102 => b.asSInt*c
           case Default => b.asSInt*c
         }
       }
@@ -225,6 +228,7 @@ object ops {
          case Zynq => FringeGlobals.bigIP.divide(b, c, (Utils.fixdiv_latency * b.getWidth).toInt) 
          case DE1 => b/c // Raghu's box
         case `de1soc` => b/c // Raghu's box
+         case ZCU102 => b/c
          case Default => b/c
        }
      }
@@ -240,6 +244,7 @@ object ops {
          case Zynq => b.asSInt/c // Raghu's box
          case DE1 => b.asSInt/c // Raghu's box
          case `de1soc` => b.asSInt/c // Raghu's box
+         case ZCU102 => b.asSInt/c
          case Default => b.asSInt/c
        }
      }
@@ -276,6 +281,7 @@ object ops {
           case Zynq => b%c // Raghu's box
           case DE1 => b%c // Raghu's box
           case `de1soc` => b%c // Raghu's box
+          case ZCU102 => b%c
           case Default => b%c
         }
       }
@@ -292,6 +298,7 @@ object ops {
           case Zynq => b.asSInt%c // Raghu's box
           case DE1 => b.asSInt%c // Raghu's box
           case `de1soc` => b.asSInt%c // Raghu's box
+          case ZCU102 => b.asSInt%c
           case Default => b.asSInt%c
         }
       }
@@ -393,6 +400,7 @@ object ops {
           case Zynq => b*c.asSInt // Raghu's box
           case DE1 => b*c.asSInt // Raghu's box
           case `de1soc` => b*c.asSInt // Raghu's box
+          case ZCU102 => b*c.asSInt
           case Default => b*c.asSInt
         }
       }
@@ -408,6 +416,7 @@ object ops {
           case Zynq => b*c // Raghu's box
           case DE1 => b*c // Raghu's box
           case `de1soc` => b*c // Raghu's box
+          case ZCU102 => b*c
           case Default => b*c
         }
       }
@@ -441,6 +450,7 @@ object ops {
          case Zynq => b/c.asSInt // Raghu's box
          case DE1 => b/c.asSInt // Raghu's box
          case `de1soc` => b/c.asSInt // Raghu's box
+          case ZCU102 => b/c.asSInt
          case Default => b/c.asSInt
        }
      }
@@ -456,6 +466,7 @@ object ops {
          case Zynq => b/c // Raghu's box
          case DE1 => b/c // Raghu's box
          case `de1soc` => b/c // Raghu's box
+          case ZCU102 => b/c
          case Default => b/c
        }
      }
@@ -491,6 +502,7 @@ object ops {
           case Zynq => b%c.asSInt // Raghu's box
           case DE1 => b%c.asSInt // Raghu's box
           case `de1soc` => b%c.asSInt // Raghu's box
+          case ZCU102 => b%c.asSInt
           case Default => b%c.asSInt
         }
       }
@@ -506,6 +518,7 @@ object ops {
           case Zynq => b%c // Raghu's box
           case DE1 => b%c // Raghu's box
           case `de1soc` => b%c // Raghu's box
+          case ZCU102 => b%c
           case Default => b%c
         }
       }
