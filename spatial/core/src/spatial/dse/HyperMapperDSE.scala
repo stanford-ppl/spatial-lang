@@ -90,7 +90,7 @@ trait HyperMapperDSE { this: DSE =>
         localMems = localMems,
         workQueue = workQueue,
         outQueue  = fileQueue
-      )(state)
+      )(threadState)
     }
     val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid,Timestamp"
 
