@@ -167,4 +167,8 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.useAffine = true
   }
 
+  parser.opt[Unit]("trace").action{ (_,_) =>
+    spatialConfig.enableTrace = true
+  }
+
 }
