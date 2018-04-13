@@ -11,8 +11,8 @@ trait DotGenSpatial extends DotCodegen with DotFileGen
   with DotGenDRAM with DotGenHostTransfer with DotGenUnrolled with DotGenVector
   with DotGenArray with DotGenAlteraVideo with DotGenStream with DotGenRetiming with DotGenStruct{
 
-  override def copyDependencies(out: String): Unit = {
-    dependencies ::= FileDep("dotgen", "run.sh", "../")
-    super.copyDependencies(out)
-  }
+  //override def copyDependencies(out: String): Unit = {
+    //dependencies ::= FileDep("dotgen", "run.sh", "../")
+    //super.copyDependencies(out)
+  //}
 }
