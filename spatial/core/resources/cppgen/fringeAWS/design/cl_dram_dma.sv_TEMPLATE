@@ -26,7 +26,7 @@ module cl_dram_dma #(parameter NUM_DDR=4)
     initial begin
         $dumpfile("Top.vcd");
         $dumpvars(0, Top_inst);
-        // $dumpvars(1, SH_DDR);
+        $dumpvars(1, SH_DDR);
         $dumpvars(1, cl_dram_dma);
         // $dumpvars;
     end
@@ -892,6 +892,12 @@ always_ff @(posedge SCALAR_done[0]) begin
   $display("          # cycles init  = %d", performance_counter_0);
   $display("          # cycles run   = %d", performance_counter_1);
   $display("          # cycles done  = %d", performance_counter_2);
+end
+
+always_ff @(posedge clk) begin
+  if (performance_counter % 100 == 0) begin
+    $display("[%t] %d cycles", $realtime, performance_counter);
+  end
 end
 
 //------------------------------------

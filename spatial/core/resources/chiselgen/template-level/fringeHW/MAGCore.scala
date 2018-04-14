@@ -189,8 +189,8 @@ class MAGCore(
   val burstCounterMaxLatch = Module(new FF(UInt(io.dram.cmd.bits.size.getWidth.W)))
   val wdataMux = Module(new MuxN(Valid(io.dram.wdata.bits), storeStreamInfo.size))
   wdataMux.io.sel := storeStreamIndex(cmdArbiter.io.tag)
-  wdataMux.io.ins.foreach { case i =>
-    i.bits.wlast := i.valid & (burstCounter.io.out === (burstCounterMaxLatch.io.out - 1.U))
+  wdataMux.io.ins.zipWithIndex.foreach { case (in,i) =>
+    in.bits.wlast := in.valid & (burstCounter.io.out === (Mux(burstCounterMaxLatch.io.enable, io.dram.cmd.bits.size - 1.U, burstCounterMaxLatch.io.out - 1.U))) 
   }
   val wdataValid = wdataMux.io.out.valid
 
