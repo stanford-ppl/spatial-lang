@@ -126,7 +126,7 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
   }.text("copy directory for generated pir source")
 
   parser.opt[Unit]("cgra+").action{ (_,_) =>
-    spatialConfig.enableSim = false
+    //spatialConfig.enableSim = false
     spatialConfig.enableSynth = false
     spatialConfig.enablePIR = true
     spatialConfig.enableSplitting = true
