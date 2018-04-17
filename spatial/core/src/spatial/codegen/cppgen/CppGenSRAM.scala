@@ -37,6 +37,13 @@ trait CppGenSRAM extends CppCodegen {
     }
   }
 
+  protected def bitWidth(tp: Type[_]): Int = tp match {
+    case IntType() => 64
+    case LongType() => 32
+    case FixPtType(s,d,f) => d+f
+    case _ => throw new Exception(s"No bitwidth for $tp")
+  }
+
   protected def remapIntType(tp: Type[_]): String = tp match {
     case IntType() => "int32_t"
     case LongType() => "int32_t"
@@ -52,6 +59,15 @@ trait CppGenSRAM extends CppCodegen {
       if (e+m == 32) "float"
       else if (e+m == 64) "double"
       else "faulty_float"
+    case x: StructType[_] =>
+      val width = x.fields.map{case (a,b) => bitWidth(b)}.sum
+      if (width > 64) "int128_t"
+      else if (width > 32) "int64_t"
+      else if (width > 16) "int32_t"
+      else if (width > 8) "int16_t"
+      else if (width > 4) "int8_t"
+      else if (width > 2) "int2_t"
+      else "boolean"
     case _ => "notype"
   }
 
