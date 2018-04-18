@@ -49,7 +49,7 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
 
   override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 
-  val controlStack = mutable.Stack[Expr]()
+  val controlStack = mutable.Stack[Exp[_]]()
   def currCtrl = controlStack.top
   def inHwBlock = controlStack.nonEmpty
 

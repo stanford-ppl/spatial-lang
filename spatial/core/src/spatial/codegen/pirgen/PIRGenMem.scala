@@ -6,15 +6,15 @@ import spatial.utils._
 import spatial.metadata._
 
 trait PIRGenMem extends PIRCodegen {
-  def quote(dmem:Expr, instId:Int, bankId:Int) = {
+  def quote(dmem:Exp[_], instId:Int, bankId:Int) = {
     s"${dmem}_d${instId}_b$bankId"
   }
 
-  def quote(dmem:Expr, instId:Int) = {
+  def quote(dmem:Exp[_], instId:Int) = {
     if (duplicatesOf(compose(dmem)).size==1) s"$dmem" else s"${dmem}_d${instId}"
   }
 
-  def getInnerBank(mem:Expr, inst:Memory, instId:Int) = {
+  def getInnerBank(mem:Exp[_], inst:Memory, instId:Int) = {
     innerDimOf.get((mem, instId)).fold { s"NoBanking()" } { case (dim, ctrls) =>
       inst match {
         case BankedMemory(dims, depth, isAccum) =>

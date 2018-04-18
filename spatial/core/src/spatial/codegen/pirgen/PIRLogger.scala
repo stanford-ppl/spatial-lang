@@ -59,7 +59,7 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
       case lhs => s"$lhs"
     }
     val name = lhs match {
-      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case lhs:Exp[_] => compose(lhs).name.fold("") { n => s" ($n)" }
       case _ => ""
     }
     s"$lhs = $rhs$name"
