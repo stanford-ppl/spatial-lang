@@ -12,6 +12,8 @@ import socket
 
 def write(wksh, row, col, txt):
 	try:
+		if (col > wksh.cols):
+        		wksh.insert_cols(col-1, inherit=True)
 		wksh.update_cell((row,col),txt)
 	except:
 		print("WARN: pygsheets failed write %s @ %d,%d... -_-" % (txt, row, col))
@@ -408,7 +410,7 @@ elif (sys.argv[1] == "report_synth_results"):
 	print("report_synth_results('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12], sys.argv[13], sys.argv[14]))
 	report_synth_results(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8], sys.argv[9], sys.argv[10], sys.argv[11], sys.argv[12], sys.argv[13], sys.argv[14])
 elif (sys.argv[1] == "prepare_sheet"):
-	print("prepare_sheet('%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]))
+	# print("prepare_sheet('%s', '%s', '%s', '%s')" % (sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]))
 	prepare_sheet(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
 else:
 	print("ERROR: Not a valid spreadsheet interaction! %s" % sys.argv[1])

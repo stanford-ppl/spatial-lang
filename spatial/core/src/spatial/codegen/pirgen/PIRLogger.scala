@@ -11,7 +11,7 @@ import scala.collection.mutable
 import scala.collection.mutable.WrappedArray
 import scala.reflect.runtime.universe.{Block => _, Type => _, _}
 
-trait PIRLogger extends SpatialTraversal {
+trait PIRLogger extends SpatialTraversal with PIRStruct {
 
   var listing = false
   var listingSaved = false
@@ -46,41 +46,50 @@ trait PIRLogger extends SpatialTraversal {
     tablevel -=1
     res
   }
-  def dbgcu(cu:ComputeUnit):Unit = dbgblk(s"Generated CU: $cu") {
-    dbgblk(s"cchains: ") {
-      cu.cchains.foreach{cchain => dbgs(s"${cchain.longString}") }
+
+  def qdef(lhs:Any):String = {
+    val rhs = lhs match {
+      case Def(e:UnrolledForeach) => 
+        s"UnrolledForeach(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case Def(e:UnrolledReduce[_,_]) => 
+        s"UnrolledReduce(iters=(${e.iters.mkString(",")}), valids=(${e.valids.mkString(",")}))"
+      case lhs@Def(d) if isControlNode(lhs) => s"${d.getClass.getSimpleName}(binds=${d.binds})"
+      case Op(rhs) => s"$rhs"
+      case Def(rhs) => s"$rhs"
+      case lhs => s"$lhs"
     }
-    dbgblk(s"mems: ") {
-      for (mem <- cu.mems) {
-        dbgl(s"""$mem [${mem.tpe}] (exp: ${mem.mem})""") {
-          dbgs(s"""banking   = ${mem.banking.map(_.toString).getOrElse("N/A")}""")
-          dbgs(s"""writePort    = ${mem.writePort.map(_.toString).mkString(",")}""")
-          dbgs(s"""readPort    = ${mem.readPort.map(_.toString).mkString(",")}""")
-          //dbgs(s"""writeAddr = ${mem.writeAddr.map(_.toString).mkString(",")}""")
-          //dbgs(s"""readAddr  = ${mem.readAddr.map(_.toString).mkString(",")}""")
-          producerOf.get(mem).foreach { _.foreach { case (writer, producer) =>
-            dbgs(s"writer=$writer, producer=$producer")
-          } }
-          consumerOf.get(mem).foreach { _.foreach { case (reader, consumer) =>
-            dbgs(s"reader=$reader, consumer=$consumer")
-          } }
-        }
-      }
+    val name = lhs match {
+      case lhs:Expr => compose(lhs).name.fold("") { n => s" ($n)" }
+      case _ => ""
     }
-    dbgl("Generated PseudoStage: ") {
-      cu.pseudoStages.foreach { stage => dbgs(quote(stage)) }
-    }
-    dbgl("Generated compute stages: ") {
-      cu.computeStages.foreach(stage => dbgs(quote(stage)))
-    }
-    dbgl(s"CU global inputs:") {
-      globalInputs(cu).foreach{in => dbgs(s"$in") }
-    }
-    dbgl(s"regTable:") {
-      cu.regTable.foreach { case (exp, comp) => 
-        dbgs(s"$exp -> $comp [${comp.getClass.getSimpleName}]")
-      }
-    }
+    s"$lhs = $rhs$name"
   }
+
+  private def log[T](msg:String, logger:Option[PIRLogger] = None)(f: => T):T = {
+    logger.fold(f) { _.dbgblk(msg) { f } }
+  }
+
+  val times = scala.collection.mutable.Stack[Long]()
+  def tic = {
+    times.push(System.nanoTime())
+  }
+  def toc(unit:String):Double = {
+    val startTime = times.pop()
+    val endTime = System.nanoTime()
+    val timeUnit = unit match {
+      case "ns" => 1
+      case "us" => 1000
+      case "ms" => 1000000
+      case "s" => 1000000000
+      case _ => throw new Exception(s"Unknown time unit!")
+    }
+    (endTime - startTime) * 1.0 / timeUnit
+  }
+
+  def toc(info:String, unit:String):Unit = {
+    val time = toc(unit)
+    println(s"$info elapsed time: ${f"$time%1.3f"}$unit")
+  }
+
 
 }

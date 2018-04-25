@@ -68,6 +68,14 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
         }
       }
 
+      // Make sure fifo is not full for unaligned transactions
+      val fifos = pushesTo(cmdStage.get).distinct.filter{ pt => pt.memory match {
+        case fifo @ Def(FIFONew(_)) => true //src"~${fifo}.io.full"
+        case _ => false
+      }}.map{pt => src"~${pt.memory}.io.full"}.mkString("&")
+      val fifoHalt = if (fifos == "") "" else src"& ${fifos}"
+
+
       appPropertyStats += HasTileLoad
       if (isAligned(cmdStream)) appPropertyStats += HasAlignedLoad
       else appPropertyStats += HasUnalignedLoad
@@ -95,7 +103,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       val (isLdMSB, isLdLSB)  = tupCoordinates(cmdStream.tp.typeArguments.head, "isLoad")
       emit(src"io.memStreams.loads($id).cmd.bits.addr := ${cmdStream}($addrMSB,$addrLSB)")
       emit(src"io.memStreams.loads($id).cmd.bits.size := ${cmdStream}($sizeMSB,$sizeLSB)")
-      emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)}")
+      emit(src"io.memStreams.loads($id).cmd.valid :=  ${swap(cmdStream, Valid)} ${fifoHalt} ")
       emit(src"io.memStreams.loads($id).cmd.bits.isWr := ~${cmdStream}($isLdMSB,$isLdLSB)")
       emit(src"io.memStreams.loads($id).cmd.bits.isSparse := 0.U")
       controllerStack.pop()
@@ -163,6 +171,13 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
         }
       }
 
+      // Make sure fifo is not full for unaligned transactions
+      val fifos = pushesTo(cmdStage.get).distinct.filter{ pt => pt.memory match {
+        case fifo @ Def(FIFONew(_)) => true //src"~${fifo}.io.full"
+        case _ => false
+      }}.map{pt => src"~${pt.memory}.io.full"}.mkString("&")
+      val fifoHalt = if (fifos == "") "" else src"& ${fifos}"
+
       if (isAligned(cmdStream)) appPropertyStats += HasAlignedStore
       else appPropertyStats += HasUnalignedStore
 
@@ -195,7 +210,7 @@ trait ChiselGenDRAM extends ChiselGenSRAM with ChiselGenStructs {
       controllerStack.push(cmdStage.get) // Push so that DLI does the right thing
       emit(src"io.memStreams.stores($id).cmd.bits.addr := ${cmdStream}($addrMSB,$addrLSB)")
       emit(src"io.memStreams.stores($id).cmd.bits.size := ${cmdStream}($sizeMSB,$sizeLSB)")
-      emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)}")
+      emit(src"io.memStreams.stores($id).cmd.valid :=  ${swap(cmdStream, Valid)} ${fifoHalt}")
       emit(src"io.memStreams.stores($id).cmd.bits.isWr := ~${cmdStream}($isLdMSB,$isLdLSB)")
       emit(src"io.memStreams.stores($id).cmd.bits.isSparse := 0.U")
       controllerStack.pop()

@@ -301,6 +301,8 @@ switch $TARGET {
     # what to do about Clock converter -> HP0?
     # what to do about Address assignment to HP0?
 
+    # set_property DONT_TOUCH true [get_cells /Top_0]
+
   }
   default {
     create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0

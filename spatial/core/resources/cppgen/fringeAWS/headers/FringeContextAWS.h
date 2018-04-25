@@ -2,7 +2,7 @@
 #define __FRINGE_CONTEXT_AWS_H__
 
 #include "FringeContextBase.h"
-#include "commonDefs.h"
+// #include "commonDefs.h"
 
 #include <stdio.h>
 #include <stdlib.h>

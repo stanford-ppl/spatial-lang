@@ -1,13 +1,14 @@
 name := "spatial-lang"
 
-isSnapshot in ThisBuild := true
-
 val scalatestVersion = "3.0.1"
 val paradiseVersion = "2.1.0"
 
 val assemblySettings = Seq(
   test in assembly := {}
 )
+
+isSnapshot in ThisBuild := true
+
 val commonSettings = assemblySettings ++ Seq(
   version := "0.1-SNAPSHOT",
   organization := "edu.stanford.cs.dawn",
