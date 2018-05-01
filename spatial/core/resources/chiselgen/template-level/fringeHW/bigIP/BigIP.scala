@@ -18,6 +18,7 @@ abstract class BigIP {
   def mod(dividend: SInt, divisor: SInt, latency: Int): SInt
   def multiply(a: UInt, b: UInt, latency: Int): UInt
   def multiply(a: SInt, b: SInt, latency: Int): SInt
+  def sqrt(a: UInt, latency: Int): UInt = {throw new Exception("no impl")}
 
   def fadd(a: UInt, b: UInt, m: Int, e: Int): UInt
   def fsub(a: UInt, b: UInt, m: Int, e: Int): UInt

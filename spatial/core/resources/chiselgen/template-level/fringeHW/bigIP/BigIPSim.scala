@@ -33,6 +33,7 @@ class BigIPSim extends BigIP {
     }
   }
 
+
   def multiply(a: UInt, b: UInt, latency: Int): UInt = {
     val aconst = getConst(a)
     val bconst = getConst(b)
