@@ -405,7 +405,7 @@ asic-sw: vcs-sw
 
 asic-hw:
 	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
-	sbt "runMain top.Instantiator --verilog --testArgs asic"
+	sbt -mem 10240 "runMain top.Instantiator --verilog --testArgs asic"
 	cp -r chisel/template-level/fringeVCS/* verilog-asic
 	cp -r chisel/template-level/fringeASIC/build/* verilog-asic
 	touch in.txt

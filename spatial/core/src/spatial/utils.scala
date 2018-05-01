@@ -275,7 +275,8 @@ object utils {
       error(mem.ctx)
       lcas.foreach{case (pipe,accs) =>
         error(c"  metapipe: $pipe ")
-        error(c"  accesses: " + accs.map(x => c"${x._1} / ${x._2}").mkString(","))
+        error(c"  accesses: ")
+        accs.foreach(x => error(c"${x._1} / ${x._2}"))
         error(str(pipe.node))
         error(pipe.node.ctx)
         error("")
@@ -290,9 +291,9 @@ object utils {
     val accesses = readers ++ writers
     assert(accesses.nonEmpty)
 
-    val lcas = accesses.indices.flatMap{i =>
-      (i + 1 until accesses.length).map{j =>
-        val (lca,dist) = lcaWithCoarseDistance(accesses(i), accesses(j))
+    val lcas = writers.indices.flatMap{i =>
+      accesses.indices.map{j =>
+        val (lca,dist) = lcaWithCoarseDistance(writers(i), accesses(j))
         (lca,dist,(accesses(i),accesses(j)))
       }
     }

@@ -7,9 +7,23 @@ import scala.collection.mutable.Set
 
 class BigIPASIC extends BigIP with ASICBlackBoxes {
   def divide(dividend: UInt, divisor: UInt, latency: Int): UInt = {
-    getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
+    getConst(divisor) match { // Use Designware divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        dividend / bigNum.U
+        if (isPow2(bigNum)) { // Power-of-2
+          if (bigNum == 1) {
+            dividend
+          } else {
+            val shiftAmount = log2Ceil(bigNum)
+            if (dividend.getWidth <= shiftAmount) Fill(dividend.getWidth, 0.U)
+            else Cat(Fill(shiftAmount, 0.U), dividend(dividend.getWidth-1, shiftAmount)) // Zero-extended
+          }
+        } else {
+          //dividend / bigNum.U
+          val m = Module(new Divider(dividend.getWidth, bigNum.U.getWidth, false, 0))
+          m.io.dividend := dividend
+          m.io.divisor := bigNum.U
+          m.io.out
+        }
       case None =>
         val m = Module(new Divider(dividend.getWidth, divisor.getWidth, false, latency))
         m.io.dividend := dividend
@@ -19,9 +33,24 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   }
 
   def divide(dividend: SInt, divisor: SInt, latency: Int): SInt = {
-    getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
+    getConst(divisor) match { // Use Designware divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        dividend / bigNum.S
+        if (isPow2(bigNum)) { // Power-of-2 -- note this optimization may not be safe if bigNum is negative
+          if (bigNum == 1) {
+            dividend
+          } else {
+            val shiftAmount = log2Ceil(bigNum)
+            val signbit = dividend(dividend.getWidth-1)
+            if (dividend.getWidth <= shiftAmount) Fill(dividend.getWidth, 0.U).asSInt
+            else Cat(Fill(shiftAmount, signbit), dividend(dividend.getWidth-1, shiftAmount)).asSInt // Sign-extended
+          }
+        } else {
+          //dividend / bigNum.S
+          val m = Module(new Divider(dividend.getWidth, bigNum.S.getWidth, true, 0))
+          m.io.dividend := dividend.asUInt
+          m.io.divisor := bigNum.S.asUInt
+          m.io.out.asSInt
+        }
       case None =>
         val m = Module(new Divider(dividend.getWidth, divisor.getWidth, true, latency))
         m.io.dividend := dividend.asUInt
@@ -31,9 +60,22 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   }
 
   def mod(dividend: UInt, divisor: UInt, latency: Int): UInt = {
-    getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
+    getConst(divisor) match { // Use Designware divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        dividend % bigNum.U
+        if (isPow2(bigNum)) { // Power-of-2
+          if (bigNum == 1) {
+            Fill(divisor.getWidth, 0.U)
+          } else {
+            val numBits = log2Ceil(bigNum)
+            dividend(numBits-1, 0)
+          }
+        } else {
+          //dividend % bigNum.U
+          val m = Module(new Modulo(dividend.getWidth, bigNum.U.getWidth, false, 0))
+          m.io.dividend := dividend
+          m.io.divisor := bigNum.U
+          m.io.out
+        }
       case None =>
         val m = Module(new Modulo(dividend.getWidth, divisor.getWidth, false, latency))
         m.io.dividend := dividend
@@ -43,9 +85,22 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
   }
 
   def mod(dividend: SInt, divisor: SInt, latency: Int): SInt = {
-    getConst(divisor) match { // Use combinational Verilog divider and ignore latency if divisor is constant
+    getConst(divisor) match { // Use Designware divider and ignore latency if divisor is constant
       case Some(bigNum) =>
-        dividend % bigNum.S
+        if (isPow2(bigNum)) { // Power-of-2 -- note this optimization may not be safe if bigNum is negative
+          if (bigNum == 1) {
+            Fill(divisor.getWidth, 0.U).asSInt
+          } else {
+            val numBits = log2Ceil(bigNum)
+            dividend(numBits-1, 0).asSInt
+          }
+        } else {
+          //dividend % bigNum.S
+          val m = Module(new Modulo(dividend.getWidth, bigNum.S.getWidth, true, 0))
+          m.io.dividend := dividend.asUInt
+          m.io.divisor := bigNum.S.asUInt
+          m.io.out.asSInt
+        }
       case None =>
         val m = Module(new Modulo(dividend.getWidth, divisor.getWidth, true, latency))
         m.io.dividend := dividend.asUInt
@@ -62,7 +117,23 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
       else {
         val const = if (aconst.isDefined) aconst.get else bconst.get
         val other = if (aconst.isDefined) b else a
-        const.U * other
+
+        if (const == 0) {
+          Fill(const.U.getWidth + other.getWidth, 0.U)
+        } else if (isPow2(const)) { // Power-of-2
+          if (const == 1) {
+            other
+          } else {
+            val shiftAmount = log2Ceil(const)
+            Cat(Fill(const.U.getWidth - shiftAmount, 0.U), Cat(other, Fill(shiftAmount, 0.U))) // Zero-pad
+          }
+        } else {
+          //const.U * other
+          val m = Module(new Multiplier(const.U.getWidth, other.getWidth, const.U.getWidth + other.getWidth, false, 0))
+          m.io.a := const.U
+          m.io.b := other
+          m.io.out
+        }
       }
     } else {
       val m = Module(new Multiplier(a.getWidth, b.getWidth, math.max(a.getWidth, b.getWidth), false, latency))
@@ -80,7 +151,25 @@ class BigIPASIC extends BigIP with ASICBlackBoxes {
       else {
         val const = if (aconst.isDefined) aconst.get else bconst.get
         val other = if (aconst.isDefined) b else a
-        const.S * other
+
+        if (const == 0) {
+          Fill(const.S.getWidth + other.getWidth, 0.U).asSInt
+        } else if (isPow2(const)) { // Power-of-2
+          if (const == 1) {
+            other
+          } else {
+            val shiftAmount = log2Ceil(const)
+            val signbit = other(other.getWidth-1)
+
+            Cat(Fill(const.S.getWidth - shiftAmount, signbit), Cat(other, Fill(shiftAmount, 0.U))).asSInt // Zero-pad, Sign-extend
+          }
+        } else {
+          //const.S * other
+          val m = Module(new Multiplier(const.S.getWidth, other.getWidth, const.S.getWidth + other.getWidth, true, 0))
+          m.io.a := const.S.asUInt
+          m.io.b := other.asUInt
+          m.io.out.asSInt
+        }
       }
     } else {
       val m = Module(new Multiplier(a.getWidth, b.getWidth, math.max(a.getWidth, b.getWidth), true, latency))
