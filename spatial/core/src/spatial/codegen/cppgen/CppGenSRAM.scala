@@ -38,8 +38,8 @@ trait CppGenSRAM extends CppCodegen {
   }
 
   protected def bitWidth(tp: Type[_]): Int = tp match {
-    case IntType() => 64
-    case LongType() => 32
+    case IntType() => 32
+    case LongType() => 64
     case FixPtType(s,d,f) => d+f
     case _ => throw new Exception(s"No bitwidth for $tp")
   }

@@ -356,6 +356,24 @@ bool checkQAndRespond(int id) {
         if (debug) {
           EPRINTF("[Sending DRAM resp to]: ");
           req->print();
+
+          EPRINTF("[Providing RResp]                                   %u %u %u %u\n", rdata[0], rdata[1], rdata[2], rdata[3]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[4], rdata[5], rdata[6], rdata[7]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[8], rdata[9], rdata[10], rdata[11]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[12], rdata[13], rdata[14], rdata[15]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[16], rdata[17], rdata[18], rdata[19]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[20], rdata[21], rdata[22], rdata[23]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[24], rdata[25], rdata[26], rdata[27]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[28], rdata[29], rdata[30], rdata[31]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[32], rdata[33], rdata[34], rdata[35]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[36], rdata[37], rdata[38], rdata[39]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[40], rdata[41], rdata[42], rdata[43]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[44], rdata[45], rdata[46], rdata[47]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[48], rdata[49], rdata[50], rdata[51]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[52], rdata[53], rdata[54], rdata[55]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[56], rdata[57], rdata[58], rdata[59]);
+          EPRINTF("                                                    %u %u %u %u\n", rdata[60], rdata[61], rdata[62], rdata[63]);
+
         }
 
       // N3Xt logging info

@@ -1,4 +1,4 @@
-module SRAMVerilogSim
+module SRAMVerilogSimFIXME
 #(
   parameter WORDS = 1024,
   parameter AWIDTH = 10,
@@ -156,7 +156,7 @@ module BFFArray
 
 endmodule
 
-module SRAMVerilogSimGold
+module SRAMVerilogSim
 #(
     parameter WORDS = 1024,
     parameter AWIDTH = 10,
