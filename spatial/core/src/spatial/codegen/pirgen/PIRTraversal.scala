@@ -229,7 +229,7 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
   }
 
   def quote(n:Any):String = n match {
-    case x:Exp[_] if isConstant(x) => s"Const(${getConstant(x).get})" 
+    case x:Const[_] => s"Const(${getConstant(x).get})" 
     case x:Exp[_] => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
     case x:Iterable[_] => x.map(quote).toList.toString
     case n => n.toString

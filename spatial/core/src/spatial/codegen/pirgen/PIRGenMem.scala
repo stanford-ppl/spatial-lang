@@ -80,16 +80,16 @@ trait PIRGenMem extends PIRCodegen {
           }
         }
       case ArgInNew(init) =>
-        emit(quote(lhs, 0), s"top.argFringe.argIn(init=${getConstant(init).get})", rhs)
+        emit(quote(lhs, 0), s"ArgIn(init=${getConstant(init).get})", rhs)
         boundOf.get(lhs).foreach { bound =>
           emit(s"boundOf(${quote(lhs, 0)}) = ${bound}")
         }
 
       case ArgOutNew(init) =>
-        emit(quote(lhs, 0), s"top.argFringe.argOut(init=${getConstant(init).get})", rhs)
+        emit(quote(lhs, 0), s"ArgOut(init=${getConstant(init).get})", rhs)
 
       case GetDRAMAddress(dram) =>
-        emit(lhs, s"top.argFringe.dramAddress($dram)", rhs)
+        emit(lhs, s"DramAddress($dram)", rhs)
 
       case _:StreamInNew[_] =>
         decomposed(lhs).right.get.foreach { case (field, dlhs) =>
