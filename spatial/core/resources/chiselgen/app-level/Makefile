@@ -171,6 +171,7 @@ aws-F1-afi:   aws-F1-hw
 	#       https://github.com/aws/aws-fpga/blob/master/hdk/common/shell_v04151701/new_cl_template/build/README.md
 	# NOTE: This may fail (e.g. our of area) -- may need to rerun this manually
 	ln -s ${AWS_HOME}/hdk/cl/examples/${app_name}/ aws_dir
+	ln -s `pwd` ${AWS_HOME}/hdk/cl/examples/${app_name}/spatial_dir
 	# NOTE: Clock recipes can be found here: https://github.com/aws/aws-fpga/blob/b4b9d74415a70f0470b02635604a34710cc1bb22/hdk/docs/clock_recipes.csv
 ifeq ($(CLOCK_FREQ_MHZ),125)
 	cd $(AWS_HOME)/hdk/cl/examples/${app_name}/build/scripts && CL_DIR=$(AWS_HOME)/hdk/cl/examples/${app_name} bash aws_build_dcp_from_cl.sh -clock_recipe_a A0 -uram_option 4 ${FOREGROUND}
@@ -404,7 +405,7 @@ asic-sw: vcs-sw
 
 asic-hw:
 	sed -i "s/val bug239_hack = .*/val bug239_hack = false/g" chisel/template-level/fringeHW/Fringe.scala
-	sbt "runMain top.Instantiator --verilog --testArgs asic"
+	sbt -mem 10240 "runMain top.Instantiator --verilog --testArgs asic"
 	cp -r chisel/template-level/fringeVCS/* verilog-asic
 	cp -r chisel/template-level/fringeASIC/build/* verilog-asic
 	touch in.txt

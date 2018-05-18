@@ -19,7 +19,7 @@ trait ASICBlackBoxes {
 
     val fractionBits = 0
 
-    val m = Module(new designware_divmod(dividendWidth, divisorWidth, signed, false, fractionBits, latency))
+    val m = Module(new designware_divmod(dividendWidth, divisorWidth, signed, fractionBits, latency))
     m.io.clock    := clock
     m.io.reset    := reset.toBool
     m.io.dividend := io.dividend
@@ -31,25 +31,24 @@ trait ASICBlackBoxes {
     val io = IO(new Bundle {
       val dividend = Input(UInt(dividendWidth.W))
       val divisor  = Input(UInt(divisorWidth.W))
-      val out      = Output(UInt(dividendWidth.W))
+      val out      = Output(UInt(divisorWidth.W))
     })
 
     val fractionBits = 0
 
-    val m = Module(new designware_divmod(dividendWidth, divisorWidth, signed, true, fractionBits, latency))
+    val m = Module(new designware_divmod(dividendWidth, divisorWidth, signed, fractionBits, latency))
     m.io.clock    := clock
     m.io.reset    := reset.toBool
     m.io.dividend := io.dividend
     m.io.divisor  := io.divisor
-    io.out        := m.io.rem_out(dividendWidth-1, fractionBits)
+    io.out        := m.io.rem_out(divisorWidth-1, fractionBits)
   }
 
-  class designware_divmod(val dividendWidth: Int, val divisorWidth: Int, val signed: Boolean, val isMod: Boolean, val fractionBits: Int, val latency: Int) extends BlackBox(
+  class designware_divmod(val dividendWidth: Int, val divisorWidth: Int, val signed: Boolean, val fractionBits: Int, val latency: Int) extends BlackBox(
     Map("DIVIDEND_BIT_WIDTH" -> IntParam(dividendWidth),
         "DIVISOR_BIT_WIDTH"  -> IntParam(divisorWidth),
         "SIGNED"             -> IntParam(if (signed) 1 else 0),
-        "IS_DIV"             -> IntParam(if (isMod) 0 else 1),
-        "NUM_STAGES"         -> IntParam(latency))
+        "LATENCY"            -> IntParam(latency))
     ) {
     override def desiredName = s"designware_divmod"
     val io = IO(new Bundle {
@@ -58,7 +57,7 @@ trait ASICBlackBoxes {
       val dividend = Input(UInt(dividendWidth.W))
       val divisor  = Input(UInt(divisorWidth.W))
       val quot_out = Output(UInt(dividendWidth.W))
-      val rem_out  = Output(UInt(dividendWidth.W))
+      val rem_out  = Output(UInt(divisorWidth.W))
     })
 
   }
@@ -84,7 +83,7 @@ trait ASICBlackBoxes {
         "IN1_BIT_WIDTH"      -> IntParam(bWidth),
         "OUT_BIT_WIDTH"      -> IntParam(outWidth),
         "SIGNED"             -> IntParam(if (signed) 1 else 0),
-        "NUM_STAGES"         -> IntParam(latency))
+        "LATENCY"            -> IntParam(latency))
     ) {
     override def desiredName = s"designware_mult"
 

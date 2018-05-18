@@ -977,6 +977,8 @@ module test;
 //    io_genericStreamIn_valid = 0;
 //    io_genericStreamOut_ready = 1;
 
+    #(`CLOCK_PERIOD / 2)
+
     if (tick()) begin
       if (vpdon) begin
         $vcdplusflush;

@@ -56,6 +56,7 @@ trait ZynqBlackBoxes {
       val m_axis_dout_tdata = Output(UInt(dividendWidth.W))
     })
 
+    assert(latency > 0)
     val signedString = if (signed) "Signed" else "Unsigned"
     val modString = if (isMod) "Remainder" else "Fractional"
     val moduleName = s"div_${dividendWidth}_${divisorWidth}_${latency}_${signedString}_${modString}"

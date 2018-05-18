@@ -15,6 +15,7 @@ trait CppGenHostTransfer extends CppGenSRAM  {
       case LongType() => false
       case FloatType() => true
       case DoubleType() => true
+      case _: StructType[_] => true
       case _ => super.needsFPType(tp)
   }
 
@@ -79,6 +80,12 @@ trait CppGenHostTransfer extends CppGenSRAM  {
               emit(src"(*${dram}_rawified)[${dram}_rawified_i] = (${rawtp}) ((*${data})[${dram}_rawified_i] * ((${rawtp})1 << $f));")
             close("}")
             emit(src"c1->memcpy($dram, &(*${dram}_rawified)[0], (*${dram}_rawified).size() * sizeof(${rawtp}));")
+          case _: StructType[_] => 
+            emit(src"vector<${rawtp}>* ${dram}_rawified = new vector<${rawtp}>((*${data}).size());")
+            open(src"for (int ${dram}_rawified_i = 0; ${dram}_rawified_i < (*${data}).size(); ${dram}_rawified_i++) {")
+              emit(src"(*${dram}_rawified)[${dram}_rawified_i] = (${rawtp}) ((*${data})[${dram}_rawified_i].toRaw());")
+            close("}")
+            emit(src"c1->memcpy($dram, &(*${dram}_rawified)[0], (*${dram}_rawified).size() * sizeof(${rawtp}));")            
           case _ => emit(src"c1->memcpy($dram, &(*${data})[0], (*${data}).size() * sizeof(${rawtp}));")
         }
       } else {
@@ -95,6 +102,18 @@ trait CppGenHostTransfer extends CppGenSRAM  {
               emit(src"${rawtp} ${data}_tmp = (*${data}_rawified)[${data}_i];")
               emit(src"(*${data})[${data}_i] = (double) ${data}_tmp / ((${rawtp})1 << $f);")
             close("}")
+          case _: StructType[_] => 
+            emit(src"vector<${rawtp}>* ${data}_rawified = new vector<${rawtp}>((*${data}).size());")
+            emit(src"c1->memcpy(&(*${data}_rawified)[0], $dram, (*${data}_rawified).size() * sizeof(${rawtp}));")
+            open(src"for (int ${data}_i = 0; ${data}_i < (*${data}).size(); ${data}_i++) {")
+              emit(src"${rawtp} ${data}_tmp = (*${data}_rawified)[${data}_i];")
+              emit(src"(*${data})[${data}_i] = ${dram.tp.typeArguments.head}(${data}_tmp);")
+            close("}")
+            emit(src"vector<${rawtp}>* ${dram}_rawified = new vector<${rawtp}>((*${data}).size());")
+            open(src"for (int ${dram}_rawified_i = 0; ${dram}_rawified_i < (*${data}).size(); ${dram}_rawified_i++) {")
+              emit(src"(*${dram}_rawified)[${dram}_rawified_i] = (${dram.tp.typeArguments.head}) ${dram.tp.typeArguments.head}FromRaw((*${data})[${dram}_rawified_i]);")
+            close("}")
+            emit(src"c1->memcpy($dram, &(*${dram}_rawified)[0], (*${dram}_rawified).size() * sizeof(${rawtp}));")            
           case _ => emit(src"c1->memcpy(&(*$data)[0], $dram, (*${data}).size() * sizeof(${rawtp}));")
         }
       } else {
