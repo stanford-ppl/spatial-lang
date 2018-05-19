@@ -95,6 +95,7 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     //case bus:ScatterCmdBus[_] => Seq("data", "valid") // throw away valid bit
     case bus:ScatterCmdBus[_] => Seq("data")
     case ScatterAckBus => Seq("ack") 
+    case bus:Bus if bus.length <= 32 => Seq("data")
     case _ => throw new Exception(s"Don't know how to decompose bus ${bus}")
   }
 

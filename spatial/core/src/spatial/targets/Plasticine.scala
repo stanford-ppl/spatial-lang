@@ -12,5 +12,10 @@ object Plasticine extends AlteraDevice { // TODO: Fix
   protected def makeAreaModel: AreaModel = new StratixVAreaModel
   protected def makeLatencyModel: LatencyModel = new StratixVLatencyModel
   def capacity: Area = AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
+
+  case object GPInput1 extends Bus { def length = 32 }
+  case object GPOutput1 extends Bus { def length = 32 }
+  case object GPInput2 extends Bus { def length = 32 }
+  case object GPOutput2 extends Bus { def length = 32 }
 }
 

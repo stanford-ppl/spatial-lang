@@ -114,10 +114,10 @@ trait SpatialCompiler extends ArgonCompiler {
     passes += printer
     passes += friendlyTransformer
     passes += printer
-    if (spatialConfig.rewriteLUTs) {
-      passes += lutTransform    // Change LUTs to SRAM with initial value metadata
-      passes += printer
-    }
+    //if (spatialConfig.rewriteLUTs) {
+      //passes += lutTransform    // Change LUTs to SRAM with initial value metadata
+      //passes += printer
+    //}
     passes += scalarAnalyzer    // Perform bound and global analysis
     passes += levelAnalyzer     // Initial pipe style annotation fixes
     passes += dimAnalyzer       // Correctness checks for onchip and offchip dimensions

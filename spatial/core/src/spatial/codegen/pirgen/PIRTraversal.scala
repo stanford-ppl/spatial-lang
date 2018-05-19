@@ -184,19 +184,11 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     case _ => false
   }
 
-  def isLocalMem(mem: Exp[_]): Boolean = {
-    var cond = isReg(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
-    //cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
-    cond
+  def isMem(e: Exp[_]):Boolean = {
+    isReg(e) || isGetDRAMAddress(e) ||
+    isStreamIn(e) || isStreamOut(e) || isFIFO(e)
+    isSRAM(e) || isRegFile(e) || isLUT(e) || isLineBuffer(e)
   }
-
-  def isRemoteMem(mem: Exp[_]): Boolean = {
-    var cond = isSRAM(mem)
-    cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
-    cond
-  }
-
-  def isMem(e: Exp[_]):Boolean = isLocalMem(e) | isRemoteMem(e)
 
   def nIters(x: Exp[_], ignorePar: Boolean = false): Long = x match {
     case Def(CounterChainNew(ctrs)) =>

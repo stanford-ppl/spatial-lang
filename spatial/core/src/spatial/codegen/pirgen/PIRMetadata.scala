@@ -24,12 +24,12 @@ object composed extends MOneToOneMap with MetadataMaps {
 }
 
 object innerDimOf extends MOneToOneMap with MetadataMaps {
-  type K = (Exp[_], Int) // (SRAM, dispatch ID)
-  type V = (Int, mutable.Set[Exp[_]]) // (dim, ctrls)
+  type K = (Exp[_], Int) // (Mem, instId)
+  type V = Int // dim
 }
 
 object outerDimsOf extends MOneToOneMap with MetadataMaps {
-  type K = (Exp[_], Int) // (SRAM, dispatch ID)
+  type K = (Exp[_], Int) // (Mem, instId)
   type V = Seq[Int]
 }
 
