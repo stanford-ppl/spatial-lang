@@ -20,7 +20,7 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
   /*
    * Returns a single id for reader
    * */
-  def getDispatches(dmem:Expr, daccess:Expr) = {
+  def getDispatches(dmem:Exp[_], daccess:Exp[_]) = {
     val mem = compose(dmem)
     val access = compose(daccess)
     val instIds = if (isStreamOut(mem) || isArgOut(mem) || isGetDRAMAddress(mem) || isArgIn(mem) || isStreamIn(mem)) {
@@ -35,20 +35,20 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     instIds
   }
 
-  def itersOf(pipe:Expr):Option[Seq[Seq[Expr]]] = pipe match {
+  def itersOf(pipe:Exp[_]):Option[Seq[Seq[Exp[_]]]] = pipe match {
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => Some(iters)
     case Def(UnrolledReduce(en, cchain, accum, func, iters, valids)) => Some(iters)
     case _ => None
   }
 
-  def isConstant(x: Expr):Boolean = x match {
+  def isConstant(x: Exp[_]):Boolean = x match {
     case Const(c) => true
     case Param(c) => true
     case Final(c) => true
     case _ => false
   }
 
-  def getConstant(x: Expr): Option[AnyVal] = x match {
+  def getConstant(x: Exp[_]): Option[AnyVal] = x match {
     case Const(c: FixedPoint) if c.fmt.isExactInt => Some(c.toInt)
     case Const(c: FixedPoint) => Some(c.toFloat)
     case Const(c: FloatPoint) => Some(c.toFloat)
@@ -64,12 +64,12 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
   }
 
   // returns (sym of flatten addr, List[Addr Stages])
-  //def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Expr, List[OpStage]) = {
+  //def flattenNDIndices(indices: Seq[Exp[Any]], dims: Seq[Exp[Index]]):(Exp[_], List[OpStage]) = {
     //val cdims:Seq[Int] = dims.map{
       //case Exact(d) => d.toInt
       //case d => throw new Exception(s"Unable to get bound of memory size $d")
     //}
-    //val strides:List[Expr] = List.tabulate(dims.length){ d =>
+    //val strides:List[Exp[_]] = List.tabulate(dims.length){ d =>
       //if (d == dims.length - 1) int32s(1)
       //else int32s(cdims.drop(d+1).product)
     //}
@@ -141,7 +141,7 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     case _                               => None
   }
 
-  def getInnerPar(n:Expr):Int = n match {
+  def getInnerPar(n:Exp[_]):Int = n match {
     case Def(Hwblock(func,_)) => 1
     case Def(UnitPipe(en, func)) => 1
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
@@ -179,26 +179,26 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     case n => throw new Exception(s"Undefined getInnerPar for $n")
   }
 
-  def isGetDRAMAddress(mem:Expr) = mem match {
+  def isGetDRAMAddress(mem:Exp[_]) = mem match {
     case Def(_:GetDRAMAddress[_]) => true
     case _ => false
   }
 
-  def isLocalMem(mem: Expr): Boolean = {
+  def isLocalMem(mem: Exp[_]): Boolean = {
     var cond = isReg(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
     //cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
     cond
   }
 
-  def isRemoteMem(mem: Expr): Boolean = {
+  def isRemoteMem(mem: Exp[_]): Boolean = {
     var cond = isSRAM(mem)
     cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
     cond
   }
 
-  def isMem(e: Expr):Boolean = isLocalMem(e) | isRemoteMem(e)
+  def isMem(e: Exp[_]):Boolean = isLocalMem(e) | isRemoteMem(e)
 
-  def nIters(x: Expr, ignorePar: Boolean = false): Long = x match {
+  def nIters(x: Exp[_], ignorePar: Boolean = false): Long = x match {
     case Def(CounterChainNew(ctrs)) =>
       val loopIters = ctrs.map{
         case Def(CounterNew(start,end,stride,par)) =>
@@ -229,8 +229,8 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
   }
 
   def quote(n:Any):String = n match {
-    case x:Expr if isConstant(x) => s"Const(${getConstant(x).get})" 
-    case x:Expr => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
+    case x:Const[_] => s"Const(${getConstant(x).get})" 
+    case x:Exp[_] => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
     case x:Iterable[_] => x.map(quote).toList.toString
     case n => n.toString
   }

@@ -6,15 +6,15 @@ import spatial.utils._
 import spatial.metadata._
 
 trait PIRGenMem extends PIRCodegen {
-  def quote(dmem:Expr, instId:Int, bankId:Int) = {
+  def quote(dmem:Exp[_], instId:Int, bankId:Int) = {
     s"${dmem}_d${instId}_b$bankId"
   }
 
-  def quote(dmem:Expr, instId:Int) = {
+  def quote(dmem:Exp[_], instId:Int) = {
     if (duplicatesOf(compose(dmem)).size==1) s"$dmem" else s"${dmem}_d${instId}"
   }
 
-  def getInnerBank(mem:Expr, inst:Memory, instId:Int) = {
+  def getInnerBank(mem:Exp[_], inst:Memory, instId:Int) = {
     innerDimOf.get((mem, instId)).fold { s"NoBanking()" } { case (dim, ctrls) =>
       inst match {
         case BankedMemory(dims, depth, isAccum) =>
@@ -80,16 +80,16 @@ trait PIRGenMem extends PIRCodegen {
           }
         }
       case ArgInNew(init) =>
-        emit(quote(lhs, 0), s"top.argFringe.argIn(init=${getConstant(init).get})", rhs)
+        emit(quote(lhs, 0), s"ArgIn(init=${getConstant(init).get})", rhs)
         boundOf.get(lhs).foreach { bound =>
           emit(s"boundOf(${quote(lhs, 0)}) = ${bound}")
         }
 
       case ArgOutNew(init) =>
-        emit(quote(lhs, 0), s"top.argFringe.argOut(init=${getConstant(init).get})", rhs)
+        emit(quote(lhs, 0), s"ArgOut(init=${getConstant(init).get})", rhs)
 
       case GetDRAMAddress(dram) =>
-        emit(lhs, s"top.argFringe.dramAddress($dram)", rhs)
+        emit(lhs, s"DramAddress($dram)", rhs)
 
       case _:StreamInNew[_] =>
         decomposed(lhs).right.get.foreach { case (field, dlhs) =>

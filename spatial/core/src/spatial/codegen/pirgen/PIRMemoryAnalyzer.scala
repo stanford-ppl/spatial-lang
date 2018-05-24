@@ -33,7 +33,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     super.visit(lhs, rhs)
   }
 
-  def dbglogs(mem:Expr) = {
+  def dbglogs(mem:Exp[_]) = {
     duplicatesOf(mem).zipWithIndex.foreach { case (inst, i) =>
       dbgblk(s"inst $i") {
         inst match {
@@ -51,7 +51,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
   }
 
   // If contains the inner dimension, returns the controller that parallelized the inner dimension
-  def ctrlOfInnerDims(ind:Expr):mutable.Set[Expr] = dbgblk(s"ctrlOfInnerDims($ind)") {
+  def ctrlOfInnerDims(ind:Exp[_]):mutable.Set[Exp[_]] = dbgblk(s"ctrlOfInnerDims($ind)") {
     ind match {
       case b:Bound[_] => 
         val ctrl = ctrlOf(b).get.node
@@ -62,7 +62,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def extractInnerBounds(ctrl:Expr) = ctrl match {
+  def extractInnerBounds(ctrl:Exp[_]) = ctrl match {
     case ctrl if !isInnerControl(ctrl) => Nil
     case Def(UnrolledForeach(en, cchain, func, iters, valids)) => 
       val innerPar = getConstant(parFactorsOf(cchain).last).get.asInstanceOf[Int]
@@ -75,11 +75,11 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     case _ => Nil
   }
 
-  def markInnerDim(mem:Expr) = {
+  def markInnerDim(mem:Exp[_]) = {
     (readersOf(mem) ++ writersOf(mem)).map(_.node).foreach { access =>
       val instIds = dispatchOf(access, mem)
       dbgblk(s"markInnerDim(access=$access, dispatch=$instIds)") {
-        val inds:Seq[Expr] = access match {
+        val inds:Seq[Exp[_]] = access match {
           case Def(ParLocalReader((mem, Some(inds::_), _)::_)) => inds 
           case Def(ParLocalWriter((mem, _, Some(inds::_), _)::_)) => inds
           case Def(ParLocalReader((mem, None, _)::_)) => Nil
@@ -116,7 +116,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def setOuterDims(mem:Expr) = dbgblk(s"setOuterDims") {
+  def setOuterDims(mem:Exp[_]) = dbgblk(s"setOuterDims") {
     val numDim = mem match {
       case Def(SRAMNew(dims)) => dims.size
       case Def(RegFileNew(dims, inits)) => dims.size
@@ -130,7 +130,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def setNumOuterBanks(mem:Expr) = dbgblk(s"setNumOuterBanks($mem)") {
+  def setNumOuterBanks(mem:Exp[_]) = dbgblk(s"setNumOuterBanks($mem)") {
     duplicatesOf(mem).zipWithIndex.map { case (m, instId) =>
       val numBanks = m match {
         case m@BankedMemory(dims, depth, isAccum) =>
@@ -144,13 +144,13 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def setStaticBank(mem:Expr):Unit = {
+  def setStaticBank(mem:Exp[_]):Unit = {
     (readersOf(mem) ++ writersOf(mem)).map(_.node).foreach { access =>
       setStaticBank(mem, access)
     }
   }
 
-  def setStaticBank(mem:Expr, access:Expr):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
+  def setStaticBank(mem:Exp[_], access:Exp[_]):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
     val instIds = getDispatches(mem, access)
     val duplicates = duplicatesOf(mem)
     val insts = instIds.map { instId => (duplicates(instId), instId) }
@@ -167,7 +167,7 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
   }
 
-  def setStaticBank(mem:Expr, inst:Memory, instId:Int, access:Expr, addr:Seq[Seq[Expr]]):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
+  def setStaticBank(mem:Exp[_], inst:Memory, instId:Int, access:Exp[_], addr:Seq[Seq[Exp[_]]]):Unit = dbgblk(s"setStaticBankOf($mem, $access)") {
     inst match {
       case m@BankedMemory(dims, depth, isAccum) =>
         val inds = Seq.tabulate(dims.size) { i => addr.map { _(i) } }

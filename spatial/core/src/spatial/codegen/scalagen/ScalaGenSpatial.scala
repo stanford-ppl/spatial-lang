@@ -13,7 +13,7 @@ trait ScalaGenSpatial extends ScalaCodegen with ScalaFileGen
   with ScalaGenStream with ScalaGenAssert
   with ScalaGenLineBuffer with ScalaGenRegFile with ScalaGenStateMachine with ScalaGenFileIO with ScalaGenBinaryFileIO
   with ScalaGenDelays with ScalaGenLUTs
-  with ScalaGenVarReg with ScalaGenSwitch {
+  with ScalaGenVarReg with ScalaGenSwitch with ScalaGenTrace {
 
   override def copyDependencies(out: String): Unit = {
     dependencies ::= FileDep("scalagen", "Makefile", "../")

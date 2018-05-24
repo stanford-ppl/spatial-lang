@@ -21,6 +21,7 @@ class SpatialConfig extends argon.core.Config {
     archDSE: Boolean,
     naming: Boolean,
     tree: Boolean,
+    trace: Boolean,
     bbs: Boolean    // Use basic blocks?
   )
 
@@ -77,6 +78,7 @@ class SpatialConfig extends argon.core.Config {
   var enableTightControl: Boolean = _
   var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
+  var enableTrace: Boolean = _
 
   def enableBufferCoalescing: Boolean = !enablePIR
   def removeParallelNodes: Boolean = enablePIR
@@ -121,6 +123,7 @@ spatial {
   arch-dse = false
   naming = false
   tree = true
+  trace = false
   bbs = false
 }
 """)
@@ -144,6 +147,7 @@ spatial {
         enableArchDSE = spatialConf.archDSE
         enableNaming = spatialConf.naming
         enableTree = spatialConf.tree
+        enableTrace = spatialConf.trace
 
         useBasicBlocks = spatialConf.bbs
 

@@ -75,25 +75,25 @@ object DRAMTransfersInternal {
     // as long as the value of the register read is known to be exactly some value.
     // FIXME: We should also be checking if the start address is aligned...
     def store(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | spatialConfig.enablePIR | isAlign => //TODO: Hack for pir
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | isAlign =>
         dbg(u"$onchip => $offchip: Using aligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedStore(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
         dbg(u"$onchip => $offchip: Using unaligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         unalignedStore(offchipAddr, onchipAddr)
       case _ =>
-        dbg(u"$onchip => $offchip: Using unaligned store (request length is statically unknown)")
+        dbg(u"$onchip => $offchip: Using unaligned store (request length ($requestLength) is statically unknown)")
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
-      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | spatialConfig.enablePIR | isAlign => //TODO: Hack for pir
+      case Exact(c: BigInt) if (c.toInt*bits[T].length) % target.burstSize == 0 | isAlign =>
         dbg(u"$offchip => $onchip: Using aligned load ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
         alignedLoad(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
         dbg(u"$offchip => $onchip: Using unaligned load ($c * ${bits[T].length} % ${target.burstSize}* ${c*bits[T].length % target.burstSize})")
         unalignedLoad(offchipAddr, onchipAddr)
       case _ =>
-        dbg(u"$offchip => $onchip: Using unaligned load (request length is statically unknown)")
+        dbg(u"$offchip => $onchip: Using unaligned load (request length ($requestLength) is statically unknown)")
         unalignedLoad(offchipAddr, onchipAddr)
     }
 
@@ -106,7 +106,6 @@ object DRAMTransfersInternal {
 
       // Command generator 
       // PIR different because FPGA VCS crashes if data gets sent before command
-      // if (spatialConfig.enablePIR) { // On plasticine the sequential around data and address generation is inefficient
         Pipe {
           val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
           val size = requestLength
@@ -190,6 +189,10 @@ object DRAMTransfersInternal {
 
     @virtualize
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
+      if (spatialConfig.enablePIR) {
+        warn(s"Unaligned store is not supported when enablePIR!")
+      }
+
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
       isAligned(cmdStream.s) = false
 //      val issueQueue = FIFO[Index](16)  // TODO: Size of issued queue?
@@ -264,6 +267,10 @@ object DRAMTransfersInternal {
     }
     @virtualize
     def unalignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
+      if (spatialConfig.enablePIR) {
+        warn(s"Unaligned load is not supported when enablePIR!")
+      }
+
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
       isAligned(cmdStream.s) = false
       val issueQueue = FIFO[IssuedCmd](16)  // TODO: Size of issued queue?

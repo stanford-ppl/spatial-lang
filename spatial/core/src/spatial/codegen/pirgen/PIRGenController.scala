@@ -7,7 +7,7 @@ import spatial.metadata._
 
 trait PIRGenController extends PIRCodegen {
 
-  def emitIters(cchain:Expr, iters:Seq[Seq[Expr]], valids:Seq[Seq[Expr]], isInnerControl:Boolean) = {
+  def emitIters(cchain:Exp[_], iters:Seq[Seq[Exp[_]]], valids:Seq[Seq[Exp[_]]], isInnerControl:Boolean) = {
     val Def(CounterChainNew(counters)) = cchain
     counters.zip(iters.zip(valids)).foreach { case (counter, (iters, valids)) =>
       iters.zip(valids).zipWithIndex.foreach { case ((iter, valid), i) =>

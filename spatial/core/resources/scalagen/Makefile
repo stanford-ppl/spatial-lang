@@ -3,6 +3,7 @@ all:
 
 sim: 
 	sbt compile
+	chmod u+wrx run.sh
 
 vcs:
 	sbt compile

@@ -29,7 +29,7 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     super.visit(lhs, rhs)
   }
 
-  def decomposeWithFields[T](exp:Expr)(implicit ev:TypeTag[T]):Either[Expr, Seq[(String, Expr)]] = decomposed.getOrElseUpdate(exp) {
+  def decomposeWithFields[T](exp:Exp[_])(implicit ev:TypeTag[T]):Either[Exp[_], Seq[(String, Exp[_])]] = decomposed.getOrElseUpdate(exp) {
     val struct = exp match {
       case Def(StreamInNew(bus)) => createStruct(exp, getFields(bus)) 
       case Def(StreamOutNew(bus)) => createStruct(exp, getFields(bus))
@@ -69,14 +69,14 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     struct
   }
 
-  def createStruct[T](exp: Expr, fields: Seq[T]): Either[Expr, Seq[(String, Expr)]] = {
+  def createStruct[T](exp: Exp[_], fields: Seq[T]): Either[Exp[_], Seq[(String, Exp[_])]] = {
     if (fields.size < 1) {
       Left(exp)
     } else {
       val seq = fields.map {
         case field:String if fields.size== 1 => (field, exp) 
         case field:String => (field, fresh[Int32]) 
-        case (field:String, dexp:Expr) => (field, dexp)
+        case (field:String, dexp:Exp[_]) => (field, dexp)
       }
       Right(seq)
     }
@@ -102,21 +102,21 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
 trait PIRStruct {
   // Struct handling
-  def compose(dexp:Expr) = composed.get(dexp).getOrElse(dexp)
+  def compose(dexp:Exp[_]) = composed.get(dexp).getOrElse(dexp)
 
-  def decompose(exp: Expr): Seq[Expr] = decomposed.get(exp).getOrElse(Left(exp)) match {
+  def decompose(exp: Exp[_]): Seq[Exp[_]] = decomposed.get(exp).getOrElse(Left(exp)) match {
     case Left(exp) => Seq(exp)
     case Right(seq) => seq.map(_._2)
   }
 
-  def getFields(exp: Expr): Seq[String] = {
+  def getFields(exp: Exp[_]): Seq[String] = {
     decomposed(exp) match {
       case Left(e) => Seq()
       case Right(seq) => seq.map(_._1)
     }
   }
 
-  def getField(dexp: Expr): Option[String] = {
+  def getField(dexp: Exp[_]): Option[String] = {
     decomposed(compose(dexp)) match {
       case Left(e) => None 
       case Right(seq) => Some(seq.filter(_._2==dexp).headOption.map(_._1).getOrElse(
@@ -125,7 +125,7 @@ trait PIRStruct {
     }
   }
 
-  def lookupField(exp:Expr, fieldName:String):Option[Expr] = {
+  def lookupField(exp:Exp[_], fieldName:String):Option[Exp[_]] = {
     decomposed(exp) match {
       case Left(exp) => None
       case Right(fs) => 
