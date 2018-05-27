@@ -58,6 +58,11 @@ trait PIRGenController extends PIRCodegen {
           controlStack.push(lhs)
           emitBlock(block)
           controlStack.pop
+        case Hwblock(block, isForever) if isForever=>
+          emit(lhs, s"ForeverController()", rhs)
+          controlStack.push(lhs)
+          emitBlock(block)
+          controlStack.pop
         case Hwblock(block, isForever) =>
           emit(lhs, s"UnitController(style=${styleOf(lhs)}, level=${levelOf(lhs)})", rhs)
           controlStack.push(lhs)
