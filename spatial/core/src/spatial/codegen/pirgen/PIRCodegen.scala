@@ -67,5 +67,14 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
   def emit(lhs:Any, rhs:Any, comment:Any):Unit = {
     emit(s"""val ${quote(lhs)} = $rhs.name("$lhs")$quoteCtrl // $comment""")
   }
+
+  def error(x: => Any) = {
+    argon.core.error(x)
+    sys.exit()
+  }
+
+  def assert(pred:Boolean, x: => Any) = {
+    if (!pred) error(x)
+  }
 }
 

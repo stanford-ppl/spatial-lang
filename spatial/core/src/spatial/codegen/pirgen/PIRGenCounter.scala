@@ -14,11 +14,8 @@ trait PIRGenCounter extends PIRCodegen {
         (boundOf.get(start), boundOf.get(end), boundOf.get(step)).zipped.foreach { case (bstart, bend, bstep) =>
           dbg(s"$lhs, bstart=$bstart, bend=$bend, bstep=$bstep, par=$parInt")
           assert((bend - bstart) % (bstep * parInt) == 0, 
-            s"Cannot handle unaligned iterator range:" + 
-            s"${start.name}=$bstart" + 
-            s"${end.name}=$bend" +
-            s"${step.name}=$bstep" + 
-            s"${par.name}=$parInt"
+            s"Cannot handle unaligned iterator range: " + 
+            s"(end=$bend - start=$bstart) % (step=$bstep * par=$parInt) != 0"
           )
         }
       case CounterChainNew(counters) =>
