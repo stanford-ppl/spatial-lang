@@ -12,8 +12,17 @@ trait PIRGenController extends PIRCodegen {
     counters.zip(iters.zip(valids)).foreach { case (counter, (iters, valids)) =>
       iters.zip(valids).zipWithIndex.foreach { case ((iter, valid), i) =>
         val offset = if (isInnerControl && counter == counters.last) None else Some(i)
+        val Def(CounterNew(start, end, step, par)) = counter
+        val parInt = getConstant(par).get.asInstanceOf[Int]
+        (boundOf.get(start), boundOf.get(end), boundOf.get(step)).zipped.foreach { case (bstart, bend, bstep) =>
+          dbg(s"$counter, bstart=$bstart, bend=$bend, bstep=$bstep, par=$parInt")
+          assert((bend - bstart) % (bstep * parInt) == 0, 
+            s"Cannot handle unaligned iterator range: " + 
+            s"(end=$bend - start=$bstart) % (step=$bstep * par=$parInt) != 0"
+          )
+        }
         emit(iter, s"CounterIter($counter, $offset)")
-        emit(valid, s"DummyOp()")
+        emit(valid, s"Const(true)")
       }
     }
   }

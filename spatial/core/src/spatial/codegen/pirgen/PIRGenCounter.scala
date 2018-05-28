@@ -11,13 +11,6 @@ trait PIRGenCounter extends PIRCodegen {
       case CounterNew(start, end, step, par) =>
         val parInt = getConstant(par).get.asInstanceOf[Int]
         emit(lhs, s"Counter(min=${quote(start)}, max=${quote(end)}, step=${quote(step)}, par=$parInt)", rhs)
-        (boundOf.get(start), boundOf.get(end), boundOf.get(step)).zipped.foreach { case (bstart, bend, bstep) =>
-          dbg(s"$lhs, bstart=$bstart, bend=$bend, bstep=$bstep, par=$parInt")
-          assert((bend - bstart) % (bstep * parInt) == 0, 
-            s"Cannot handle unaligned iterator range: " + 
-            s"(end=$bend - start=$bstart) % (step=$bstep * par=$parInt) != 0"
-          )
-        }
       case CounterChainNew(counters) =>
         emit(lhs, s"CounterChain(List(${counters.mkString(",")}))", rhs)
       case _ => super.emitNode(lhs, rhs)
