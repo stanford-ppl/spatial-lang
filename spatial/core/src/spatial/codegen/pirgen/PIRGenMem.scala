@@ -34,7 +34,6 @@ trait PIRGenMem extends PIRCodegen {
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    dbgs(s"emitNode ${qdef(lhs)}")
     rhs match {
       case SRAMNew(dims) =>
         decompose(lhs).foreach { dlhs => 

@@ -29,7 +29,9 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     super.visit(lhs, rhs)
   }
 
-  def decomposeWithFields[T](exp:Exp[_])(implicit ev:TypeTag[T]):Either[Exp[_], Seq[(String, Exp[_])]] = decomposed.getOrElseUpdate(exp) {
+  def decomposeWithFields[T](
+    exp:Exp[_]
+  )(implicit ev:TypeTag[T]):Either[Exp[_], Seq[(String, Exp[_])]] = decomposed.getOrElseUpdate(exp) {dbgblk(s"decomposeWithFields(${qdef(exp)})"){
     val struct = exp match {
       case Def(StreamInNew(bus)) => createStruct(exp, getFields(bus)) 
       case Def(StreamOutNew(bus)) => createStruct(exp, getFields(bus))
@@ -42,7 +44,9 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         createStruct(exp, getFields(init))
       case Const(a:WrappedArray[_]) => createStruct(exp, a.toSeq) 
       case mem if isMem(mem) => 
-        val fields =  mem.tp.typeArguments(0) match {
+        val tp = mem.tp.typeArguments(0)
+        dbgs(s"mem.tp=$tp")
+        val fields =  tp match {
           case s:StructType[_] => s.fields.map(_._1)
           case _ => Seq()
         }
@@ -54,7 +58,6 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
       case _ => Left(exp)
     }
 
-    dbgs(s"Decomposing ${qdef(exp)} = $struct")
     struct match {
       case Left(exp) => 
       case Right(seq) => seq.foreach { case (field, dexp) =>
@@ -67,7 +70,7 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     }
 
     struct
-  }
+  }}
 
   def createStruct[T](exp: Exp[_], fields: Seq[T]): Either[Exp[_], Seq[(String, Exp[_])]] = {
     if (fields.size < 1) {

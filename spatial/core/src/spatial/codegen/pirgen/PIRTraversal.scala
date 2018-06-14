@@ -186,7 +186,7 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
 
   def isMem(e: Exp[_]):Boolean = {
     isReg(e) || isGetDRAMAddress(e) ||
-    isStreamIn(e) || isStreamOut(e) || isFIFO(e)
+    isStreamIn(e) || isStreamOut(e) || isFIFO(e) ||
     isSRAM(e) || isRegFile(e) || isLUT(e) || isLineBuffer(e)
   }
 

@@ -8,7 +8,6 @@ import spatial.metadata._
 trait PIRGenAccess extends PIRCodegen with PIRGenMem {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
-    dbgs(s"emitNode ${qdef(lhs)}")
     rhs match {
       case GetDRAMAddress(dram) =>
         emit(lhs, s"DramAddress($dram)", rhs)
