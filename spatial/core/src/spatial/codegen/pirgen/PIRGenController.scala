@@ -21,8 +21,8 @@ trait PIRGenController extends PIRCodegen {
             s"(end=$bend - start=$bstart) % (step=$bstep * par=$parInt) != 0"
           )
         }
-        emit(iter, s"CounterIter($counter, $offset)")
-        emit(valid, s"Const(true)")
+        emit(iter, s"CounterIter($counter, $offset)", iter)
+        emit(valid, s"Const(true)", valid)
       }
     }
   }

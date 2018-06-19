@@ -80,9 +80,16 @@ object DRAMTransfersInternal {
         alignedStore(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
         dbg(u"$onchip => $offchip: Using unaligned store ($c * ${bits[T].length} % ${target.burstSize} = ${c*bits[T].length % target.burstSize})")
+        if (spatialConfig.enablePIR) {
+          warn(s"Unaligned store is not efficient for plasticine! target=$target $ctx")
+          warn(u"$onchip => $offchip: Using unaligned store (requestLength=$c * bits=${bits[T].length} % burstSize=${target.burstSize} = (bits % burstSize=${c*bits[T].length % target.burstSize}))")
+        }
         unalignedStore(offchipAddr, onchipAddr)
       case _ =>
         dbg(u"$onchip => $offchip: Using unaligned store (request length ($requestLength) is statically unknown)")
+        if (spatialConfig.enablePIR) {
+          warn(s"Unaligned store is not efficient for plasticine! requestLength unknown! $ctx")
+        }
         unalignedStore(offchipAddr, onchipAddr)
     }
     def load(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = requestLength.s match {
@@ -91,9 +98,17 @@ object DRAMTransfersInternal {
         alignedLoad(offchipAddr, onchipAddr)
       case Exact(c: BigInt) =>
         dbg(u"$offchip => $onchip: Using unaligned load ($c * ${bits[T].length} % ${target.burstSize}* ${c*bits[T].length % target.burstSize})")
+        if (spatialConfig.enablePIR) {
+          warn(s"Unaligned load is not efficient for plasticine! target=$target $ctx")
+          warn(u"$offchip => $onchip: Using unaligned load (requestLength=$c * bits=${bits[T].length} % burstSize=${target.burstSize} * (bits % burstSize=${c*bits[T].length % target.burstSize}))")
+        }
         unalignedLoad(offchipAddr, onchipAddr)
+
       case _ =>
         dbg(u"$offchip => $onchip: Using unaligned load (request length ($requestLength) is statically unknown)")
+        if (spatialConfig.enablePIR) {
+          warn(s"Unaligned load is not efficient for plasticine! requestLength unknown! $ctx")
+        }
         unalignedLoad(offchipAddr, onchipAddr)
     }
 
@@ -110,7 +125,7 @@ object DRAMTransfersInternal {
           val addr_bytes = (offchipAddr * bytesPerWord).to[Int64] + dram.address
           val size = requestLength
           val size_bytes = size * bytesPerWord
-          cmdStream := BurstCmd(addr_bytes.to[Int64], size_bytes, false)
+          cmdStream := BurstCmd(addr_bytes, size_bytes, false)
           // issueQueue.enq(size)
         }
         // Data loading
@@ -190,7 +205,7 @@ object DRAMTransfersInternal {
     @virtualize
     def unalignedStore(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
       if (spatialConfig.enablePIR) {
-        warn(s"Unaligned store is not supported when enablePIR!")
+        warn(s"Unaligned store is not efficient in plasticine! $ctx")
       }
 
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
@@ -208,7 +223,7 @@ object DRAMTransfersInternal {
           Pipe {
             val aligned = alignmentCalc(offchipAddr)
 
-            cmdStream := BurstCmd(aligned.addr_bytes.to[Int64], aligned.size_bytes, false)
+            cmdStream := BurstCmd(aligned.addr_bytes, aligned.size_bytes, false)
   //          issueQueue.enq(aligned.size)
             startBound := aligned.start
             endBound := aligned.end
@@ -250,7 +265,7 @@ object DRAMTransfersInternal {
         val addr_bytes = addr
         val size_bytes = size * bytesPerWord
 
-        cmdStream := BurstCmd(addr_bytes.to[Int64], size_bytes, true)
+        cmdStream := BurstCmd(addr_bytes, size_bytes, true)
         // issueQueue.enq( size )
       }
       // Fringe
@@ -267,10 +282,6 @@ object DRAMTransfersInternal {
     }
     @virtualize
     def unalignedLoad(offchipAddr: => Index, onchipAddr: Index => Seq[Index]): MUnit = {
-      if (spatialConfig.enablePIR) {
-        warn(s"Unaligned load is not supported when enablePIR!")
-      }
-
       val cmdStream  = StreamOut[BurstCmd](BurstCmdBus)
       isAligned(cmdStream.s) = false
       val issueQueue = FIFO[IssuedCmd](16)  // TODO: Size of issued queue?

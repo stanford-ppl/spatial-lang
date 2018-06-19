@@ -33,16 +33,17 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
     exp:Exp[_]
   )(implicit ev:TypeTag[T]):Either[Exp[_], Seq[(String, Exp[_])]] = decomposed.getOrElseUpdate(exp) {dbgblk(s"decomposeWithFields(${qdef(exp)})"){
     val struct = exp match {
-      case Def(StreamInNew(bus)) => createStruct(exp, getFields(bus)) 
-      case Def(StreamOutNew(bus)) => createStruct(exp, getFields(bus))
       case Def(SimpleStruct(elems)) => createStruct(exp, elems)
       case Def(VectorApply(vec, idx)) => createStruct(exp, getFields(vec))
       case Def(ListVector(elems)) => createStruct(exp, elems.flatMap(ele => getFields(ele)))
+      case Const(a:WrappedArray[_]) => createStruct(exp, a.toSeq) 
+      // Memory
       case Def(GetDRAMAddress(dram)) => Left(exp) //TODO: consider the case where dram is composed
+      case Def(StreamInNew(bus)) => createStruct(exp, getFields(bus)) 
+      case Def(StreamOutNew(bus)) => createStruct(exp, getFields(bus))
       case Def(RegNew(init)) => 
         decomposeWithFields(init)
         createStruct(exp, getFields(init))
-      case Const(a:WrappedArray[_]) => createStruct(exp, a.toSeq) 
       case mem if isMem(mem) => 
         val tp = mem.tp.typeArguments(0)
         dbgs(s"mem.tp=$tp")
@@ -51,6 +52,7 @@ class PIRStructAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
           case _ => Seq()
         }
         createStruct(mem, fields)
+      // Access
       case ParLocalReader((mem,_,_)::_) => 
         createStruct(exp, getFields(mem))
       case ParLocalWriter((mem,_,_,_)::_) =>

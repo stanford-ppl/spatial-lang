@@ -113,6 +113,7 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     case FixNeg(_)                       => Some(PIRFixNeg)
     case FixRandom(_)                    => Some(PIRFixRandom)
     case FixUnif()                       => Some(PIRFixUnif) //TODO random number between 0 and 1
+    case FixAbs(_)                       => Some(PIRFixAbs)
 
     // Float ops currently assumed to be single op
     case FltAdd(_,_)                     => Some(PIRFltAdd)

@@ -95,7 +95,9 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
         instIds.map { instId => (instId, dim, ctrls) }
       }
     }
-    val dimMap:Map[Int,Map[Int,Set[Exp[_]]]] = dims.groupBy { case (instId, dim, ctrls) => instId }.map { case (instId, dims) =>
+    val dimMap:Map[Int,Map[Int,Set[Exp[_]]]] = dims.groupBy { case (instId, dim, ctrls) => 
+      instId 
+    }.map { case (instId, dims) =>
       (instId, dims.groupBy { case (instId, dim, ctrls) => dim }.map { case (dim, dims) =>
         (dim, dims.map { case (instId, dim, ctrls) => ctrls }.flatten.toSet)
       })
@@ -103,20 +105,24 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
 
     duplicatesOf(mem).zipWithIndex.foreach { case (inst, instId) =>
       innerDimOf((mem, instId)) = dbgblk(s"innerDimOf($mem, $instId)") {
-        val (parInnerDims, otherDims) = dimMap(instId).partition { 
-          case (dim, ctrls) => ctrls.nonEmpty
-        }
-        if (parInnerDims.size > 1) {
-          error(s"More than 1 parallelized inner dimenion is not allowed in plasticine")
-          error(s"These controller cannot be parallelized at the same time. ${mem.name}:")
-          parInnerDims.foreach { case (dim, ctrls) =>
-            error(s"dim=$dim, ctrls=${ctrls}")
+        dimMap.get(instId).fold { // No addr calculation on the mem
+          0
+        } { dimCtrls => 
+          val (parInnerDims, otherDims) = dimCtrls.partition { 
+            case (dim, ctrls) => ctrls.nonEmpty
           }
-          throw new Exception(s"Invalid Parallelization Factor for Plasticine")
-        } else if (parInnerDims.nonEmpty) {
-          parInnerDims.head._1
-        } else { // Pick a dim to be inner dim
-          otherDims.lastOption.map { _._1 }.getOrElse(0)
+          if (parInnerDims.size > 1) {
+            error(s"More than 1 parallelized inner dimenion is not allowed in plasticine")
+            error(s"These controller cannot be parallelized at the same time. ${mem.name}:")
+            parInnerDims.foreach { case (dim, ctrls) =>
+              error(s"dim=$dim, ctrls=${ctrls}")
+            }
+            throw new Exception(s"Invalid Parallelization Factor for Plasticine")
+          } else if (parInnerDims.nonEmpty) {
+            parInnerDims.head._1
+          } else { // Pick a dim to be inner dim
+            otherDims.lastOption.map { _._1 }.getOrElse(0)
+          }
         }
       }
     }

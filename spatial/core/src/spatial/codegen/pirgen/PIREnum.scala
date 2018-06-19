@@ -36,6 +36,7 @@ case object PIRFixDiv    extends PIROp { override def toString = "FixDiv" }
 case object PIRFixMod    extends PIROp { override def toString = "FixMod" }
 case object PIRFixLt     extends PIROp { override def toString = "FixLt"  }
 case object PIRFixLeq    extends PIROp { override def toString = "FixLeq" }
+case object PIRFixAbs    extends PIROp { override def toString = "FixAbs" }
 case object PIRFixEql    extends PIROp { override def toString = "FixEql" }
 case object PIRFixNeq    extends PIROp { override def toString = "FixNeq" }
 case object PIRFixSla    extends PIROp { override def toString = "FixSla" }
