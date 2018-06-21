@@ -26,8 +26,8 @@ trait PIRGenMem extends PIRCodegen {
       case SRAMNew(dims) =>
         decompose(lhs).foreach { dlhs => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-            val size = constDimsOf(lhs).product / inst.totalBanks //TODO: should this be number of outer banks?
             val numOuterBanks = numOuterBanksOf((lhs, instId))
+            val size = constDimsOf(lhs).product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(LhsMem(dlhs, instId, bankId), s"SRAM(size=$size, banking=$innerBanks)", s"$lhs = $rhs")
@@ -41,11 +41,11 @@ trait PIRGenMem extends PIRCodegen {
             val sizes = constDimsOf(lhs)
             dbgs(s"sizes=$sizes")
             dbgs(s"inits=$inits")
-            val size = constDimsOf(lhs).product / inst.totalBanks //TODO: should this be number of outer banks?
             val numOuterBanks = numOuterBanksOf((lhs, instId))
+            val size = constDimsOf(lhs).product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
-              emit(LhsMem(dlhs, instId, bankId), s"RegFile(sizes=${quote(sizes)}, inits=$inits)", s"$lhs = $rhs banking:${innerBanks}")
+              emit(LhsMem(dlhs, instId, bankId), s"RegFile(size=${quote(size)}, inits=$inits)", s"$lhs = $rhs banking:${innerBanks}")
             }
           }
         }
