@@ -77,6 +77,11 @@ trait PIRGenController extends PIRCodegen {
           controlStack.push(lhs)
           emitBlock(block)
           controlStack.pop
+        case ParallelPipe(en, block) =>
+          emit(lhs, s"UnitController(style=${styleOf(lhs)}, level=${levelOf(lhs)})", rhs)
+          controlStack.push(lhs)
+          emitBlock(block)
+          controlStack.pop
         case _ =>
           emit(lhs, s"UnitController(style=${styleOf(lhs)}, level=${levelOf(lhs)})", s"//TODO $rhs")
           super.emitNode(lhs, rhs)

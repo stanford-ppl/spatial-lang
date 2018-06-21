@@ -81,7 +81,7 @@ class SpatialConfig extends argon.core.Config {
   var enableTrace: Boolean = _
 
   def enableBufferCoalescing: Boolean = !enablePIR
-  def removeParallelNodes: Boolean = enablePIR
+  def removeParallelNodes: Boolean = false//enablePIR
   def rewriteLUTs: Boolean = enablePIR
 
   var plasticineSpec:PlasticineConf = _
