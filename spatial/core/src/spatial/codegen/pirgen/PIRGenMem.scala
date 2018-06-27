@@ -100,7 +100,7 @@ trait PIRGenMem extends PIRCodegen {
         }
 
       case DRAMNew(dims, zero) =>
-        decompose(lhs).foreach { dlhs => emit(dlhs, s"DRAM()", s"$lhs = $rhs") }
+        decompose(lhs).foreach { dlhs => emit(dlhs, s"DRAM(dims=${dims.toList})", s"$lhs = $rhs") }
 
       case _ => super.emitNode(lhs, rhs)
     }

@@ -9,22 +9,6 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     rhs match {
-      case GetDRAMAddress(dram) =>
-        emit(lhs, s"DramAddress($dram)", rhs)
-
-      case _:StreamInNew[_] =>
-        decomposed(lhs).right.get.foreach { case (field, dlhs) =>
-          emit(LhsMem(dlhs), s"""StreamIn(field="$field")""", s"$lhs = $rhs")
-        }
-
-      case _:StreamOutNew[_] =>
-        decomposed(lhs).right.get.foreach { case (field, dlhs) =>
-          emit(LhsMem(dlhs), s"""StreamOut(field="$field")""", s"$lhs = $rhs")
-        }
-
-      case DRAMNew(dims, zero) =>
-        decompose(lhs).foreach { dlhs => emit(dlhs, s"DRAM()", s"$lhs = $rhs") }
-
       // SRAMs, RegFile, LUT
       case ParLocalReader((mem, Some(addrs::_), _)::_) =>
         val instId::Nil = getDispatches(mem, lhs)
