@@ -42,28 +42,31 @@ trait HyperMapperDSE { this: DSE =>
       msg(s"""  "application_name": "${config.name}",
              |  "models": {
              |    "model": "random_forest",
-             |    "number_of_trees": 20,
+             |    "number_of_trees": 20
              |  },
              |  "max_number_of_predictions": 1000000,
              |  "max_number_AL_iterations": 5,
-             |  "number_of_repetitions": 1,
              |  "number_of_cpus": 6,
+             |  "number_of_repetitions": 1,
              |  "hypermapper_mode": {
-             |    "mode": "exhaustive",
-             |    "exhaustive_search_file": "${config.name}_exhaustive_search_data.csv"
+             |    "mode": "interactive"
              |  },
              |  "optimization_objectives": ["ALMs", "Cycles"],
              |  "feasible_output": {
              |    "name": "Valid",
              |    "true_value": "true",
-             |    "false_value": "false"
+             |    "false_value": "false",
+             |    "enable_feasible_predictor": true
              |  },
              |  "timestamp": "Timestamp",
              |  "max_runs_in_one_AL_iteration": 100,
              |  "run_directory": "$dir",
              |  "output_data_file": "${config.name}_output_dse_samples.csv",
              |  "output_pareto_file": "${config.name}_output_pareto.csv",
-             |  "number_of_startup_random_sampling": 1000,
+             |  "bootstrap_sampling": {
+             |    "bootstrap_type": "random sampling",
+             |    "number_of_samples": 10000
+             |  },
              |  "output_image": {
              |    "output_image_pdf_file": "${config.name}_output_pareto.pdf",
              |    "optimization_objectives_labels_image_pdf": ["Logic Utilization (%)", "Cycles (log)"],
