@@ -36,23 +36,21 @@ trait HyperMapperDSE { this: DSE =>
     val jsonFile = config.name + ".json"
     val workDir = config.cwd + "/dse_hm"
 
-    println("Creating PCS file")
-    withLog(workDir, pcsFile){
-      space.foreach{domain =>
-        msg(s"""${domain.name} ${domain.tp} {${domain.options.mkString(", ")}}""", 100)
-      }
-    }
     println("Creating Hypermapper config JSON file")
     withLog(workDir, jsonFile){
-      msg(s"""{
-             |  "application_name": "${config.name}",
-             |  "pcs_file": "$workDir/$pcsFile",
+      msg(s"{")
+      msg(s"""  "application_name": "${config.name}",
+             |  "models": {
+             |    "model": "random_forest",
+             |    "number_of_trees": 20,
+             |  },
              |  "max_number_of_predictions": 1000000,
              |  "max_number_AL_iterations": 5,
              |  "number_of_repetitions": 1,
              |  "number_of_cpus": 6,
              |  "hypermapper_mode": {
-             |    "mode": "interactive"
+             |    "mode": "exhaustive",
+             |    "exhaustive_search_file": "${config.name}_exhaustive_search_data.csv"
              |  },
              |  "optimization_objectives": ["ALMs", "Cycles"],
              |  "feasible_output": {
@@ -70,10 +68,20 @@ trait HyperMapperDSE { this: DSE =>
              |    "output_image_pdf_file": "${config.name}_output_pareto.pdf",
              |    "optimization_objectives_labels_image_pdf": ["Logic Utilization (%)", "Cycles (log)"],
              |    "image_xlog": false,
-             |    "image_ylog": true,
+             |    "image_ylog": false,
              |    "objective_1_max": 262400
-             |  }
-             |}""".stripMargin)
+             |  },
+             |  "input_parameters": {""".stripMargin)
+      space.zipWithIndex.foreach{case (domain, i) =>
+        msg(s"""    "${domain.name}": {
+             |      "parameter_type" : "${domain.tp}",
+             |      "values" : [${domain.optionsString}],
+             |      "parameter_default" : ${domain.valueString},
+             |      "prior" : ${domain.prior}
+             |    }${if (i == space.length-1) "" else ","}""".stripMargin)
+      }
+      msg("  }")
+      msg("}")
     }
 
     case class SpatialError(t: Throwable) extends Throwable

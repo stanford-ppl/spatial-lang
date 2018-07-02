@@ -58,11 +58,19 @@ case class REqualOrOne(ps: Seq[Param[Index]]) extends Restrict {
   override def toString = u"$ps equal or one"
 }
 
+sealed trait Prior
+case object Gaussian extends Prior { override def toString = "gaussian" }
+case object Exponential extends Prior { override def toString = "exponential" }
+case object Decay extends Prior { override def toString = "decay" }
+case object Uniform extends Prior { override def toString = "uniform" }
+
 sealed trait SpaceType
-case object Ordinal extends SpaceType { override def toString = "ordinal" }
-case object Categorical extends SpaceType { override def toString = "categorical" }
+case class Ordinal(prior: Prior) extends SpaceType { override def toString = "ordinal" }
+case class Categorical(prior: Seq[Double]) extends SpaceType { override def toString = "categorical" }
 
 case class Domain[T](name: String, options: Seq[T], setter: (T,State) => Unit, getter: State => T, tp: SpaceType) {
+  import argon.util.escapeString
+
   def apply(i: Int): T = options(i)
   @stateful def value: T = getter(state)
   @stateful def set(i: Int): Unit = setter(options(i), state)
@@ -78,6 +86,23 @@ case class Domain[T](name: String, options: Seq[T], setter: (T,State) => Unit, g
   override def toString: String = {
     if (len <= 10) "Domain(" + options.mkString(",") + ")"
     else "Domain(" + options.take(10).mkString(", ") + "... [" + (len-10) + " more])"
+  }
+
+  def optionsString: String = {
+    options.map{
+      case s: String  => escapeString(s)
+      case s: Boolean => escapeString(s.toString)
+      case s => s.toString
+    }.mkString(", ")
+  }
+  @stateful def valueString: String = value match {
+    case s: String => escapeString(s)
+    case s: Boolean => escapeString(s.toString)
+    case s => s.toString
+  }
+  @stateful def prior: String = tp match {
+    case Ordinal(prior)     => "\"" + prior + "\""
+    case Categorical(prior) => s"[${prior.mkString(",")}]"
   }
 
   @stateful def filter(cond: => Boolean) = new Domain(name, options.filter{t => setValue(t); cond}, setter, getter, tp)

@@ -111,9 +111,16 @@ case class MControlLevel(level: ControlLevel) extends Metadata[MControlLevel] { 
   */
 case class ParamRange(min: Int, step: Int, max: Int) extends Metadata[ParamRange] { def mirror(f:Tx) = this }
 @data object domainOf {
-  def get(x: Param[Int32]): Option[(Int,Int,Int)] = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }
-  def apply(x: Param[Int32]): (Int,Int,Int) = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }.getOrElse((1,1,1))
-  def update(x: Param[Int32], rng: (Int,Int,Int)): Unit = metadata.add(x, ParamRange(rng._1,rng._2,rng._3))
+  def get(x: Param[Index]): Option[(Int,Int,Int)] = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }
+  def apply(x: Param[Index]): (Int,Int,Int) = metadata[ParamRange](x).map{d => (d.min,d.step,d.max) }.getOrElse((1,1,1))
+  def update(x: Param[Index], rng: (Int,Int,Int)): Unit = metadata.add(x, ParamRange(rng._1,rng._2,rng._3))
+}
+
+case class ParamPrior(prior: Prior) extends Metadata[ParamPrior] { def mirror(f:Tx) = this }
+@data object priorOf {
+  def get(x: Param[Index]): Option[Prior] = metadata[ParamPrior](x).map(_.prior)
+  def apply(x: Param[Index]): Prior = metadata[ParamPrior](x).map(_.prior).getOrElse(Uniform)
+  def update(x: Param[Index], prior: Prior): Unit = metadata.add(x, ParamPrior(prior))
 }
 
 /**

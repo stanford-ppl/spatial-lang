@@ -13,6 +13,8 @@ trait SpaceGenerator {
   }
 
   def domain(p: Param[Index], restricts: Iterable[Restrict])(implicit ir: State): Domain[Int] = {
+    val prior = priorOf(p)
+
     if (restricts.nonEmpty) {
       Domain.restricted(
         name   = p.name.getOrElse(c"$p"),
@@ -20,7 +22,7 @@ trait SpaceGenerator {
         setter = {(v: Int, state: State) => p.setValue(FixedPoint(v))(state) },
         getter = {(state: State) => p.value(state).asInstanceOf[FixedPoint].toInt },
         cond   = {state => restricts.forall(_.evaluate()(state)) },
-        tp     = Ordinal
+        tp     = Ordinal(prior)
       )
     }
     else {
@@ -29,7 +31,7 @@ trait SpaceGenerator {
         range = domainOf(p).toRange,
         setter = { (v: Int, state: State) => p.setValue(FixedPoint(v))(state) },
         getter = { (state: State) => p.value(state).asInstanceOf[FixedPoint].toInt },
-        tp     = Ordinal
+        tp     = Ordinal(prior)
       )
     }
   }
@@ -55,7 +57,7 @@ trait SpaceGenerator {
         setter  = {(c: Boolean, state:State) => if (c) styleOf.set(mp, MetaPipe)(state)
                                                 else   styleOf.set(mp, SeqPipe)(state) },
         getter  = {(state: State) => styleOf(mp)(state) == MetaPipe },
-        tp      = Categorical
+        tp      = Categorical(Seq(0.5,0.5))
       )
     }
   }
