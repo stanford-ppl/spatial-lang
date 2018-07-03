@@ -7,8 +7,8 @@ object AWS_F1 extends XilinxDevice {
   val name = "AWS_F1"
   def burstSize = 512
 
-  protected def makeAreaModel: AreaModel = new UltraScalePlusAreaModel
-  protected def makeLatencyModel: LatencyModel = new UltraScalePlusLatencyModel
+  def newAreaModel(): AreaModel = new UltraScalePlusAreaModel
+  def newLatencyModel(): LatencyModel = new UltraScalePlusLatencyModel
 
   // TODO
   override def capacity: Area = AreaMap(

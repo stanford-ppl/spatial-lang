@@ -38,7 +38,7 @@ case class HyperMapperSender(
         val start = System.currentTimeMillis()
         while (N < nPoints && running) {
           val points = resultIn.take()
-          println(s"[Sender] Got block of ${points.length}")
+          //println(s"[Sender] Got block of ${points.length}")
           points.foreach{point =>
             running &= write(point, out)
           }
@@ -46,7 +46,7 @@ case class HyperMapperSender(
           N += points.length
           if (N >= next) {
             val time = System.currentTimeMillis() - start
-            println(s"$N / $P complete after ${time/1000} seconds: " + "%.2f".format(time.toDouble / N) + " ms/pt)")
+            println(s"$N / $P complete after ${time/1000} seconds: " + "%.2f".format(time.toDouble / N) + " ms/pt")
             next += 5000
           }
         }

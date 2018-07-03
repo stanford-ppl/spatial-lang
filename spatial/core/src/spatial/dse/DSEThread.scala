@@ -15,7 +15,9 @@ case class DSEThread(
   program:   Block[_],
   localMems: Seq[Exp[_]],
   workQueue: BlockingQueue[Seq[DesignPoint]],
-  outQueue:  BlockingQueue[Array[String]]
+  outQueue:  BlockingQueue[Array[String]],
+  areaModel: AreaModel,
+  timeModel: LatencyModel
 )(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
   private var isAlive: Boolean = true
@@ -24,7 +26,7 @@ case class DSEThread(
   var START: Long = 0
 
   // --- Profiling
-  private final val PROFILING = true
+  private final val PROFILING = false
   private var clockRef = 0L
   private def resetClock() { clockRef = System.currentTimeMillis }
 
@@ -56,9 +58,12 @@ case class DSEThread(
     def localMems: Seq[Exp[_]] = thread.localMems
     var IR: State = state
   }
-  private lazy val contentionAnalyzer = new ContentionAnalyzer { var IR: State = state; def top = accel }
-  private lazy val areaAnalyzer  = target.areaAnalyzer(state)
-  private lazy val cycleAnalyzer = target.cycleAnalyzer(state)
+  private lazy val contentionAnalyzer = new ContentionAnalyzer {
+    var IR: State = state
+    def top = accel
+  }
+  lazy val areaAnalyzer  = new AreaAnalyzer(state, areaModel, timeModel)
+  private lazy val cycleAnalyzer = new LatencyAnalyzer(state, timeModel)
 
   def init(): Unit = {
     areaAnalyzer.init()
@@ -74,6 +79,12 @@ case class DSEThread(
     areaAnalyzer.silence()
     cycleAnalyzer.silence()
     areaAnalyzer.run(program)(mtyp(program.tp))
+
+//    println(s"[#$threadId] Started up Area Analyzer: ")
+//    println(s"[#$threadId]   area model: ${areaAnalyzer.areaModel.toString}")
+//    println(s"[#$threadId]   time model: ${areaAnalyzer.latencyModel.toString}")
+//    println(s"[#$threadId]   verbosity: ${areaAnalyzer.verbosity}")
+//    println(s"[#$threadId]   state: ${areaAnalyzer.IR}")
   }
 
   def run(): Unit = {
@@ -83,10 +94,12 @@ case class DSEThread(
       val requests = workQueue.take() // Blocking dequeue
 
       if (requests.nonEmpty) {
-        //println(s"[$threadId] Received batch of ${requests.length}. Working...")
+        //val time = System.currentTimeMillis() - START
+        //println(s"[$threadId] Received new work batch of size ${requests.length} [$time]")
         try {
           val result = run(requests)
-          //println(s"[$threadId] Completed batch of ${requests.length}. ${workQueue.size()} items remain in the queue")
+          //val time = System.currentTimeMillis() - START
+          //println(s"[$threadId] Completed batch of ${requests.length}. [$time]")
           outQueue.put(result) // Blocking enqueue
         }
         catch {case e: Throwable =>
@@ -97,12 +110,12 @@ case class DSEThread(
         }
       }
       else {
-        println(s"[$threadId] Received kill signal, terminating!")
+        //println(s"[$threadId] Received kill signal, terminating!")
         requestStop()
       } // Somebody poisoned the work queue!
     }
 
-    println(s"[$threadId] Ending now!")
+    //println(s"[$threadId] Ending now!")
     hasTerminated = true
   }
 
@@ -116,6 +129,8 @@ case class DSEThread(
       //println(params.map{case p @ Bound(c) => p.name.getOrElse(p.toString) + s": $c" }.mkString(", "))
       val (area, runtime, valid) = evaluate()
       val time = System.currentTimeMillis() - START
+
+      //println(s"[$threadId] Done $i / ${requests.size} [$time]")
 
       // Only report the area resources that the target gives maximum capacities for
       array(i) = space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid + "," + time

@@ -43,21 +43,18 @@ abstract class FPGATarget {
   private var __areaModel: Option[AreaModel] = None
   private var __latencyModel: Option[LatencyModel] = None
 
-  protected def makeAreaModel: AreaModel        // Area model for this target
-  protected def makeLatencyModel: LatencyModel  // Latency model for this target
+  def newAreaModel(): AreaModel        // Area model for this target
+  def newLatencyModel(): LatencyModel  // Latency model for this target
 
   final def areaModel: AreaModel = {
-    if (__areaModel.isEmpty) __areaModel = Some(makeAreaModel)
+    if (__areaModel.isEmpty) __areaModel = Some(newAreaModel())
     __areaModel.get
   }
   final def latencyModel: LatencyModel = {
-    if (__latencyModel.isEmpty) __latencyModel = Some(makeLatencyModel)
+    if (__latencyModel.isEmpty) __latencyModel = Some(newLatencyModel())
     __latencyModel.get
   }
   def capacity: Area              // Device resource maximum, in terms of FIELDS
-
-  final def areaAnalyzer(state: State): AreaAnalyzer = AreaAnalyzer(state, makeAreaModel, makeLatencyModel)
-  final def cycleAnalyzer(state: State): LatencyAnalyzer = LatencyAnalyzer(state, makeLatencyModel)
 }
 
 object Targets {

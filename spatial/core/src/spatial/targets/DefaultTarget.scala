@@ -9,8 +9,8 @@ object DefaultTarget extends AlteraDevice {
   def name = "Default"
   val burstSize = 512 // in bits. TODO: This should actually be selectable
 
-  protected def makeAreaModel: AreaModel = new StratixVAreaModel
-  protected def makeLatencyModel: LatencyModel = new StratixVLatencyModel
+  def newAreaModel(): AreaModel = new StratixVAreaModel
+  def newLatencyModel(): LatencyModel = new StratixVLatencyModel
   def capacity: Area = AreaMap(ALMs->262400, Regs->524800, DSPs->1963, BRAM->2567, Channels->13)
 }
 

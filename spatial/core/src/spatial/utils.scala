@@ -395,14 +395,30 @@ object utils {
     * a. Determine time (in cycles) any given input or internal signal needs to be delayed
     * b. Distinguish each delay line as a separate entity
     *
-    * Is there a concise equation that can capture this? Haven't been able to come up with one.
+    * To determine this without fully building the tree:
+    * Think of the tree as composed of perfectly balanced binary tree subgraphs
+    * The size and number of these required is just the binary representation of the # of leaves
+    * Then just calculate the number of delays required across different trees to combine them
     * E.g.
     *   8 inputs => perfectly balanced binary tree, no delay paths
     *   9 inputs => 1 path of length 3
     *   85 inputs => 3 paths with lengths 2, 1, and 1
     **/
   def reductionTreeDelays(nLeaves: Int): List[Long] = {
-    if ( (nLeaves & (nLeaves - 1)) == 0) Nil // Specialize for powers of 2
+    val binary = Array.tabulate(16) { i => (nLeaves & (1 << i)) > 0 }
+    val partialTrees = binary.zipWithIndex.filter(_._1).map(_._2)
+    var leftHeight = partialTrees.head
+    var i = 1
+    var dlys: List[Long] = Nil
+    while (i < partialTrees.length) {
+      val rightHeight = partialTrees(i)
+      if (rightHeight > leftHeight) dlys ::= (rightHeight - leftHeight).toLong
+      leftHeight = rightHeight + 1
+      i += 1
+    }
+    dlys
+  }
+    /*if ( (nLeaves & (nLeaves - 1)) == 0) Nil // Specialize for powers of 2
     // Could also have 2^k + 1 case (delay = 1 path of length k)
     else {
       def reduceLevel(nNodes: Int, completePaths: List[Long], currentPath: Long): List[Long] = {
@@ -417,8 +433,7 @@ object utils {
       }
 
       reduceLevel(nLeaves, Nil, 0L)
-    }
-  }
+    }*/
 
   @stateful def delayLineTrace(x: Exp[_]): Exp[_] = x match {
     case Def(DelayLine(_,xx)) => delayLineTrace(xx)

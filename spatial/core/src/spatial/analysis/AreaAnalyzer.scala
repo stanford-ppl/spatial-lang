@@ -40,7 +40,7 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
 
   override protected def preprocess[S: Type](block: Block[S]): Block[S] = {
     scopeArea = Nil
-    areaModel.reset()
+    if (!isRerun) areaModel.reset()
     super.preprocess(block)
   }
 
@@ -50,17 +50,25 @@ case class AreaAnalyzer(var IR: State, areaModel: AreaModel, latencyModel: Laten
     val area = areaModel.summarize(total)
     totalArea = area
 
-    if (config.verbosity > 0) { areaModel.reportMissing() }
+    if (!isRerun && config.verbosity > 0) { areaModel.reportMissing() }
 
     super.postprocess(block)
   }
 
-  def areaOf(e: Exp[_]): Area = areaModel.apply(e, inHwScope, inReduce)
-  def requiresRegisters(x: Exp[_], inReduce: Boolean): Boolean = latencyModel.requiresRegisters(x, inReduce)
-  def retimingDelay(x: Exp[_], inReduce: Boolean): Int = if (requiresRegisters(x,inReduce)) latencyOf(x).toInt else 0
+  def areaOf(e: Exp[_]): Area = {
+    areaModel.apply(e, inHwScope, inReduce)
+  }
+  def requiresRegisters(x: Exp[_], inReduce: Boolean): Boolean = {
+    latencyModel.requiresRegisters(x, inReduce)
+  }
+  def retimingDelay(x: Exp[_], inReduce: Boolean): Int = {
+    if (requiresRegisters(x,inReduce)) latencyOf(x).toInt else 0
+  }
 
 
-  def bitBasedInputs(d: Def): Seq[Exp[_]] = exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
+  def bitBasedInputs(d: Def): Seq[Exp[_]] = {
+    exps(d).filterNot(isGlobal(_)).filter{e => Bits.unapply(e.tp).isDefined }.distinct
+  }
 
   def pipeDelayLineArea(block: Block[_], par: Int): Area = {
     val (latencies, cycles) = latenciesAndCycles(block, verbose = false)

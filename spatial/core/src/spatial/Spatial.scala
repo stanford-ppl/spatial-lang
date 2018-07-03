@@ -56,7 +56,7 @@ trait SpatialCompiler extends ArgonCompiler {
 
     lazy val contentionAnalyzer = new ContentionAnalyzer{ var IR = state; def top = ctrlAnalyzer.top.get }
     lazy val latencyAnalyzer = LatencyAnalyzer(IR = state, latencyModel = target.latencyModel)
-    lazy val areaAnalyzer = spatialConfig.target.areaAnalyzer(state)
+    lazy val areaAnalyzer = AreaAnalyzer(IR = state, areaModel = target.areaModel, latencyModel = target.latencyModel)
 
     lazy val controlSanityCheck = new ControllerSanityCheck { var IR = state }
 

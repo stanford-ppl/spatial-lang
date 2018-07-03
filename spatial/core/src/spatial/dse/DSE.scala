@@ -1,6 +1,5 @@
 package spatial.dse
 
-import java.io.PrintWriter
 import java.util.concurrent.{BlockingQueue, Executors, LinkedBlockingQueue, TimeUnit}
 
 import argon.core._
@@ -11,7 +10,8 @@ import spatial.metadata._
 
 trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   override val name = "Design Space Exploration"
-  final val PROFILING = true
+  final val PROFILING = false
+  def target = spatialConfig.target
 
   /*abstract class SearchMode
   case object BruteForceSearch extends SearchMode
@@ -212,6 +212,12 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     val pool = Executors.newFixedThreadPool(T)
     val writePool = Executors.newFixedThreadPool(1)
 
+    println("Initializing models...")
+    val areaModels = workerIds.map{_ => target.newAreaModel()  }
+    val timeModels = workerIds.map{_ => target.newLatencyModel() }
+    areaModels.foreach{ _.init() }
+    timeModels.foreach{ _.init() }
+
     val workers = workerIds.map{id =>
       val threadState = new State
       state.copyTo(threadState)
@@ -222,11 +228,11 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
         program   = program,
         localMems = localMems,
         workQueue = workQueue,
-        outQueue  = fileQueue
+        outQueue  = fileQueue,
+        areaModel = areaModels(id),
+        timeModel = timeModels(id)
       )(threadState)
     }
-    report("Initializing models...")
-
     // Initializiation may not be threadsafe - only creates 1 area model shared across all workers
     workers.foreach{worker => worker.init() }
 

@@ -24,10 +24,10 @@ trait HyperMapperDSE { this: DSE =>
     report(s"Using $T threads")
     report(s"Writing results to file $filename")
 
-    val workQueue = new LinkedBlockingQueue[Seq[DesignPoint]](20000)  // Max capacity specified here
-    val resultQueue = new LinkedBlockingQueue[Array[String]](20000)
-    val requestQueue  = new LinkedBlockingQueue[DSERequest](10)
-    val doneQueue     = new LinkedBlockingQueue[Boolean](5) // TODO: Could be better
+    val workQueue    = new LinkedBlockingQueue[Seq[DesignPoint]](5000)  // Max capacity specified here
+    val resultQueue  = new LinkedBlockingQueue[Array[String]](5000)
+    val requestQueue = new LinkedBlockingQueue[DSERequest](5000)
+    val doneQueue    = new LinkedBlockingQueue[Boolean](100) // TODO: Could be better
 
     val workerIds = (0 until T).toList
 
@@ -88,6 +88,13 @@ trait HyperMapperDSE { this: DSE =>
       msg("}")
     }
 
+    // Initializiation may not be threadsafe
+    println("Initializing models...")
+    val areaModels = workerIds.map{_ => target.newAreaModel()  }
+    val timeModels = workerIds.map{_ => target.newLatencyModel() }
+    areaModels.foreach{ _.init() }
+    timeModels.foreach{ _.init() }
+
     val workers = workerIds.map{id =>
       val threadState = new State
       state.copyTo(threadState)
@@ -98,14 +105,13 @@ trait HyperMapperDSE { this: DSE =>
         program   = program,
         localMems = localMems,
         workQueue = workQueue,
-        outQueue  = resultQueue
+        outQueue  = resultQueue,
+        areaModel = areaModels(id),
+        timeModel = timeModels(id)
       )(threadState)
     }
+    workers.foreach{ _.init() }
 
-    // Initializiation may not be threadsafe - only creates 1 area model shared across all workers
-    println("Initializing models...")
-    workers.foreach{worker => worker.init() }
-    println("Starting up workers...")
     val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid,Timestamp"
 
     val hm = BufferedProcess("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile)
@@ -131,8 +137,9 @@ trait HyperMapperDSE { this: DSE =>
       HEADER    = HEADER
     )
 
-    workers.foreach{worker => pool.submit(worker) }
+    println("Starting up workers...")
     val startTime = System.currentTimeMillis()
+    workers.foreach{worker => pool.submit(worker) }
     workers.foreach{worker => worker.START = startTime }
     commPool.submit(receiver)
     commPool.submit(sender)

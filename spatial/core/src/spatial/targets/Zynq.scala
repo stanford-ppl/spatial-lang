@@ -8,8 +8,8 @@ object Zynq extends XilinxDevice {
   val name = "Zynq"
   def burstSize = 512
 
-  protected def makeAreaModel: AreaModel = new ZynqAreaModel
-  protected def makeLatencyModel: LatencyModel = new ZynqLatencyModel
+  def newAreaModel(): AreaModel = new ZynqAreaModel
+  def newLatencyModel(): LatencyModel = new ZynqLatencyModel
 
   def capacity: Area = AreaMap(
     SLICEL -> 54650,  // Can use any LUT
