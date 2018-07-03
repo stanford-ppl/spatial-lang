@@ -10,12 +10,11 @@ import spatial.models._
 
 case class DSEThread(
   threadId:  Int,
-  params:    Seq[Exp[_]],
   space:     Seq[Domain[_]],
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[Seq[BigInt]],
+  workQueue: BlockingQueue[Seq[DesignPoint]],
   outQueue:  BlockingQueue[Array[String]]
 )(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
@@ -25,7 +24,7 @@ case class DSEThread(
   var START: Long = 0
 
   // --- Profiling
-  private final val PROFILING = false
+  private final val PROFILING = true
   private var clockRef = 0L
   private def resetClock() { clockRef = System.currentTimeMillis }
 
@@ -98,26 +97,24 @@ case class DSEThread(
         }
       }
       else {
-        //println(s"[$threadId] Received kill signal, terminating!")
+        println(s"[$threadId] Received kill signal, terminating!")
         requestStop()
       } // Somebody poisoned the work queue!
     }
 
-    //println(s"[$threadId] Ending now!")
+    println(s"[$threadId] Ending now!")
     hasTerminated = true
   }
 
-  def run(requests: Seq[BigInt]): Array[String] = {
+  def run(requests: Seq[DesignPoint]): Array[String] = {
     val array = new Array[String](requests.size)
     var i: Int = 0
     requests.foreach{pt =>
       state.resetErrors()
-      indexedSpace.foreach{case (domain,d) => domain.set( ((pt / prods(d)) % dims(d)).toInt ) }
+      pt.set(indexedSpace, prods, dims)
 
       //println(params.map{case p @ Bound(c) => p.name.getOrElse(p.toString) + s": $c" }.mkString(", "))
-
-      val (area, runtime) = evaluate()
-      val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
+      val (area, runtime, valid) = evaluate()
       val time = System.currentTimeMillis() - START
 
       // Only report the area resources that the target gives maximum capacities for
@@ -128,23 +125,34 @@ case class DSEThread(
     array
   }
 
-  private def evaluate(): (Area, Long) = {
-    if (PROFILING) resetClock()
-    scalarAnalyzer.rerun(accel, program)
-    if (PROFILING) endBnd()
+  private def evaluate(): (Area, Long, Boolean) = {
+    try {
+      if (PROFILING) resetClock()
+      scalarAnalyzer.rerun(accel, program)
+      if (PROFILING) endBnd()
 
-    memoryAnalyzer.run()
-    if (PROFILING) endMem()
+      memoryAnalyzer.run()
+      if (PROFILING) endMem()
 
-    contentionAnalyzer.run()
-    if (PROFILING) endCon()
+      contentionAnalyzer.run()
+      if (PROFILING) endCon()
 
-    areaAnalyzer.rerun(accel, program)
-    if (PROFILING) endArea()
+      areaAnalyzer.rerun(accel, program)
+      if (PROFILING) endArea()
 
-    cycleAnalyzer.rerun(accel, program)
-    if (PROFILING) endCycles()
-    (areaAnalyzer.totalArea, cycleAnalyzer.totalCycles)
+      cycleAnalyzer.rerun(accel, program)
+      if (PROFILING) endCycles()
+
+      val area = areaAnalyzer.totalArea
+      val runtime = cycleAnalyzer.totalCycles
+      val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
+      (area, runtime, valid)
+    }
+    catch {case _:Throwable =>
+      val area = areaAnalyzer.areaModel.NoArea
+      val runtime = -1
+      (area, runtime, false)
+    }
   }
 
 }

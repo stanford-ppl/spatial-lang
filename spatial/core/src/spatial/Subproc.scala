@@ -12,17 +12,34 @@ class ExceptionWatcher(reader: BufferedReader) extends Runnable {
 
   def run(): Unit = while (isRunning) {
     val g = reader.readLine()
-    //log.print(g)
-    //log.flush()
     if (g ne null) println("[Subproc] " + g)
-    /*if (lines.contains("Traceback")) {
-      Thread.sleep(1000)
-      while (reader.ready()) {
-        println(reader.readLine())
-      }
-      throw new Exception("Child process failed")
-    }*/
   }
+}
+
+case class BufferedProcess(args: String*) {
+  private var reader: BufferedReader = _
+  private var writer: BufferedWriter = _
+  private var logger: BufferedReader = _
+  private var p: Process = _
+
+  def run(dir: Option[String] = None): (BufferedReader, BufferedWriter) = {
+    if (p eq null) {
+      val pb = new ProcessBuilder(args:_*)
+      dir.foreach{d => pb.directory(new File(d)) }
+      pb.redirectError(ProcessBuilder.Redirect.INHERIT)
+
+      p = pb.start()
+      reader = new BufferedReader(new InputStreamReader(p.getInputStream))
+      writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream))
+      logger = new BufferedReader(new InputStreamReader(p.getErrorStream))
+      (reader, writer)
+    }
+    else {
+      throw new Exception(s"Cannot run process $args while it is already running.")
+    }
+  }
+
+  def block(): Int = p.exitValue()
 }
 
 case class Subproc(args: String*)(react: (String,BufferedReader) => Option[String]) {
@@ -30,8 +47,6 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
   private var writer: BufferedWriter = _
   private var logger: BufferedReader = _
   private var p: Process = _
-  //private val pool = Executors.newFixedThreadPool(1)
-  //private var watcher: ExceptionWatcher = _
 
   private def println(x: String): Unit = {
     writer.write(x)
@@ -39,7 +54,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     writer.flush()
   }
 
-  def run(dir: Option[String] = None): Unit = if (p eq null) {
+  def run(dir: Option[String] = None): (BufferedReader, BufferedWriter) = if (p eq null) {
     val pb = new ProcessBuilder(args:_*)
     dir.foreach{d => pb.directory(new File(d)) }
     pb.redirectError(ProcessBuilder.Redirect.INHERIT)
@@ -50,6 +65,7 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
     logger = new BufferedReader(new InputStreamReader(p.getErrorStream))
     //watcher = new ExceptionWatcher(logger)
     //pool.submit(watcher)
+    (reader, writer)
   } else {
     throw new Exception(s"Cannot run process $args while it is already running.")
   }
@@ -68,8 +84,6 @@ case class Subproc(args: String*)(react: (String,BufferedReader) => Option[Strin
         isConnected = false // Process ended (TODO: unexpectedly?)
       }
     }
-    //watcher.isRunning = false
-    //pool.shutdownNow()
     p.waitFor(30, TimeUnit.SECONDS)
     p.exitValue()
   }

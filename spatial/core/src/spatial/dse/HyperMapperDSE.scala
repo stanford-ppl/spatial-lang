@@ -1,10 +1,9 @@
 package spatial.dse
 
-import java.io.PrintStream
 import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
 
 import argon.core._
-import spatial.Subproc
+import spatial.BufferedProcess
 import spatial.aliases._
 import spatial.metadata._
 
@@ -25,14 +24,16 @@ trait HyperMapperDSE { this: DSE =>
     report(s"Using $T threads")
     report(s"Writing results to file $filename")
 
-    val workQueue = new LinkedBlockingQueue[Seq[Any]](5000)  // Max capacity specified here
-    val fileQueue = new LinkedBlockingQueue[String](5000)
+    val workQueue = new LinkedBlockingQueue[Seq[DesignPoint]](20000)  // Max capacity specified here
+    val resultQueue = new LinkedBlockingQueue[Array[String]](20000)
+    val requestQueue  = new LinkedBlockingQueue[DSERequest](10)
+    val doneQueue     = new LinkedBlockingQueue[Boolean](5) // TODO: Could be better
 
     val workerIds = (0 until T).toList
 
     val pool = Executors.newFixedThreadPool(T)
+    val commPool = Executors.newFixedThreadPool(2)
 
-    val pcsFile = config.name + ".pcs"
     val jsonFile = config.name + ".json"
     val workDir = config.cwd + "/dse_hm"
 
@@ -87,120 +88,93 @@ trait HyperMapperDSE { this: DSE =>
       msg("}")
     }
 
-    case class SpatialError(t: Throwable) extends Throwable
-
-    val start = System.currentTimeMillis()
     val workers = workerIds.map{id =>
       val threadState = new State
       state.copyTo(threadState)
-      HyperMapperThread(
+      DSEThread(
         threadId  = id,
-        start     = start,
         space     = space,
         accel     = top,
         program   = program,
         localMems = localMems,
         workQueue = workQueue,
-        outQueue  = fileQueue
+        outQueue  = resultQueue
       )(threadState)
-    }
-    val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid,Timestamp"
-
-    Console.println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
-    val hm = Subproc("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile) { (cmd,reader) =>
-      if ((cmd ne null) && !cmd.startsWith("Pareto")) { // TODO
-        try {
-          println(s"[Master] Received Line: $cmd")
-          val parts = cmd.split(" ").map(_.trim)
-          val command = parts.head
-
-          command match {
-            case "Request" =>
-              val nPoints = parts.last.toInt
-              val head    = reader.readLine()
-              val header  = head.split(",").map(_.trim)
-              val order   = space.map{d => header.indexOf(d.name) }
-              if (order.exists(_ < 0)) {
-                bug(s"[Master] Received Line: $head")
-                order.zipWithIndex.filter{case (idx, i) => idx < 0 }.foreach{case (idx, i) =>
-                  bug(s"Header was missing: ${space(i).name}")
-                }
-                throw SpatialError(new Exception(s"Missing header names"))
-              }
-              val points  = (0 until nPoints).map{i =>
-                print(s"[Master] Receiving Point $i: ")
-                val pt = reader.readLine()
-                println(pt)
-                pt
-              }
-
-              try {
-                println(s"[Master] Received Line: $head")
-                points.foreach { point =>
-                  println(s"[Master] Received Line: $point")
-                  val values = point.split(",").map(_.trim.toLowerCase).map {
-                    case "true" => true
-                    case "false" => false
-                    case x => x.toInt
-                  }
-                  workQueue.put(order.map { i => values(i) })
-                }
-                val result = HEADER + "\n" + points.indices.map { _ => fileQueue.take() }.mkString("\n")
-                println("[Master] Sending back:")
-                println(result)
-                Some(result)
-              }
-              catch {case t: Throwable =>
-                bug(s"$cmd")
-                bug(s"$head")
-                points.foreach{point => bug(s"$point") }
-                bug(s"${t.getMessage}")
-                throw SpatialError(t)
-                None
-              }
-
-            case "Pareto" =>
-              // TODO: Do something with the pareto
-              //val data = new PrintStream(config.name + "_hm_data.csv")
-              //data.println(HEADER)
-              //points.foreach{pt => data.println(pt) }
-              //data.close()
-              None
-        }}
-        catch {
-          case SpatialError(e) => throw e
-          case t:Throwable =>
-            println(s"[Ignored] $cmd")
-            println(s"[Ignored] Reason: ${t.getMessage}")
-            None
-        }
-      }
-      else None
     }
 
     // Initializiation may not be threadsafe - only creates 1 area model shared across all workers
     println("Initializing models...")
     workers.foreach{worker => worker.init() }
     println("Starting up workers...")
-    workers.foreach{worker => pool.submit(worker) }
+    val HEADER = space.map(_.name).mkString(",") + "," + workers.head.areaHeading.mkString(",") + ",Cycles,Valid,Timestamp"
 
-    val startTime = System.currentTimeMillis
+    val hm = BufferedProcess("python", spatialConfig.HYPERMAPPER + "/scripts/hypermapper.py", workDir + "/" + jsonFile)
     println("Starting up HyperMapper...")
-    hm.block(Some(workDir))
+    println(s"python ${spatialConfig.HYPERMAPPER}/scripts/hypermapper.py $workDir/$jsonFile")
+    val (hmOutput, hmInput) = hm.run(Some(workDir))
 
-    println("Ending work queue.")
+    val receiver = HyperMapperReceiver(
+      input      = hmOutput,
+      workOut    = workQueue,
+      requestOut = requestQueue,
+      doneOut    = doneQueue,
+      space      = space,
+      HEADER     = HEADER,
+      THREADS    = T,
+      DIR        = workDir
+    )
+    val sender = HyperMapperSender(
+      output    = hmInput,
+      requestIn = requestQueue,
+      resultIn  = resultQueue,
+      doneOut   = doneQueue,
+      HEADER    = HEADER
+    )
 
-    // Poison the work queue (make sure to use enough to kill them all!)
-    workerIds.foreach{_ => workQueue.put(Seq.empty[Int]) }
+    workers.foreach{worker => pool.submit(worker) }
+    val startTime = System.currentTimeMillis()
+    workers.foreach{worker => worker.START = startTime }
+    commPool.submit(receiver)
+    commPool.submit(sender)
 
-    println("Waiting for workers to complete...")
-    pool.shutdown()
-    pool.awaitTermination(10L, TimeUnit.HOURS)
+    val done = doneQueue.take()
+    if (done) {
+      println("Waiting for workers to complete...")
+      pool.shutdown()
+      pool.awaitTermination(10L, TimeUnit.HOURS)
+      commPool.shutdown()
+      commPool.awaitTermination(10L, TimeUnit.HOURS)
 
-    val endTime = System.currentTimeMillis()
-    val totalTime = (endTime - startTime)/1000.0
+      val endTime = System.currentTimeMillis()
+      val totalTime = (endTime - startTime)/1000.0
 
-    println(s"Completed space search in $totalTime seconds.")
+      println(s"Completed space search in $totalTime seconds.")
+    }
+    else {
+      println("Connected process terminated early!")
+      pool.shutdownNow()
+      commPool.shutdownNow()
+      pool.awaitTermination(1L, TimeUnit.MINUTES)
+      commPool.awaitTermination(1L, TimeUnit.MINUTES)
+      sys.exit(-1) // Bail for now
+    }
+
+    if (PROFILING) {
+      val bndTime = workers.map(_.bndTime).sum
+      val memTime = workers.map(_.memTime).sum
+      val conTime = workers.map(_.conTime).sum
+      val areaTime = workers.map(_.areaTime).sum
+      val cyclTime = workers.map(_.cyclTime).sum
+      val total = bndTime + memTime + conTime + areaTime + cyclTime
+      println("Profiling results: ")
+      println(s"Combined runtime: $total")
+      println(s"Scalar analysis:     $bndTime"  + " (%.3f)".format(100*bndTime.toDouble/total) + "%")
+      println(s"Memory analysis:     $memTime"  + " (%.3f)".format(100*memTime.toDouble/total) + "%")
+      println(s"Contention analysis: $conTime"  + " (%.3f)".format(100*conTime.toDouble/total) + "%")
+      println(s"Area analysis:       $areaTime" + " (%.3f)".format(100*areaTime.toDouble/total) + "%")
+      println(s"Runtime analysis:    $cyclTime" + " (%.3f)".format(100*cyclTime.toDouble/total) + "%")
+    }
+
     sys.exit(0) // Bail for now
   }
 

@@ -8,6 +8,7 @@ import java.util.concurrent.BlockingQueue
 
 import spatial.models._
 
+@deprecated("Use DSEThread instead", "Spatial")
 case class HyperMapperThread(
   threadId:  Int,
   start:     Long,
@@ -15,8 +16,8 @@ case class HyperMapperThread(
   accel:     Exp[_],
   program:   Block[_],
   localMems: Seq[Exp[_]],
-  workQueue: BlockingQueue[Seq[Any]],
-  outQueue:  BlockingQueue[String]
+  workQueue: BlockingQueue[Array[Seq[AnyVal]]],
+  outQueue:  BlockingQueue[Array[String]]
 )(implicit val state: State) extends Runnable { thread =>
   // --- Thread stuff
   private var isAlive: Boolean = true
@@ -76,10 +77,9 @@ case class HyperMapperThread(
       val requests = workQueue.take() // Blocking dequeue
 
       if (requests.nonEmpty) {
-        // println(s"#$threadId: Received batch of $len. Working...")
+        println(s"#$threadId: Received batch of ${requests.length}. Working...")
         try {
           val result = run(requests)
-          // println(s"#$threadId: Completed batch of $len. ${workQueue.size()} items remain in the queue")
           outQueue.put(result) // Blocking enqueue
         }
         catch {case e: Throwable =>
@@ -97,17 +97,39 @@ case class HyperMapperThread(
     hasTerminated = true
   }
 
-  def run(request: Seq[Any]): String = {
-    state.resetErrors()
-    request.indices.foreach{i => space(i).setValueUnsafe(request(i)) }
 
-    val (area, runtime) = evaluate()
-    val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
-    val time  = System.currentTimeMillis()
-    val timestamp = time - start
+  def run(requests: Array[Seq[AnyVal]]): Array[String] = {
+    val array = new Array[String](requests.length)
+    var i: Int = 0
+    requests.foreach{request =>
+      //println(s"#$threadId: $i / ${requests.length}")
+      val result = try {
+        state.resetErrors()
+        request.indices.foreach { i => space(i).setValueUnsafe(request(i)) }
 
-    // Only report the area resources that the target gives maximum capacities for
-    space.map(_.value).mkString(",") + "," + area.seq(areaHeading:_*).mkString(",") + "," + runtime + "," + valid + "," + timestamp
+        val (area, runtime) = evaluate()
+        val valid = area <= capacity && !state.hadErrors // Encountering errors makes this an invalid design point
+        val time = System.currentTimeMillis()
+        val timestamp = time - start
+
+        // Only report the area resources that the target gives maximum capacities for
+        space.map(_.value).mkString(",") + "," + area.seq(areaHeading: _*).mkString(",") + "," + runtime + "," + valid + "," + timestamp
+      }
+      catch {case _: Throwable =>
+        // Some exception occurred during model evaluation
+        // TODO: Should record this for later checking
+        val area = areaHeading.map{_ => "-1" }.mkString(",")
+        val runtime = "-1"
+        val valid = false
+        val time = System.currentTimeMillis()
+        val timestamp = time - start
+        // Only report the area resources that the target gives maximum capacities for
+        space.map(_.value).mkString(",") + "," + area + "," + runtime + "," + valid + "," + timestamp
+      }
+      array(i) = result
+      i += 1
+    }
+    array
   }
 
   private def evaluate(): (Area, Long) = {

@@ -34,7 +34,7 @@ case class DSEWriterThread(
           N += array.length
           if (N > nextNotify) {
             val time = System.currentTimeMillis - startTime
-            println("  %.4f".format(100 * (N / P).toFloat) + s"% ($N / $P) Complete after ${time / 1000} seconds")
+            println("  %.4f".format(100 * (N / P).toFloat) + s"% ($N / $P) Complete after ${time / 1000} seconds: " + "%.2f".format(time / N) + " ms/pt")
             nextNotify += notifyStep
           }
         }

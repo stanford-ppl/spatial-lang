@@ -156,7 +156,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
           threadBasedDSE(points.length, params, prunedSpace, program, file = filename, overhead = legalCalcTime) { queue =>
             points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
               //println(s"[Master] Submitting block of length ${block.length} to work queue")
-              queue.put(block)
+              queue.put(block.map{i => PointIndex(i) })
             }
           }
 
@@ -175,7 +175,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
 
         threadBasedDSE(points.length, params, prunedSpace, program) { queue =>
           points.sliding(BLOCK_SIZE, BLOCK_SIZE).foreach { block =>
-            queue.put(block)
+            queue.put(block.map{i => PointIndex(i) })
           }
         }
       }
@@ -186,7 +186,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
   }
 
   // P: Total space size
-  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[_]], program: Block[_], file: String = config.name+"_data.csv", overhead: Long = 0L)(pointGen: BlockingQueue[Seq[BigInt]] => Unit): Unit = {
+  def threadBasedDSE(P: BigInt, params: Seq[Exp[_]], space: Seq[Domain[_]], program: Block[_], file: String = config.name+"_data.csv", overhead: Long = 0L)(pointGen: BlockingQueue[Seq[DesignPoint]] => Unit): Unit = {
     val names = params.map{p => p.name.getOrElse(p.toString) }
     val N = space.size
     val T = spatialConfig.threads
@@ -204,7 +204,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     report(s"Using $T threads with block size of $BLOCK_SIZE")
     report(s"Writing results to file $filename")
 
-    val workQueue = new LinkedBlockingQueue[Seq[BigInt]](5000)  // Max capacity specified here
+    val workQueue = new LinkedBlockingQueue[Seq[DesignPoint]](5000)  // Max capacity specified here
     val fileQueue = new LinkedBlockingQueue[Array[String]](5000)
 
     val workerIds = (0 until T).toList
@@ -217,7 +217,6 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       state.copyTo(threadState)
       DSEThread(
         threadId  = id,
-        params    = params,
         space     = space,
         accel     = top,
         program   = program,
@@ -264,7 +263,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
     println("[Master] Ending work queue.")
 
     // Poison the work queue (make sure to use enough to kill them all!)
-    workerIds.foreach{_ => workQueue.put(Seq.empty[BigInt]) }
+    workerIds.foreach{_ => workQueue.put(Seq.empty) }
 
     println("[Master] Waiting for workers to complete...")
 
@@ -309,7 +308,7 @@ trait DSE extends CompilerPass with SpaceGenerator with HyperMapperDSE {
       var i = BigInt(0)
       while (i < P) {
         val len: Int = if (P - i < BLOCK_SIZE) (P - i).toInt else BLOCK_SIZE
-        if (len > 0) queue.put(i until i + len)
+        if (len > 0) queue.put((i until i + len).map{i => PointIndex(i) })
         i += BLOCK_SIZE
       }
     }
