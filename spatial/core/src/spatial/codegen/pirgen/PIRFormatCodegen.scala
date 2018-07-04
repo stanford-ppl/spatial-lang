@@ -23,7 +23,7 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
     }
   }
   implicit def sym_to_lhs(sym:Exp[_]) = LhsSym(sym)
-  case class LhsMem(dmem:Exp[_], instId:Int=0, bankId:Option[Int]=None) extends Lhs {
+  case class LhsMem(dmem:Exp[_], instId:Int, bankId:Option[Int]=None) extends Lhs {
     val lhs = compose(dmem)
 
     override def toString = bankId match {

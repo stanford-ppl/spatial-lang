@@ -35,21 +35,22 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
       case ParLocalWriter((mem, Some(value::_), None, _)::_) =>
         val instIds = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
-          val mems = instIds.map { instId => LhsMem(dmem, instId) }
-          mems.foreach { mem => emit(LhsSym(dlhs, Some(s"$mem")), s"WriteMem($mem, ${quote(dvalue)})", rhs) }
+          instIds.foreach { instId =>
+            emit(LhsSym(dlhs, Some(s"${LhsMem(dmem, instId)}")), s"WriteMem(${LhsMem(dmem, instId)}, ${quote(dvalue)})", rhs)
+          }
         }
 
       case FIFOPeek(mem) => 
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
-          emit(dlhs, s"FIFOPeek(${LhsMem(dmem)})", rhs)
+          emit(dlhs, s"FIFOPeek(${LhsMem(dmem, 0)})", rhs)
         }
       case FIFOEmpty(mem) =>
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
-          emit(dlhs, s"FIFOEmpty(${LhsMem(dmem)})", rhs)
+          emit(dlhs, s"FIFOEmpty(${LhsMem(dmem, 0)})", rhs)
         }
       case FIFOFull(mem) => 
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
-          emit(dlhs, s"FIFOFull(${LhsMem(dmem)})", rhs)
+          emit(dlhs, s"FIFOFull(${LhsMem(dmem, 0)})", rhs)
         }
       //case FIFOAlmostEmpty(mem) =>
         //decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
@@ -61,7 +62,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
         //}
       case FIFONumel(mem) => 
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
-          emit(dlhs, s"FIFONumel(${LhsMem(dmem)})", rhs)
+          emit(dlhs, s"FIFONumel(${LhsMem(dmem, 0)})", rhs)
         }
       case _ => super.emitNode(lhs, rhs)
     }

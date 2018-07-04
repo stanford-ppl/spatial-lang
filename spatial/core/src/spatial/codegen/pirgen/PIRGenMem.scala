@@ -78,25 +78,33 @@ trait PIRGenMem extends PIRCodegen {
         }
 
       case ArgInNew(init) =>
-        emit(LhsMem(lhs), s"ArgIn(init=${getConstant(init).get})", rhs)
-        boundOf.get(lhs).foreach { bound =>
-          emit(s"boundOf(${LhsMem(lhs, 0)}) = ${bound}")
+        duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+          emit(LhsMem(lhs, instId), s"ArgIn(init=${getConstant(init).get})", rhs)
+          boundOf.get(lhs).foreach { bound =>
+            emit(s"boundOf(${LhsMem(lhs, instId)}) = ${bound}")
+          }
         }
 
       case ArgOutNew(init) =>
-        emit(LhsMem(lhs), s"ArgOut(init=${getConstant(init).get})", rhs)
+        duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+          emit(LhsMem(lhs, instId), s"ArgOut(init=${getConstant(init).get})", rhs)
+        }
 
       case GetDRAMAddress(dram) =>
         emit(lhs, s"DramAddress($dram)", rhs)
 
       case _:StreamInNew[_] =>
-        decomposed(lhs).right.get.foreach { case (field, dlhs) =>
-          emit(LhsMem(dlhs), s"""StreamIn(field="$field")""", s"$lhs = $rhs")
+        duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+          decomposed(lhs).right.get.foreach { case (field, dlhs) =>
+            emit(LhsMem(dlhs, instId), s"""StreamIn(field="$field")""", s"$lhs = $rhs")
+          }
         }
 
       case _:StreamOutNew[_] =>
-        decomposed(lhs).right.get.foreach { case (field, dlhs) =>
-          emit(LhsMem(dlhs), s"""StreamOut(field="$field")""", s"$lhs = $rhs")
+        duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
+          decomposed(lhs).right.get.foreach { case (field, dlhs) =>
+            emit(LhsMem(dlhs, instId), s"""StreamOut(field="$field")""", s"$lhs = $rhs")
+          }
         }
 
       case DRAMNew(dims, zero) =>
