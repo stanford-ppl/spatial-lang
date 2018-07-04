@@ -82,7 +82,7 @@ class SpatialConfig extends argon.core.Config {
 
   def enableBufferCoalescing: Boolean = !enablePIR
   def removeParallelNodes: Boolean = false//enablePIR
-  def rewriteLUTs: Boolean = enablePIR
+  def rewriteLUTs: Boolean = false //enablePIR
 
   var plasticineSpec:PlasticineConf = _
 

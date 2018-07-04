@@ -8,18 +8,31 @@ import spatial.utils._
 import spatial.metadata._
 
 trait PIRGenOp extends PIRCodegen {
-  def isInnerReduce(lhs:Sym[_], rhs:Op[_]) = dbgblk(s"isInnerReduce($lhs)"){
-    val inputs = rhs.expInputs
-    dbgs(s"reduceType=${reduceType(lhs)} inputs=${inputs}")
-    reduceType(lhs).isDefined && inputs.exists(in => isReduceStarter(in))
+  def isInnerReduce(lhs:Sym[_]) = dbgblk(s"isInnerReduce($lhs)"){
+    if (isReduce(lhs)) {
+      val ctrl = parentOf(lhs).get
+      dbgs(s"reduceType=${reduceType(lhs)} ctrl=$ctrl ctrlReduceType=${reduceType(ctrl)}")
+      reduceType(ctrl).nonEmpty
+    } else false
   }
+
+  def isReduce(lhs:Sym[_]) = dbgblk(s"isReduce($lhs)") {
+    reduceType(lhs).nonEmpty
+  }
+
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     nodeToOp(rhs) match {
-      case Some(op) if isInnerReduce(lhs, rhs) => 
+      case Some(op) if isInnerReduce(lhs) => 
         val inputs = rhs.expInputs
         val (accumAccess::_, input::_) = inputs.partition { in => isReduceStarter(in) }
         var accumInput = input
         emit(lhs, s"ReduceAccumOp(op=$op, input=${quote(accumInput)}, accum=${quote(accumAccess)})", rhs)
+      //case Some(op) if isReduce(lhs) => 
+        //val (accumAccesses, inputs) = rhs.expInputs.partition { in => isReduceStarter(in) }
+        //dbgs(s"accumAccesses=$accumAccesses, inputs=$inputs")
+        //val (accumAccess::_, input::_) = (accumAccesses, inputs)
+        //var accumInput = input
+        //emit(lhs, s"AccumOp(op=$op, input=${quote(accumInput)}, accum=${quote(accumAccess)})", rhs)
       case Some(op) if inHwBlock =>
         val inputs = rhs.productIterator.toList
         emit(lhs, s"OpDef(op=$op, inputs=${inputs.map(quote)})", rhs)
