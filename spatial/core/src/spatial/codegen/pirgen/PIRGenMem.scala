@@ -24,13 +24,15 @@ trait PIRGenMem extends PIRCodegen {
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     rhs match {
       case SRAMNew(dims) =>
+        val cdims = constDimsOf(lhs).toList
         decompose(lhs).foreach { dlhs => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
             val numOuterBanks = numOuterBanksOf((lhs, instId))
-            val size = constDimsOf(lhs).product / numOuterBanks
+            val size = cdims.product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(LhsMem(dlhs, instId, bankId), s"SRAM(size=$size, banking=$innerBanks)", s"$lhs = $rhs")
+              emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
             }
           }
         }
