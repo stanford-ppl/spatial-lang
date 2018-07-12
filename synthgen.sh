@@ -1,6 +1,6 @@
 CMD="make zcu"
 APP_DIR="./apps/src/"
-new_app_name="synth_${1}_`date +%s`"
+new_app_name="synth_${1}_${2}_`date +%s`"
 echo -e "\e[1;31mApp Name: ${new_app_name}\e[0m"
 cp ${APP_DIR}/${1}.scala ${APP_DIR}/${new_app_name}.scala
 sed -i "s/object ${1} extends SpatialApp {.*/object ${new_app_name} extends SpatialApp {/g" ${APP_DIR}/${new_app_name}.scala
