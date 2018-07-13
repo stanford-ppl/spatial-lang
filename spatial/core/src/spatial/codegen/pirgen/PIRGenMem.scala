@@ -38,6 +38,7 @@ trait PIRGenMem extends PIRCodegen {
         }
 
       case RegFileNew(dims, inits) =>
+        val cdims = constDimsOf(lhs).toList
         decompose(lhs).foreach { dlhs => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
             val sizes = constDimsOf(lhs)
@@ -48,11 +49,13 @@ trait PIRGenMem extends PIRCodegen {
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(LhsMem(dlhs, instId, bankId), s"RegFile(size=${quote(size)}, inits=$inits)", s"$lhs = $rhs banking:${innerBanks}")
+              emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
             }
           }
         }
 
       case LUTNew(dims, elems) =>
+        val cdims = constDimsOf(lhs).toList
         val inits = elems.map { elem => getConstant(elem).get }.toList
         decompose(lhs).foreach { dlhs => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
@@ -60,6 +63,7 @@ trait PIRGenMem extends PIRCodegen {
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(LhsMem(dlhs, instId, bankId), s"LUT(inits=${inits}, banking=$innerBanks)", s"$lhs = $rhs")
+              emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
             }
           }
         }
