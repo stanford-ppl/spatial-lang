@@ -28,8 +28,8 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
       case ParLocalWriter((mem, Some(value::_), Some(addrs::_), _)::_) =>
         val instIds = getDispatches(mem, lhs).toList
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
-          val mems = instIds.flatMap { instId =>
-            staticBanksOf((lhs, instId)).map { bankId => LhsMem(dmem, instId, bankId) }
+          val mems = instIds.map { instId =>
+            staticBanksOf((lhs, instId)).map { bankId => LhsMem(dmem, instId, bankId) }.toList
           }
           emit(dlhs, s"StoreBanks($mems, ${quote(addrs)}, ${quote(dvalue)})", rhs)
           emitDependency(dlhs, rhs)
