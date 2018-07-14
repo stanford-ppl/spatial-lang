@@ -57,12 +57,25 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
   }
 
   def emit(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
+    val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
+    emit(s"""val $lhs = withCtrl($ctrl) { $rhsExp.name("$lhs")${quoteCtx(lhs)} } // $comment""")
+
     lhs match {
       case lhs:LhsMem =>
-        emit(s"""val $lhs = $rhsExp.name("$lhs")${quoteCtrl}${quoteCtx(lhs)} // $comment""")
         emitMeta(lhs)
       case lhs =>
-        emit(s"""val $lhs = $rhsExp.name("$lhs")${quoteCtrl}${quoteCtx(lhs)} // $comment""")
     }
+  }
+
+  def alias(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
+    val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
+    emit(s"""val $lhs = withCtrl($ctrl) { $rhsExp } // $comment""")
+  }
+
+  def emitblk[T](header:String)(block: => T):T = {
+    open(s"$header {")
+    val res = block
+    close("} ")
+    res
   }
 }

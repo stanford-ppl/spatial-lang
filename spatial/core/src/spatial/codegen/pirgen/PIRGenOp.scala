@@ -44,13 +44,13 @@ trait PIRGenOp extends PIRCodegen {
             val FixPtType(s1, i1, f1) = x.tp
             lhs.tp match {
               case tp if tp == x.tp => 
-                emit(s"val ${quote(lhs)} = ${quote(x)} // $rhs (Same Type. No op)")
+                alias(lhs, s"${quote(x)}", s"$rhs (Same Type. No op)")
               case FixPtType(`s1`,`i1`,f2) =>
-                emit(s"val ${quote(lhs)} = ${quote(x)} // $rhs (fraction difference. Ignored on plasticine)")
+                alias(lhs, s"${quote(x)}", s"$rhs (fraction difference. Ignored on plasticine)")
               case LongType() =>
                 warn(s"Plasticine only support 32 bit wordwidth. FixConvert to LongType. Use single precision instead ${lhs.ctx}")
                 dbg(s"Plasticine only support 32 bit wordwidth. FixConvert to Use single precision instead")
-                emit(s"val ${quote(lhs)} = ${quote(x)} // $rhs")
+                alias(lhs, s"${quote(x)}",rhs)
               case FixPtType(s2, i2, f2) =>
                 val bitWidth = i2 + f2
                 if (bitWidth > 32) {
@@ -81,7 +81,7 @@ trait PIRGenOp extends PIRCodegen {
           case VectorApply(vec, idx) =>
             if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
             decompose(vec).zip(decompose(lhs)).foreach { case (dvec, dlhs) =>
-              emit(s"val ${quote(dlhs)} = ${quote(dvec)} // $lhs = $rhs")
+              alias(dlhs, quote(dvec), rhs)
             }
           case VectorSlice(vec, end, start) =>
             val mask = (List.fill(start)(0) ++ List.fill(end - start)(1) ++ List.fill(32 - end)(0)).reverse
@@ -93,7 +93,7 @@ trait PIRGenOp extends PIRCodegen {
           case BitsAsData(a, tp) => emit(s"val $lhs = $a // $lhs = $rhs")
           case FieldApply(coll, field) =>
             val exp = lookupField(coll, field).get
-            emit(s"val ${quote(lhs)} = ${quote(exp)} // $lhs = $rhs")
+            alias(lhs, quote(exp), rhs)
           case _ => super.emitNode(lhs, rhs)
         }
     }
