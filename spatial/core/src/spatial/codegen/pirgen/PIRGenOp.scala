@@ -78,6 +78,9 @@ trait PIRGenOp extends PIRCodegen {
                 emit(lhs, s"""OpDef(op=$op, inputs=List(${quote(x)}, Const("$sftamt")))""", rhs)
                 emit(s"// }")
             }
+          case FltConvert(x) if !inHwBlock => 
+          case FltConvert(x) =>  //TODO
+            alias(lhs, x, s"$rhs //TODO")
           case VectorApply(vec, idx) =>
             if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
             decompose(vec).zip(decompose(lhs)).foreach { case (dvec, dlhs) =>

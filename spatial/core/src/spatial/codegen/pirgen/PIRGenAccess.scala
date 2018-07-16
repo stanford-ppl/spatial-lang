@@ -10,9 +10,22 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
   def emitDependency(sym:LhsSym, rhs:Op[_]):Unit = {
     val lhs = compose(sym.dlhs)
     if (depsOf(lhs).nonEmpty) {// anti dependency
-      val deps = depsOf(lhs).filter { e => isAccess(e) }.toList
+      val deps = depsOf(lhs).filter { e => isAccess(e) }.toList.flatMap { e =>
+        getLhses(e.asInstanceOf[Sym[_]])
+      }
       if (deps.nonEmpty) emit(s"antiDepsOf($sym)=$deps")
     }
+  }
+
+  def getLhses(lhs:Sym[_]):Seq[Lhs] = lhs match {
+    case Def(ParLocalWriter((mem, Some(value::_), None, _)::_)) =>
+      val instIds = getDispatches(mem, lhs)
+      decompose(lhs).zip(decompose(mem)).flatMap { case (dlhs, dmem) =>
+        instIds.map { instId =>
+          LhsSym(dlhs, Some(s"${LhsMem(dmem, instId)}"))
+        }
+      }
+    case _ => decompose(lhs).map { dlhs => LhsSym(dlhs) }
   }
 
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
