@@ -54,6 +54,9 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
     val inst = insts(lhs.instId)
     emit(s"isAccum($lhs) = ${inst.isAccum}")
     emit(s"bufferDepthOf($lhs) = ${inst.depth}")
+    countOf(mem).foreach { count =>
+      emit(s"countOf($lhs) = Some(${count}l)")
+    }
   }
 
   def emit(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
