@@ -53,6 +53,7 @@ case class HyperMapperSender(
         if (!running) earlyExit = true
         if (file.isDefined) {
           out.close()
+          System.out.println("File complete: Sending ACK back to HyperMapper")
           write(s"Ready ${file.get}", output)
         }
       }
