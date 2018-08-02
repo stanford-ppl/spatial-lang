@@ -55,6 +55,7 @@ case class HyperMapperSender(
           out.close()
           System.out.println("File complete: Sending ACK back to HyperMapper")
           write(s"Ready ${file.get}", output)
+          output.flush()
         }
       }
       else {
