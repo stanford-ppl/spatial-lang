@@ -114,8 +114,12 @@ class PIRMemoryAnalyzer(implicit val codegen:PIRCodegen) extends PIRTraversal {
           if (parInnerDims.size > 1) {
             error(s"More than 1 parallelized inner dimenion is not allowed in plasticine")
             error(s"These controller cannot be parallelized at the same time. ${mem.name}:")
+            error(s"memory=$mem ${mem.ctx}")
             parInnerDims.foreach { case (dim, ctrls) =>
-              error(s"dim=$dim, ctrls=${ctrls}")
+              error(s"dim=$dim, ctrls:")
+              ctrls.foreach { ctrl =>
+                error(s"$ctrl:${ctrl.ctx}")
+              }
             }
             throw new Exception(s"Invalid Parallelization Factor for Plasticine")
           } else if (parInnerDims.nonEmpty) {
