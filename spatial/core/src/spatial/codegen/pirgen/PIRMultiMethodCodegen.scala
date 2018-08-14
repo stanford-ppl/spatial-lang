@@ -9,7 +9,7 @@ trait PIRMultiMethodCodegen extends Codegen {
   private var splitting = false
   private var lineCount = 0
 
-  val splitThreshold = 500
+  val splitThreshold = 200
 
   var splitCount = 0
 
