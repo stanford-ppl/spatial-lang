@@ -63,9 +63,11 @@ trait PIRGenMem extends PIRCodegen {
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(LhsMem(dlhs, instId, bankId), s"LUT(inits=Nil, banking=$innerBanks)", s"$lhs = $rhs")
-              inits.sliding(size=10).foreach { inits =>
-                emit(s"${LhsMem(dlhs, instId, bankId)}.inits = ${LhsMem(dlhs, instId, bankId)}.inits ++ ${inits}")
-              }
+              //TODO: hack. large lut size will break java code size limit. Do not set initial value
+              //for lut for now until doing data simulation
+              //inits.sliding(size=10).foreach { inits =>
+                //emit(s"${LhsMem(dlhs, instId, bankId)}.inits = ${LhsMem(dlhs, instId, bankId)}.inits ++ ${inits}")
+              //}
               emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
             }
           }
