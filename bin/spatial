@@ -18,7 +18,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 class SpatialArgumentParser(ArgumentParser):
-  
+
   def print_help(self, file=None):
     print("""
 spatial CLI for spatial
@@ -93,7 +93,7 @@ def main():
     simScript = open(opts.app + ".sim", 'w')
     simScript.write("#!/bin/bash\n\n")
     simScript.write("cd gen/" + opts.app + "\n")
-    simScript.write("bash run.sh \"$@\"\n") 
+    simScript.write("bash run.sh \"$@\"\n")
     simScript.close()
 
     vcsScript = open(opts.app + ".vcs", "w")

@@ -58,6 +58,7 @@ src/spatial/codegen/chiselgen/resources/altera-goodies/README.md
 
 # Mac specific
 .DS_Store
+._.DS_Store
 
 # Altera specifics
 spatial/core/resources/chiselgen/template-level/fringeDE1SoC/.qsys_edit/*

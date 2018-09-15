@@ -106,10 +106,10 @@ object LUT {
 
 
   @internal def checkDims(dims: Seq[Int], elems: Seq[_]) = {
-    if (dims.product != elems.length) {
-      error(ctx, c"Specified dimensions of the LUT do not match the number of supplied elements (${dims.product} != ${elems.length})")
-      error(ctx)
-    }
+ //   if (dims.product != elems.length) {
+ //     error(ctx, c"Specified dimensions of the LUT do not match the number of supplied elements (${dims.product} != ${elems.length})")
+ //     error(ctx)
+ //   }
   }
   @internal def flatIndexConst(indices: Seq[Int], dims: Seq[Int])(implicit ctx: SrcCtx): Int = {
     val strides = List.tabulate(dims.length){d => dims.drop(d+1).product }
