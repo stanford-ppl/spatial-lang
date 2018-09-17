@@ -81,12 +81,12 @@ trait PIRGenOp extends PIRCodegen {
           case FltConvert(x) if !inHwBlock => 
           case FltConvert(x) =>  //TODO
             alias(lhs, x, s"$rhs //TODO")
-          case FltPtToFixPt(x) if !inHwBlock=>  //TODO
-          case FltPtToFixPt(x) =>  //TODO
-            alias(lhs, x, s"$rhs //TODO")
-          case FixPtToFltPt(x) if !inHwBlock=>  //TODO
-          case FixPtToFltPt(x) =>  //TODO
-            alias(lhs, x, s"$rhs //TODO")
+          case FltPtToFixPt(x) if !inHwBlock=>
+          case rhs:FltPtToFixPt[_,_,_,_,_] => 
+            emit(lhs, s"OpDef(op=FltPtToFixPt, inputs=${List(rhs.x, rhs.s, rhs.i, rhs.f).map(quote)})", rhs)
+          case FixPtToFltPt(x) if !inHwBlock=>
+          case rhs:FixPtToFltPt[_,_,_,_,_] =>
+            emit(lhs, s"OpDef(op=FixPtToFltPt, inputs=${List(rhs.x, rhs.g, rhs.e).map(quote)})", rhs)
           case VectorApply(vec, idx) =>
             if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
             decompose(vec).zip(decompose(lhs)).foreach { case (dvec, dlhs) =>
