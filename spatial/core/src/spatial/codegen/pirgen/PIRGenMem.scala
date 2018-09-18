@@ -4,6 +4,7 @@ import argon.core._
 import spatial.nodes._
 import spatial.utils._
 import spatial.metadata._
+import spatial.aliases._
 
 trait PIRGenMem extends PIRCodegen {
 
@@ -13,7 +14,8 @@ trait PIRGenMem extends PIRCodegen {
       case BankedMemory(dims, depth, isAccum) =>
         dims(dim) match { case Banking(stride, banks, isOuter) =>
           // Inner loop dimension 
-          assert(banks<=16, s"Plasticine only support banking <= 16 within PMU banks=$banks")
+          val vec = spatialConfig.plasticineSpec.vec
+          assert(banks<=vec, s"Plasticine only support banking <= $vec within PMU banks=$banks")
           s"Strided(banks=$banks, stride=$stride)"
         }
       case DiagonalMemory(strides, banks, depth, isAccum) =>

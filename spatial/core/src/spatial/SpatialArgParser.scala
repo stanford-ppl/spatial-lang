@@ -171,4 +171,8 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.enableTrace = true
   }
 
+  parser.opt[Int]("vec").action{ (x,_) =>
+    spatialConfig.plasticineSpec.vec=x
+  }
+
 }

@@ -42,7 +42,7 @@ class SpatialConfig extends argon.core.Config {
     pmuSout:Int,
     var pmuStages:Int,
     pmuRegs:Int,
-    lanes: Int,
+    var vec: Int,
     wordWidth: Int
   )
 
@@ -176,7 +176,7 @@ plasticine {
   pmu-sout = 1
   pmu-stages = 0
   pmu-regs = 16
-  lanes = 16
+  vec = 16
   word-width = 32
 }
   """)
