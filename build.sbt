@@ -63,6 +63,9 @@ val commonSettings = assemblySettings ++ Seq(
 
   // For when something goes super wrong with scalac
   //scalacOptions ++= Seq("-Ytyper-debug"),
+  
+   // Generate type hiearchy graph in scala doc    
+   scalacOptions in (Compile, doc) += "-diagrams",   
 
   //paradise
   resolvers += Resolver.sonatypeRepo("snapshots"),
