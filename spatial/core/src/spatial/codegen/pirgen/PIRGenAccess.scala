@@ -35,7 +35,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
         val instId::Nil = getDispatches(mem, lhs)
         decompose(lhs).zip(decompose(mem)).foreach { case (dlhs, dmem) =>
           val banks = staticBanksOf((lhs, instId)).map { bankId => LhsMem(dmem, instId, bankId) }
-          emit(dlhs, s"LoadBanks($banks, ${quote(addrs)})", rhs)
+          emit(dlhs, src"LoadBanks($banks, ${addrs})", rhs)
           emitDependency(dlhs, rhs)
         }
       case ParLocalWriter((mem, Some(value::_), Some(addrs::_), _)::_) =>
@@ -44,7 +44,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
           val mems = instIds.map { instId =>
             staticBanksOf((lhs, instId)).map { bankId => LhsMem(dmem, instId, bankId) }.toList
           }
-          emit(dlhs, s"StoreBanks($mems, ${quote(addrs)}, ${quote(dvalue)})", rhs)
+          emit(dlhs, src"StoreBanks($mems, ${addrs}, ${dvalue})", rhs)
           emitDependency(dlhs, rhs)
         }
 
@@ -61,7 +61,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
         decompose(lhs).zip(decompose(mem)).zip(decompose(value)).foreach { case ((dlhs, dmem), dvalue) =>
           instIds.foreach { instId =>
             val sym = LhsSym(dlhs, Some(s"${LhsMem(dmem, instId)}"))
-            emit(sym, s"WriteMem(${LhsMem(dmem, instId)}, ${quote(dvalue)})", rhs)
+            emit(sym, src"WriteMem(${LhsMem(dmem, instId)}, ${dvalue})", rhs)
             emitDependency(sym, rhs)
           }
         }

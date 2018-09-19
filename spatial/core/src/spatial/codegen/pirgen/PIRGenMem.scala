@@ -50,7 +50,7 @@ trait PIRGenMem extends PIRCodegen {
             val size = constDimsOf(lhs).product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
-              emit(LhsMem(dlhs, instId, bankId), s"RegFile(size=${quote(size)}, inits=$inits)", s"$lhs = $rhs banking:${innerBanks}")
+              emit(LhsMem(dlhs, instId, bankId), src"RegFile(size=$size, inits=$inits)", src"$lhs = $rhs banking:$innerBanks")
               emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
             }
           }

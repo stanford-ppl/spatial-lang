@@ -35,6 +35,12 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
     def apply(dmem:Exp[_], instId:Int, bankId:Int):LhsMem = LhsMem(dmem, instId, Some(bankId))
   }
 
+  override protected def quoteOrRemap(arg: Any): String = arg match {
+    case x@LhsSym(_,_) => x.toString
+    case x@LhsMem(_,_,_) => x.toString
+    case x => super.quoteOrRemap(x)
+  }
+
   def quoteCtrl = {
     if (controlStack.isEmpty) ".ctrl(top)"
     else s".ctrl($currCtrl)"
@@ -72,7 +78,7 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
 
   def alias(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
     val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
-    emit(s"""val $lhs = withCtrl($ctrl) { $rhsExp } // $comment""")
+    emit(src"""val $lhs = withCtrl($ctrl) { $rhsExp } // $comment""")
   }
 
   def emitblk[T](header:String)(block: => T):T = {

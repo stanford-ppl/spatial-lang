@@ -26,16 +26,16 @@ trait PIRGenOp extends PIRCodegen {
         val inputs = rhs.expInputs
         val (accumAccess::_, input::_) = inputs.partition { in => isReduceStarter(in) }
         var accumInput = input
-        emit(lhs, s"ReduceAccumOp(op=$op, input=${quote(accumInput)}, accum=${quote(accumAccess)})", rhs)
+        emit(lhs, src"ReduceAccumOp(op=$op, input=${accumInput}, accum=${accumAccess})", rhs)
       //case Some(op) if isReduce(lhs) => 
         //val (accumAccesses, inputs) = rhs.expInputs.partition { in => isReduceStarter(in) }
         //dbgs(s"accumAccesses=$accumAccesses, inputs=$inputs")
         //val (accumAccess::_, input::_) = (accumAccesses, inputs)
         //var accumInput = input
-        //emit(lhs, s"AccumOp(op=$op, input=${quote(accumInput)}, accum=${quote(accumAccess)})", rhs)
+        //emit(lhs, src"AccumOp(op=$op, input=${accumInput}, accum=${accumAccess})", rhs)
       case Some(op) if inHwBlock =>
         val inputs = rhs.productIterator.toList
-        emit(lhs, s"OpDef(op=$op, inputs=${inputs.map(quote)})", rhs)
+        emit(lhs, s"OpDef(op=$op, inputs=${inputs})", rhs)
       case Some(op) =>
       case None => 
         rhs match {
@@ -44,13 +44,13 @@ trait PIRGenOp extends PIRCodegen {
             val FixPtType(s1, i1, f1) = x.tp
             lhs.tp match {
               case tp if tp == x.tp => 
-                alias(lhs, s"${quote(x)}", s"$rhs (Same Type. No op)")
+                alias(lhs, x, s"$rhs (Same Type. No op)")
               case FixPtType(`s1`,`i1`,f2) =>
-                alias(lhs, s"${quote(x)}", s"$rhs (fraction difference. Ignored on plasticine)")
+                alias(lhs, x, s"$rhs (fraction difference. Ignored on plasticine)")
               case LongType() =>
                 warn(s"Plasticine only support 32 bit wordwidth. FixConvert to LongType. Use single precision instead ${lhs.ctx}")
                 dbg(s"Plasticine only support 32 bit wordwidth. FixConvert to Use single precision instead")
-                alias(lhs, s"${quote(x)}",rhs)
+                alias(lhs, x,rhs)
               case FixPtType(s2, i2, f2) =>
                 val bitWidth = i2 + f2
                 if (bitWidth > 32) {
@@ -63,46 +63,35 @@ trait PIRGenOp extends PIRCodegen {
                  * */
                 val sftamt = Math.abs(i2 - i1)
                 val op = if (i2 > i1) PIRFixSra else PIRFixSla
-                val iMask = Array.fill(32)(0)
-                val fMask = Array.fill(32)(0)
-                (if (s1) (1 until i1) else (0 until i1)).foreach { i => iMask(i) = 1 }
-                (i1 until 32).foreach { i => fMask(i) = 1 }
-                val iMaskStr = iMask.mkString
-                val fMaskStr = fMask.mkString
-                emit(s"// ${quote(lhs)} = $rhs x.tp=${x.tp} {")
-                //emit(LhsSym(lhs, Some("int1")), s"""OpDef(op=BitAnd, inputs=List(${quote(x)}, Const("$iMaskStr")))""", rhs)
-                //emit(LhsSym(lhs, Some("int2")), s"OpDef(op=$op, inputs=List(${quote(lhs)}_int1, Const($sftamt)))", rhs)
-                //emit(LhsSym(lhs, Some("frac1")), s"""OpDef(op=BitAnd, inputs=List(${quote(x)}, Const("$fMaskStr")))""", rhs)
-                //emit(LhsSym(lhs, Some("frac2")), s"OpDef(op=$op, inputs=List(${quote(lhs)}_frac1, Const($sftamt)))", rhs)
-                //emit(lhs, s"OpDef(op=BitOr, inputs=List(${quote(lhs)}_int2, ${quote(lhs)}_frac2))", rhs)
-                emit(lhs, s"""OpDef(op=$op, inputs=List(${quote(x)}, Const("$sftamt")))""", rhs)
-                emit(s"// }")
+                emit(src"// ${lhs} = $rhs x.tp=${x.tp} {")
+                emit(lhs, src"""OpDef(op=$op, inputs=List($x, Const("$sftamt")))""", rhs)
+                emit(src"// }")
             }
           case FltConvert(x) if !inHwBlock => 
           case FltConvert(x) =>  //TODO
-            alias(lhs, x, s"$rhs //TODO")
+            alias(lhs, x, src"$rhs //TODO")
           case FltPtToFixPt(x) if !inHwBlock=>
           case rhs:FltPtToFixPt[_,_,_,_,_] => 
-            emit(lhs, s"OpDef(op=FltPtToFixPt, inputs=${List(rhs.x, rhs.s, rhs.i, rhs.f).map(quote)})", rhs)
+            emit(lhs, src"OpDef(op=FltPtToFixPt, inputs=${List(rhs.x, rhs.s, rhs.i, rhs.f)})", rhs)
           case FixPtToFltPt(x) if !inHwBlock=>
           case rhs:FixPtToFltPt[_,_,_,_,_] =>
-            emit(lhs, s"OpDef(op=FixPtToFltPt, inputs=${List(rhs.x, rhs.g, rhs.e).map(quote)})", rhs)
+            emit(lhs, src"OpDef(op=FixPtToFltPt, inputs=${List(rhs.x, rhs.g, rhs.e)})", rhs)
           case VectorApply(vec, idx) =>
-            if (idx != 0) throw new Exception(s"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
+            if (idx != 0) throw new Exception(src"Expected parallelization of 1 in inner loop in PIRgen idx=$idx")
             decompose(vec).zip(decompose(lhs)).foreach { case (dvec, dlhs) =>
-              alias(dlhs, quote(dvec), rhs)
+              alias(dlhs, dvec, rhs)
             }
           case VectorSlice(vec, end, start) =>
             val mask = (List.fill(start)(0) ++ List.fill(end - start)(1) ++ List.fill(32 - end)(0)).reverse
             val strMask = mask.mkString
             val integer = Integer.parseInt(strMask, 2)
-            emit(lhs, s"OpDef(op=BitAnd, inputs=List(${quote(vec)}, Const($integer)))", s"$rhs strMask=$strMask")
-          case SimpleStruct(elems) => emit(s"// $lhs = $rhs")
-          case DataAsBits(a) => emit(s"val $lhs = $a // $lhs = $rhs")
-          case BitsAsData(a, tp) => emit(s"val $lhs = $a // $lhs = $rhs")
+            emit(lhs, src"OpDef(op=BitAnd, inputs=List($vec, Const($integer)))", src"$rhs strMask=$strMask")
+          case SimpleStruct(elems) => emit(src"// $lhs = $rhs")
+          case DataAsBits(a) => emit(src"val $lhs = $a // $lhs = $rhs")
+          case BitsAsData(a, tp) => emit(src"val $lhs = $a // $lhs = $rhs")
           case FieldApply(coll, field) =>
             val exp = lookupField(coll, field).get
-            alias(lhs, quote(exp), rhs)
+            alias(lhs, exp, rhs)
           case _ => super.emitNode(lhs, rhs)
         }
     }
