@@ -14,14 +14,14 @@ trait PIRGenController extends PIRCodegen {
         val offset = if (isInnerControl && counter == counters.last) None else Some(i)
         val Def(CounterNew(start, end, step, par)) = counter
         val parInt = getConstant(par).get.asInstanceOf[Int]
-        (boundOf.get(start), boundOf.get(end), boundOf.get(step)).zipped.foreach { case (bstart, bend, bstep) =>
-          dbg(s"$counter, bstart=$bstart, bend=$bend, bstep=$bstep, par=$parInt")
-          assert((bend - bstart) % (bstep * parInt) == 0, 
-            s"Cannot handle unaligned iterator range: $cchain \n" + 
-            s"(end=$bend - start=$bstart) % (step=$bstep * par=$parInt) != 0\n" + 
-            s"${cchain.ctx}"
-          )
-        }
+        //(boundOf.get(start), boundOf.get(end), boundOf.get(step)).zipped.foreach { case (bstart, bend, bstep) =>
+          //dbg(s"$counter, bstart=$bstart, bend=$bend, bstep=$bstep, par=$parInt")
+          //assert((bend - bstart) % (bstep * parInt) == 0, 
+            //s"Cannot handle unaligned iterator range: $cchain \n" + 
+            //s"(end=$bend - start=$bstart) % (step=$bstep * par=$parInt) != 0\n" + 
+            //s"${cchain.ctx}"
+          //)
+        //}
         emit(iter, s"CounterIter($counter, $offset)", iter)
         emit(valid, s"Const(true)", valid)
       }

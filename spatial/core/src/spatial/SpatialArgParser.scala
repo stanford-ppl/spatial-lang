@@ -119,6 +119,7 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.enableSim = false
     spatialConfig.enableSynth = false
     spatialConfig.enablePIR = true
+    spatialConfig.enableLutSizeCheck = false
   }.text("enables PIR generation")
 
   parser.opt[String]("pirsrc").action { (x, c) =>

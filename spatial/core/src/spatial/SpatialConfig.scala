@@ -79,6 +79,7 @@ class SpatialConfig extends argon.core.Config {
   var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
   var enableTrace: Boolean = _
+  var enableLutSizeCheck:Boolean = true
 
   def enableBufferCoalescing: Boolean = !enablePIR
   def removeParallelNodes: Boolean = false//enablePIR

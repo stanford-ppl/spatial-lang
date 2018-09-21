@@ -106,7 +106,7 @@ object LUT {
 
 
   @internal def checkDims(dims: Seq[Int], elems: Seq[_]) = {
-    if (dims.product != elems.length) {
+    if (dims.product != elems.length && !spatialConfig.enableLutSizeCheck) {
       error(ctx, c"Specified dimensions of the LUT do not match the number of supplied elements (${dims.product} != ${elems.length})")
       error(ctx)
     }
