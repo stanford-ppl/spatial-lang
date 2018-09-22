@@ -8,9 +8,9 @@ import argon.core._
 import scala.language.postfixOps
 import scala.sys.process._
 
-trait PIRFileGen extends FileGen with PIRMultiMethodCodegen {
+trait PIRFileGen extends FileGen {
 
-  override protected def emitMain[S:Type](b: Block[S]): Unit = split { emitBlock(b) }
+  override protected def emitMain[S:Type](b: Block[S]): Unit = emitBlock(b)
 
   override protected def emitFileHeader() {
     emit("import pir._")

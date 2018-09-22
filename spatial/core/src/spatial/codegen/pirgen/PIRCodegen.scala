@@ -7,7 +7,7 @@ import spatial.metadata._
 
 import scala.collection.mutable
 
-trait PIRCodegen extends Codegen with PIRFormattedCodegen with PIRTraversal with FileDependencies with PIRLogger with PIRStruct {
+trait PIRCodegen extends Codegen with PIRFormattedCodegen with PIRTraversal with FileDependencies with PIRLogger with PIRStruct with PIRMultiMethodCodegen {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
@@ -35,12 +35,6 @@ trait PIRCodegen extends Codegen with PIRFormattedCodegen with PIRTraversal with
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
   override protected def quoteConst(c: Const[_]): String = s"Const(${getConstant(c).get})" 
   
-  //override protected def quote(x: Exp[_]): String = super[PIRTraversal].quote(x)
-  override protected def quote(n:Exp[_]):String = n match {
-    case c: Const[_] => quoteConst(c)
-    case x => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
-  }
-
   override protected def quoteOrRemap(arg: Any): String = arg match {
     case x:Iterable[_] => x.map(quoteOrRemap).toList.toString
     case Some(x) => s"Some(${quoteOrRemap(x)})"

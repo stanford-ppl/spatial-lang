@@ -6,7 +6,7 @@ import spatial.metadata._
 
 import scala.collection.mutable
 
-trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with PIRStruct {
+trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with PIRStruct { self:PIRMultiMethodCodegen =>
 
   val controlStack = mutable.Stack[Exp[_]]()
   def currCtrl = controlStack.top
@@ -18,8 +18,8 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
   case class LhsSym(dlhs:Exp[_], postFix:Option[String]=None) extends Lhs {
     val lhs = compose(dlhs)
     override def toString = postFix match {
-      case Some(postFix) => s"${quote(dlhs)}_$postFix"
-      case None => s"${quote(dlhs)}"
+      case Some(postFix) => s"${rquote(dlhs)}_$postFix"
+      case None => s"${rquote(dlhs)}"
     }
   }
   implicit def sym_to_lhs(sym:Exp[_]) = LhsSym(sym)
@@ -39,6 +39,11 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
     case x@LhsSym(_,_) => x.toString
     case x@LhsMem(_,_,_) => x.toString
     case x => super.quoteOrRemap(x)
+  }
+
+  override protected def quote(n:Exp[_]):String = n match {
+    case c: Const[_] => quoteConst(c)
+    case x => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
   }
 
   def quoteCtrl = {
