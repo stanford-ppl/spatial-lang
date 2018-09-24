@@ -20,12 +20,14 @@ trait PIRMultiMethodCodegen extends PIRFileGen with PIRFormattedCodegen with PIR
 
   override def emit(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
     scope.head += lhs.lhs
-    super.emit(lhs, s"""withName("$lhs", ${src"$rhsExp"})""", comment)
+    super.emit(lhs, rhsExp, comment)
+    remit(s"""nameMap += "$lhs" -> $lhs""")
   }
 
   override def alias(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
     scope.head += lhs.lhs
-    super.alias(lhs, s"""withName("$lhs", ${src"$rhsExp"})""", comment)
+    super.alias(lhs, rhsExp, comment)
+    remit(s"""nameMap += "$lhs" -> $lhs""")
   }
 
   override def emit(x: String, forceful: Boolean = false): Unit = { 
@@ -35,7 +37,6 @@ trait PIRMultiMethodCodegen extends PIRFileGen with PIRFormattedCodegen with PIR
       if (lineCount > splitThreshold) {
         splitCount += 1
         lineCount = 0
-        scope.push(ListBuffer.empty)
         remit(s"def split${splitCount} = {")
       }
     }
@@ -46,6 +47,8 @@ trait PIRMultiMethodCodegen extends PIRFileGen with PIRFormattedCodegen with PIR
     scope.push(ListBuffer.empty)
     lineCount = 0
     splitting = true
+    remit(s"val nameMap = scala.collection.mutable.Map[String,Any]()")
+    remit(s"def typed[T](x:Any) = x.asInstanceOf[T]")
     super.emitMain(b)
     splitting = false
     lineCount = 0
@@ -54,23 +57,10 @@ trait PIRMultiMethodCodegen extends PIRFileGen with PIRFormattedCodegen with PIR
     }
   }
 
-  override protected def emitFileHeader() {
-    super.emitFileHeader()
-    remit(s"val nameMap = scala.collection.mutable.Map[String,Any]()")
-    remit(s"def lookup[T](name:String) = nameMap(name).asInstanceOf[T]")
-    remit(s"def withName[T](name:String, x:T):T = { nameMap += name -> x; x}")
-  }
-
-  override protected def quote(s: Exp[_]): String = {
-    s match {
-      case c: Const[_] => quoteConst(c)
-      case _ =>
-        val q = super.quote(s)
-        if (!scope.head.contains(s)) s"""lookup("$q")""" else q
-    }
-  }
-
-  def quoteRhs(s:Exp[_])
+  //override protected def quote(s: Exp[_]): String = {
+    //val q = super.quote(s)
+    //if (!scope.head.contains(s)) s"""typed(nameMap("$q"))""" else q
+  //}
 
   def rquote(s: Exp[_]): String = super.quote(s)
 

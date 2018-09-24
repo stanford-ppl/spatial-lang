@@ -71,7 +71,7 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
   }
 
   def emit(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
-    val ctrl = controlStack.headOption.map { quote(_) }.getOrElse(s"design.top.topController")
+    val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
     emit(s"""val $lhs = withCtrl($ctrl) { $rhsExp.name("$lhs")${quoteCtx(lhs)} } // $comment""")
 
     lhs match {
@@ -82,7 +82,7 @@ trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with 
   }
 
   def alias(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
-    val ctrl = controlStack.headOption.map { quote(_) }.getOrElse(s"design.top.topController")
+    val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
     emit(src"""val $lhs = withCtrl($ctrl) { $rhsExp } // $comment""")
   }
 
