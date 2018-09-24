@@ -13,7 +13,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
       val deps = depsOf(lhs).filter { e => isAccess(e) }.toList.flatMap { e =>
         getLhses(e.asInstanceOf[Sym[_]])
       }
-      if (deps.nonEmpty) emit(s"antiDepsOf($sym)=$deps")
+      if (deps.nonEmpty) emit(src"antiDepsOf($sym)=$deps")
     }
   }
 
