@@ -12,7 +12,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
       val instIds = getDispatches(mem, lhs)
       decompose(lhs).zip(decompose(mem)).flatMap { case (dlhs, dmem) =>
         instIds.map { instId =>
-          LhsSym(dlhs, Some(s"${LhsMem(dmem, instId)}"))
+          LhsSym(dlhs, Some(src"${LhsMem(dmem, instId)}"))
         }
       }
     case _ => decompose(lhs).map { dlhs => LhsSym(dlhs) }
@@ -20,7 +20,7 @@ trait PIRGenAccess extends PIRCodegen with PIRGenMem {
 
   override protected def emitFileHeader() {
     super.emitFileHeader()
-    emit(s"def withDeps(x:PIRNode, deps:List[PIRNode]) = { antiDepsOf(x) = deps; x }")
+    emit(s"def withDeps[T<:PIRNode](x:T, deps:List[PIRNode]):T = { antiDepsOf(x) = deps; x }")
   }
 
   override protected def quoteOrRemap(arg: Any): String = arg match {

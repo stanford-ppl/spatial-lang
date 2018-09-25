@@ -104,9 +104,9 @@ trait PIRGenMem extends PIRCodegen {
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
               emit(DefRhs(LhsMem(dlhs, instId, bankId), s"LUT", "inits"->Nil, "banking"->innerBanks))
-              inits.sliding(size=10).foreach { inits =>
-                emit(s"${LhsMem(dlhs, instId, bankId)}.inits = ${LhsMem(dlhs, instId, bankId)}.inits ++ ${inits}")
-              }
+              //inits.sliding(size=10).foreach { inits =>
+                //emit(s"${quoteRef(LhsMem(dlhs, instId, bankId))}.inits = ${quoteRef(LhsMem(dlhs, instId, bankId))}.inits ++ ${inits}")
+              //}
             }
           }
         }

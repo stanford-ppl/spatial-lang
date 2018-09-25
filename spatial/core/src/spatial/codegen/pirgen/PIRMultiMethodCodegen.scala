@@ -10,7 +10,7 @@ trait PIRMultiMethodCodegen extends PIRCodegen {
   private var splitting = false
   private var lineCount = 0
 
-  val splitThreshold = 800
+  val splitThreshold = 500
 
   var splitCount = 0
 
@@ -59,7 +59,7 @@ trait PIRMultiMethodCodegen extends PIRCodegen {
 
   override def emit(rhs:Rhs):Unit = {
     scope += rhs.lhs
-    emit(s"// $rhs")
+    //emit(s"// $rhs")
     super.emit(rhs)
   }
 
