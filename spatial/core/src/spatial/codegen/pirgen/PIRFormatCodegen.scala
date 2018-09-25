@@ -6,84 +6,101 @@ import spatial.metadata._
 
 import scala.collection.mutable
 
-trait PIRFormattedCodegen extends Codegen with PIRTraversal with PIRLogger with PIRStruct { self:PIRMultiMethodCodegen =>
+trait Lhs {
+  val sym:Exp[_]
+  val dsym:Exp[_]
+}
+trait PIRFormattedCodegen extends PIRFileGen with PIRTraversal with PIRLogger {
 
-  val controlStack = mutable.Stack[Exp[_]]()
-  def currCtrl = controlStack.top
-  def inHwBlock = controlStack.nonEmpty
-
-  trait Lhs {
-    val lhs:Exp[_]
+  val rhsMap = mutable.Map[Lhs, Rhs]()
+  def lookup(lhs:Lhs):DefRhs = rhsMap(lhs) match {
+    case AliasRhs(lhs, alias) => lookup(alias)
+    case rhs:DefRhs => rhs
   }
-  case class LhsSym(dlhs:Exp[_], postFix:Option[String]=None) extends Lhs {
-    val lhs = compose(dlhs)
-    override def toString = postFix match {
-      case Some(postFix) => s"${rquote(dlhs)}_$postFix"
-      case None => s"${rquote(dlhs)}"
-    }
-  }
-  implicit def sym_to_lhs(sym:Exp[_]) = LhsSym(sym)
-  case class LhsMem(dmem:Exp[_], instId:Int, bankId:Option[Int]=None) extends Lhs {
-    val lhs = compose(dmem)
 
-    override def toString = bankId match {
-      case Some(bankId) => s"${dmem}_d${instId}_b$bankId"
-      case None => if (duplicatesOf(lhs).size==1) s"$dmem" else s"${dmem}_d${instId}"
-    }
+  override protected def preprocess[S:Type](block: Block[S]): Block[S] = {
+    rhsMap.clear
+    super.preprocess(block)
+  }
+
+  override protected def emitFileHeader() {
+    super.emitFileHeader()
+    emit(s"def withCtx[T<:IR](x:T, ctx:String):T = { srcCtxOf(x) = ctx; x}")
+    emitNameFunc
+  }
+
+  def emitNameFunc = {
+    emit(s"def withName[T<:IR](x:T, name:String):T = { if (!nameOf.contains(x)) nameOf(x) = name; x}")
+  }
+
+  case class LhsSym(dsym:Exp[_], postFix:Option[String]=None) extends Lhs {
+    val sym = compose(dsym)
+  }
+  case class LhsMem(dsym:Exp[_], instId:Int, bankId:Option[Int]=None) extends Lhs {
+    val sym = compose(dsym)
   }
   object LhsMem {
-    def apply(dmem:Exp[_], instId:Int, bankId:Int):LhsMem = LhsMem(dmem, instId, Some(bankId))
+    def apply(dsym:Exp[_], instId:Int, bankId:Int):LhsMem = LhsMem(dsym, instId, Some(bankId))
   }
+  implicit def sym_to_lhs(sym:Exp[_]) = {
+    if (isMem(sym) || isMem(compose(sym))) LhsMem(sym, 0) else LhsSym(sym)
+  }
+
+  trait Rhs {
+    val lhs:Lhs
+    assert(!rhsMap.contains(lhs), s"Already contains $lhs -> ${rhsMap(lhs)} but remap to $this")
+    rhsMap += lhs -> this
+    var _comment:Option[String] = None
+    def comment(cm:String):this.type = { _comment = Some(cm); this}
+    def comment:String = {
+      val cm = lhs.sym match {
+        case Def(op) => op.toString
+        case _ => ""
+      }
+      cm + _comment.map { cm => s" $cm"}.getOrElse("")
+    }
+  }
+  case class DefRhs(lhs:Lhs, tp:String, args:Any*) extends Rhs
+  case class AliasRhs(lhs:Lhs, alias:Lhs) extends Rhs
 
   override protected def quoteOrRemap(arg: Any): String = arg match {
-    case x@LhsSym(_,_) => x.toString
-    case x@LhsMem(_,_,_) => x.toString
-    case x => super.quoteOrRemap(x)
+    case x:Iterable[_] => x.map(quoteOrRemap).toList.toString
+    case Some(x) => s"Some(${quoteOrRemap(x)})"
+    case None => s"None"
+    case e: Exp[_] => quoteOrRemap(sym_to_lhs(e))
+    case m: Type[_] => remap(m)
+    case x@LhsSym(dsym,Some(postFix)) => s"${quote(dsym)}_$postFix" 
+    case x@LhsSym(dsym,None) => quote(dsym)
+    case x@LhsMem(dmem, instId, Some(bankId)) => s"${quote(dmem)}_d${instId}_b$bankId"
+    case x@LhsMem(dmem, instId, None) if (duplicatesOf(x.sym).size <= 1) => quote(dmem)
+    case x@LhsMem(dmem, instId, None) => s"${quote(dmem)}_d${instId}"
+    case DefRhs(lhs, tp, args@ _*) =>
+      //TODO: why is args of type Any
+      val argsString = args.map {
+        case (k,v) => s"$k=${quoteRef(v)}"
+        case v => quoteRef(v)
+      }.mkString(",")
+      var q = s"${tp}($argsString)"
+      lhs.sym.ctx match {
+        case virtualized.EmptyContext => 
+        case ctx => 
+          q = src"""withCtx($q, "${ctx}${lhs.sym.name.map {n => s":$n"}.getOrElse("")}")"""
+      }
+      q = src"""withName($q, "${lhs}")"""
+      q
+    case x@AliasRhs(lhs, alias) => 
+      var q = quoteRef(alias)
+      q = src"""withName($q, "$lhs")"""
+      q
+    case x => x.toString
+    //case x:SrcCtx => x.toString
+    //case x => super.quoteOrRemap(x)
   }
 
-  override protected def quote(n:Exp[_]):String = n match {
-    case c: Const[_] => quoteConst(c)
-    case x => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
-  }
+  protected def quoteRef(x:Any):String = quoteOrRemap(x)
 
-  def quoteCtrl = {
-    if (controlStack.isEmpty) ".ctrl(top)"
-    else s".ctrl($currCtrl)"
-  }
-
-  def quoteCtx(lhs:Lhs) = {
-    lhs.lhs.ctx match {
-      case virtualized.EmptyContext => ""
-      case ctx => 
-        s""".srcCtx("${ctx}${lhs.lhs.name.map {n => s":$n"}.getOrElse("")}")"""
-    }
-  }
-
-  def emitMeta(lhs:LhsMem) = {
-    val mem = compose(lhs.dmem)
-    val insts = duplicatesOf(mem)
-    val inst = insts(lhs.instId)
-    emit(s"isAccum($lhs) = ${inst.isAccum}")
-    emit(s"bufferDepthOf($lhs) = ${inst.depth}")
-    countOf(mem).foreach { count =>
-      emit(s"countOf($lhs) = Some(${count}l)")
-    }
-  }
-
-  def emit(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
-    val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
-    emit(s"""val $lhs = withCtrl($ctrl) { $rhsExp.name("$lhs")${quoteCtx(lhs)} } // $comment""")
-
-    lhs match {
-      case lhs:LhsMem =>
-        emitMeta(lhs)
-      case lhs =>
-    }
-  }
-
-  def alias(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
-    val ctrl = controlStack.headOption.map { _.toString }.getOrElse(s"design.top.topController")
-    emit(src"""val $lhs = withCtrl($ctrl) { $rhsExp } // $comment""")
+  def emit(rhs:Rhs):Unit = {
+    emit(src"val ${rhs.lhs} = $rhs // ${rhs.comment}")
   }
 
   def emitblk[T](header:String)(block: => T):T = {

@@ -8,6 +8,46 @@ import spatial.aliases._
 
 trait PIRGenMem extends PIRCodegen {
 
+  override protected def emitFileHeader() {
+    super.emitFileHeader()
+    emit(s"def withAcc[T<:Memory](x:T, accum:Boolean) = { isAccum(x) = accum; x }")
+    emit(s"def withBD[T<:Memory](x:T, depth:Int) = { bufferDepthOf(x) = depth; x }")
+    emit(s"def withCount[T](x:T, count:Long) = { countOf(x) = Some(count); x }")
+    emit(s"def withDims[T<:Memory](x:T, dims:List[Int]) = { staticDimsOf(x) = dims; x }")
+    emit(s"def withBound[T<:Memory](x:T, bound:Any) = { boundOf(x) = bound; x }")
+    emit(s"def withFile[T<:Memory](x:T, path:String) = { fileNameOf(x) = path; x }")
+  }
+
+  override protected def quoteOrRemap(arg: Any): String = arg match {
+    case x@DefRhs(lhs:LhsMem, name, _*) =>
+      var q = super.quoteOrRemap(x)
+      val mem = lhs.sym
+      val insts = duplicatesOf(mem)
+      if (insts.nonEmpty) {
+        val inst = insts(lhs.instId)
+        q = s"withBD($q, ${inst.depth})"
+        q = s"withAcc($q, ${inst.isAccum})"
+        countOf(mem).foreach { count =>
+          q = s"withCount($q, $count)"
+        }
+        mem match {
+          case mem if isSRAM(mem) | isRegFile(mem) | isLUT(mem) => 
+            q = s"withDims($q, ${constDimsOf(mem).toList})"
+          case mem if isArgIn(mem) =>
+            boundOf.get(mem).foreach { bound =>
+              q = s"withBound($q, $bound)"
+            }
+          case mem if isDRAM(mem) =>
+            fileNameOf(mem).foreach { fn =>
+              q = s"""withFile($q, "$fn")"""
+            }
+          case _ =>
+        }
+      }
+      q
+    case x => super.quoteOrRemap(x)
+  }
+
   def getInnerBank(mem:Exp[_], inst:Memory, instId:Int) = {
     val dim = innerDimOf((mem, instId))
     inst match {
@@ -33,8 +73,7 @@ trait PIRGenMem extends PIRCodegen {
             val size = cdims.product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
-              emit(LhsMem(dlhs, instId, bankId), s"SRAM(size=$size, banking=$innerBanks)", s"$lhs = $rhs")
-              emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
+              emit(DefRhs(LhsMem(dlhs, instId, bankId), s"SRAM", "size"->size, "banking"->innerBanks))
             }
           }
         }
@@ -47,11 +86,10 @@ trait PIRGenMem extends PIRCodegen {
             dbgs(s"sizes=$sizes")
             dbgs(s"inits=$inits")
             val numOuterBanks = numOuterBanksOf((lhs, instId))
-            val size = constDimsOf(lhs).product / numOuterBanks
+            val size = cdims.product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
-              emit(LhsMem(dlhs, instId, bankId), src"RegFile(size=$size, inits=$inits)", src"$lhs = $rhs banking:$innerBanks")
-              emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
+              emit(DefRhs(LhsMem(dlhs, instId, bankId), s"RegFile", "size"->size, "inits"->inits))
             }
           }
         }
@@ -62,15 +100,13 @@ trait PIRGenMem extends PIRCodegen {
         decompose(lhs).foreach { dlhs => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
             val numOuterBanks = numOuterBanksOf((lhs, instId))
+            val size = cdims.product / numOuterBanks
             (0 until numOuterBanks).map { bankId =>
               val innerBanks = getInnerBank(lhs, inst, instId)
-              emit(LhsMem(dlhs, instId, bankId), s"LUT(inits=Nil, banking=$innerBanks)", s"$lhs = $rhs")
-              //TODO: hack. large lut size will break java code size limit. Do not set initial value
-              //for lut for now until doing data simulation
-              //inits.sliding(size=10).foreach { inits =>
-                //emit(s"${LhsMem(dlhs, instId, bankId)}.inits = ${LhsMem(dlhs, instId, bankId)}.inits ++ ${inits}")
-              //}
-              emit(s"staticDimsOf(${LhsMem(dlhs, instId, bankId)}) = $cdims")
+              emit(DefRhs(LhsMem(dlhs, instId, bankId), s"LUT", "inits"->Nil, "banking"->innerBanks))
+              inits.sliding(size=10).foreach { inits =>
+                emit(s"${LhsMem(dlhs, instId, bankId)}.inits = ${LhsMem(dlhs, instId, bankId)}.inits ++ ${inits}")
+              }
             }
           }
         }
@@ -78,7 +114,7 @@ trait PIRGenMem extends PIRCodegen {
       case RegNew(init) =>
         decompose(lhs).zip(decompose(init)).foreach { case (dlhs, dinit) => 
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-            emit(LhsMem(dlhs, instId), s"Reg(init=${getConstant(init)})", s"$lhs = $rhs")
+            emit(DefRhs(LhsMem(dlhs, instId), s"Reg", "init"->getConstant(init)))
           }
         }
 
@@ -86,46 +122,40 @@ trait PIRGenMem extends PIRCodegen {
         decompose(lhs).foreach { dlhs => 
           val size = constDimsOf(lhs).product
           duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-            emit(LhsMem(dlhs, instId), s"FIFO(size=$size)", s"$lhs = $rhs")
+            emit(DefRhs(LhsMem(dlhs, instId), s"FIFO", "size"->size))
           }
         }
 
       case ArgInNew(init) =>
         duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-          emit(LhsMem(lhs, instId), s"ArgIn(init=${getConstant(init).get})", rhs)
-          boundOf.get(lhs).foreach { bound =>
-            emit(s"boundOf(${LhsMem(lhs, instId)}) = ${bound}")
-          }
+          emit(DefRhs(LhsMem(lhs, instId), s"ArgIn", "init"->getConstant(init).get))
         }
 
       case ArgOutNew(init) =>
         duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
-          emit(LhsMem(lhs, instId), s"ArgOut(init=${getConstant(init).get})", rhs)
+          emit(DefRhs(LhsMem(lhs, instId), s"ArgOut", "init"->getConstant(init).get))
         }
 
       case GetDRAMAddress(dram) =>
-        emit(lhs, s"DramAddress($dram)", rhs)
+        emit(DefRhs(LhsMem(lhs,0), s"DramAddress", "dram"->dram))
 
       case _:StreamInNew[_] =>
         duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
           decomposed(lhs).right.get.foreach { case (field, dlhs) =>
-            emit(LhsMem(dlhs, instId), s"""StreamIn(field="$field")""", s"$lhs = $rhs")
+            emit(DefRhs(LhsMem(dlhs, instId), s"StreamIn", "field"->s""""$field""""))
           }
         }
 
       case _:StreamOutNew[_] =>
         duplicatesOf(lhs).zipWithIndex.foreach { case (inst, instId) =>
           decomposed(lhs).right.get.foreach { case (field, dlhs) =>
-            emit(LhsMem(dlhs, instId), s"""StreamOut(field="$field")""", s"$lhs = $rhs")
+            emit(DefRhs(LhsMem(dlhs, instId), s"StreamOut", "field"->s""""$field""""))
           }
         }
 
       case DRAMNew(dims, zero) =>
         decompose(lhs).foreach { dlhs => 
-          emit(dlhs, s"DRAM(dims=${dims.toList})", s"$lhs = $rhs")
-          fileNameOf(lhs).foreach { fn =>
-            emit(s"""fileNameOf($lhs) = "$fn"""")
-          }
+          emit(DefRhs(LhsSym(dlhs), s"DRAM", "dims"->s"""${dims.toList}"""))
         }
 
       case _ => super.emitNode(lhs, rhs)

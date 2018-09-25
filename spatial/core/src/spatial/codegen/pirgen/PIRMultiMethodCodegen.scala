@@ -3,65 +3,78 @@ package spatial.codegen.pirgen
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core._
 import spatial.metadata._
-import scala.collection.mutable._
+import scala.collection.mutable
 
-trait PIRMultiMethodCodegen extends PIRFileGen with PIRFormattedCodegen with PIRStruct{
+trait PIRMultiMethodCodegen extends PIRCodegen {
 
   private var splitting = false
   private var lineCount = 0
 
-  val splitThreshold = 500
+  val splitThreshold = 800
 
   var splitCount = 0
 
-  val scope = Stack[ListBuffer[Exp[_]]]()
+  val scope = mutable.ListBuffer[Lhs]()
 
-  def remit(x: String, forceful: Boolean = false): Unit = super.emit(x)
-
-  override def emit(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
-    scope.head += lhs.lhs
-    super.emit(lhs, rhsExp, comment)
-    remit(s"""nameMap += "$lhs" -> $lhs""")
-  }
-
-  override def alias(lhs:Lhs, rhsExp:Any, comment:Any):Unit = {
-    scope.head += lhs.lhs
-    super.alias(lhs, rhsExp, comment)
-    remit(s"""nameMap += "$lhs" -> $lhs""")
-  }
+  private def rawemit(x: String, forceful: Boolean = false): Unit = super.emit(x)
 
   override def emit(x: String, forceful: Boolean = false): Unit = { 
-    remit(x, forceful)
+    rawemit(x, forceful)
     if (splitting) {
       lineCount += 1
       if (lineCount > splitThreshold) {
-        splitCount += 1
-        lineCount = 0
-        remit(s"def split${splitCount} = {")
+        splitEnd
+        splitStart
       }
     }
   }
 
-  override protected def emitMain[S:Type](b: Block[S]): Unit = { 
+  def splitStart = {
+    splitCount += 1
+    lineCount = 0
     scope.clear
-    scope.push(ListBuffer.empty)
-    lineCount = 0
-    splitting = true
-    remit(s"val nameMap = scala.collection.mutable.Map[String,Any]()")
-    remit(s"def typed[T](x:Any) = x.asInstanceOf[T]")
-    super.emitMain(b)
-    splitting = false
-    lineCount = 0
-    (splitCount until 0 by -1).foreach { splitCount =>
-      remit(s"}; split${splitCount}")
-    }
+    rawemit(s"def split${splitCount} = {")
+  }
+  def splitEnd = {
+    rawemit(s"}; split${splitCount}")
   }
 
-  //override protected def quote(s: Exp[_]): String = {
-    //val q = super.quote(s)
-    //if (!scope.head.contains(s)) s"""typed(nameMap("$q"))""" else q
-  //}
+  override protected def emitMain[S:Type](b: Block[S]): Unit = { 
+    splitting = true
+    splitCount = 0
+    splitStart
+    super.emitMain(b)
+    splitEnd
+    splitting = false
+  }
 
-  def rquote(s: Exp[_]): String = super.quote(s)
+  override protected def emitFileHeader() {
+    super.emitFileHeader()
+    rawemit(s"val nameSpace = scala.collection.mutable.Map[String,Any]()")
+    rawemit(s"def lookup[T](name:String) = nameSpace(name).asInstanceOf[T]")
+    emit(s"def withName[T<:IR](x:T, name:String):T = { if (!nameOf.contains(x)) nameOf(x) = name; nameSpace += name -> x; x}")
+  }
+
+  override def emitNameFunc = {}
+
+  override def emit(rhs:Rhs):Unit = {
+    scope += rhs.lhs
+    emit(s"// $rhs")
+    super.emit(rhs)
+  }
+
+  override protected def quoteRef(x:Any):String =  x match {
+    case c:Const[_] => quoteConst(c)
+    case e:Exp[_] => 
+      quoteRef(sym_to_lhs(e))
+    case lhs:Lhs => 
+      val q = super.quoteOrRemap(lhs)
+      if (!scope.contains(lhs)) {
+        val rhs = lookup(lhs)
+        s"""lookup[${rhs.tp}]("$q")""" 
+      } else q
+    case x:Iterable[_] => x.map { quoteRef }.toString
+    case x => super.quoteRef(x)
+  }
 
 }

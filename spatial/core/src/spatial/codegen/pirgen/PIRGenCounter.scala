@@ -10,9 +10,9 @@ trait PIRGenCounter extends PIRCodegen {
     rhs match {
       case CounterNew(start, end, step, par) =>
         val parInt = getConstant(par).get.asInstanceOf[Int]
-        emit(lhs, s"Counter(min=${quote(start)}, max=${quote(end)}, step=${quote(step)}, par=$parInt)", rhs)
+        emit(DefRhs(lhs, "Counter", "min"->start, "max"->end, "step"->step, "par"->parInt))
       case CounterChainNew(counters) =>
-        emit(lhs, s"CounterChain(List(${counters.mkString(",")}))", rhs)
+        emit(DefRhs(lhs, "CounterChain", counters.toList))
       case _ => super.emitNode(lhs, rhs)
     }
   }
