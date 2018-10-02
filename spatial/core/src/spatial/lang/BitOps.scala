@@ -123,7 +123,7 @@ object BitOps {
     val lenA = bits[A].length
     val lenB = bits[B].length
     if (lenA != lenB)
-      warn(ctx, u"Bit length mismatch in conversion between ${typ[A]} and ${typ[B]}.")
+      warn(ctx, u"Bit length mismatch in conversion between ${typ[A]}=$lenA and ${typ[B]}=$lenB.")
 
     if (lenA < lenB) {
       warn(s"Bits ($lenB::$lenA) will be set to zero in result.")

@@ -185,5 +185,7 @@ trait SpatialExternalAliases extends SpatialCommonAliases with ArgonExternalAlia
 
   lazy val Math = spatial.lang.Math
   lazy val bound = spatial.metadata.Bound
+  lazy val fileNameOf = spatial.metadata.fileNameOf
+  lazy val countOf = spatial.metadata.countOf
   lazy val targets = spatial.targets.Targets
 }

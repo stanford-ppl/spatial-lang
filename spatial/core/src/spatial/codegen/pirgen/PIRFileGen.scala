@@ -48,6 +48,10 @@ trait PIRFileGen extends FileGen {
       cmd = s"cp ${config.genDir}/pir/main.scala $dir/${config.name}.scala"
       println(cmd)
       cmd.!
+
+      cmd = s"rm $PIR_HOME/out/${config.name}/${config.name}.pir"
+      println(cmd)
+      cmd.!
     }
     else {
       warn("Set PIR_HOME environment variable to automatically copy app")

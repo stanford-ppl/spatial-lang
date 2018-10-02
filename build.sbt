@@ -53,6 +53,7 @@ val commonSettings = assemblySettings ++ Seq(
 
   incOptions := incOptions.value.withRecompileOnMacroDef(false),
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
+  libraryDependencies += "ai.x" %% "play-json-extensions" % "0.10.0",
 
   scalacOptions ++= Seq("-language:implicitConversions", "-language:higherKinds"),
   scalacOptions ++= Seq("-explaintypes", "-unchecked", "-deprecation", "-feature", "-Xfatal-warnings"),
@@ -62,6 +63,9 @@ val commonSettings = assemblySettings ++ Seq(
 
   // For when something goes super wrong with scalac
   //scalacOptions ++= Seq("-Ytyper-debug"),
+  
+   // Generate type hiearchy graph in scala doc    
+   scalacOptions in (Compile, doc) += "-diagrams",   
 
   //paradise
   resolvers += Resolver.sonatypeRepo("snapshots"),

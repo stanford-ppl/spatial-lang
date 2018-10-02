@@ -2,16 +2,11 @@ package spatial.codegen.pirgen
 
 import argon.codegen.{Codegen, FileDependencies}
 import argon.core._
-import argon.nodes._
-import spatial.aliases._
-import spatial.nodes._
-import spatial.utils._
 import spatial.metadata._
 
 import scala.collection.mutable
-import scala.language.postfixOps
 
-trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PIRLogger with PIRStruct {
+trait PIRCodegen extends Codegen with PIRFileGen with PIRFormattedCodegen with PIRTraversal with FileDependencies with PIRLogger with PIRStruct {
   override val name = "PIR Codegen"
   override val lang: String = "pir"
   override val ext: String = "scala"
@@ -37,35 +32,22 @@ trait PIRCodegen extends Codegen with PIRTraversal with FileDependencies with PI
   }
 
   override protected def emitBlock(b: Block[_]): Unit = visitBlock(b)
-  override protected def quoteConst(c: Const[_]): String = s"$c"
-  override protected def quote(x: Exp[_]): String = {
-    super[PIRTraversal].quote(x)
-  }
-
+  override protected def quoteConst(c: Const[_]): String = s"Const(${getConstant(c).get})" 
+  
   override protected def emitNode(lhs: Sym[_], rhs: Op[_]): Unit = {
     emit(s"// $lhs = $rhs TODO: Unmatched Node")
+    warn(s"// $lhs = $rhs TODO: Unmatched Node")
     rhs.blocks.foreach(emitBlock)
   }
 
   override protected def emitFat(lhs: Seq[Sym[_]], rhs: Def): Unit = { }
 
-  val controlStack = mutable.Stack[Exp[_]]()
-  def currCtrl = controlStack.top
-  def inHwBlock = controlStack.nonEmpty
-
-  def quoteCtrl = {
-    if (controlStack.isEmpty) ".ctrl(top)"
-    else s".ctrl($currCtrl)"
+  def error(x: => Any) = {
+    argon.core.error(x)
+    sys.exit()
   }
 
-  def emit(lhs:Any):Unit = {
-    super.emit(s"$lhs")
-  }
-  def emit(lhs:Any, rhs:Any):Unit = {
-    emit(s"""val ${quote(lhs)} = $rhs$quoteCtrl.name("$lhs")""")
-  }
-  def emit(lhs:Any, rhs:Any, comment:Any):Unit = {
-    emit(s"""val ${quote(lhs)} = $rhs.name("$lhs")$quoteCtrl // $comment""")
+  def assert(pred:Boolean, x: => Any) = {
+    if (!pred) error(x)
   }
 }
-

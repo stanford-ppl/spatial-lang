@@ -788,10 +788,10 @@ case class UnrollingTransformer(var IR: State) extends UnrollingBase { self =>
 
               isReduceStarter(accValue) = true
 
-              if (spatialConfig.enablePIR) {
-                inCycle(redType){ reduce.inline(treeResult, accValue) }
-              }
-              else if (fold) {
+              /*if (spatialConfig.enablePIR) {*/
+                //inCycle(redType){ reduce.inline(treeResult, accValue) }
+              //}
+              /*else */if (fold) {
                 // FOLD: On first iteration, use value of accumulator value rather than zero
                 //val accumOrFirst = math_mux(isFirst, init, accValue)
                 reduce.inline(treeResult, accValue)

@@ -34,8 +34,6 @@ trait PIRGenDummy extends PIRCodegen {
       case _:CloseFile =>
       case _:ReadTokens =>
       case _:AssertIf =>
-      case _:FixPtToFltPt[_,_,_,_,_] =>
-      case _:FltPtToFixPt[_,_,_,_,_] =>
       case _:VarRegNew[_] =>
       case _:VarRegRead[_] =>
       case _:VarRegWrite[_] =>

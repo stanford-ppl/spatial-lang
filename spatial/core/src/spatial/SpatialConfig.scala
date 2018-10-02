@@ -42,7 +42,7 @@ class SpatialConfig extends argon.core.Config {
     pmuSout:Int,
     var pmuStages:Int,
     pmuRegs:Int,
-    lanes: Int,
+    var vec: Int,
     wordWidth: Int
   )
 
@@ -79,10 +79,11 @@ class SpatialConfig extends argon.core.Config {
   var useCheapFifos: Boolean = _
   var enableTree: Boolean = _
   var enableTrace: Boolean = _
+  var enableLutSizeCheck:Boolean = true
 
   def enableBufferCoalescing: Boolean = !enablePIR
-  def removeParallelNodes: Boolean = enablePIR
-  def rewriteLUTs: Boolean = enablePIR
+  def removeParallelNodes: Boolean = false//enablePIR
+  def rewriteLUTs: Boolean = false //enablePIR
 
   var plasticineSpec:PlasticineConf = _
 
@@ -176,7 +177,7 @@ plasticine {
   pmu-sout = 1
   pmu-stages = 0
   pmu-regs = 16
-  lanes = 16
+  vec = 16
   word-width = 32
 }
   """)

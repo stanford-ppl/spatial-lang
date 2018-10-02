@@ -524,3 +524,20 @@ case class InitialData(data: Seq[Exp[_]]) extends Metadata[InitialData] {
   def apply(e: Exp[_]): Seq[Exp[_]] = metadata[InitialData](e).map(_.data).getOrElse(Nil)
   def update(e: Exp[_], data: Seq[Exp[_]]): Unit = metadata.add(e, InitialData(data))
 }
+
+case class FileName(fileName: String) extends Metadata[FileName] {
+  def mirror(f:Tx) = FileName(fileName)
+}
+@data object fileNameOf {
+  def apply(e: Exp[_]): Option[String] = metadata[FileName](e).map { _.fileName }
+  def update(e: Exp[_], fileName: String): Unit = metadata.add(e, FileName(fileName))
+  def update[T:Type](x: T, fileName: String): Unit = metadata.add(x.s, FileName(fileName))
+}
+case class Count(count: Long) extends Metadata[Count] {
+  def mirror(f:Tx) = Count(count)
+}
+@data object countOf {
+  def apply(e: Exp[_]): Option[Long] = metadata[Count](e).map { _.count }
+  def update(e: Exp[_], count: Long): Unit = metadata.add(e, Count(count))
+  def update[T:Type](x: T, count: Long): Unit = metadata.add(x.s, Count(count))
+}

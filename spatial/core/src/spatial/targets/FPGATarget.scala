@@ -66,9 +66,11 @@ object Targets {
   targets += spatial.targets.DE1
   targets += spatial.targets.AWS_F1
   targets += spatial.targets.Zynq
+  targets += spatial.targets.Plasticine
 
   lazy val Default = spatial.targets.DefaultTarget
   lazy val DE1 = spatial.targets.DE1
   lazy val F1 = spatial.targets.AWS_F1
   lazy val Zynq = spatial.targets.Zynq
+  lazy val Plasticine = spatial.targets.Plasticine
 }

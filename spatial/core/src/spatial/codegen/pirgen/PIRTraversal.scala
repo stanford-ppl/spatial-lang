@@ -113,6 +113,7 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     case FixNeg(_)                       => Some(PIRFixNeg)
     case FixRandom(_)                    => Some(PIRFixRandom)
     case FixUnif()                       => Some(PIRFixUnif) //TODO random number between 0 and 1
+    case FixAbs(_)                       => Some(PIRFixAbs)
 
     // Float ops currently assumed to be single op
     case FltAdd(_,_)                     => Some(PIRFltAdd)
@@ -184,19 +185,11 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     case _ => false
   }
 
-  def isLocalMem(mem: Exp[_]): Boolean = {
-    var cond = isReg(mem) || isStreamIn(mem) || isStreamOut(mem) || isGetDRAMAddress(mem)
-    //cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
-    cond
+  def isMem(e: Exp[_]):Boolean = {
+    isReg(e) || isGetDRAMAddress(e) ||
+    isStreamIn(e) || isStreamOut(e) || isFIFO(e) ||
+    isSRAM(e) || isRegFile(e) || isLUT(e) || isLineBuffer(e)
   }
-
-  def isRemoteMem(mem: Exp[_]): Boolean = {
-    var cond = isSRAM(mem)
-    cond ||= isFIFO(mem) //TODO: if fifo only have a single reader then FIFO can also be localMem
-    cond
-  }
-
-  def isMem(e: Exp[_]):Boolean = isLocalMem(e) | isRemoteMem(e)
 
   def nIters(x: Exp[_], ignorePar: Boolean = false): Long = x match {
     case Def(CounterChainNew(ctrs)) =>
@@ -226,13 +219,6 @@ trait PIRTraversal extends SpatialTraversal with PIRLogger with PIRStruct {
     val time = toc("s")
     dbgs(s"===== Pass ${this.name} finished in ${time}s =====")
     block
-  }
-
-  def quote(n:Any):String = n match {
-    case x:Const[_] => s"Const(${getConstant(x).get})" 
-    case x:Exp[_] => s"${composed.get(x).fold("") {o => s"${o}_"} }$x"
-    case x:Iterable[_] => x.map(quote).toList.toString
-    case n => n.toString
   }
 
 }

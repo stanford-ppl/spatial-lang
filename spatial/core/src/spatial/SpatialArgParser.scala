@@ -119,6 +119,7 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
     spatialConfig.enableSim = false
     spatialConfig.enableSynth = false
     spatialConfig.enablePIR = true
+    spatialConfig.enableLutSizeCheck = false
   }.text("enables PIR generation")
 
   parser.opt[String]("pirsrc").action { (x, c) =>
@@ -169,6 +170,10 @@ class SpatialArgParser(spatialConfig: SpatialConfig) extends ArgonArgParser(spat
 
   parser.opt[Unit]("trace").action{ (_,_) =>
     spatialConfig.enableTrace = true
+  }
+
+  parser.opt[Int]("vec").action{ (x,_) =>
+    spatialConfig.plasticineSpec.vec=x
   }
 
 }

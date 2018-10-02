@@ -26,9 +26,9 @@ trait PIRLogger extends SpatialTraversal with PIRStruct {
     listing = false
     val res = block
     res match {
+      case _:Unit =>
       case res:Iterable[_] => 
         dbgl(s"$s res:") { res.foreach { res => dbgs(s"$res")} }
-      case _:Unit =>
       case _ =>
         dbgs(s"$s res=$res")
     }
