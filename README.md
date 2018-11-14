@@ -1,4 +1,4 @@
-# WARNING
+# *** WARNING! ***
 This repo (stanford-ppl/spatial-lang) has been deprecated.  
 Please use [stanford-ppl/spatial](https://github.com/stanford-ppl/spatial),
 unless if you know what you are doing and actually intend to use the deprecated 
